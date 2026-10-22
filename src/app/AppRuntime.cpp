@@ -6,6 +6,7 @@
 #include <QMessageBox>
 #include <QQmlError>
 #include <QQuickWindow>
+#include <QQuickItem>
 #include <QTimer>
 #include <QDir>
 #include <QStandardPaths>
@@ -64,7 +65,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     if (smokeTest) {
         auto* probe=new QTimer(&m_engine);
         probe->setInterval(100);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,phase=0,taskId=QString()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,phase=0,taskId=QString(),secondId=QString()]() mutable {
             if(m_workspace.busy())return;
             auto fail=[probe](const char* stage){qCritical()<<"Basic UI smoke failed at"<<stage;probe->stop();QCoreApplication::exit(2);};
             if(!m_workspace.ready()) {fail("database initialization");return;}
@@ -146,9 +147,72 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
+            } else if(phase>=26) {
+                // Hidden/minimized native windows need a render pass before layout assertions.
+                const auto frame=mainWindow->grabWindow();
+                auto invoke=[&](const char* method,const QString& value){return QMetaObject::invokeMethod(mainWindow,method,Q_ARG(QVariant,QVariant(value)));};
+                auto click=[&](const char* name){auto* button=mainWindow->findChild<QObject*>(QLatin1String(name));return button && QMetaObject::invokeMethod(button,"clicked");};
+                auto capture=[&](const QString& name){return screenshotPath.isEmpty() || frame.save(screenshotPath+QLatin1Char('.')+name+QStringLiteral(".png"));};
+                auto* guard=mainWindow->findChild<QObject*>(QStringLiteral("unsavedChangesDialog"));
+                auto* content=mainWindow->findChild<QQuickItem*>(QStringLiteral("taskContent"));
+                const bool docked=mainWindow->property("detailDocked").toBool();
+                if(!guard || !content){fail("responsive objects");return;}
+                if(phase==26) {
+                    mainWindow->resize(1120,720);m_workspace.setView(QStringLiteral("today"));m_workspace.createTask(QStringLiteral("第二项上下文"));
+                } else if(phase==27) {
+                    for(int i=0;i<m_workspace.tasks()->rowCount();++i){const auto id=m_workspace.tasks()->data(m_workspace.tasks()->index(i),TaskListModel::Id).toString();if(id!=taskId)secondId=id;}
+                    if(secondId.isEmpty() || !invoke("openEditor",taskId)){fail("second task setup");return;}
+                    editTitle->setProperty("text",QStringLiteral("待保留草稿"));
+                } else if(phase==28) {
+                    if(!docked || editor->property("modal").toBool() || content->width()<439.5 || !capture(QStringLiteral("docked-1120"))){qCritical()<<"Layout dimensions"<<mainWindow->size()<<content->width()<<docked<<editor->property("modal");fail("docked layout");return;}
+                    mainWindow->resize(880,580);
+                } else if(phase==29) {
+                    if(docked || !editor->property("modal").toBool() || editTitle->property("text").toString()!=QStringLiteral("待保留草稿") || !capture(QStringLiteral("overlay-880"))){fail("narrow preserves draft");return;}
+                    mainWindow->resize(1440,900);
+                } else if(phase==30) {
+                    if(!docked || editTitle->property("text").toString()!=QStringLiteral("待保留草稿") || !capture(QStringLiteral("docked-1440")) || !invoke("openEditor",secondId)){fail("wide task navigation");return;}
+                } else if(phase==31) {
+                    if(!guard->property("visible").toBool() || !click("cancelLeave")){fail("cancel task switch");return;}
+                } else if(phase==32) {
+                    if(mainWindow->property("editId").toString()!=taskId || editTitle->property("text").toString()!=QStringLiteral("待保留草稿") || !invoke("openEditor",secondId)){fail("cancel retained task");return;}
+                } else if(phase==33) {
+                    if(!guard->property("visible").toBool() || !click("discardDraft")){fail("discard task switch");return;}
+                } else if(phase==34) {
+                    if(mainWindow->property("editId").toString()!=secondId || m_workspace.task(taskId).value(QStringLiteral("title")).toString()!=QStringLiteral("梳理今天的重点事项")){fail("discard zero mutation");return;}
+                    editTitle->setProperty("text",QStringLiteral("保存后导航"));invoke("changeView",QStringLiteral("inbox"));
+                } else if(phase==35) {
+                    if(!guard->property("visible").toBool() || !click("saveDraftThenContinue")){fail("save before navigation");return;}
+                } else if(phase==36) {
+                    if(m_workspace.view()!=QStringLiteral("inbox") || editor->property("visible").toBool() || m_workspace.task(secondId).value(QStringLiteral("title")).toString()!=QStringLiteral("保存后导航")){fail("saved navigation");return;}
+                    m_workspace.setView(QStringLiteral("today"));invoke("openEditor",secondId);editTitle->setProperty("text",QStringLiteral("完成前修改"));
+                    QMetaObject::invokeMethod(mainWindow,"changeTaskState",Q_ARG(QVariant,QVariant(secondId)),Q_ARG(QVariant,QVariant(QStringLiteral("complete"))));
+                } else if(phase==37) {
+                    if(!guard->property("visible").toBool() || !click("saveDraftThenContinue")){fail("save before completion");return;}
+                } else if(phase==38) {
+                    const auto task=m_workspace.task(secondId);
+                    if(task.value(QStringLiteral("taskStatus")).toString()!=QStringLiteral("COMPLETED") || task.value(QStringLiteral("title")).toString()!=QStringLiteral("完成前修改") || !m_workspace.errorText().isEmpty()){fail("completion fresh version");return;}
+                    invoke("openEditor",taskId);editTitle->setProperty("text",QStringLiteral("导航将保留"));invoke("changeView",QStringLiteral("anytime"));
+                } else if(phase==39) {
+                    if(!guard->property("visible").toBool() || !click("cancelLeave")){fail("cancel view navigation");return;}
+                } else if(phase==40) {
+                    if(m_workspace.view()!=QStringLiteral("today") || editTitle->property("text").toString()!=QStringLiteral("导航将保留")){fail("navigation retained context");return;}
+                    invoke("changeView",QStringLiteral("anytime"));
+                } else if(phase==41) {
+                    if(!click("discardDraft")){fail("discard view navigation");return;}
+                } else if(phase==42) {
+                    if(m_workspace.view()!=QStringLiteral("anytime") || editor->property("visible").toBool() || m_workspace.task(taskId).value(QStringLiteral("title")).toString()!=QStringLiteral("梳理今天的重点事项")){fail("discard navigation zero mutation");return;}
+                    m_workspace.setTextScale(2.0);mainWindow->resize(1440,900);invoke("openEditor",taskId);
+                } else if(phase==43) {
+                    if(!docked || content->width()<439.5 || !capture(QStringLiteral("docked-200"))){qCritical()<<"Layout dimensions"<<mainWindow->size()<<content->width()<<docked;fail("large text docked");return;}
+                    mainWindow->resize(880,580);
+                } else if(phase==44) {
+                    if(docked || !editor->property("modal").toBool() || !capture(QStringLiteral("overlay-200"))){fail("large text overlay");return;}
+                    m_workspace.setTextScale(1.0);mainWindow->resize(1120,720);
+                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
+                }
             }
             ++phase;
-            if(phase<26)return;
+            if(phase<46)return;
             int visibleWindows = 0;
             for (auto* window : QGuiApplication::allWindows()) {
                 if (qobject_cast<QQuickWindow*>(window) && window->isVisible()
@@ -163,7 +227,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             probe->stop();
         });
         probe->start();
-        QTimer::singleShot(10000,&m_engine,[]{QCoreApplication::exit(3);});
+        QTimer::singleShot(15000,&m_engine,[]{QCoreApplication::exit(3);});
     }
     return true;
 }

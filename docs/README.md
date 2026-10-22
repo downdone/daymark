@@ -14,6 +14,8 @@
 
 本轮核心能力实现与本地发行见 [v0.1交付设计](design/release-v0.1.md)。实际验证仍以PROGRESS及验证报告为准。
 
+后续UI-03A切片见[共享草稿的响应式详情](design/responsive-details.md)。
+
 ## 文档归属
 
 | 事实 | 唯一归属 |

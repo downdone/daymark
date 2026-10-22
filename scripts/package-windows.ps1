@@ -14,6 +14,7 @@ $originalPath=$env:PATH
 $originalBackend=$env:QT_QPA_PLATFORM
 $qtSearchVariables=@('QT_PLUGIN_PATH','QT_QPA_PLATFORM_PLUGIN_PATH','QML_IMPORT_PATH','QML2_IMPORT_PATH')
 $savedSearch=@{}
+$process=$null
 foreach($name in $qtSearchVariables){$savedSearch[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 try {
     $env:PATH="$env:DAYMARK_MINGW/bin;$env:DAYMARK_QT/bin;$originalPath"
@@ -54,13 +55,20 @@ QmlImports=qml
     $env:QT_QPA_PLATFORM='windows'
     $log=Join-Path $projectRoot 'build/package-smoke.log'
     $process=Start-Process -FilePath (Join-Path $packageRoot 'daymark.exe') -ArgumentList '--smoke-test' -WorkingDirectory $packageRoot -WindowStyle Hidden -PassThru -RedirectStandardError $log
-    Start-Sleep -Milliseconds 500
-    $loaded=@((Get-Process -Id $process.Id).Modules | Where-Object {$_.ModuleName -match '^(Qt6|libgcc_s|libstdc\+\+|libwinpthread)'})
+    $loaded=@()
+    for($attempt=0;$attempt -lt 50;$attempt++) {
+        $process.Refresh()
+        if($process.HasExited){break}
+        $loaded=@((Get-Process -Id $process.Id).Modules | Where-Object {$_.ModuleName -match '^(Qt6|libgcc_s|libstdc\+\+|libwinpthread)'})
+        if($loaded.Count -gt 0){break}
+        Start-Sleep -Milliseconds 100
+    }
     if($loaded.Count -eq 0){throw 'Could not verify deployed runtime modules.'}
     foreach($module in $loaded){if(!$module.FileName.StartsWith($packageRoot+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw "Runtime loaded outside package: $($module.ModuleName)"}}
     if(!$process.WaitForExit(20000)){$process.Kill();throw 'Deployed smoke timed out.'}
     if($process.ExitCode -ne 0) {throw "Deployed smoke failed. Inspect $log"}
 } finally {
+    if($null -ne $process -and !$process.HasExited){$process.Kill();$process.WaitForExit()}
     $env:PATH=$originalPath
     $env:QT_QPA_PLATFORM=$originalBackend
     foreach($name in $qtSearchVariables){[Environment]::SetEnvironmentVariable($name,$savedSearch[$name],'Process')}

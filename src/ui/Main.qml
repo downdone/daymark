@@ -40,9 +40,16 @@ ApplicationWindow {
     property var pendingAction: null
     property bool forceQuit: false
     readonly property bool calendarVisible: taskWorkspace.view === "month" || taskWorkspace.view === "week"
+    readonly property real sidebarWidth: Math.min(300,220*Theme.scale)
+    readonly property real detailWidth: Math.max(320,280*Theme.scale)
+    readonly property bool detailDocked: editor.visible && !calendarVisible && width >= sidebarWidth+440+detailWidth+80
 
     function markDirty() { if (!fillingDraft) draftDirty = true }
     function openEditor(taskId) {
+        if (editor.visible && editId === taskId) { editTitle.forceActiveFocus();return }
+        navigateSafely(function(){loadEditor(taskId)})
+    }
+    function loadEditor(taskId) {
         const item = taskWorkspace.task(taskId)
         if (!item.taskId || !taskWorkspace.ready || taskWorkspace.busy) return
         fillingDraft = true
@@ -59,6 +66,7 @@ ApplicationWindow {
         draftDirty = false
         taskWorkspace.clearError()
         editor.open()
+        editTitle.forceActiveFocus()
     }
     function navigateSafely(action) {
         if (taskWorkspace.busy) return
@@ -71,6 +79,37 @@ ApplicationWindow {
         return taskWorkspace.saveTask(editId, editVersion, editTitle.text, editNotes.text,
                                      ["INBOX", "ACTIVE", "SOMEDAY"][planning.currentIndex],
                                      startDate.text, deadline.text, focusToday.checked)
+    }
+    function changeView(view) {
+        navigateSafely(function(){editor.close();taskWorkspace.setView(view);taskList.forceActiveFocus()})
+    }
+    function changeTaskState(id,action) {
+        navigateSafely(function(){
+            const item=taskWorkspace.task(id)
+            if(item.taskId){editor.close();taskWorkspace.changeState(id,item.rowVersion,action)}
+        })
+    }
+    function assignTask(id,kind,parentId) {
+        navigateSafely(function(){
+            const item=taskWorkspace.task(id)
+            if(item.taskId){editor.close();taskWorkspace.saveDetails(id,item.rowVersion,kind === "project" ? {projectId:parentId} : {areaId:parentId})}
+        })
+    }
+    function setTaskEvening(id,evening) {
+        navigateSafely(function(){
+            const item=taskWorkspace.task(id)
+            if(item.taskId){editor.close();taskWorkspace.saveDetails(id,item.rowVersion,{evening:evening})}
+        })
+    }
+    function openTool(name) {
+        navigateSafely(function(){
+            editor.close()
+            if(name === "organization")organization.open()
+            else if(name === "recurrence")recurrence.open()
+            else if(name === "notifications")notifications.open()
+            else if(name === "settings")windowSettings.open()
+            else if(name === "data")dataTools.open()
+        })
     }
     function currentViewTitle() {
         const index=viewCodes.indexOf(taskWorkspace.view)
@@ -91,14 +130,15 @@ ApplicationWindow {
         else taskWorkspace.setView(page)
     }
 
-    Shortcut { sequences: [StandardKey.New]; onActivated: { if (!editor.visible) { if (mainWindow.taskWorkspace.view === "logbook") mainWindow.taskWorkspace.setView("inbox"); newTitle.forceActiveFocus() } } }
-    Shortcut { sequences: [StandardKey.Find]; onActivated: { if (!editor.visible) search.forceActiveFocus() } }
+    Shortcut { sequences: [StandardKey.New]; onActivated: mainWindow.navigateSafely(function(){editor.close();if(mainWindow.taskWorkspace.view === "logbook" || mainWindow.calendarVisible)mainWindow.taskWorkspace.setView("inbox");newTitle.forceActiveFocus()}) }
+    Shortcut { sequences: [StandardKey.Find]; onActivated: { if (!editor.visible || mainWindow.detailDocked) search.forceActiveFocus() } }
+    Shortcut { sequence: "Escape";enabled: editor.visible && !leaveDialog.visible && !datePicker.visible && !removeToday.visible && !extendedDetails.visible;onActivated: mainWindow.navigateSafely(function(){editor.close();taskList.forceActiveFocus()}) }
 
     RowLayout {
         anchors.fill: parent
         spacing: 0
         Rectangle {
-            Layout.preferredWidth: Math.min(300,220*Theme.scale)
+            Layout.preferredWidth: mainWindow.sidebarWidth
             Layout.fillHeight: true
             color: Theme.sidebar
             ColumnLayout {
@@ -116,7 +156,7 @@ ApplicationWindow {
                         selected: mainWindow.taskWorkspace.view === mainWindow.viewCodes[index]
                         symbol: ["▱","☀","▦","○","◌","✓"][index]
                         count: index===1 ? mainWindow.taskWorkspace.todayTasks.count : -1
-                        onClicked: mainWindow.taskWorkspace.setView(mainWindow.viewCodes[index])
+                        onClicked: mainWindow.changeView(mainWindow.viewCodes[index])
                     }
                 }
                 ScrollView {
@@ -136,25 +176,25 @@ ApplicationWindow {
                                 symbol: modelData.kind === "area" ? "▣" : modelData.kind === "project" ? "▤" : "#"
                                 selected: mainWindow.taskWorkspace.view === modelData.kind+":"+modelData.id
                                 acceptsTaskDrop: modelData.kind === "project" || modelData.kind === "area"
-                                onTaskDropped: function(taskId,version) {mainWindow.taskWorkspace.saveDetails(taskId,version,modelData.kind === "project" ? {projectId:modelData.id} : {areaId:modelData.id})}
-                                onClicked: mainWindow.taskWorkspace.setView(modelData.kind+":"+modelData.id)
+                                onTaskDropped: function(taskId,version) {mainWindow.assignTask(taskId,modelData.kind,modelData.id)}
+                                onClicked: mainWindow.changeView(modelData.kind+":"+modelData.id)
                             }
                         }
                     }
                 }
-                NavRow { Layout.fillWidth: true; text: qsTr("日历"); symbol: "▦"; selected: mainWindow.calendarVisible; onClicked: mainWindow.taskWorkspace.setView("month") }
+                NavRow { Layout.fillWidth: true; text: qsTr("日历"); symbol: "▦"; selected: mainWindow.calendarVisible; onClicked: mainWindow.changeView("month") }
                 Button {
                     Layout.fillWidth: true
                     text: qsTr("设置与工具…")
                     onClicked: toolsMenu.open()
                     Menu {
                         id: toolsMenu
-                        MenuItem { text: qsTr("管理领域、项目与标签…"); onTriggered: organization.open() }
-                        MenuItem { text: qsTr("重复任务规则…"); onTriggered: recurrence.open() }
-                        MenuItem { text: qsTr("提醒中心（%1）").arg(mainWindow.taskWorkspace.notifications.length); onTriggered: notifications.open() }
+                        MenuItem { text: qsTr("管理领域、项目与标签…"); onTriggered: mainWindow.openTool("organization") }
+                        MenuItem { text: qsTr("重复任务规则…"); onTriggered: mainWindow.openTool("recurrence") }
+                        MenuItem { text: qsTr("提醒中心（%1）").arg(mainWindow.taskWorkspace.notifications.length); onTriggered: mainWindow.openTool("notifications") }
                         MenuSeparator {}
-                        MenuItem { text: qsTr("外观、窗口与组件…"); onTriggered: windowSettings.open() }
-                        MenuItem { text: qsTr("数据与备份…"); enabled: mainWindow.taskWorkspace.ready && !mainWindow.taskWorkspace.busy; onTriggered: dataTools.open() }
+                        MenuItem { text: qsTr("外观、窗口与组件…"); onTriggered: mainWindow.openTool("settings") }
+                        MenuItem { text: qsTr("数据与备份…"); enabled: mainWindow.taskWorkspace.ready && !mainWindow.taskWorkspace.busy; onTriggered: mainWindow.openTool("data") }
                         MenuSeparator {}
                         MenuItem { text: qsTr("退出 Daymark"); onTriggered: {mainWindow.forceQuit=true;mainWindow.close()} }
                     }
@@ -163,9 +203,11 @@ ApplicationWindow {
             }
         }
         ColumnLayout {
+            objectName: "taskContent"
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.margins: 24
+            Layout.rightMargin: mainWindow.detailDocked ? mainWindow.detailWidth+40 : 24
             spacing: 14
             RowLayout {
                 Label {
@@ -175,7 +217,7 @@ ApplicationWindow {
                     Layout.fillWidth: true
                 }
                 BusyIndicator { running: mainWindow.taskWorkspace.busy; visible: running; Layout.preferredWidth: 28; Layout.preferredHeight: 28 }
-                Button { text: qsTr("重新加载"); enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.taskWorkspace.reload() }
+                Button { text: qsTr("重新加载"); enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.reload()}) }
             }
             TextField {
                 id: search
@@ -238,7 +280,7 @@ ApplicationWindow {
                         padding: 8
                         color: Theme.accent
                         background: Rectangle {color: Theme.hover;radius: 5}
-                        DropArea {anchors.fill: parent;onDropped: function(drop){const source=drop.source as TaskRow;if(source){mainWindow.taskWorkspace.saveDetails(source.taskId,source.rowVersion,{evening:eveningDrop.index===1});drop.acceptProposedAction()}}}
+                        DropArea {anchors.fill: parent;onDropped: function(drop){const source=drop.source as TaskRow;if(source){mainWindow.setTaskEvening(source.taskId,eveningDrop.index===1);drop.acceptProposedAction()}}}
                     }
                 }
             }
@@ -271,9 +313,9 @@ ApplicationWindow {
                     enabled: mainWindow.taskWorkspace.ready && !mainWindow.taskWorkspace.busy
                     highlighted: taskList.currentIndex === index
                     onEditRequested: {taskList.currentIndex=index;mainWindow.openEditor(taskId)}
-                    onCompleteRequested: mainWindow.taskWorkspace.changeState(taskId,rowVersion,isDone ? "reopen" : "complete")
-                    onMoveRequested: function(direction) {mainWindow.taskWorkspace.moveTask(taskId,direction)}
-                    onDropRequested: function(source) {mainWindow.taskWorkspace.dropTask(source,taskId)}
+                    onCompleteRequested: mainWindow.changeTaskState(taskId,isDone ? "reopen" : "complete")
+                    onMoveRequested: function(direction) {const id=taskId;mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.moveTask(id,direction)})}
+                    onDropRequested: function(source) {const target=taskId;mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.dropTask(source,target)})}
                 }
                 Label {
                     anchors.centerIn: parent
@@ -302,12 +344,12 @@ ApplicationWindow {
         id: editor
         objectName: "taskEditor"
         parent: Overlay.overlay
-        x: (parent.width - width) / 2
-        y: Math.max(16, (parent.height - height) / 2)
-        width: Math.min(620, mainWindow.width - 48)
-        height: Math.min(600,mainWindow.height-32)
+        x: mainWindow.detailDocked ? parent.width-width-16 : (parent.width-width)/2
+        y: mainWindow.detailDocked ? 16 : Math.max(16,(parent.height-height)/2)
+        width: mainWindow.detailDocked ? mainWindow.detailWidth : Math.min(620,mainWindow.width-48)
+        height: mainWindow.detailDocked ? mainWindow.height-32 : Math.min(600,mainWindow.height-32)
         title: qsTr("任务详情")
-        modal: true
+        modal: !mainWindow.detailDocked
         closePolicy: Popup.NoAutoClose
         contentItem: ScrollView {
             clip: true
@@ -323,24 +365,28 @@ ApplicationWindow {
                 Layout.preferredHeight: 96
                 TextArea { id: editNotes; wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: mainWindow.markDirty() }
             }
-            RowLayout {
+            ColumnLayout {
                 Label { text: qsTr("规划状态") }
                 ComboBox { id: planning; model: [qsTr("收集箱"), qsTr("已激活"), qsTr("以后再说")]; onCurrentIndexChanged: mainWindow.markDirty() }
                 CheckBox { id: focusToday; text: qsTr("持续关注今天"); onCheckedChanged: mainWindow.markDirty();onClicked: if(!checked && mainWindow.taskWorkspace.todayAfterRemovingFocus(mainWindow.editId))removeToday.open() }
             }
             GridLayout {
-                columns: 2
+                columns: mainWindow.detailDocked ? 1 : 2
                 Layout.fillWidth: true
                 Label { text: qsTr("计划开始");Layout.fillWidth: true;wrapMode: Text.Wrap }
-                Label { text: qsTr("截止日期");Layout.fillWidth: true;wrapMode: Text.Wrap }
                 TextField { id: startDate; objectName: "editStartDate"; Layout.fillWidth: true; placeholderText: qsTr("留空清除"); onTextChanged: mainWindow.markDirty() }
+                Label { text: qsTr("截止日期");Layout.fillWidth: true;wrapMode: Text.Wrap }
                 TextField { id: deadline; Layout.fillWidth: true; placeholderText: qsTr("留空清除"); onTextChanged: mainWindow.markDirty() }
             }
-            RowLayout {
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
                 Button { text: qsTr("选择开始日…"); onClicked: datePicker.showFor(startDate.text,"start") }
                 Button { text: qsTr("选择截止日…"); onClicked: datePicker.showFor(deadline.text,"deadline") }
             }
-            RowLayout {
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
                 Button { text: qsTr("开始：今天"); onClicked: startDate.text=mainWindow.taskWorkspace.dateOffset(0) }
                 Button { text: qsTr("明天"); onClicked: startDate.text=mainWindow.taskWorkspace.dateOffset(1) }
                 Button { text: qsTr("清除开始"); onClicked: startDate.clear() }
@@ -395,7 +441,7 @@ ApplicationWindow {
                     if (action) action()
                 }
             }
-            Button { text: qsTr("保存后继续"); onClicked: { leaveDialog.close(); mainWindow.saveEditor() } }
+            Button { objectName: "saveDraftThenContinue";text: qsTr("保存后继续"); onClicked: { leaveDialog.close(); mainWindow.saveEditor() } }
         }
     }
 
