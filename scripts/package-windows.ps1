@@ -11,6 +11,7 @@ if(Test-Path -LiteralPath $packageRoot) {throw 'Output directory already exists;
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 Copy-Item -LiteralPath $executable -Destination $packageRoot
 $originalPath=$env:PATH
+$sourceRevision=(& git -C $projectRoot rev-parse HEAD).Trim()
 $originalBackend=$env:QT_QPA_PLATFORM
 $qtSearchVariables=@('QT_PLUGIN_PATH','QT_QPA_PLATFORM_PLUGIN_PATH','QML_IMPORT_PATH','QML2_IMPORT_PATH')
 $savedSearch=@{}
@@ -68,7 +69,6 @@ QmlImports=qml
     foreach($module in $loaded){if(!$module.FileName.StartsWith($packageRoot+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw "Runtime loaded outside package: $($module.ModuleName)"}}
     if(!$process.WaitForExit(30000)){$process.Kill();throw 'Deployed smoke timed out.'}
     if($process.ExitCode -ne 0) {throw "Deployed smoke failed. Inspect $log"}
-    $sourceRevision=(& git -C $projectRoot rev-parse HEAD).Trim()
     [ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=2;scope='Windows local release candidate';deployedNativeSmoke='PASS';runtimeModules='verified inside package';signed=$false} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
 } finally {
     if($null -ne $process -and !$process.HasExited){$process.Kill();$process.WaitForExit()}
