@@ -55,6 +55,7 @@ struct CatalogItem {
     qint64 rowVersion=1;
     QString description,colorKey=QStringLiteral("neutral");
     std::optional<QDate> startOn,deadlineOn;
+    bool archived=false;
 };
 struct RecurrenceRule {
     QString id,title,notes,frequency=QStringLiteral("DAILY");
@@ -74,6 +75,8 @@ struct Task {
     qint64 rowVersion = 1;
     qint64 sortOrder = 0;
     QString projectId, projectPlanning, projectStatus,areaId,headingId,projectName,projectAreaId,headingTitle;
+    QString areaName;
+    bool areaArchived=false;
     qint64 headingOrder=-1;
     QStringList tagIds,tagNames;
     QList<ChecklistItem> checklist;

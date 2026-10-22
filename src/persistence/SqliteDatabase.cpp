@@ -5,6 +5,7 @@
 #include <QResource>
 #include <QSqlQuery>
 #include <QUuid>
+#include <QSettings>
 
 static void initializeSchemaResource() { Q_INIT_RESOURCE(daymark_schema); }
 
@@ -17,10 +18,21 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
         return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseRead"));
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 1)
+    if (version > 2)
         return Result<void>::failure(ErrorCode::ValidationError, QStringLiteral("schemaTooNew"));
-    if (version == 1)
+    if (version == 2)
         return {};
+    if(version==1) {
+        initializeSchemaResource();
+        QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/002_area_archive.sql"));
+        if(!schema.open(QIODevice::ReadOnly))return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("schemaResource"));
+        if(!db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+        for(const auto& statement:QString::fromUtf8(schema.readAll()).split(';',Qt::SkipEmptyParts)) {
+            if(!statement.trimmed().isEmpty() && !query.exec(statement)){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
+        }
+        if(!query.exec(QStringLiteral("PRAGMA user_version=2")) || !db.commit()){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
+        return {};
+    }
     if (version != 0)
         return Result<void>::failure(ErrorCode::ValidationError, QStringLiteral("unknownSchema"));
     if (!query.exec(QStringLiteral("SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")) || !query.next())
@@ -45,7 +57,7 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
         db.rollback();
         return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("migrationFailed"));
     }
-    return {};
+    return initialize(db);
 }
 
 SqliteDatabase::SqliteDatabase() : m_connectionName(QUuid::createUuid().toString(QUuid::WithoutBraces)) {}
@@ -69,6 +81,15 @@ Result<void> SqliteDatabase::open(const QString& path)
     m_db.setDatabaseName(path);
     if (!m_db.open())
         return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseOpen"));
+    {
+        QSqlQuery version(m_db);
+        if(!version.exec(QStringLiteral("PRAGMA user_version")) || !version.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
+        const int current=version.value(0).toInt();version.finish();
+        if(current==1) {
+            const auto snapshot=createSnapshot(QFileInfo(path).dir().filePath(QStringLiteral("backups/migrations")));
+            if(!snapshot.ok()){m_db.close();return {snapshot.error};}
+        }
+    }
     const auto migration = MigrationManager::initialize(m_db);
     if (!migration.ok()) { m_db.close(); return migration; }
     QSqlQuery query(m_db);
@@ -96,6 +117,13 @@ Result<void> SqliteDatabase::ensureDailySnapshot()
     const bool empty=query.value(0).toLongLong()==0;query.finish();if(empty)return {};
     QDir directory(QFileInfo(m_db.databaseName()).dir().filePath(QStringLiteral("backups/daily")));
     const auto prefix=QStringLiteral("daily-%1-").arg(QDate::currentDate().toString(Qt::ISODate));
+    QSettings settings(QFileInfo(m_db.databaseName()).dir().filePath(QStringLiteral("ui.ini")),QSettings::IniFormat);
+    int days=settings.value(QStringLiteral("preferences/backupDays"),1).toInt();
+    if(days!=1 && days!=7 && days!=30)days=1;
+    for(const auto& name:directory.entryList({QStringLiteral("daily-*.sqlite")},QDir::Files)) {
+        const auto date=QDate::fromString(name.mid(6,10),Qt::ISODate);
+        if(date.isValid() && date.daysTo(QDate::currentDate())>=0 && date.daysTo(QDate::currentDate())<days)return {};
+    }
     if(!directory.entryList({prefix+QStringLiteral("*.sqlite")},QDir::Files).isEmpty())return {};
     const auto snapshot=createSnapshot(directory.absolutePath());if(!snapshot.ok())return {snapshot.error};
     const auto renamed=directory.filePath(prefix+QFileInfo(snapshot.value).fileName());
@@ -110,8 +138,11 @@ Result<QString> SqliteDatabase::createSnapshot(const QString& directory)
 {
     if (!m_db.isOpen() || !QDir().mkpath(directory))
         return Result<QString>::failure(ErrorCode::PersistenceError, QStringLiteral("backupFailed"));
-    const auto name = QStringLiteral("daymark-v1-%1-%2.sqlite")
-        .arg(QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz")),
+    QSqlQuery version(m_db);
+    if(!version.exec(QStringLiteral("PRAGMA user_version")) || !version.next())return Result<QString>::failure(ErrorCode::PersistenceError,QStringLiteral("backupFailed"));
+    const int schemaVersion=version.value(0).toInt();version.finish();
+    const auto name = QStringLiteral("daymark-v%1-%2-%3.sqlite")
+        .arg(schemaVersion).arg(QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz")),
              QUuid::createUuid().toString(QUuid::WithoutBraces));
     const auto path = QDir(directory).absoluteFilePath(name);
     QSqlQuery query(m_db);

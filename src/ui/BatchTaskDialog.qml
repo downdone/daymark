@@ -1,0 +1,51 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+Dialog {
+    id: root
+    objectName: "batchTaskDialog"
+    required property TaskWorkspace workspace
+    property var selection: []
+    property var tags: []
+    readonly property var projects: workspace.catalogOf("project")
+    signal committed()
+    title: qsTr("批量修改 %1 项").arg(selection.length)
+    modal: true
+    width: Math.min(520,parent.width-40)
+    height: Math.min(510,parent.height-32)
+    closePolicy: Popup.NoAutoClose
+    onOpened: {action.currentIndex=0;date.clear();tags=[];project.currentIndex=0}
+    contentItem: ScrollView {
+        clip: true
+        ColumnLayout {
+            width: root.availableWidth-12
+            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("所有修改一次提交；任何任务冲突或验证失败，整批保留原值。")}
+            ComboBox {id: action;Layout.fillWidth: true;model: [qsTr("完成任务"),qsTr("移动到项目"),qsTr("修改开始日"),qsTr("替换标签")]}
+            ComboBox {id: project;Layout.fillWidth: true;visible: action.currentIndex===1;model: [qsTr("无项目（解除项目/分组）")].concat(root.projects.map(item=>item.title))}
+            TextField {id: date;Layout.fillWidth: true;visible: action.currentIndex===2;placeholderText: qsTr("yyyy-MM-dd，留空清除开始日");Accessible.name: qsTr("批量开始日期")}
+            Label {visible: action.currentIndex===3;text: qsTr("替换为所选标签；不选则清除全部标签。")}
+            Repeater {
+                model: action.currentIndex===3 ? root.workspace.catalogOf("tag") : []
+                CheckBox {
+                    required property var modelData
+                    text: modelData.title
+                    onToggled: {const next=root.tags.slice();const i=next.indexOf(modelData.id);if(checked && i<0)next.push(modelData.id);else if(!checked && i>=0)next.splice(i,1);root.tags=next}
+                }
+            }
+            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;color: Theme.danger;text: root.workspace.errorText}
+        }
+    }
+    footer: Flow {
+        spacing: 8
+        Button {text: qsTr("取消");enabled: !root.workspace.busy;onClicked: root.close()}
+        Button {
+            objectName: "applyBatchSelection"
+            text: qsTr("确认应用到 %1 项").arg(root.selection.length)
+            enabled: root.selection.length>0 && !root.workspace.busy
+            onClicked: root.workspace.batchTasks(root.selection,["complete","project","start","tags"][action.currentIndex],action.currentIndex===1 ? (project.currentIndex>0 ? root.projects[project.currentIndex-1].id : "") : action.currentIndex===2 ? date.text : root.tags.join(","))
+        }
+    }
+    Connections {target: root.workspace;function onOperationFinished(operation,success){if(operation==="batch" && success){root.close();root.committed()}}}
+}

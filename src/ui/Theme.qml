@@ -3,6 +3,12 @@ import QtQuick
 QtObject {
     property int mode: 0
     property real scale: 1.0
+    property bool compact: false
+    function catalogColor(key) {
+        const light={neutral:"#626976",blue:"#315db5",green:"#216b46",orange:"#9a4b00",purple:"#7541a5"}
+        const night={neutral:"#b3b8c2",blue:"#93b6ff",green:"#8bd5ad",orange:"#ffc48c",purple:"#d5b5ff"}
+        return (dark ? night : light)[key] || secondary
+    }
     property SystemPalette systemPalette: SystemPalette { colorGroup: SystemPalette.Active }
     readonly property bool dark: mode === 2 || (mode === 0 && systemPalette.window.hslLightness < 0.5)
     readonly property color content: dark ? "#202124" : "#ffffff"

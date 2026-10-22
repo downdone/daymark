@@ -15,7 +15,7 @@ class TaskListModel : public QAbstractListModel {
     QML_UNCREATABLE("Owned by TaskWorkspace")
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 public:
-    enum Role { Id=Qt::UserRole+1, Title, Notes, Done, Status, StartOn, DeadlineOn, Focus, Version, Overdue, Evening, ProjectName, TagSummary, Section, HeadingTitle, ChecklistPending };
+    enum Role { Id=Qt::UserRole+1, Title, Notes, Done, Status, StartOn, DeadlineOn, Focus, Version, Overdue, Evening, ProjectName, TagSummary, Section, HeadingTitle, ChecklistPending, ContextGroup, InToday };
     using QAbstractListModel::QAbstractListModel;
     int rowCount(const QModelIndex& parent={}) const override { return parent.isValid()?0:m_tasks.size(); }
     QVariant data(const QModelIndex& index,int role) const override;
@@ -54,8 +54,13 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(double textScale READ textScale WRITE setTextScale NOTIFY stateChanged)
     Q_PROPERTY(bool includeCompleted READ includeCompleted WRITE setIncludeCompleted NOTIFY stateChanged)
     Q_PROPERTY(int completedToday READ completedToday NOTIFY stateChanged)
+    Q_PROPERTY(QString firstTodayTitle READ firstTodayTitle NOTIFY stateChanged)
     Q_PROPERTY(QString localToday READ localToday NOTIFY stateChanged)
     Q_PROPERTY(int upcomingDays READ upcomingDays NOTIFY stateChanged)
+    Q_PROPERTY(int historyDays READ historyDays WRITE setHistoryDays NOTIFY stateChanged)
+    Q_PROPERTY(bool calendarCompleted READ calendarCompleted WRITE setCalendarCompleted NOTIFY stateChanged)
+    Q_PROPERTY(QVariantList unscheduledTasks READ unscheduledTasks NOTIFY stateChanged)
+    Q_PROPERTY(QVariantMap preferences READ preferences NOTIFY stateChanged)
 public:
     explicit TaskWorkspace(QObject* parent=nullptr);
     ~TaskWorkspace() override;
@@ -96,13 +101,17 @@ public:
     bool includeCompleted() const {return m_includeCompleted;}
     void setIncludeCompleted(bool enabled) {m_includeCompleted=enabled;refresh();emit stateChanged();}
     int completedToday() const;
+    QString firstTodayTitle()const{return m_todayTasks.rowCount()>0 ? m_todayTasks.data(m_todayTasks.index(0),TaskListModel::Title).toString() : QString();}
     QString localToday() const {return m_today.toString(QStringLiteral("yyyy年M月d日"));}
     Q_INVOKABLE QString dateOffset(int days) const {return m_today.addDays(days).toString(Qt::ISODate);}
     Q_INVOKABLE QVariantMap datePicker(const QString& anchor,int offset) const;
     Q_INVOKABLE void setTagFilter(const QString& id) {m_tagFilter=id;refresh();emit stateChanged();}
+    Q_INVOKABLE void setProjectFilter(const QString& id){m_projectFilter=id;refresh();emit stateChanged();}
+    Q_INVOKABLE void refreshClock();
     int upcomingDays()const{return m_upcomingDays;}
     Q_INVOKABLE void loadMoreUpcoming(){m_upcomingDays=qMin(36500,m_upcomingDays+30);refresh();emit stateChanged();}
     Q_INVOKABLE bool todayAfterRemovingFocus(const QString& id) const;
+    Q_INVOKABLE int openProjectTasks(const QString& id)const;
     void settingsFailed() {m_error={ErrorCode::PersistenceError,QStringLiteral("settingsWrite")};emit stateChanged();}
     Q_INVOKABLE QVariantList catalogOf(const QString& kind,const QString& parent=QString()) const;
 
@@ -114,11 +123,20 @@ public:
     Q_INVOKABLE bool saveTask(const QString& id,qint64 version,const QString& title,const QString& notes,
                              const QString& planning,const QString& start,const QString& deadline,bool focus);
     Q_INVOKABLE bool changeState(const QString& id,qint64 version,const QString& action);
+    Q_INVOKABLE bool batchTasks(const QVariantList& selection,const QString& action,const QString& value);
+    int historyDays()const{return m_historyDays;}
+    void setHistoryDays(int days);
+    bool calendarCompleted()const{return m_calendarCompleted;}
+    void setCalendarCompleted(bool value){m_calendarCompleted=value;emit stateChanged();}
+    QVariantList unscheduledTasks()const;
+    QVariantMap preferences()const{return m_preferences;}
+    Q_INVOKABLE bool setPreference(const QString& key,const QVariant& value);
     Q_INVOKABLE bool undoDelete();
     Q_INVOKABLE bool createBackup();
     Q_INVOKABLE void clearError();
     Q_INVOKABLE bool saveCatalog(const QVariantMap& item);
     Q_INVOKABLE bool deleteCatalog(const QString& kind,const QString& id,qint64 version);
+    Q_INVOKABLE bool moveCatalog(const QString& kind,const QString& id,qint64 version,int direction);
     Q_INVOKABLE bool saveDetails(const QString& id,qint64 version,const QVariantMap& details);
 signals:
     void stateChanged();
@@ -140,6 +158,7 @@ private:
     QString m_path,m_view=QStringLiteral("inbox"),m_search,m_lastDeleted,m_info,m_pendingInfo;
     QString m_importSummary;
     QString m_tagFilter;
+    QString m_projectFilter;
     Error m_error;
     bool m_ready=false,m_busy=false;
     SystemClock m_clock;
@@ -150,6 +169,9 @@ private:
     double m_textScale=1.0;
     bool m_includeCompleted=false;
     int m_upcomingDays=30;
+    int m_historyDays=0;
+    bool m_calendarCompleted=false;
+    QVariantMap m_preferences{{"compact",false},{"sidebarCollapsed",false},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
 };
 

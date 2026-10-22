@@ -1,10 +1,13 @@
 # 平台验证矩阵
 
-2026-10-22，v0.1本地交付。PASS只针对行内所述范围；macOS未执行任何本轮构建。
+2026-10-22，1.0.0-rc.1 Windows本地候选。用户确认暂缺macOS环境；PASS只针对行内所述范围，macOS未执行任何本轮构建。
 
 | 场景 | Windows11 x64 / Qt6.10.2 MinGW | macOS Intel | macOS Apple Silicon |
 |---|---|---|---|
 | Debug/Release配置与编译 | PASS | UNVERIFIED | UNVERIFIED |
+| 批量事务/归档/schema2迁移/旧JSON/周期配置 | PASS；临时SQLite与失败注入 | UNVERIFIED | UNVERIFIED |
+| Windows开机启动 | 隔离INI测试PASS；真实Run登记/系统登录触发UNVERIFIED | 未实现原生启动适配 | 未实现原生启动适配 |
+| 每视图位置/折叠导航/大字列表/Floating-Mini | PASS；QML及原生合成流程/截图 | UNVERIFIED | UNVERIFIED |
 | 真实临时SQLite/WAL/回滚/重开/外键 | PASS | UNVERIFIED | UNVERIFIED |
 | CRUD/六视图/搜索/日期与版本冲突 | PASS | UNVERIFIED | UNVERIFIED |
 | 项目/领域/Heading/标签/清单、安全删除 | PASS（含事务失败注入） | UNVERIFIED | UNVERIFIED |
@@ -19,7 +22,7 @@
 | 真实拖动/缩放/层级/焦点/穿透外部恢复 | UNVERIFIED；代码入口已实现 | UNVERIFIED | UNVERIFIED |
 | 托盘关闭保留进程/系统通知权限与送达 | UNVERIFIED；代码已实现 | UNVERIFIED | UNVERIFIED |
 | 屏幕热插拔/DPI/系统午夜/睡眠/时区 | UNVERIFIED；边界算法/定时刷新已有 | UNVERIFIED | UNVERIFIED |
-| 10k加载/搜索/月索引 | PASS；38/1/11 ms，当前机器数据层 | UNVERIFIED | UNVERIFIED |
+| 10k混合数据加载/搜索/月索引 | PASS；155/2/11 ms，i7-13700HX Release数据层 | UNVERIFIED | UNVERIFIED |
 | 透明桌面可读性/IME/读屏/高对比 | UNVERIFIED | UNVERIFIED | UNVERIFIED |
 | 签名/独立干净机/8h稳定性 | UNVERIFIED | UNVERIFIED | UNVERIFIED |
 

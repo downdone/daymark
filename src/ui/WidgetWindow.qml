@@ -7,6 +7,9 @@ Window {
     id: widget
     required property WidgetViewModel controller
     required property TaskWorkspace workspace
+    signal newTaskRequested()
+    signal openMainRequested()
+    signal settingsRequested()
     objectName: "widgetWindow"
     width: 340
     height: 360
@@ -29,7 +32,7 @@ Window {
         palette.highlight: Theme.accent
         contentItem: Rectangle {
         radius: 14
-        color: Qt.rgba(Theme.content.r, Theme.content.g, Theme.content.b, widget.controller.backgroundOpacity)
+        color: Qt.rgba(Theme.content.r, Theme.content.g, Theme.content.b, widget.workspace.preferences.solidWidget ? 1 : widget.controller.backgroundOpacity)
         border.color: Theme.separator
 
         ColumnLayout {
@@ -56,6 +59,25 @@ Window {
                 }
                 Button { text: qsTr("迷你"); onClicked: widget.controller.setMini(true) }
                 Button { text: qsTr("隐藏"); onClicked: widget.controller.setVisible(false) }
+                ToolButton {
+                    text: "⋯"
+                    Accessible.name: qsTr("组件菜单")
+                    onClicked: widgetMenu.open()
+                    Menu {
+                        id: widgetMenu
+                        MenuItem {text: qsTr("保持置顶");checkable: true;checked: widget.controller.alwaysOnTop;onTriggered: widget.controller.setAlwaysOnTop(checked)}
+                        MenuItem {text: qsTr("锁定拖动");checkable: true;checked: widget.controller.locked;onTriggered: widget.controller.setLocked(checked)}
+                        MenuItem {text: qsTr("鼠标穿透（托盘/主窗恢复）");enabled: widget.controller.trayAvailable;onTriggered: widget.controller.setClickThrough(true)}
+                        MenuItem {text: qsTr("外观与组件设置…");onTriggered: widget.settingsRequested()}
+                    }
+                }
+            }
+            Flow {
+                Layout.fillWidth: true
+                spacing: 6
+                Button {text: qsTr("+ 今天");onClicked: widget.newTaskRequested()}
+                Button {text: qsTr("打开主窗");onClicked: widget.openMainRequested()}
+                Label {text: qsTr("待办 %1 · 已完成 %2").arg(widget.workspace.todayTasks.count).arg(widget.workspace.completedToday);color: Theme.secondary}
             }
             Label {
                 visible: widget.workspace.todayTasks.count === 0
@@ -106,7 +128,9 @@ Window {
                 Layout.fillHeight: true
                 Label {
                     anchors.centerIn: parent
-                    text: qsTr("Daymark · 今日 %1 项").arg(widget.workspace.todayTasks.count)
+                    width: parent.width
+                    elide: Text.ElideRight
+                    text: qsTr("今日 %1 项").arg(widget.workspace.todayTasks.count)+(widget.workspace.todayTasks.count>0 ? " · "+widget.workspace.firstTodayTitle : "")
                     font.pixelSize: 12*Theme.scale
                     color: Theme.text
                 }

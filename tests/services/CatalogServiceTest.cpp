@@ -8,6 +8,31 @@ using namespace daymark;
 class CatalogServiceTest:public QObject {
     Q_OBJECT
 private slots:
+    void archiveRestoresAreaTasksWithoutMutatingThem()
+    {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("archive.sqlite"))).ok());
+        CatalogRepository catalog(db.connection());SystemClock clock;CatalogService service(catalog,clock);TaskRepository tasks(db.connection());TaskService taskService(tasks,clock,&service);
+        CatalogItem area;area.kind=QStringLiteral("area");area.title=QStringLiteral("archive me");auto saved=service.save(area);QVERIFY(saved.ok());
+        const auto task=taskService.create(QStringLiteral("preserve me"),QStringLiteral("area:")+saved.value.id);QVERIFY(task.ok());
+        const auto original=task.value;
+        saved.value.archived=true;saved=service.save(saved.value);QVERIFY(saved.ok());
+        QVERIFY(QueryService::select(tasks.all().value,QStringLiteral("anytime"),clock.localToday()).isEmpty());
+        QCOMPARE(tasks.find(original.id).value.rowVersion,original.rowVersion);
+        saved.value.archived=false;QVERIFY(service.save(saved.value).ok());
+        QCOMPARE(QueryService::select(tasks.all().value,QStringLiteral("anytime"),clock.localToday()).size(),1);
+    }
+    void siblingOrderPersistsAndRejectsStaleVersions()
+    {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("order.sqlite"));SqliteDatabase db;QVERIFY(db.open(path).ok());
+        CatalogRepository repo(db.connection());SystemClock clock;CatalogService service(repo,clock);
+        CatalogItem item;item.kind=QStringLiteral("area");item.title=QStringLiteral("A");const auto a=service.save(item);QVERIFY(a.ok());
+        item.title=QStringLiteral("B");const auto b=service.save(item);QVERIFY(b.ok());
+        const auto original=repo.all().value;const auto last=original.last();
+        QVERIFY(repo.move(last.kind,last.id,last.rowVersion,-1,clock.nowUtc().toString(Qt::ISODateWithMs)).ok());
+        QCOMPARE(repo.all().value.first().id,last.id);
+        QVERIFY(!repo.move(last.kind,last.id,last.rowVersion,1,clock.nowUtc().toString(Qt::ISODateWithMs)).ok());
+        SqliteDatabase reopened;QVERIFY(reopened.open(path).ok());CatalogRepository second(reopened.connection());QCOMPARE(second.all().value.first().id,last.id);
+    }
     void ownershipChecklistTagsAndSafeDeletion()
     {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("test.sqlite"))).ok());

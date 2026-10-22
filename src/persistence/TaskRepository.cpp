@@ -10,7 +10,7 @@ const QString selectTasks = QStringLiteral(
     "t.today_focus,t.evening,t.created_at_utc,t.updated_at_utc,t.completed_at_utc,t.cancelled_at_utc,"
     "t.deleted_at_utc,t.row_version,t.sort_order,t.project_id,p.planning_state,p.status,p.deleted_at_utc,"
     "t.direct_area_id,t.heading_id,p.title,t.remind_at_utc,t.reminder_fired_at_utc,o.sort_order,p.area_id,t.recurrence_template_id,t.occurrence_on,t.instance_overridden,h.title,h.sort_order "
-    "FROM tasks t LEFT JOIN projects p ON p.id=t.project_id LEFT JOIN headings h ON h.id=t.heading_id LEFT JOIN task_view_order o ON o.task_id=t.id AND o.view_code='today' ");
+    ",a.name,a.archived FROM tasks t LEFT JOIN projects p ON p.id=t.project_id LEFT JOIN headings h ON h.id=t.heading_id LEFT JOIN areas a ON a.id=COALESCE(t.direct_area_id,p.area_id) LEFT JOIN task_view_order o ON o.task_id=t.id AND o.view_code='today' ");
 std::optional<QDate> dateValue(const QVariant& value)
 { return value.isNull() ? std::nullopt : std::optional<QDate>(QDate::fromString(value.toString(), Qt::ISODate)); }
 QVariant dateSql(const std::optional<QDate>& date)
@@ -33,6 +33,8 @@ Task readTask(const QSqlQuery& q)
     t.projectAreaId=q.value(26).toString();
     t.recurrenceId=q.value(27).toString();t.occurrenceOn=QDate::fromString(q.value(28).toString(),Qt::ISODate);t.instanceOverridden=q.value(29).toBool();
     t.headingTitle=q.value(30).toString();t.headingOrder=q.value(31).isNull()?-1:q.value(31).toLongLong();
+    t.areaName=q.value(32).toString();
+    t.areaArchived=q.value(33).toBool();
     return t;
 }
 
@@ -96,8 +98,9 @@ Result<Task> TaskRepository::insert(Task task)
 
 Result<Task> TaskRepository::update(Task task, qint64 expectedVersion)
 {
-    if (!m_db.transaction()) return Result<Task>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseWrite"));
     QSqlQuery query(m_db);
+    if(!query.exec(QStringLiteral("SAVEPOINT task_update")))return Result<Task>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+    const auto rollback=[&]{QSqlQuery cleanup(m_db);cleanup.exec(QStringLiteral("ROLLBACK TO task_update"));cleanup.exec(QStringLiteral("RELEASE task_update"));};
     query.prepare(QStringLiteral("UPDATE tasks SET title=?,note_text=?,planning_state=?,status=?,start_on=?,deadline_on=?,today_focus=?,evening=?,"
                                  "updated_at_utc=?,completed_at_utc=?,cancelled_at_utc=?,deleted_at_utc=?,project_id=?,direct_area_id=?,heading_id=?,remind_at_utc=?,reminder_fired_at_utc=?,instance_overridden=?,row_version=row_version+1 WHERE id=? AND row_version=?"));
     auto nullable=[](const QString& s)->QVariant { return s.isEmpty()?QVariant():QVariant(s); };
@@ -105,9 +108,9 @@ Result<Task> TaskRepository::update(Task task, qint64 expectedVersion)
             task.todayFocus,task.evening,task.updatedAtUtc,nullable(task.completedAtUtc),nullable(task.cancelledAtUtc),nullable(task.deletedAtUtc),
             nullable(task.projectId),nullable(task.areaId),nullable(task.headingId),nullable(task.remindAtUtc),nullable(task.reminderFiredAtUtc),task.instanceOverridden,task.id,expectedVersion})
         query.addBindValue(value);
-    if(!query.exec()) { m_db.rollback(); return Result<Task>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseWrite")); }
-    if(query.numRowsAffected()!=1) { m_db.rollback(); return Result<Task>::failure(ErrorCode::Conflict, QStringLiteral("conflict")); }
-    auto failed=[&] {m_db.rollback();return Result<Task>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));};
+    if(!query.exec()) { rollback(); return Result<Task>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseWrite")); }
+    if(query.numRowsAffected()!=1) { rollback(); return Result<Task>::failure(ErrorCode::Conflict, QStringLiteral("conflict")); }
+    auto failed=[&] {rollback();return Result<Task>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));};
     query.prepare(QStringLiteral("DELETE FROM task_tags WHERE task_id=?"));query.addBindValue(task.id);if(!query.exec())return failed();
     for(const auto& tag:task.tagIds){query.prepare(QStringLiteral("INSERT INTO task_tags(task_id,tag_id) VALUES(?,?)"));query.addBindValue(task.id);query.addBindValue(tag);if(!query.exec())return failed();}
     query.prepare(QStringLiteral("UPDATE checklist_items SET deleted_at_utc=?,updated_at_utc=?,row_version=row_version+1 WHERE task_id=? AND deleted_at_utc IS NULL"));
@@ -120,15 +123,24 @@ Result<Task> TaskRepository::update(Task task, qint64 expectedVersion)
         if(!query.exec() || query.numRowsAffected()!=1)return failed();
     }
     const auto updated=find(task.id);
-    if(!updated.ok() || !m_db.commit()) { m_db.rollback(); return Result<Task>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseWrite")); }
+    if(!updated.ok() || !query.exec(QStringLiteral("RELEASE task_update"))) { rollback(); return Result<Task>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseWrite")); }
     return updated;
+}
+
+Result<void> TaskRepository::atomically(const std::function<Result<void>()>& command)
+{
+    if(!m_db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+    const auto result=command();
+    if(!result.ok()){m_db.rollback();return result;}
+    if(!m_db.commit()){m_db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
+    return {};
 }
 
 Result<QList<Task>> TaskRepository::claimDueReminders(const QString& now)
 {
     if(!m_db.transaction())return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
     QSqlQuery q(m_db);
-    if(!q.exec(selectTasks+QStringLiteral("WHERE t.deleted_at_utc IS NULL AND t.status='OPEN' AND t.planning_state='ACTIVE' AND (t.project_id IS NULL OR (p.deleted_at_utc IS NULL AND p.status='OPEN' AND p.planning_state='ACTIVE')) AND t.remind_at_utc IS NOT NULL AND t.reminder_fired_at_utc IS NULL ORDER BY t.remind_at_utc"))) {
+    if(!q.exec(selectTasks+QStringLiteral("WHERE t.deleted_at_utc IS NULL AND COALESCE(a.archived,0)=0 AND t.status='OPEN' AND t.planning_state='ACTIVE' AND (t.project_id IS NULL OR (p.deleted_at_utc IS NULL AND p.status='OPEN' AND p.planning_state='ACTIVE')) AND t.remind_at_utc IS NOT NULL AND t.reminder_fired_at_utc IS NULL ORDER BY t.remind_at_utc"))) {
         m_db.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     }
     QList<Task> due;

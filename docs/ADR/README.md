@@ -9,3 +9,4 @@ ADR-001～006 已记录在 [原始 TDD](../02_TECHNICAL_DESIGN.md)，继续有�
 | [009](009-basic-task-slice.md) | 本地任务闭环、线程和显式保存 | 已接受：用户本轮基本功能指令 |
 | [010](010-ui-ux-target.md) | Things/Apple参考下的独立UI/UX目标与分批验收 | 已接受：用户指定设计目标 |
 | [011](011-release-and-recurrence.md) | 本地v0.1交付、周期身份边界和预备CI | 实施；远程发布等待用户后续安排 |
+| [012](012-v1-candidate-and-area-archive.md) | Windows V1候选范围、领域归档迁移与JSON兼容 | 实施；正式双平台门禁保留 |

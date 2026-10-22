@@ -22,7 +22,7 @@ Result<QList<CatalogItem>> CatalogRepository::all() const
         const auto parent=kind==QStringLiteral("project")?QStringLiteral("area_id"):kind==QStringLiteral("heading")?QStringLiteral("project_id"):QStringLiteral("NULL");
         const auto planning=kind==QStringLiteral("project")?QStringLiteral("planning_state"):QStringLiteral("'ACTIVE'");
         const auto status=kind==QStringLiteral("project")?QStringLiteral("status"):QStringLiteral("'OPEN'");
-        const auto extra=kind==QStringLiteral("project")?QStringLiteral("description,'neutral',start_on,deadline_on"):(kind==QStringLiteral("area") || kind==QStringLiteral("tag"))?QStringLiteral("'',color_key,NULL,NULL"):QStringLiteral("'','neutral',NULL,NULL");
+        const auto extra=(kind==QStringLiteral("project")?QStringLiteral("description,'neutral',start_on,deadline_on"):(kind==QStringLiteral("area") || kind==QStringLiteral("tag"))?QStringLiteral("'',color_key,NULL,NULL"):QStringLiteral("'','neutral',NULL,NULL"))+(kind==QStringLiteral("area")?QStringLiteral(",archived"):QStringLiteral(",0"));
         QSqlQuery q(m_db);
         if(!q.exec(QStringLiteral("SELECT id,%1,%2,%3,%4,row_version,%6 FROM %5 WHERE deleted_at_utc IS NULL ORDER BY sort_order,id").arg(name,parent,planning,status,tableFor(kind),extra)))
             return Result<QList<CatalogItem>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
@@ -31,6 +31,7 @@ Result<QList<CatalogItem>> CatalogRepository::all() const
             item.description=q.value(6).toString();item.colorKey=q.value(7).toString();
             if(!q.value(8).isNull())item.startOn=QDate::fromString(q.value(8).toString(),Qt::ISODate);
             if(!q.value(9).isNull())item.deadlineOn=QDate::fromString(q.value(9).toString(),Qt::ISODate);
+            item.archived=q.value(10).toBool();
             items.append(item);
         }
     }
@@ -42,6 +43,26 @@ Result<CatalogItem> CatalogRepository::find(const QString& kind,const QString& i
     for(const auto& item:items.value)if(item.id==id && item.kind==kind)return {item,{}};
     return Result<CatalogItem>::failure(ErrorCode::NotFound,QStringLiteral("notFound"));
 }
+Result<void> CatalogRepository::move(const QString& kind,const QString& id,qint64 version,int direction,const QString& now)
+{
+    const auto table=tableFor(kind);
+    if(table.isEmpty() || (direction!=-1 && direction!=1))return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("orderInvalid"));
+    const auto current=find(kind,id);if(!current.ok())return {current.error};
+    if(current.value.rowVersion!=version)return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));
+    const auto allItems=all();if(!allItems.ok())return {allItems.error};
+    QList<CatalogItem> siblings;int index=-1;
+    for(const auto& item:allItems.value)if(item.kind==kind && item.parentId==current.value.parentId){if(item.id==id)index=siblings.size();siblings.append(item);}
+    if(index+direction<0 || index+direction>=siblings.size())return {};
+    siblings.swapItemsAt(index,index+direction);
+    if(!m_db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+    int order=0;
+    for(const auto& item:siblings) {
+        QSqlQuery query(m_db);query.prepare(QStringLiteral("UPDATE %1 SET sort_order=?,updated_at_utc=?,row_version=row_version+1 WHERE id=? AND row_version=? AND deleted_at_utc IS NULL").arg(table));
+        query.addBindValue(order++);query.addBindValue(now);query.addBindValue(item.id);query.addBindValue(item.rowVersion);
+        if(!query.exec() || query.numRowsAffected()!=1){m_db.rollback();return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));}
+    }
+    if(!m_db.commit()){m_db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}return {};
+}
 Result<CatalogItem> CatalogRepository::save(CatalogItem item,const QString& now)
 {
     const auto table=tableFor(item.kind);if(table.isEmpty())return Result<CatalogItem>::failure(ErrorCode::ValidationError,QStringLiteral("catalogInvalid"));
@@ -50,6 +71,7 @@ Result<CatalogItem> CatalogRepository::save(CatalogItem item,const QString& now)
     QStringList columns{titleColumn,QStringLiteral("updated_at_utc")};QList<QVariant> values{item.title,now};
     if(item.kind==QStringLiteral("tag")){columns<<QStringLiteral("normalized_name");values<<item.title.toCaseFolded();}
     if(item.kind==QStringLiteral("area") || item.kind==QStringLiteral("tag")){columns<<QStringLiteral("color_key");values<<item.colorKey;}
+    if(item.kind==QStringLiteral("area")){columns<<QStringLiteral("archived");values<<item.archived;}
     if(item.kind==QStringLiteral("project")) {
         columns<<QStringLiteral("area_id")<<QStringLiteral("planning_state")<<QStringLiteral("status")<<QStringLiteral("completed_at_utc");
         values<<(item.parentId.isEmpty()?QVariant():QVariant(item.parentId))<<item.planningState<<item.status<<(item.status==QStringLiteral("OPEN")?QVariant():QVariant(now));

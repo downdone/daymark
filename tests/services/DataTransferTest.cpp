@@ -5,11 +5,55 @@
 #include <QJsonDocument>
 #include <QTemporaryDir>
 #include <QSettings>
+#include <QSqlQuery>
 #include <QtTest>
 using namespace daymark;
 class DataTransferTest:public QObject {
     Q_OBJECT
 private slots:
+    void weeklyPolicySkipsRecentSnapshotButDailyPolicyRefreshes()
+    {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("policy.sqlite"))).ok());
+        TaskRepository repo(db.connection());SystemClock clock;TaskService service(repo,clock);QVERIFY(service.create(QStringLiteral("snapshot data")).ok());
+        QVERIFY(db.ensureDailySnapshot().ok());QDir backups(dir.filePath(QStringLiteral("backups/daily")));
+        const auto original=backups.entryList({QStringLiteral("daily-*.sqlite")},QDir::Files).first();
+        auto past=original;past.replace(6,10,QDate::currentDate().addDays(-3).toString(Qt::ISODate));QVERIFY(backups.rename(original,past));
+        QSettings settings(dir.filePath(QStringLiteral("ui.ini")),QSettings::IniFormat);settings.setValue(QStringLiteral("preferences/backupDays"),7);settings.sync();
+        QVERIFY(db.ensureDailySnapshot().ok());QCOMPARE(backups.entryList({QStringLiteral("daily-*.sqlite")},QDir::Files).size(),1);
+        settings.setValue(QStringLiteral("preferences/backupDays"),1);settings.sync();QVERIFY(db.ensureDailySnapshot().ok());
+        QCOMPARE(backups.entryList({QStringLiteral("daily-*.sqlite")},QDir::Files).size(),2);
+        QCOMPARE(repo.all().value.size(),1);
+    }
+    void legacyAreaJsonUpgradesWithoutLosingData()
+    {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("legacy.sqlite"))).ok());
+        CatalogRepository repository(db.connection());SystemClock clock;CatalogService service(repository,clock);
+        CatalogItem area;area.kind=QStringLiteral("area");area.title=QStringLiteral("legacy");area.archived=true;QVERIFY(service.save(area).ok());
+        DataTransfer transfer(db);const auto path=dir.filePath(QStringLiteral("export.json"));QVERIFY(transfer.exportJson(path).ok());
+        auto plan=DataTransfer::preview(path);QVERIFY(plan.ok());
+        QVERIFY(transfer.apply(plan.value,true).ok());QVERIFY(repository.all().value.first().archived);
+        auto legacy=plan.value.document;legacy.insert(QStringLiteral("schemaVersion"),1);auto tables=legacy.value(QStringLiteral("tables")).toObject();auto areas=tables.value(QStringLiteral("areas")).toArray();auto row=areas[0].toObject();row.remove(QStringLiteral("archived"));areas[0]=row;tables.insert(QStringLiteral("areas"),areas);legacy.insert(QStringLiteral("tables"),tables);
+        QFile file(path);QVERIFY(file.open(QIODevice::WriteOnly));file.write(QJsonDocument(legacy).toJson());file.close();
+        plan=DataTransfer::preview(path);QVERIFY(plan.ok());QVERIFY(transfer.apply(plan.value,true).ok());QVERIFY(!repository.all().value.first().archived);
+    }
+    void migrationBacksUpWalAndBackupFailureBlocksUpgrade()
+    {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("upgrade.sqlite"));
+        {
+            SqliteDatabase db;QVERIFY(db.open(path).ok());TaskRepository repo(db.connection());SystemClock clock;TaskService service(repo,clock);QVERIFY(service.create(QStringLiteral("retained" )).ok());
+            QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("ALTER TABLE areas DROP COLUMN archived")));QVERIFY(q.exec(QStringLiteral("PRAGMA user_version=1")));
+        }
+        QFile blocker(dir.filePath(QStringLiteral("backups")));QVERIFY(blocker.open(QIODevice::WriteOnly));blocker.close();
+        {
+            SqliteDatabase blocked;QCOMPARE(blocked.open(path).error.key,QStringLiteral("backupFailed"));
+            auto raw=blocked.connection();QVERIFY(raw.open());QSqlQuery q(raw);QVERIFY(q.exec(QStringLiteral("PRAGMA user_version")));QVERIFY(q.next());QCOMPARE(q.value(0).toInt(),1);q.finish();raw.close();
+        }
+        QVERIFY(blocker.remove());
+        SqliteDatabase upgraded;QVERIFY(upgraded.open(path).ok());
+        QCOMPARE(TaskRepository(upgraded.connection()).all().value.size(),1);
+        const auto backups=QDir(dir.filePath(QStringLiteral("backups/migrations"))).entryList({QStringLiteral("*.sqlite")},QDir::Files);QCOMPARE(backups.size(),1);
+        QSqlQuery q(upgraded.connection());QVERIFY(q.exec(QStringLiteral("PRAGMA user_version")));QVERIFY(q.next());QCOMPARE(q.value(0).toInt(),2);
+    }
     void roundtripPreviewMergeAndRestore()
     {
         QTemporaryDir dir;SqliteDatabase source,target;QVERIFY(source.open(dir.filePath(QStringLiteral("source.sqlite"))).ok());QVERIFY(target.open(dir.filePath(QStringLiteral("target.sqlite"))).ok());

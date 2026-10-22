@@ -16,6 +16,37 @@ public:
 class TaskServiceTest : public QObject {
     Q_OBJECT
 private slots:
+    void batchRollsBackConflictsAndLateDatabaseFailure()
+    {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("batch.sqlite"))).ok());
+        TaskRepository repo(db.connection());FixedClock clock;TaskService service(repo,clock);
+        const auto a=service.create(QStringLiteral("first"),QStringLiteral("anytime")).value;
+        const auto b=service.create(QStringLiteral("second"),QStringLiteral("anytime")).value;
+        QVERIFY(!service.batch({{a.id,1},{b.id,99}},QStringLiteral("complete")).ok());
+        QCOMPARE(repo.find(a.id).value,a);QCOMPARE(repo.find(b.id).value,b);
+        QSqlQuery trigger(db.connection());
+        QVERIFY(trigger.exec(QStringLiteral("CREATE TRIGGER fail_second BEFORE UPDATE ON tasks WHEN OLD.title='second' BEGIN SELECT RAISE(ABORT,'injected'); END")));
+        QVERIFY(!service.batch({{a.id,1},{b.id,1}},QStringLiteral("complete")).ok());
+        QCOMPARE(repo.find(a.id).value,a);QCOMPARE(repo.find(b.id).value,b);
+        QVERIFY(trigger.exec(QStringLiteral("DROP TRIGGER fail_second")));
+        TaskPatch patch;patch.startOn=FieldPatch<QDate>::set(QDate(2026,10,23));
+        QVERIFY(service.batch({{a.id,1},{b.id,1}},QStringLiteral("edit"),patch).ok());
+        QCOMPARE(repo.find(a.id).value.startOn,std::optional<QDate>(QDate(2026,10,23)));
+        QVERIFY(service.batch({{a.id,2},{b.id,2}},QStringLiteral("complete")).ok());
+        QCOMPARE(QueryService::select(repo.all().value,QStringLiteral("logbook"),clock.localToday()).size(),2);
+        QVERIFY(!service.batch({},QStringLiteral("complete")).ok());
+    }
+    void checklistSearchAndHistoryWindow()
+    {
+        Task t;t.id=QStringLiteral("a");t.title=QStringLiteral("parent");t.checklist.append({QStringLiteral("c"),QStringLiteral("中英AbC"),false,0});
+        QCOMPARE(QueryService::select({t},QStringLiteral("inbox"),QDate(2026,10,22),QStringLiteral("abc")).size(),1);
+        t.projectId=QStringLiteral("p");t.projectStatus=QStringLiteral("OPEN");
+        QCOMPARE(QueryService::select({t},QStringLiteral("inbox"),QDate(2026,10,22),QStringLiteral("abc"),false,{},0,0,QStringLiteral("p")).size(),1);
+        QVERIFY(QueryService::select({t},QStringLiteral("inbox"),QDate(2026,10,22),QStringLiteral("abc"),false,{},0,0,QStringLiteral("other")).isEmpty());
+        t.status=QStringLiteral("COMPLETED");t.completedAtUtc=QStringLiteral("2026-10-01T00:00:00.000Z");
+        QVERIFY(QueryService::select({t},QStringLiteral("logbook"),QDate(2026,10,22),{},false,{},0,7).isEmpty());
+        QCOMPARE(QueryService::select({t},QStringLiteral("logbook"),QDate(2026,10,22),{},false,{},0,30).size(),1);
+    }
     void lifecyclePersistsAndBacksUpWal()
     {
         QTemporaryDir dir; QVERIFY(dir.isValid());
@@ -174,7 +205,7 @@ private slots:
             SqliteDatabase db; QVERIFY(db.open(path).ok());
             TaskRepository repo(db.connection()); FixedClock clock; TaskService service(repo,clock);
             QVERIFY(service.create(QStringLiteral("retained")).ok());
-            QSqlQuery query(db.connection()); QVERIFY(query.exec(QStringLiteral("PRAGMA user_version=2")));
+            QSqlQuery query(db.connection()); QVERIFY(query.exec(QStringLiteral("PRAGMA user_version=999")));
         }
         SqliteDatabase future; QCOMPARE(future.open(path).error.key,QStringLiteral("schemaTooNew"));
         auto raw=future.connection(); QVERIFY(raw.open());

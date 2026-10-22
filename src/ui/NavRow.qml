@@ -5,6 +5,7 @@ import QtQuick.Layouts
 ItemDelegate {
     id: root
     property string symbol: ""
+    property color symbolColor: Theme.accent
     property bool selected: false
     property int count: -1
     property bool acceptsTaskDrop: false
@@ -15,7 +16,7 @@ ItemDelegate {
     Accessible.name: text
     contentItem: RowLayout {
         spacing: 10
-        Label { text: root.symbol; color: Theme.accent; font.pixelSize: 17*Theme.scale; Layout.preferredWidth: 20*Theme.scale }
+        Label { text: root.symbol; color: root.symbolColor; font.pixelSize: 17*Theme.scale; Layout.preferredWidth: 20*Theme.scale }
         Label { text: root.text; color: Theme.text; font.pixelSize: 14*Theme.scale; Layout.fillWidth: true; elide: Text.ElideRight }
         Label { visible: root.count>=0; text: root.count; color: Theme.secondary; font.pixelSize: 12*Theme.scale }
     }

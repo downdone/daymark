@@ -38,7 +38,13 @@ ColumnLayout {
         Button { text: qsTr("下一页"); onClicked: panel.workspace.stepCalendar(1) }
         Button { text: panel.workspace.view === "week" ? qsTr("月") : qsTr("周"); onClicked: panel.workspace.setView(panel.workspace.view === "week" ? "month" : "week") }
     }
-    CheckBox { text: qsTr("周日作为每周首日"); checked: panel.workspace.sundayFirst; onClicked: panel.workspace.sundayFirst=checked }
+    Flow {
+        Layout.fillWidth: true
+        spacing: 8
+        CheckBox { text: qsTr("周日作为每周首日"); checked: panel.workspace.sundayFirst; onClicked: panel.workspace.sundayFirst=checked }
+        CheckBox {text: qsTr("显示已完成");checked: panel.workspace.calendarCompleted;onClicked: panel.workspace.calendarCompleted=checked}
+        Button {text: qsTr("未排期（%1）").arg(panel.workspace.unscheduledTasks.length);onClicked: unscheduled.open()}
+    }
     RowLayout {
         Layout.preferredWidth: dayGrid.width
         Layout.fillWidth: false
@@ -93,7 +99,7 @@ ColumnLayout {
                                 required property var modelData
                                 readonly property var entry: modelData
                                 Layout.fillWidth: true
-                                text: (modelData.kind === "start" ? "● " : modelData.kind === "deadline" ? "⚑ " : "●⚑ ") + modelData.title
+                                text: (modelData.taskStatus === "COMPLETED" ? "✓ " : "")+(modelData.kind === "start" ? "● " : modelData.kind === "deadline" ? "⚑ " : "●⚑ ") + modelData.title
                                 color: modelData.kind === "start" ? Theme.accent : Theme.danger
                                 elide: Text.ElideRight
                                 font.pixelSize: 11*Theme.scale
@@ -145,6 +151,22 @@ ColumnLayout {
     }
     Item {
         visible: false
+        Dialog {
+            id: unscheduled
+            parent: Overlay.overlay
+            anchors.centerIn: parent
+            title: qsTr("未排期任务")
+            width: Math.min(480,parent.width-40)
+            height: Math.min(500,parent.height-40)
+            modal: true
+            standardButtons: Dialog.Close
+            contentItem: ListView {
+                clip: true
+                model: panel.workspace.unscheduledTasks
+                delegate: ItemDelegate {required property var modelData;width: ListView.view.width;text: modelData.title;onClicked: {unscheduled.close();panel.openTask(modelData.taskId)}}
+                Label {anchors.centerIn: parent;visible: panel.workspace.unscheduledTasks.length===0;text: qsTr("没有未排期的活动任务")}
+            }
+        }
         Dialog {
         id: moveDialog
         parent: Overlay.overlay

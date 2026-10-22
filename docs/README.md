@@ -16,6 +16,8 @@
 
 后续UI-03A切片见[共享草稿的响应式详情](design/responsive-details.md)。
 
+当前Windows V1候选交付：[设计](design/v1-candidate.md) → [逐项需求审计](v1-feature-matrix.md) → [发行说明及升级](release-notes-v1-rc.md)。
+
 ## 文档归属
 
 | 事实 | 唯一归属 |

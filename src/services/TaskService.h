@@ -9,7 +9,7 @@ class QueryService final {
 public:
     static bool effectiveActive(const Task& task);
     static bool inView(const Task& task, const QString& view, const QDate& today);
-    static QList<Task> select(const QList<Task>& tasks, const QString& view, const QDate& today, const QString& search = {},bool includeCompleted=false,const QString& tagFilter={},int upcomingDays=0);
+    static QList<Task> select(const QList<Task>& tasks, const QString& view, const QDate& today, const QString& search = {},bool includeCompleted=false,const QString& tagFilter={},int upcomingDays=0,int historyDays=0,const QString& projectFilter={});
 };
 
 class TaskService final {
@@ -18,6 +18,7 @@ public:
     Result<Task> create(const QString& title, const QString& view = QStringLiteral("inbox"));
     Result<Task> edit(const QString& id, qint64 version, const TaskPatch& patch);
     Result<Task> changeState(const QString& id, qint64 version, const QString& action);
+    Result<void> batch(const QList<QPair<QString,qint64>>& selection,const QString& action,const TaskPatch& patch={});
 private:
     Result<void> validate(Task& task) const;
     TaskRepository& m_repository;

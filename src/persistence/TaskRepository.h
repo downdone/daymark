@@ -1,6 +1,7 @@
 #pragma once
 #include "domain/Task.h"
 #include <QSqlDatabase>
+#include <functional>
 
 namespace daymark {
 
@@ -11,6 +12,7 @@ public:
     Result<Task> find(const QString& id) const;
     Result<Task> insert(Task task);
     Result<Task> update(Task task, qint64 expectedVersion);
+    Result<void> atomically(const std::function<Result<void>()>& command);
     Result<QList<Task>> claimDueReminders(const QString& now);
     Result<void> reorder(const QList<Task>& tasks,bool today,const QString& now,const OrderChange& change={});
     Result<bool> hasOpenCompletionSibling(const Task& task) const;

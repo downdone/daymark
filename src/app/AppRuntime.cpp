@@ -30,7 +30,8 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     }
     QObject::connect(&m_engine, &QQmlEngine::warnings, &m_engine,
                      [this](const QList<QQmlError>&) { m_qmlWarnings = true; });
-    m_engine.setInitialProperties({{QStringLiteral("widgetController"), QVariant::fromValue(&m_widget)},
+    m_startup=std::make_unique<StartupController>(smokeTest?QDir(directory).filePath(QStringLiteral("startup-test.ini")):QString());
+    m_engine.setInitialProperties({{QStringLiteral("startupController"),QVariant::fromValue(m_startup.get())},{QStringLiteral("widgetController"), QVariant::fromValue(&m_widget)},
                                    {QStringLiteral("taskWorkspace"),QVariant::fromValue(&m_workspace)}});
     m_engine.loadFromModule(QStringLiteral("Daymark"), QStringLiteral("Main"));
     if (m_engine.rootObjects().isEmpty()) {
@@ -61,6 +62,8 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         if(mainWindow) {mainWindow->showNormal();mainWindow->requestActivate();}
     });
     m_workspace.start(QDir(directory).filePath(QStringLiteral("daymark.sqlite")));
+    QObject::connect(qGuiApp,&QGuiApplication::applicationStateChanged,&m_workspace,[this](Qt::ApplicationState state){if(state==Qt::ApplicationActive)m_workspace.refreshClock();});
+    m_systemEvents=std::make_unique<SystemEventFilter>([this]{QMetaObject::invokeMethod(&m_workspace,"refreshClock",Qt::QueuedConnection);});
 
     if (smokeTest) {
         auto* probe=new QTimer(&m_engine);
@@ -147,6 +150,56 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
+            } else if(phase>=46) {
+                mainWindow->grabWindow();
+                auto* batch=mainWindow->findChild<QObject*>(QStringLiteral("batchTaskDialog"));
+                auto* list=mainWindow->findChild<QObject*>(QStringLiteral("taskList"));
+                auto invoke=[&](const char* method,const QString& value){return QMetaObject::invokeMethod(mainWindow,method,Q_ARG(QVariant,QVariant(value)));};
+                auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
+                if(!batch || !list){fail("candidate UI objects");return;}
+                if(phase==46) {
+                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("batch"))),Q_ARG(QVariant,QVariant(taskId)));
+                } else if(phase==47) {
+                    auto* apply=mainWindow->findChild<QObject*>(QStringLiteral("applyBatchSelection"));
+                    if(!batch->property("visible").toBool() || !capture(QStringLiteral("v1-batch")) || !apply || !QMetaObject::invokeMethod(apply,"clicked")){fail("batch UI submit");return;}
+                } else if(phase==48) {
+                    if(batch->property("visible").toBool() || m_workspace.task(taskId).value(QStringLiteral("taskStatus")).toString()!=QStringLiteral("COMPLETED")){fail("batch UI commit");return;}
+                } else if(phase>=49 && phase<=68) {
+                    m_workspace.setView(QStringLiteral("today"));m_workspace.createTask(QStringLiteral("候选验收任务 %1").arg(phase-48));
+                } else if(phase==69) {
+                    list->setProperty("contentY",300);invoke("changeView",QStringLiteral("anytime"));
+                } else if(phase==70) {
+                    invoke("changeView",QStringLiteral("today"));
+                } else if(phase==71) {
+                    if(qAbs(list->property("contentY").toDouble()-300)>2 || !capture(QStringLiteral("v1-list"))){fail("per-view scroll restoration");return;}
+                    m_workspace.setPreference(QStringLiteral("sidebarCollapsed"),true);m_workspace.setPreference(QStringLiteral("compact"),true);
+                } else if(phase==72) {
+                    if(mainWindow->property("sidebarWidth").toDouble()!=0 || !capture(QStringLiteral("v1-collapsed"))){fail("recoverable collapsed navigation");return;}
+                    m_workspace.setPreference(QStringLiteral("sidebarCollapsed"),false);m_workspace.setTextScale(2);mainWindow->resize(880,580);invoke("openTool",QStringLiteral("settings"));
+                } else if(phase==73) {
+                    if(!capture(QStringLiteral("v1-settings-200"))){fail("candidate settings screenshot");return;}
+                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
+                } else if(phase==74) {
+                    auto* listItem=qobject_cast<QQuickItem*>(list);
+                    if(!listItem || listItem->height()<96 || listItem->mapToScene(QPointF(0,listItem->height())).y()>mainWindow->height() || !capture(QStringLiteral("v1-list-200"))){fail("large text usable list");return;}
+                    auto* navigation=mainWindow->findChild<QObject*>(QStringLiteral("navigationScroll"));
+                    auto* tools=mainWindow->findChild<QQuickItem*>(QStringLiteral("settingsAndTools"));
+                    auto* flick=navigation?qvariant_cast<QObject*>(navigation->property("contentItem")):nullptr;
+                    if(!flick || !tools){fail("navigation scroll objects");return;}
+                    flick->setProperty("contentY",qMax(0.0,flick->property("contentHeight").toDouble()-flick->property("height").toDouble()));
+                    mainWindow->grabWindow();
+                    if(tools->mapToScene(QPointF(0,tools->height())).y()>mainWindow->height() || !capture(QStringLiteral("v1-nav-200"))){fail("large text tools reachable");return;}
+                    flick->setProperty("contentY",0);
+                    m_workspace.setTextScale(1);mainWindow->resize(1120,720);m_workspace.setPreference(QStringLiteral("compact"),false);m_workspace.setThemeMode(2);
+                } else if(phase==75) {
+                    if(!capture(QStringLiteral("v1-dark"))){fail("candidate dark screenshot");return;}
+                    m_workspace.setThemeMode(1);
+                    auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
+                    if(!widget || (!screenshotPath.isEmpty() && !widget->grabWindow().save(screenshotPath+QStringLiteral(".v1-widget.png"))) || !m_widget.setMini(true)){fail("native mini transition");return;}
+                } else if(phase==76) {
+                    auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
+                    if(!widget || !m_widget.mini() || widget->height()<48 || widget->height()>100 || (!screenshotPath.isEmpty() && !widget->grabWindow().save(screenshotPath+QStringLiteral(".v1-mini.png"))) || !m_widget.setMini(false)){fail("mini rendering and restore");return;}
+                }
             } else if(phase>=26) {
                 // Hidden/minimized native windows need a render pass before layout assertions.
                 const auto frame=mainWindow->grabWindow();
@@ -212,7 +265,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<46)return;
+            if(phase<78)return;
             int visibleWindows = 0;
             for (auto* window : QGuiApplication::allWindows()) {
                 if (qobject_cast<QQuickWindow*>(window) && window->isVisible()
@@ -227,7 +280,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             probe->stop();
         });
         probe->start();
-        QTimer::singleShot(15000,&m_engine,[]{QCoreApplication::exit(3);});
+        QTimer::singleShot(25000,&m_engine,[]{QCoreApplication::exit(3);});
     }
     return true;
 }

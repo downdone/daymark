@@ -6,6 +6,17 @@ using namespace daymark;
 class CalendarServiceTest:public QObject {
     Q_OBJECT
 private slots:
+    void completedAndUnscheduledRespectEffectiveState()
+    {
+        Task open;open.id=QStringLiteral("open");open.planningState=QStringLiteral("ACTIVE");
+        Task completed=open;completed.id=QStringLiteral("done");completed.status=QStringLiteral("COMPLETED");completed.startOn=QDate(2026,10,22);
+        Task someday=open;someday.planningState=QStringLiteral("SOMEDAY");
+        QCOMPARE(CalendarService::unscheduled({open,completed,someday}).size(),1);
+        QVERIFY(CalendarService::entries({completed},QDate(2026,10,22)).isEmpty());
+        QCOMPARE(CalendarService::entries({completed},QDate(2026,10,22),true).size(),1);
+        completed.projectId=QStringLiteral("p");completed.projectStatus=QStringLiteral("COMPLETED");
+        QVERIFY(CalendarService::entries({completed},QDate(2026,10,22),true).isEmpty());
+    }
     void dateGridBoundaries()
     {
         auto days=CalendarService::days({},QDate(2024,2,29),false,false);

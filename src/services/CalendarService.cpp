@@ -3,12 +3,19 @@
 #include <QHash>
 
 namespace daymark {
-QList<CalendarEntry> CalendarService::entries(const QList<Task>& tasks,const QDate& date)
+namespace {
+bool eligible(const Task& task,bool includeCompleted) {
+    if(QueryService::effectiveActive(task))return true;
+    if(!includeCompleted || task.status!=QStringLiteral("COMPLETED"))return false;
+    auto open=task;open.status=QStringLiteral("OPEN");return QueryService::effectiveActive(open);
+}
+}
+QList<CalendarEntry> CalendarService::entries(const QList<Task>& tasks,const QDate& date,bool includeCompleted)
 {
     QList<CalendarEntry> result;
     if(!date.isValid())return result;
     for(const auto& task:tasks) {
-        if(!QueryService::effectiveActive(task))continue;
+        if(!eligible(task,includeCompleted))continue;
         const bool start=task.startOn && *task.startOn==date;
         const bool deadline=task.deadlineOn && *task.deadlineOn==date;
         if(start || deadline)result.append({task,start?(deadline?QStringLiteral("both"):QStringLiteral("start")):QStringLiteral("deadline")});
@@ -19,7 +26,7 @@ QList<CalendarEntry> CalendarService::entries(const QList<Task>& tasks,const QDa
     });
     return result;
 }
-QList<CalendarDay> CalendarService::days(const QList<Task>& tasks,const QDate& anchor,bool week,bool sundayFirst)
+QList<CalendarDay> CalendarService::days(const QList<Task>& tasks,const QDate& anchor,bool week,bool sundayFirst,bool includeCompleted)
 {
     QList<CalendarDay> result;
     if(!anchor.isValid())return result;
@@ -29,14 +36,20 @@ QList<CalendarDay> CalendarService::days(const QList<Task>& tasks,const QDate& a
     // Index dates once: a month refresh is O(tasks + visible days), not 42 full scans.
     QHash<QDate,QList<Task>> indexed;
     for(const auto& task:tasks) {
-        if(!QueryService::effectiveActive(task))continue;
+        if(!eligible(task,includeCompleted))continue;
         if(task.startOn)indexed[*task.startOn].append(task);
         if(task.deadlineOn && task.deadlineOn!=task.startOn)indexed[*task.deadlineOn].append(task);
     }
     for(int i=0;i<(week?7:42);++i) {
         const auto date=from.addDays(i);
-        result.append({date,date.month()==anchor.month() && date.year()==anchor.year(),entries(indexed.value(date),date)});
+        result.append({date,date.month()==anchor.month() && date.year()==anchor.year(),entries(indexed.value(date),date,includeCompleted)});
     }
+    return result;
+}
+QList<Task> CalendarService::unscheduled(const QList<Task>& tasks)
+{
+    QList<Task> result;
+    for(const auto& task:tasks)if(QueryService::effectiveActive(task) && !task.startOn && !task.deadlineOn)result.append(task);
     return result;
 }
 Result<Task> CalendarService::move(TaskService& service,const QString& id,qint64 version,const QString& kind,const QDate& date)

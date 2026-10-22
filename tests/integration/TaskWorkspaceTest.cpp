@@ -9,6 +9,29 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void candidatePreferencesAndBatchCommandsPersist()
+    {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("batch.sqlite"));QString id;
+        {
+            TaskWorkspace workspace;workspace.start(path);QTRY_VERIFY(!workspace.busy());QVERIFY(workspace.ready());
+            QVERIFY(workspace.setPreference(QStringLiteral("compact"),true));
+            QVERIFY(workspace.setPreference(QStringLiteral("backupDays"),7));
+            QVERIFY(!workspace.setPreference(QStringLiteral("backupDays"),2));
+            workspace.setView(QStringLiteral("today"));QVERIFY(workspace.createTask(QStringLiteral("reschedule")));QTRY_VERIFY(!workspace.busy());
+            const auto task=workspace.tasks()->data(workspace.tasks()->index(0),TaskListModel::Id).toString();id=task;
+            QVariantList selected{workspace.task(id)};
+            QVERIFY(workspace.batchTasks(selected,QStringLiteral("start"),workspace.dateOffset(2)));QTRY_VERIFY(!workspace.busy());
+            QVERIFY(workspace.errorText().isEmpty());QCOMPARE(workspace.task(id).value(QStringLiteral("startOn")).toString(),workspace.dateOffset(2));
+            QCOMPARE(workspace.todayTasks()->rowCount(),0);
+            QVERIFY(workspace.batchTasks(selected,QStringLiteral("complete"),{}));QTRY_VERIFY(!workspace.busy());QVERIFY(!workspace.errorText().isEmpty());
+            QCOMPARE(workspace.task(id).value(QStringLiteral("taskStatus")).toString(),QStringLiteral("OPEN"));
+            selected={workspace.task(id)};QVERIFY(workspace.batchTasks(selected,QStringLiteral("complete"),{}));QTRY_VERIFY(!workspace.busy());
+            QCOMPARE(workspace.task(id).value(QStringLiteral("taskStatus")).toString(),QStringLiteral("COMPLETED"));
+        }
+        TaskWorkspace reopened;reopened.start(path);QTRY_VERIFY(!reopened.busy());
+        QVERIFY(reopened.preferences().value(QStringLiteral("compact")).toBool());QCOMPARE(reopened.preferences().value(QStringLiteral("backupDays")).toInt(),7);
+        QCOMPARE(reopened.task(id).value(QStringLiteral("taskStatus")).toString(),QStringLiteral("COMPLETED"));
+    }
     void commandsUpdateBothModelsOnlyAfterCommit()
     {
         QTemporaryDir dir; TaskWorkspace workspace;

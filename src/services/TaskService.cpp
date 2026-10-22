@@ -8,13 +8,14 @@ namespace daymark {
 
 bool QueryService::effectiveActive(const Task& t)
 {
-    return t.deletedAtUtc.isEmpty() && t.status==QStringLiteral("OPEN") && t.planningState==QStringLiteral("ACTIVE")
+    return t.deletedAtUtc.isEmpty() && !t.areaArchived && t.status==QStringLiteral("OPEN") && t.planningState==QStringLiteral("ACTIVE")
         && (t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN") && t.projectPlanning==QStringLiteral("ACTIVE")));
 }
 bool QueryService::inView(const Task& t, const QString& view, const QDate& d)
 {
     if(!t.deletedAtUtc.isEmpty()) return false;
     if(view==QStringLiteral("logbook")) return t.status!=QStringLiteral("OPEN");
+    if(t.areaArchived)return false;
     if(t.status!=QStringLiteral("OPEN")) return false;
     const bool projectOpen=t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN"));
     if(view.startsWith(QStringLiteral("project:")))return t.projectId==view.mid(8) && projectOpen;
@@ -29,21 +30,28 @@ bool QueryService::inView(const Task& t, const QString& view, const QDate& d)
     if(view==QStringLiteral("anytime")) return !t.startOn || *t.startOn<=d;
     return false;
 }
-QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, const QDate& d, const QString& search,bool includeCompleted,const QString& tagFilter,int upcomingDays)
+QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, const QDate& d, const QString& search,bool includeCompleted,const QString& tagFilter,int upcomingDays,int historyDays,const QString& projectFilter)
 {
     QList<Task> output;
     for(const auto& task:tasks) {
         const bool globalSearch=!search.isEmpty() && view!=QStringLiteral("logbook");
         if(globalSearch) {
             if(!task.deletedAtUtc.isEmpty() || (!includeCompleted && task.status!=QStringLiteral("OPEN"))
-                || (task.status==QStringLiteral("OPEN") && !task.projectId.isEmpty() && (task.projectDeleted || task.projectStatus!=QStringLiteral("OPEN"))))continue;
+                || (task.status==QStringLiteral("OPEN") && (task.areaArchived || (!task.projectId.isEmpty() && (task.projectDeleted || task.projectStatus!=QStringLiteral("OPEN"))))))continue;
         } else if(includeCompleted && view.startsWith(QStringLiteral("project:"))) {
             if(!task.deletedAtUtc.isEmpty() || task.projectId!=view.mid(8))continue;
         } else if(!inView(task,view,d)) continue;
         if(!tagFilter.isEmpty() && !task.tagIds.contains(tagFilter))continue;
+        if(!projectFilter.isEmpty() && task.projectId!=projectFilter)continue;
         if(search.isEmpty() && upcomingDays>0 && ((view==QStringLiteral("upcoming") && task.startOn && *task.startOn>d.addDays(upcomingDays))
             || (view==QStringLiteral("deadlines") && task.deadlineOn && *task.deadlineOn>d.addDays(upcomingDays))))continue;
-        if(!search.isEmpty() && !task.title.contains(search,Qt::CaseInsensitive) && !task.notes.contains(search,Qt::CaseInsensitive)) continue;
+        if(view==QStringLiteral("logbook") && historyDays>0) {
+            const auto timestamp=task.completedAtUtc.isEmpty()?task.cancelledAtUtc:task.completedAtUtc;
+            const auto date=QDateTime::fromString(timestamp,Qt::ISODateWithMs).toLocalTime().date();
+            if(!date.isValid() || date<d.addDays(1-historyDays))continue;
+        }
+        if(!search.isEmpty() && !task.title.contains(search,Qt::CaseInsensitive) && !task.notes.contains(search,Qt::CaseInsensitive)
+            && !std::any_of(task.checklist.begin(),task.checklist.end(),[&](const auto& item){return item.title.contains(search,Qt::CaseInsensitive);})) continue;
         output.append(task);
     }
     std::stable_sort(output.begin(),output.end(),[&view](const Task& a,const Task& b) {
@@ -54,6 +62,10 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
         }
         if(view==QStringLiteral("upcoming") && a.startOn!=b.startOn) return a.startOn<b.startOn;
         if(view==QStringLiteral("deadlines") && a.deadlineOn!=b.deadlineOn)return a.deadlineOn<b.deadlineOn;
+        if(view==QStringLiteral("anytime")) {
+            if(a.areaName!=b.areaName)return a.areaName<b.areaName;
+            if(a.projectName!=b.projectName)return a.projectName<b.projectName;
+        }
         if(view.startsWith(QStringLiteral("project:"))) {
             if(a.headingOrder!=b.headingOrder)return a.headingOrder<b.headingOrder;
             if(a.headingId!=b.headingId)return a.headingId<b.headingId;
@@ -61,6 +73,11 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
         if(view==QStringLiteral("today")) {
             if(a.evening!=b.evening)return !a.evening;
             if(a.todayOrder!=b.todayOrder)return (a.todayOrder<0?LLONG_MAX:a.todayOrder)<(b.todayOrder<0?LLONG_MAX:b.todayOrder);
+        }
+        if(view!=QStringLiteral("today") && !view.startsWith(QStringLiteral("project:")) && view!=QStringLiteral("logbook")) {
+            const auto dateA=a.startOn?a.startOn:a.deadlineOn;
+            const auto dateB=b.startOn?b.startOn:b.deadlineOn;
+            if(dateA!=dateB)return dateA<dateB;
         }
         if(a.sortOrder!=b.sortOrder) return a.sortOrder<b.sortOrder;
         return a.id<b.id;
@@ -186,6 +203,22 @@ Result<Task> TaskService::changeState(const QString& id,qint64 version,const QSt
     const auto valid=validate(t);
     if(!valid.ok()) return {Task{},valid.error};
     return m_repository.update(t,version);
+}
+
+Result<void> TaskService::batch(const QList<QPair<QString,qint64>>& selection,const QString& action,const TaskPatch& patch)
+{
+    if(selection.isEmpty() || (action!=QStringLiteral("complete") && action!=QStringLiteral("edit")))
+        return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));
+    return m_repository.atomically([&] {
+        QSet<QString> seen;
+        for(const auto& item:selection) {
+            if(seen.contains(item.first))return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));
+            seen.insert(item.first);
+            const auto result=action==QStringLiteral("complete")?changeState(item.first,item.second,action):edit(item.first,item.second,patch);
+            if(!result.ok())return Result<void>{result.error};
+        }
+        return Result<void>{};
+    });
 }
 
 } // namespace daymark

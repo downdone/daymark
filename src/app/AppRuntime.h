@@ -7,6 +7,8 @@
 #include "platform/common/SingleInstance.h"
 #include "platform/common/DesktopTray.h"
 #include "platform/common/WindowStateStore.h"
+#include "platform/common/StartupController.h"
+#include "platform/common/SystemEventFilter.h"
 #include <QTemporaryDir>
 
 namespace daymark {
@@ -23,9 +25,11 @@ private:
     QtWindowPlatform m_windowPlatform;
     WidgetViewModel m_widget{m_windowPlatform};
     TaskWorkspace m_workspace;
+    std::unique_ptr<StartupController> m_startup;
     QQmlApplicationEngine m_engine;
     std::unique_ptr<DesktopTray> m_tray;
     std::unique_ptr<WindowStateStore> m_mainState;
+    std::unique_ptr<SystemEventFilter> m_systemEvents;
     bool m_qmlWarnings = false;
     int m_startupExitCode = 1;
 };

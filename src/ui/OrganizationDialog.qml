@@ -27,6 +27,7 @@ Dialog {
         parents = workspace.catalogOf(kind.currentIndex === 1 ? "area" : "project")
         parentChoice.currentIndex = 0
         description.clear();projectStart.clear();projectDeadline.clear();colorChoice.currentIndex=0
+        archived.checked=false
         dirty=false
     }
     function choose(item) {
@@ -38,7 +39,7 @@ Dialog {
         parents = workspace.catalogOf(item.kind === "project" ? "area" : "project")
         parentChoice.currentIndex = 0
         for (let i = 0; i < parents.length; ++i) if (parents[i].id === item.parentId) parentChoice.currentIndex = i + 1
-        description.text=item.description;projectStart.text=item.startOn;projectDeadline.text=item.deadlineOn;colorChoice.currentIndex=colors.indexOf(item.colorKey)
+        description.text=item.description;projectStart.text=item.startOn;projectDeadline.text=item.deadlineOn;colorChoice.currentIndex=colors.indexOf(item.colorKey);archived.checked=item.archived
         dirty=false
     }
     function save() {
@@ -46,7 +47,7 @@ Dialog {
             parentId: parentChoice.currentIndex > 0 ? parents[parentChoice.currentIndex - 1].id : "",
             planningState: planning.currentIndex === 1 ? "SOMEDAY" : "ACTIVE",
             status: ["OPEN", "COMPLETED", "CANCELLED"][status.currentIndex], rowVersion: selected.rowVersion || 1,
-            description:description.text,startOn:projectStart.text,deadlineOn:projectDeadline.text,colorKey:colors[colorChoice.currentIndex]})
+            description:description.text,startOn:projectStart.text,deadlineOn:projectDeadline.text,colorKey:colors[colorChoice.currentIndex],archived:archived.checked})
     }
     onOpened: resetForm()
     contentItem: RowLayout {
@@ -61,7 +62,7 @@ Dialog {
                     Button {
                         required property var modelData
                         Layout.fillWidth: true
-                        text: root.names[root.kinds.indexOf(modelData.kind)] + " · " + modelData.title + (modelData.status !== "OPEN" ? qsTr("（历史）") : "")
+                        text: root.names[root.kinds.indexOf(modelData.kind)] + " · " + modelData.title + (modelData.archived ? qsTr("（已归档）") : modelData.status !== "OPEN" ? qsTr("（历史）") : "")
                         onClicked: root.safely(function(){root.choose(modelData)})
                     }
                 }
@@ -78,6 +79,7 @@ Dialog {
             Label { text: root.selected.id ? qsTr("编辑现有项") : qsTr("新建组织项"); font.bold: true }
             ComboBox { id: kind; model: root.names; enabled: !root.selected.id; onActivated: root.resetForm() }
             TextField { id: itemTitle; Layout.fillWidth: true; placeholderText: qsTr("名称"); onTextEdited: root.dirty=true }
+            CheckBox {id: archived;visible: kind.currentIndex===0;text: qsTr("归档领域（隐藏活动任务，可取消归档恢复）");onClicked: root.dirty=true}
             ComboBox { id: colorChoice; visible: kind.currentIndex===0 || kind.currentIndex===3; model: [qsTr("中性"),qsTr("蓝"),qsTr("绿"),qsTr("橙"),qsTr("紫")]; onActivated: root.dirty=true }
             TextField { id: description; visible: kind.currentIndex===1; Layout.fillWidth: true; placeholderText: qsTr("项目描述"); onTextEdited: root.dirty=true }
             TextField { id: projectStart; visible: kind.currentIndex===1; Layout.fillWidth: true; placeholderText: qsTr("项目开始 yyyy-MM-dd，可空"); onTextEdited: root.dirty=true }
@@ -101,6 +103,10 @@ Dialog {
                 Button { text: qsTr("保存"); highlighted: true; onClicked: { if (root.selected.id && kind.currentIndex === 1 && status.currentIndex > 0) confirmComplete.open(); else root.save() } }
                 Button { text: qsTr("新建"); onClicked: root.safely(function(){root.resetForm()}) }
                 Button { text: qsTr("删除…"); enabled: !!root.selected.id; onClicked: confirmDelete.open() }
+            }
+            RowLayout {
+                Button {text: qsTr("上移排序");enabled: !!root.selected.id && !root.dirty;onClicked: root.workspace.moveCatalog(root.selected.kind,root.selected.id,root.selected.rowVersion,-1)}
+                Button {text: qsTr("下移排序");enabled: !!root.selected.id && !root.dirty;onClicked: root.workspace.moveCatalog(root.selected.kind,root.selected.id,root.selected.rowVersion,1)}
             }
             Item { Layout.fillHeight: true }
             }
@@ -129,7 +135,7 @@ Dialog {
         title: qsTr("结束项目？")
         modal: true
         standardButtons: Dialog.Ok | Dialog.Cancel
-        contentItem: Label { text: qsTr("不会自动完成任务；开放任务从活动视图隐藏，可恢复项目后继续。");wrapMode: Text.Wrap }
+        contentItem: Label { text: qsTr("项目仍有 %1 项未完成任务。不会自动完成它们；开放任务从活动视图隐藏，可恢复项目后继续。").arg(root.workspace.openProjectTasks(root.selected.id || ""));wrapMode: Text.Wrap }
         onAccepted: root.save()
     }
     Connections { target: root.workspace; function onOperationFinished(operation, success) { if (operation === "catalog" && success) root.resetForm() } }

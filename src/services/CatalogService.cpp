@@ -33,6 +33,12 @@ Result<void> CatalogService::validateTask(Task& task) const
         task.projectPlanning=project.value.planningState;task.projectStatus=project.value.status;task.projectName=project.value.title;task.projectAreaId=project.value.parentId;task.projectDeleted=false;
     } else {task.projectPlanning.clear();task.projectStatus.clear();task.projectName.clear();task.projectAreaId.clear();task.projectDeleted=false;}
     if(!task.areaId.isEmpty() && !m_repository.find(QStringLiteral("area"),task.areaId).ok())return invalid();
+    const auto effectiveArea=task.areaId.isEmpty()?task.projectAreaId:task.areaId;
+    task.areaArchived=false;task.areaName.clear();
+    if(!effectiveArea.isEmpty()) {
+        const auto area=m_repository.find(QStringLiteral("area"),effectiveArea);
+        if(!area.ok())return invalid();task.areaArchived=area.value.archived;task.areaName=area.value.title;
+    }
     if(!task.headingId.isEmpty()) {
         const auto heading=m_repository.find(QStringLiteral("heading"),task.headingId);
         if(!heading.ok() || heading.value.parentId!=task.projectId)return invalid();

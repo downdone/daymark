@@ -36,7 +36,7 @@ Result<QJsonObject> DataTransfer::document(QSqlDatabase db)
     QJsonObject portable{{QStringLiteral("sundayFirst"),settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool()},
         {QStringLiteral("themeMode"),qBound(0,settings.value(QStringLiteral("appearance/themeMode"),0).toInt(),2)},
         {QStringLiteral("textScale"),qBound(1.0,settings.value(QStringLiteral("appearance/textScale"),1.0).toDouble(),2.0)}};
-    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),1},
+    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),2},
         {QStringLiteral("createdAtUtc"),QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{QStringLiteral("tables"),data},{QStringLiteral("settings"),portable}}, {}};
 }
 Result<void> DataTransfer::exportJson(const QString& path) const
@@ -77,7 +77,7 @@ Result<ImportPlan> DataTransfer::preview(const QString& path,bool snapshot)
         if(error.error!=QJsonParseError::NoError || !json.isObject())return invalid<ImportPlan>();root=json.object();
     }
     if(root.value(QStringLiteral("format")).toString()!=QStringLiteral("daymark") || root.value(QStringLiteral("formatVersion")).toDouble(-1)!=1
-       || root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=1 || !root.value(QStringLiteral("tables")).isObject())return invalid<ImportPlan>();
+       || (root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=1 && root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=2) || !root.value(QStringLiteral("tables")).isObject())return invalid<ImportPlan>();
     const auto data=root.value(QStringLiteral("tables")).toObject();
     auto keys=data.keys();auto expected=tables;keys.sort();expected.sort();if(keys!=expected)return invalid<ImportPlan>();
     int rows=0;for(const auto& table:tables){if(!data.value(table).isArray())return invalid<ImportPlan>();rows+=data.value(table).toArray().size();if(rows>100000)return invalid<ImportPlan>();}
@@ -87,7 +87,7 @@ Result<ImportPlan> DataTransfer::preview(const QString& path,bool snapshot)
 }
 Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& root,bool replace,bool validateOnly)
 {
-    if(root.value(QStringLiteral("format")).toString()!=QStringLiteral("daymark") || root.value(QStringLiteral("formatVersion")).toDouble(-1)!=1 || root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=1)return invalid<ImportOutcome>();
+    if(root.value(QStringLiteral("format")).toString()!=QStringLiteral("daymark") || root.value(QStringLiteral("formatVersion")).toDouble(-1)!=1 || (root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=1 && root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=2))return invalid<ImportOutcome>();
     const auto tableData=root.value(QStringLiteral("tables")).toObject();auto keys=tableData.keys();auto expected=tables;keys.sort();expected.sort();if(keys!=expected)return invalid<ImportOutcome>();
     for(const auto& table:tables)if(!tableData.value(table).isArray())return invalid<ImportOutcome>();
     if(root.contains(QStringLiteral("settings"))) {
@@ -108,7 +108,8 @@ Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& ro
         QStringList columns,types;while(q.next()){columns<<q.value(1).toString();types<<q.value(2).toString();}q.finish();
         QSet<QString> seen;
         for(const auto& value:data.value(table).toArray()) {
-            if(!value.isObject())return fail();const auto row=value.toObject();
+            if(!value.isObject())return fail();auto row=value.toObject();
+            if(root.value(QStringLiteral("schemaVersion")).toInt()==1 && table==QStringLiteral("areas") && !row.contains(QStringLiteral("archived")))row.insert(QStringLiteral("archived"),0);
             auto keys=row.keys();auto expected=columns;keys.sort();expected.sort();if(keys!=expected)return fail();
             if(table==QStringLiteral("recurrence_templates")) {
                 const auto frequency=row.value(QStringLiteral("frequency")).toString();

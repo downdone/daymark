@@ -2,9 +2,9 @@
 
 Windows/macOS离线任务管理与日历应用，C++20 + **Qt 6.10.2 / Qt Quick** + SQLite。
 
-v0.1本地版已实现离线任务、项目/领域/标签/清单、Today/今晚与排序、月/周日历、基础重复和提醒、托盘与桌面组件、主题设置，以及JSON导入导出/快照恢复/每日备份。
+当前目标为 **1.0.0-rc.1 Windows V1候选版**：在v0.1离线任务、组织、日历、重复提醒、桌面组件和数据保护基础上，补齐响应式详情、批量事务操作、历史/搜索增强、领域归档、导航和Windows启动设置。逐项范围见[需求审计](docs/v1-feature-matrix.md)。
 
-本轮按用户最新要求先交付本地Windows版本，未推送GitHub。macOS、真实OS穿透/多屏/层级/焦点和8h稳定性保持UNVERIFIED，UI目标仍需完整体验验收。操作说明见[使用指南](docs/user-guide.md)、[发行说明](docs/release-notes-v0.1.md)。
+用户已确认暂缺macOS环境，先交付本地Windows候选版本，未推送GitHub。macOS、真实OS穿透/多屏/层级/焦点和8h稳定性保持UNVERIFIED，UI目标仍需完整体验验收。操作说明见[使用指南](docs/user-guide.md)、[候选版说明](docs/release-notes-v1-rc.md)；[v0.1记录](docs/release-notes-v0.1.md)保留历史范围。
 
 ## 开始开发
 

@@ -2,6 +2,7 @@
 #include <QAction>
 #include <QPainter>
 #include <QPixmap>
+#include <QMetaObject>
 
 namespace daymark {
 bool DesktopTray::notify(const QString& title,const QString& message)
@@ -21,6 +22,7 @@ DesktopTray::DesktopTray(WidgetViewModel& widget,QWindow* mainWindow,QObject* pa
     m_tray.setIcon(QIcon(pixmap));m_tray.setToolTip(QStringLiteral("Daymark"));
     const auto showMain=[this]{if(m_mainWindow){m_mainWindow->showNormal();m_mainWindow->requestActivate();}};
     m_menu.addAction(tr("打开主窗口"),this,showMain);
+    m_menu.addAction(tr("新建任务…"),this,[this,showMain]{showMain();if(m_mainWindow)QMetaObject::invokeMethod(m_mainWindow,"newTask",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));});
     m_menu.addAction(tr("显示/隐藏桌面组件"),this,[this]{m_widget.setVisible(!m_widget.visible());});
     auto* pass=m_menu.addAction(tr("鼠标穿透"));pass->setCheckable(true);
     connect(pass,&QAction::triggered,this,[this](bool checked){m_widget.setClickThrough(checked);});

@@ -1,6 +1,6 @@
 # 第三方组件与本地包说明
 
-Daymark v0.1运行时使用Qt 6.10.2：Core、Gui、Qml、Quick、QuickControls2、Widgets、Sql、Network及其QML运行模块。SQLite由Qt的QSQLITE插件提供，未引入云SDK、遥测或额外业务依赖。MinGW运行时为libgcc、libstdc++、winpthread，随本地Windows包复制所需DLL。
+Daymark v0.1及1.0.0-rc.1运行时使用Qt 6.10.2：Core、Gui、Qml、Quick、QuickControls2、Widgets、Sql、Network及其QML运行模块。SQLite由Qt的QSQLITE插件提供，未引入云SDK、遥测或额外业务依赖。MinGW运行时为libgcc、libstdc++、winpthread，随本地Windows包复制所需DLL。
 
 图标由本项目QPainter/QML绘制或使用系统字体中的基础字符，字体由操作系统提供；未复制Things、Apple字体或SF Symbols资源。
 

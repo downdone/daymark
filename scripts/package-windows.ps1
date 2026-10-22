@@ -1,6 +1,6 @@
-param([string]$Version='0.1.0')
+param([string]$Version='1.0.0-rc.1')
 $ErrorActionPreference='Stop'
-if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Version must be major.minor.patch.' }
+if ($Version -notmatch '^\d+\.\d+\.\d+(-rc\.\d+)?$') { throw 'Version must be major.minor.patch or major.minor.patch-rc.N.' }
 $projectRoot=Split-Path $PSScriptRoot -Parent
 if (!(Test-Path "$env:DAYMARK_QT/bin/windeployqt.exe")) { throw 'Set DAYMARK_QT to the matching Qt kit.' }
 $executable=Join-Path $projectRoot 'build/windows-release/bin/daymark.exe'
@@ -26,17 +26,18 @@ try {
         Copy-Item -LiteralPath $runtime -Destination $packageRoot -Force
     }
     Copy-Item -LiteralPath (Join-Path $projectRoot 'docs') -Destination $packageRoot -Recurse
-    @'
-# Daymark v0.1.0 本地验证包
+    @"
+# Daymark $Version Windows本地候选包
 
 解压后双击 daymark.exe。默认数据保存在系统应用数据目录，包内没有个人任务数据库。
 
 - [使用指南](docs/user-guide.md)
-- [发行说明和未验证项](docs/release-notes-v0.1.md)
+- [发行说明和未验证项](docs/release-notes-v1-rc.md)
 - [第三方组件/再分发边界](docs/third-party-notices.md)
 
 本包只交付本地验证，未进行GitHub发布、macOS验收或签名。
-'@ | Set-Content -LiteralPath (Join-Path $packageRoot 'README.md') -Encoding utf8
+本包部署验证结果见 BUILD-INFO.json；完整文件校验见 manifest.json。
+"@ | Set-Content -LiteralPath (Join-Path $packageRoot 'README.md') -Encoding utf8
     $bomDirectory=Join-Path $packageRoot 'qt-sbom'
     New-Item -ItemType Directory -Path $bomDirectory | Out-Null
     foreach($module in @('qtbase','qtdeclarative','qtshadertools','qtsvg')) {
@@ -65,8 +66,10 @@ QmlImports=qml
     }
     if($loaded.Count -eq 0){throw 'Could not verify deployed runtime modules.'}
     foreach($module in $loaded){if(!$module.FileName.StartsWith($packageRoot+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw "Runtime loaded outside package: $($module.ModuleName)"}}
-    if(!$process.WaitForExit(20000)){$process.Kill();throw 'Deployed smoke timed out.'}
+    if(!$process.WaitForExit(30000)){$process.Kill();throw 'Deployed smoke timed out.'}
     if($process.ExitCode -ne 0) {throw "Deployed smoke failed. Inspect $log"}
+    $sourceRevision=(& git -C $projectRoot rev-parse HEAD).Trim()
+    [ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=2;scope='Windows local release candidate';deployedNativeSmoke='PASS';runtimeModules='verified inside package';signed=$false} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
 } finally {
     if($null -ne $process -and !$process.HasExited){$process.Kill();$process.WaitForExit()}
     $env:PATH=$originalPath
