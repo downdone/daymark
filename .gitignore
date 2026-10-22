@@ -1,0 +1,14 @@
+/build/
+/dist/
+/Testing/
+/CMakeUserPresets.json
+/.qt/
+/.idea/
+/.vscode/
+*.user
+*.db
+*.db-wal
+*.db-shm
+*.sqlite*
+*.log
+.DS_Store

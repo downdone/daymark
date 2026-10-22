@@ -1,0 +1,37 @@
+# 文档导航
+
+## 阅读顺序
+
+1. [项目入口](../README.md) → [进度](PROGRESS.md)：先确认实际代码和当前任务。
+2. [产品规格](01_PRODUCT_SPEC.md) → [技术基线](02_TECHNICAL_DESIGN.md) → [原始实施计划](03_IMPLEMENTATION_PLAN.md)：需求及验收基线。
+3. [工程方法](engineering.md) → [工程原则](principles.md)：人与 AI 使用同一开发纪律。
+4. [当前详细设计](design/architecture.md) → [模块契约](design/contracts.md) → [界面设计](design/ui.md)。
+   UI修改另必读：[官方调研](design/ui-research.md) → [UI/UX设计基准](design/ui-baseline.md) → [验收与迁移](design/ui-acceptance.md)。
+5. [里程碑及任务队列](milestones.md)：依赖、下一批切片、阶段门禁。
+6. [环境与构建](environment.md) → [验证记录](verification-report.md) → [平台矩阵](platform-test-matrix.md)。
+
+实际使用参阅[v0.1使用说明](user-guide.md)、[发行说明](release-notes-v0.1.md)与[第三方记录](third-party-notices.md)。
+
+本轮核心能力实现与本地发行见 [v0.1交付设计](design/release-v0.1.md)。实际验证仍以PROGRESS及验证报告为准。
+
+## 文档归属
+
+| 事实 | 唯一归属 |
+|---|---|
+| 用户行为、功能范围、需求 ID | PRD |
+| 原始工程约束、SQL 建议和接口基线 | TDD |
+| 当前模块、线程与接口细节 | design/ |
+| 原则及开发流程 | principles.md、engineering.md |
+| 任务依赖与验收拆分 | milestones.md |
+| 当前状态与进行中项 | PROGRESS.md |
+| 实际执行结果 | verification-report.md、platform-test-matrix.md |
+| 工程决策及已接受偏差 | [ADR 索引](ADR/README.md) |
+| 单项任务记录模板 | [任务模板](templates/task.md) |
+| W-01实施及人工验收步骤 | [窗口控制任务](tasks/W-01.md) |
+| 基础任务纵向切片设计 | [BASIC-01](design/basic-tasks.md) |
+| 基础功能交付与用例索引 | [BASIC-01记录](tasks/BASIC-01.md) |
+| Things/Apple参考事实与来源 | [UI调研](design/ui-research.md) |
+| 项目UI目标、布局、token、交互 | [UI/UX设计基准](design/ui-baseline.md) |
+| UX-01～14验收、UI实施顺序 | [UI验收](design/ui-acceptance.md) |
+
+原始三个编号文档保留，不为迎合实现删除需求；用户已指定的 Qt 版本选择见 ADR-007。冲突按 PRD 产品行为、TDD 工程约束、Plan 顺序裁决。未解决的冲突不得自动当作需求放弃。
