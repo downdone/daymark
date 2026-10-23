@@ -8,7 +8,7 @@ T.Menu {
         let widest=180*DesignTokens.scale
         for(let i=0;i<count;i++) {
             const item=itemAt(i)
-            if(item)widest=Math.max(widest,item.implicitWidth+leftPadding+rightPadding)
+            if(item && item.visible)widest=Math.max(widest,item.implicitWidth+leftPadding+rightPadding)
         }
         return widest
     }

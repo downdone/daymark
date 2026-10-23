@@ -1,3 +1,20 @@
+# UI-10 · 单一任务编辑面板验证（2026-10-23）
+
+Windows11 x64、Qt6.10.2、MinGW13.1；schema仍3。所有自动测试/合成数据使用QTemporaryDir，没有访问用户任务库。
+
+| 检查 | 结果 | 实际覆盖 |
+|---|---|---|
+| Debug构建/CTest | PASS，14/14，25.74秒 | 标题/备注/归属/标签/清单一份TaskPatch提交、仅推进一个版本；错误提醒/日期/标签、陈旧版本零修改、重启一致 |
+| Release构建/CTest | PASS，14/14，25.57秒 | 同上；分组投影与原查询/导入备份/事件回归 |
+| 应用/样式QML lint | PASS，无警告 | Pane、完整字段、固定section角色、菜单隐藏项高度 |
+| Windows原生148阶段合成检查 | PASS，退出0、2窗口、warnings=false | 窄窗非模态主内容页、宽窗并排，未提交清单与标题一起保存；非法提醒保留全部草稿，取消/放弃导航不误写 |
+| 长备注/大字/菜单 | PASS，所检布局 | 24行备注自然增高；面板仅1个可见Flickable，清单输入焦点可见；880/1440往返及200%，隐藏菜单项高度0、有效项连续无空行 |
+| 文档与diff | PASS | 45份Markdown本地链接、git diff --check |
+
+最终截图位于build/ui10-settled-screens：unified-fields/page/page-200/wide/error及task-menu。布局重排后等待渲染与16ms焦点调度稳定再检查；offscreen没有活动窗口焦点，仅显式验证滚动目标，Windows后端验证真实QQuick焦点。QMetaObject/QKeyEvent仍为合成输入，不替代物理鼠标键盘、IME、读屏与真实用户测试。
+
+修复过程：原生曾在Qt Quick列表分组路径崩溃；改为模型提供固定viewSection角色、避免隐藏列表切视图时重设section.property，最终原生流程通过。另修正文高度变化后焦点调度过早、清单焦点目标短暂失活丢失、右侧滚动条定位。全部旧包和用户进程保留；macOS、读屏/IME、干净机、多屏/睡眠/8小时仍UNVERIFIED。SDK隔离部署及最终包以PROGRESS为准。
+
 # UI-09 · 详情、日期与菜单精修验证（2026-10-23）
 
 Windows11 x64 / Qt6.10.2 / MinGW13.1，版本仍1.0.0-rc.2、schema3。全部业务和UI探针使用QTemporaryDir，没有触碰真实任务库。

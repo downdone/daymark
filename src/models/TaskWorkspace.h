@@ -17,18 +17,19 @@ class TaskListModel : public QAbstractListModel {
     QML_UNCREATABLE("Owned by TaskWorkspace")
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 public:
-    enum Role { Id=Qt::UserRole+1, Title, Notes, Done, Status, StartOn, DeadlineOn, Focus, Version, Overdue, Evening, ProjectName, TagSummary, Section, HeadingTitle, ChecklistPending, ContextGroup, InToday };
+    enum Role { Id=Qt::UserRole+1, Title, Notes, Done, Status, StartOn, DeadlineOn, Focus, Version, Overdue, Evening, ProjectName, TagSummary, Section, HeadingTitle, ChecklistPending, ContextGroup, InToday, ViewSection };
     using QAbstractListModel::QAbstractListModel;
     int rowCount(const QModelIndex& parent={}) const override { return parent.isValid()?0:m_tasks.size(); }
     QVariant data(const QModelIndex& index,int role) const override;
     QHash<int,QByteArray> roleNames() const override;
-    void replace(const QList<Task>& tasks,const QDate& today);
+    void replace(const QList<Task>& tasks,const QDate& today,int groupRole=0);
     static QVariantMap taskMap(const Task& task);
 signals:
     void countChanged();
 private:
     QList<Task> m_tasks;
     QDate m_today;
+    int m_groupRole=0;
 };
 
 class TaskWorker;
@@ -138,6 +139,8 @@ public:
     Q_INVOKABLE bool createTask(const QString& title);
     Q_INVOKABLE bool saveTask(const QString& id,qint64 version,const QString& title,const QString& notes,
                              const QString& planning,const QString& start,const QString& deadline,bool focus);
+    Q_INVOKABLE bool saveTaskWithDetails(const QString& id,qint64 version,const QString& title,const QString& notes,
+                                        const QString& planning,const QString& start,const QString& deadline,bool focus,const QVariantMap& details);
     Q_INVOKABLE bool changeState(const QString& id,qint64 version,const QString& action);
     Q_INVOKABLE bool batchTasks(const QVariantList& selection,const QString& action,const QString& value);
     int historyDays()const{return m_historyDays;}
@@ -159,6 +162,7 @@ signals:
     void operationFinished(const QString& operation,bool success);
     void reminderReady(const QString& title,const QString& message);
 private:
+    bool appendDetailsPatch(const QString& id,const QVariantMap& details,TaskPatch& patch);
     bool begin();
     QVariantMap eventMap(const CalendarEvent& event) const;
     void refresh();

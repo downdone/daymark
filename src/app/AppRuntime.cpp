@@ -153,6 +153,70 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
+            } else if(phase>=132) {
+                auto* extra=mainWindow->findChild<QObject*>(QStringLiteral("taskDetailsFields"));
+                auto* newStep=mainWindow->findChild<QQuickItem*>(QStringLiteral("editorNewChecklistItem"));
+                auto* reminder=mainWindow->findChild<QObject*>(QStringLiteral("editorReminder"));
+                auto* save=mainWindow->findChild<QObject*>(QStringLiteral("saveTaskEditor"));
+                auto* scroll=mainWindow->findChild<QQuickItem*>(QStringLiteral("taskEditorScroll"));
+                auto* notes=mainWindow->findChild<QObject*>(QStringLiteral("editTaskNotes"));
+                if(!extra || !newStep || !reminder || !save || !scroll || !notes){fail("unified editor objects");return;}
+                auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
+                auto open=[&]{return QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));};
+                auto click=[&](const char* name){auto* button=mainWindow->findChild<QObject*>(QString::fromLatin1(name));return button && QMetaObject::invokeMethod(button,"clicked");};
+                auto navigate=[&]{QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("anytime"))));};
+                auto* flick=qvariant_cast<QObject*>(scroll->property("contentItem"));
+                const auto rowName=QStringLiteral("taskRow-")+secondId;
+                std::function<QQuickItem*(QQuickItem*)> findRow=[&](QQuickItem* item)->QQuickItem*{if(!item)return nullptr;if(item->objectName()==rowName)return item;for(auto* child:item->childItems())if(auto* found=findRow(child))return found;return nullptr;};
+                if(phase==132){m_workspace.setView(QStringLiteral("inbox"));m_workspace.createTask(QStringLiteral("统一编辑原始"));}
+                else if(phase==133){
+                    secondId=m_workspace.tasks()->data(m_workspace.tasks()->index(0),TaskListModel::Id).toString();
+                    if(secondId.isEmpty() || !open()){fail("unified editor open");return;}
+                    editTitle->setProperty("text",QStringLiteral("统一编辑完成"));newStep->setProperty("text",QStringLiteral("步骤 A"));QMetaObject::invokeMethod(newStep,"textEdited");
+                    reminder->setProperty("text",QStringLiteral("invalid"));QMetaObject::invokeMethod(save,"clicked");
+                } else if(phase==134){
+                    const auto task=m_workspace.task(secondId);
+                    if(!editor->property("visible").toBool() || m_workspace.errorText().isEmpty() || task.value(QStringLiteral("title")).toString()!=QStringLiteral("统一编辑原始") || !task.value(QStringLiteral("checklist")).toList().isEmpty() || editTitle->property("text").toString()!=QStringLiteral("统一编辑完成")){fail("unified failed save preserves all drafts");return;}
+                    if(!capture(QStringLiteral("unified-error"))){fail("fixed editor error");return;}
+                    reminder->setProperty("text",QString());QMetaObject::invokeMethod(save,"clicked");
+                } else if(phase==135){
+                    const auto task=m_workspace.task(secondId);
+                    if(editor->property("visible").toBool() || task.value(QStringLiteral("title")).toString()!=QStringLiteral("统一编辑完成") || task.value(QStringLiteral("checklist")).toList().size()!=1 || task.value(QStringLiteral("rowVersion")).toLongLong()!=2){fail("unified atomic UI save");return;}
+                    open();newStep->setProperty("text",QStringLiteral("取消后的草稿"));QMetaObject::invokeMethod(newStep,"textEdited");navigate();
+                } else if(phase==136){if(!click("cancelLeave")){fail("unified cancel navigation");return;}}
+                else if(phase==137){if(!editor->property("visible").toBool() || newStep->property("text").toString()!=QStringLiteral("取消后的草稿")){fail("unified checklist draft retained");return;}navigate();}
+                else if(phase==138){if(!click("discardDraft")){fail("unified discard navigation");return;}}
+                else if(phase==139){
+                    if(editor->property("visible").toBool() || m_workspace.task(secondId).value(QStringLiteral("checklist")).toList().size()!=1){fail("unified discard zero mutation");return;}
+                    m_workspace.setView(QStringLiteral("inbox"));open();notes->setProperty("text",QStringLiteral("长备注验证，单一滚动轴。\n").repeated(24));QMetaObject::invokeMethod(newStep,"forceActiveFocus");
+                } else if(phase>=140 && phase<=143){
+                    // Allow one rendered layout and the focus-follow timer to settle
+                    // before inspecting text-scale/viewport-dependent geometry.
+                    static int renderedPhase=-1;
+                    static int settledFrames=0;
+                    mainWindow->grabWindow();
+                    if(renderedPhase!=phase){renderedPhase=phase;settledFrames=0;return;}
+                    if(++settledFrames<3)return;
+                    // The offscreen plugin has no active window/focus item. Exercise the
+                    // scroll target directly there; Windows verifies real QQuick focus.
+                    if(QGuiApplication::platformName()==QStringLiteral("offscreen"))
+                        QMetaObject::invokeMethod(mainWindow,"ensureEditorFocus",Q_ARG(QVariant,QVariant::fromValue(newStep)));
+                    int scrollingBodies=0;
+                    std::function<void(QQuickItem*)> countBodies=[&](QQuickItem* item){if(!item || !item->isVisible())return;if(item->inherits("QQuickFlickable"))++scrollingBodies;for(auto* child:item->childItems())countBodies(child);};
+                    countBodies(qobject_cast<QQuickItem*>(editor));
+                    const auto fieldTop=newStep->mapToScene(QPointF(0,0)).y();const auto viewportTop=scroll->mapToScene(QPointF(0,0)).y();
+                    if(scrollingBodies!=1 || !flick || flick->property("contentHeight").toDouble()<=flick->property("height").toDouble() || fieldTop<viewportTop-1 || fieldTop+newStep->height()>viewportTop+scroll->height()+1){qCritical()<<"phase"<<phase<<"bodies"<<scrollingBodies<<"top"<<fieldTop<<viewportTop<<"scroll"<<flick->property("contentY")<<flick->property("contentHeight")<<flick->property("height")<<"focus"<<mainWindow->activeFocusItem()<<newStep->hasActiveFocus();fail("single editor scroll and visible keyboard focus");return;}
+                    if(phase==140){if(!capture(QStringLiteral("unified-fields"))){fail("unified fields capture");return;}mainWindow->resize(880,580);}
+                    else if(phase==141){if(!capture(QStringLiteral("unified-page"))){fail("unified page capture");return;}m_workspace.setTextScale(2);}
+                    else if(phase==142){if(!capture(QStringLiteral("unified-page-200"))){fail("large unified page capture");return;}m_workspace.setTextScale(1);mainWindow->resize(1440,900);}
+                    else {if(!capture(QStringLiteral("unified-wide"))){fail("wide unified capture");return;}mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");mainWindow->resize(1120,720);auto* list=mainWindow->findChild<QObject*>(QStringLiteral("taskList"));if(list){QMetaObject::invokeMethod(list,"positionViewAtBeginning");QMetaObject::invokeMethod(list,"forceLayout");}}
+                } else if(phase==144){auto* row=findRow(mainWindow->contentItem());if(!row || !QMetaObject::invokeMethod(row,"openVerificationMenu")){fail("task row menu open");return;}}
+                else if(phase==145){
+                    auto* row=findRow(mainWindow->contentItem());QVariant result;
+                    if(!row || !QMetaObject::invokeMethod(row,"verifyMenuSpacing",Q_RETURN_ARG(QVariant,result)) || result.toString()!=QStringLiteral("PASS")){qCritical()<<result;fail("hidden task menu items leave no gaps");return;}
+                    if(!screenshotPath.isEmpty())for(auto* window:QGuiApplication::allWindows())if(auto* popup=qobject_cast<QQuickWindow*>(window);popup && popup!=mainWindow && popup->isVisible() && popup->objectName()!=QStringLiteral("widgetWindow"))if(!popup->grabWindow().save(screenshotPath+QStringLiteral(".task-menu.png"))){fail("task menu capture");return;}
+                    QMetaObject::invokeMethod(row,"closeVerificationMenu");
+                } else if(phase==146)m_workspace.setView(QStringLiteral("today"));
             } else if(phase>=112) {
                 auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
                 auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
@@ -378,7 +442,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(!docked || editor->property("modal").toBool() || content->width()<439.5 || !capture(QStringLiteral("docked-1120"))){qCritical()<<"Layout dimensions"<<mainWindow->size()<<content->width()<<docked<<editor->property("modal");fail("docked layout");return;}
                     mainWindow->resize(880,580);
                 } else if(phase==29) {
-                    if(docked || !editor->property("modal").toBool() || editTitle->property("text").toString()!=QStringLiteral("待保留草稿") || !capture(QStringLiteral("overlay-880"))){fail("narrow preserves draft");return;}
+                    if(docked || content->isVisible() || editTitle->property("text").toString()!=QStringLiteral("待保留草稿") || !capture(QStringLiteral("page-880"))){fail("narrow page preserves draft");return;}
                     mainWindow->resize(1440,900);
                 } else if(phase==30) {
                     if(!docked || editTitle->property("text").toString()!=QStringLiteral("待保留草稿") || !capture(QStringLiteral("docked-1440")) || !invoke("openEditor",secondId)){fail("wide task navigation");return;}
@@ -417,13 +481,13 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(!docked || content->width()<439.5 || !capture(QStringLiteral("docked-200"))){qCritical()<<"Layout dimensions"<<mainWindow->size()<<content->width()<<docked;fail("large text docked");return;}
                     mainWindow->resize(880,580);
                 } else if(phase==44) {
-                    if(docked || !editor->property("modal").toBool() || !capture(QStringLiteral("overlay-200"))){fail("large text overlay");return;}
+                    if(docked || content->isVisible() || !capture(QStringLiteral("page-200"))){fail("large text page");return;}
                     m_workspace.setTextScale(1.0);mainWindow->resize(1120,720);
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
             ++phase;
-            if(phase<132)return;
+            if(phase<148)return;
             int visibleWindows = 0;
             for (auto* window : QGuiApplication::allWindows()) {
                 if (qobject_cast<QQuickWindow*>(window) && window->isVisible()

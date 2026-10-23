@@ -33,5 +33,6 @@ QtObject {
     readonly property int gap: DS.DesignTokens.gap
     readonly property int fieldGap: DS.DesignTokens.fieldGap
     readonly property int panelPadding: DS.DesignTokens.panelPadding
+    readonly property int panelRadius: DS.DesignTokens.panelRadius
     readonly property int pagePadding: DS.DesignTokens.pagePadding
 }

@@ -9,6 +9,39 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void unifiedEditorCommitsOneVersionOrNothing() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("unified.sqlite")));QTRY_VERIFY(!w.busy());QVERIFY(w.ready());
+        QVERIFY(w.createTask(QStringLiteral("original")));QTRY_VERIFY(!w.busy());
+        const auto id=w.tasks()->data(w.tasks()->index(0),TaskListModel::Id).toString();const auto initial=w.task(id);
+        QVERIFY(w.saveCatalog({{"kind",QStringLiteral("project")},{"title",QStringLiteral("project")}}));QTRY_VERIFY(!w.busy());
+        const auto project=w.catalogOf(QStringLiteral("project")).first().toMap().value(QStringLiteral("id")).toString();
+        QVERIFY(w.saveCatalog({{"kind",QStringLiteral("tag")},{"title",QStringLiteral("tag")}}));QTRY_VERIFY(!w.busy());
+        const auto tag=w.catalogOf(QStringLiteral("tag")).first().toMap().value(QStringLiteral("id")).toString();
+        QVariantMap details{{"projectId",project},{"areaId",QString()},{"headingId",QString()},{"tagIds",QStringList{tag}},
+            {"checklist",QVariantList{QVariantMap{{"id",QString()},{"title",QStringLiteral("step")},{"done",true}}}},{"remindAtLocal",QString()}};
+        const auto version=initial.value(QStringLiteral("rowVersion")).toLongLong();
+        QVERIFY(w.saveTaskWithDetails(id,version,QStringLiteral("together"),QStringLiteral("notes"),QStringLiteral("ACTIVE"),w.dateOffset(0),w.dateOffset(2),false,details));
+        QTRY_VERIFY(!w.busy());QVERIFY(w.errorText().isEmpty());const auto saved=w.task(id);
+        QCOMPARE(saved.value(QStringLiteral("rowVersion")).toLongLong(),version+1);QCOMPARE(saved.value(QStringLiteral("title")).toString(),QStringLiteral("together"));
+        QCOMPARE(saved.value(QStringLiteral("projectId")).toString(),project);QCOMPARE(saved.value(QStringLiteral("tagIds")).toStringList(),QStringList{tag});
+        QCOMPARE(saved.value(QStringLiteral("checklist")).toList().size(),1);QVERIFY(saved.value(QStringLiteral("checklist")).toList().first().toMap().value(QStringLiteral("done")).toBool());
+        const auto currentVersion=saved.value(QStringLiteral("rowVersion")).toLongLong();
+        auto invalid=details;invalid.insert(QStringLiteral("remindAtLocal"),QStringLiteral("invalid"));
+        QVERIFY(!w.saveTaskWithDetails(id,currentVersion,QStringLiteral("must not change"),QString(),QStringLiteral("ACTIVE"),w.dateOffset(0),w.dateOffset(2),false,invalid));QCOMPARE(w.task(id),saved);
+        QVERIFY(w.saveTaskWithDetails(id,currentVersion,QStringLiteral("must not change"),QString(),QStringLiteral("ACTIVE"),QStringLiteral("2026-02-31"),w.dateOffset(2),false,details));QTRY_VERIFY(!w.busy());QCOMPARE(w.task(id),saved);
+        invalid=details;invalid.insert(QStringLiteral("tagIds"),QStringList{QStringLiteral("missing")});
+        QVERIFY(w.saveTaskWithDetails(id,currentVersion,QStringLiteral("must not change"),QString(),QStringLiteral("ACTIVE"),w.dateOffset(0),w.dateOffset(2),false,invalid));QTRY_VERIFY(!w.busy());QCOMPARE(w.task(id),saved);
+        QVERIFY(w.saveTaskWithDetails(id,version,QStringLiteral("stale"),QString(),QStringLiteral("ACTIVE"),w.dateOffset(0),w.dateOffset(2),false,details));QTRY_VERIFY(!w.busy());QCOMPARE(w.task(id),saved);
+        w.reload();QTRY_VERIFY(!w.busy());QCOMPARE(w.task(id),saved);
+        for(const auto& view:{QStringLiteral("today"),QStringLiteral("anytime"),QStringLiteral("inbox"),QStringLiteral("upcoming")}) {
+            w.setView(view);
+            for(int row=0;row<w.tasks()->rowCount();++row) {
+                const auto index=w.tasks()->index(row);
+                const int role=view==QStringLiteral("today") ? TaskListModel::Section : view==QStringLiteral("anytime") ? TaskListModel::ContextGroup : view==QStringLiteral("upcoming") ? TaskListModel::StartOn : 0;
+                QCOMPARE(w.tasks()->data(index,TaskListModel::ViewSection).toString(),role ? w.tasks()->data(index,role).toString() : QString());
+            }
+        }
+    }
     void localEventsCalendarAndRelationsPersist() {
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("calendar.sqlite"));QString taskId,eventId;
         {

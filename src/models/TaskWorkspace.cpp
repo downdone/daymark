@@ -21,12 +21,13 @@ namespace daymark {
 QHash<int,QByteArray> TaskListModel::roleNames() const
 { return {{Id,"taskId"},{Title,"title"},{Notes,"notes"},{Done,"isDone"},{Status,"taskStatus"},{StartOn,"startOn"},
           {DeadlineOn,"deadlineOn"},{Focus,"todayFocus"},{Version,"rowVersion"},{Overdue,"isOverdue"},
-          {Evening,"evening"},{ProjectName,"projectName"},{TagSummary,"tagSummary"},{Section,"taskSection"},{HeadingTitle,"headingTitle"},{ChecklistPending,"checklistPending"},{ContextGroup,"contextGroup"},{InToday,"inToday"}}; }
+          {Evening,"evening"},{ProjectName,"projectName"},{TagSummary,"tagSummary"},{Section,"taskSection"},{HeadingTitle,"headingTitle"},{ChecklistPending,"checklistPending"},{ContextGroup,"contextGroup"},{InToday,"inToday"},{ViewSection,"viewSection"}}; }
 QVariant TaskListModel::data(const QModelIndex& index,int role) const
 {
     if(!index.isValid() || index.row()<0 || index.row()>=m_tasks.size()) return {};
     const auto& t=m_tasks[index.row()];
     switch(role) {
+    case ViewSection:return m_groupRole ? data(index,m_groupRole) : QVariant(QString());
     case Id:return t.id; case Title:return t.title; case Notes:return t.notes; case Done:return t.status!=QStringLiteral("OPEN");
     case Status:return t.status; case StartOn:return t.startOn?t.startOn->toString(Qt::ISODate):QString();
     case DeadlineOn:return t.deadlineOn?t.deadlineOn->toString(Qt::ISODate):QString(); case Focus:return t.todayFocus;
@@ -53,8 +54,9 @@ QVariantMap TaskListModel::taskMap(const Task& t)
             {"createdAtUtc",t.createdAtUtc},{"updatedAtUtc",t.updatedAtUtc},{"completedAtUtc",t.completedAtUtc},{"recurrenceId",t.recurrenceId},
             {"checklist",[&]{QVariantList list;for(const auto& item:t.checklist)list.append(QVariantMap{{"id",item.id},{"title",item.title},{"done",item.done}});return list;}()}};
 }
-void TaskListModel::replace(const QList<Task>& tasks,const QDate& today)
+void TaskListModel::replace(const QList<Task>& tasks,const QDate& today,int groupRole)
 {
+    const bool groupingChanged=m_groupRole!=groupRole;m_groupRole=groupRole;
     const auto oldToday=m_today; m_today=today;
     QSet<QString> incomingIds;
     for(const auto& task:tasks)incomingIds.insert(task.id);
@@ -70,7 +72,7 @@ void TaskListModel::replace(const QList<Task>& tasks,const QDate& today)
         if(found==m_tasks.size()) { beginInsertRows({},i,i);m_tasks.insert(i,tasks[i]);endInsertRows(); }
         else {
             if(found!=i) { beginMoveRows({},found,found,{},i);m_tasks.move(found,i);endMoveRows(); }
-            if(m_tasks[i]!=tasks[i] || oldToday!=today) { m_tasks[i]=tasks[i];emit dataChanged(index(i),index(i)); }
+            if(m_tasks[i]!=tasks[i] || oldToday!=today || groupingChanged) { m_tasks[i]=tasks[i];emit dataChanged(index(i),index(i)); }
         }
     }
     emit countChanged();
@@ -182,7 +184,8 @@ void TaskWorkspace::reload()
 void TaskWorkspace::refresh()
 {
     m_taskIndex.clear();for(const auto& task:m_cache)m_taskIndex.insert(task.id,task);
-    m_tasks.replace(QueryService::select(m_cache,m_view,m_today,m_search,m_includeCompleted,m_tagFilter,m_upcomingDays,m_historyDays,m_projectFilter),m_today);
+    const int groupRole=m_view==QStringLiteral("today") ? TaskListModel::Section : m_view==QStringLiteral("upcoming") ? TaskListModel::StartOn : m_view.startsWith(QStringLiteral("project:")) ? TaskListModel::HeadingTitle : m_view==QStringLiteral("anytime") ? TaskListModel::ContextGroup : 0;
+    m_tasks.replace(QueryService::select(m_cache,m_view,m_today,m_search,m_includeCompleted,m_tagFilter,m_upcomingDays,m_historyDays,m_projectFilter),m_today,groupRole);
     m_todayTasks.replace(QueryService::select(m_cache,QStringLiteral("today"),m_today),m_today);
     m_deadlineTasks.replace(QueryService::select(m_cache,QStringLiteral("deadlines"),m_today,{},false,{},m_upcomingDays),m_today);
 }
@@ -231,6 +234,9 @@ bool TaskWorkspace::createTask(const QString& title)
 }
 bool TaskWorkspace::saveTask(const QString& id,qint64 version,const QString& title,const QString& notes,
                              const QString& planning,const QString& start,const QString& deadline,bool focus)
+{ return saveTaskWithDetails(id,version,title,notes,planning,start,deadline,focus,{}); }
+bool TaskWorkspace::saveTaskWithDetails(const QString& id,qint64 version,const QString& title,const QString& notes,
+                                      const QString& planning,const QString& start,const QString& deadline,bool focus,const QVariantMap& details)
 {
     TaskPatch patch;patch.title=FieldPatch<QString>::set(title);patch.notes=FieldPatch<QString>::set(notes);
     patch.planningState=FieldPatch<QString>::set(planning);patch.todayFocus=FieldPatch<bool>::set(focus);
@@ -242,6 +248,7 @@ bool TaskWorkspace::saveTask(const QString& id,qint64 version,const QString& tit
         return FieldPatch<QDate>::set(date);
     };
     patch.startOn=parse(start);patch.deadlineOn=parse(deadline);
+    if(!appendDetailsPatch(id,details,patch))return false;
     const bool movedToToday=focus && !start.isEmpty() && QDate::fromString(start,Qt::ISODate)>m_today && planning!=QStringLiteral("SOMEDAY");
     const bool accepted=runTask(QStringLiteral("save"),[id,version,patch](TaskWorker& w){
         return w.service->edit(id,version,patch);
@@ -391,6 +398,11 @@ bool TaskWorkspace::moveCatalog(const QString& kind,const QString& id,qint64 ver
 bool TaskWorkspace::saveDetails(const QString& id,qint64 version,const QVariantMap& details)
 {
     TaskPatch patch;
+    if(!appendDetailsPatch(id,details,patch))return false;
+    return runTask(QStringLiteral("details"),[id,version,patch](TaskWorker& w){return w.service->edit(id,version,patch);});
+}
+bool TaskWorkspace::appendDetailsPatch(const QString& id,const QVariantMap& details,TaskPatch& patch)
+{
     auto stringField=[&](const char* key,FieldPatch<QString>& field){if(details.contains(QLatin1String(key)))field=FieldPatch<QString>::set(details.value(QLatin1String(key)).toString());};
     stringField("projectId",patch.projectId);stringField("areaId",patch.areaId);stringField("headingId",patch.headingId);stringField("remindAtUtc",patch.remindAtUtc);
     if(details.contains(QStringLiteral("remindAtLocal")) && details.value(QStringLiteral("remindAtLocal")).toString().trimmed()!=localReminder(task(id).value(QStringLiteral("remindAtUtc")).toString())) {
@@ -413,7 +425,7 @@ bool TaskWorkspace::saveDetails(const QString& id,qint64 version,const QVariantM
         for(const auto& value:details.value(QStringLiteral("checklist")).toList()) {const auto item=value.toMap();items.append({item.value(QStringLiteral("id")).toString(),item.value(QStringLiteral("title")).toString(),item.value(QStringLiteral("done")).toBool(),items.size()});}
         patch.checklist=FieldPatch<QList<ChecklistItem>>::set(items);
     }
-    return runTask(QStringLiteral("details"),[id,version,patch](TaskWorker& w){return w.service->edit(id,version,patch);});
+    return true;
 }
 
 QVariantList TaskWorkspace::calendarDays() const

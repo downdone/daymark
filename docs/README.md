@@ -26,6 +26,8 @@ CAL-01/02的追加行为见 [FR-019](01_PRODUCT_SPEC.md)、[ADR-013](ADR/013-loc
 
 任务详情、Today工具区、可编辑日期及组件菜单精修见 [UI-09设计](design/ui-detail-refinement.md)。
 
+统一任务编辑面板及单一草稿/滚动契约见 [UI-10设计](design/unified-task-editor.md)。
+
 ## 文档归属
 
 | 事实 | 唯一归属 |

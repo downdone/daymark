@@ -4,6 +4,19 @@ import QtQuick.Controls
 import QtQuick.Layouts
 ItemDelegate {
     id: root
+    objectName: "taskRow-"+taskId
+    function openVerificationMenu() {menu.open()}
+    function closeVerificationMenu() {menu.close()}
+    function verifyMenuSpacing() {
+        let bottom=0
+        for(let i=0;i<menu.count;i++) {
+            const item=menu.itemAt(i)
+            if(!item.visible) {if(item.height>0.5)return "hidden item height="+item.height;continue}
+            if(Math.abs(item.y-bottom)>1)return "gap at item "+i+": "+item.y+" vs "+bottom
+            bottom=item.y+item.height
+        }
+        return Math.abs(menu.height-bottom-menu.topPadding-menu.bottomPadding)<1 ? "PASS" : "menu height"
+    }
     required property string taskId
     required property string title
     required property string startOn
