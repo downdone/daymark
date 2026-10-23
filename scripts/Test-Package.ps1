@@ -4,17 +4,24 @@ param(
     [string]$ReportParent=[IO.Path]::GetTempPath()
 )
 $ErrorActionPreference='Stop'
+if(!$IsWindows){throw 'This verifier requires Windows and PowerShell 7.'}
 Import-Module (Join-Path $PSScriptRoot 'PackageValidation.psm1') -Force
 $package=Assert-DaymarkPackage $PackageDirectory
 $prefix=$package.root.TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
 $reportParentPath=(Get-Item -LiteralPath $ReportParent).FullName
 if($reportParentPath -ieq $package.root -or $reportParentPath.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)){throw 'Reports must be outside the package.'}
+$reportAncestor=Get-Item -LiteralPath $reportParentPath -Force
+while($null -ne $reportAncestor) {
+    if($reportAncestor.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Report path cannot traverse a reparse point.'}
+    $reportAncestor=$reportAncestor.Parent
+}
 $output=Join-Path $reportParentPath ('daymark-package-check-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $output | Out-Null
 $environmentNames=@('PATH','QT_QPA_PLATFORM','QT_PLUGIN_PATH','QT_QPA_PLATFORM_PLUGIN_PATH','QML_IMPORT_PATH','QML2_IMPORT_PATH','QT_CONF_PATH')
 $saved=@{};foreach($name in $environmentNames){$saved[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
 $process=$null;$passed=$false;$failure=$null
 $observed=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$systemModules=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 $deployedNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach($path in $package.files.Keys){if($path.EndsWith('.dll',[StringComparison]::OrdinalIgnoreCase)){[void]$deployedNames.Add([IO.Path]::GetFileName($path))}}
 try {
@@ -38,8 +45,12 @@ try {
         catch {$process.Refresh();if($process.HasExited){break};throw}
         foreach($module in $modules) {
             if(!$deployedNames.Contains($module.ModuleName)){continue}
-            if(!$module.FileName.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)){throw 'A deployed DLL was loaded outside the package.'}
-            [void]$observed.Add($module.ModuleName)
+            try {$origin=Get-DaymarkRuntimeOrigin $module.ModuleName $module.FileName $package.root $env:SystemRoot}
+            catch {
+                [IO.File]::WriteAllText((Join-Path $output 'external-module.txt'),$module.ModuleName+': '+$module.FileName)
+                throw
+            }
+            if($origin -eq 'windows-system'){[void]$systemModules.Add($module.ModuleName)}else{[void]$observed.Add($module.ModuleName)}
         }
         Start-Sleep -Milliseconds 100
     }
@@ -55,7 +66,7 @@ finally {
     foreach($name in $environmentNames){[Environment]::SetEnvironmentVariable($name,$saved[$name],'Process')}
     [ordered]@{format=1;passed=$passed;failure=$failure;version=$package.info.version;sourceRevision=$package.info.sourceRevision;qt=$package.info.qt;
         executableSha256=$package.manifest.files.Where({$_.path -ieq 'daymark.exe'})[0].sha256;
-        observedModules=@($observed | Sort-Object);scope='Local SDK-isolated native smoke; not an independent clean machine';
+        observedModules=@($observed | Sort-Object);windowsSystemModules=@($systemModules | Sort-Object);scope='Local SDK-isolated native smoke; not an independent clean machine';
         cleanMachineVerified=$false;redistributionLicenseVerified=$false;userDataAccessed=$false} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'report.json') -Encoding utf8
 }
 if(!$passed){throw "Package validation failed: $failure Report: $output"}

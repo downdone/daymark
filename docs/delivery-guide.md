@@ -14,6 +14,8 @@ pwsh -NoProfile -File ./verification/Test-Package.ps1
 
 校验器先只读检查整个目录的清单、文件长度/SHA、版本与敏感文件，再以系统PATH运行--version及完整原生smoke。所有业务操作使用QTemporaryDir合成库，不访问现有任务库、不建立托盘或修改启动项；会出现测试窗口。运行期间检查加载的包内DLL是否实际来自包内，至少观察Qt6Core、qwindows和qsqlite。完成后再次检查目录，任何错误非零退出。
 
+Qt DLL文件版本另行核对为6.10.2。系统可能选择Windows/System32中的D3DCompiler_47.dll代替包内副本；仅允许这一精确系统路径，记录在windowsSystemModules。Qt、MinGW、QML插件仍必须来自候选目录，任意SDK或其他目录来源均失败。
+
 成功信息给出包外临时报告目录，内含report.json和本机诊断日志；可用-ReportParent指定已有的包外目录。不要将报告复制回候选目录，否则下次校验会因额外文件失败。日志可能含本机路径，不直接上传。PATH和Qt/QML搜索环境变量在成功或失败后恢复；校验器只结束自己启动的测试子进程。
 
 report.json的passed只表示这台机器的SDK隔离原生检查通过；cleanMachineVerified和redistributionLicenseVerified仍为false。脚本不会把本机结果转成独立干净机、签名、许可、8h、睡眠、多屏或macOS通过。

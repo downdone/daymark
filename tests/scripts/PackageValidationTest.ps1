@@ -46,6 +46,22 @@ try {
     $sha=(Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant();"$sha  package.zip" | Set-Content ($archive+'.sha256')
     $rejected=$false;try {$null=Assert-DaymarkArchive $archive $root}catch {$rejected=$true};if(!$rejected){throw 'Unexpected ZIP content accepted'}
     Write-Output 'PASS: rejects ZIP content mismatch even with updated sidecar'
+    $fakeWindows=Join-Path $testRoot 'windows'
+    if((Get-DaymarkRuntimeOrigin 'Qt6Core.dll' (Join-Path $root 'Qt6Core.dll') $root $fakeWindows) -ne 'package'){throw 'Package origin not accepted'}
+    if((Get-DaymarkRuntimeOrigin 'D3DCompiler_47.dll' (Join-Path $fakeWindows 'System32/D3DCompiler_47.dll') $root $fakeWindows) -ne 'windows-system'){throw 'System graphics origin not accepted'}
+    foreach($path in @((Join-Path $testRoot 'package-other/Qt6Core.dll'),(Join-Path $root '../sdk/Qt6Core.dll'),(Join-Path $fakeWindows 'System32/Qt6Core.dll'))) {
+        $rejected=$false;try {$null=Get-DaymarkRuntimeOrigin 'Qt6Core.dll' $path $root $fakeWindows}catch {$rejected=$true};if(!$rejected){throw 'External Qt runtime accepted'}
+    }
+    $rejected=$false;try {$null=Get-DaymarkRuntimeOrigin 'D3DCompiler_47.dll' (Join-Path $testRoot 'sdk/D3DCompiler_47.dll') $root $fakeWindows}catch {$rejected=$true};if(!$rejected){throw 'External graphics compiler accepted'}
+    Write-Output 'PASS: runtime path algorithm rejects sibling prefix, traversal, system Qt and SDK graphics; no OS verification claim'
+    $verifier=Join-Path $PSScriptRoot '../../scripts/Test-Package.ps1'
+    $rejected=$false;try {& $verifier -PackageDirectory $root -ReportParent $root}catch {if($_.Exception.Message -notmatch 'outside the package'){throw};$rejected=$true};if(!$rejected){throw 'In-package report path accepted'}
+    $reportLink=Join-Path $testRoot 'report-link';New-Item -ItemType Junction -Path $reportLink -Target $root | Out-Null
+    try {
+        $rejected=$false;try {& $verifier -PackageDirectory $root -ReportParent $reportLink}catch {if($_.Exception.Message -notmatch 'reparse point'){throw};$rejected=$true};if(!$rejected){throw 'Reparse report path accepted'}
+    } finally {[IO.Directory]::Delete($reportLink)}
+    $null=Assert-DaymarkPackage $root
+    Write-Output 'PASS: report paths inside package or through junction rejected before executing synthetic fixture'
 } finally {
     # This exact, freshly created GUID directory is the only recursive cleanup target.
     $resolved=[IO.Path]::GetFullPath($testRoot)

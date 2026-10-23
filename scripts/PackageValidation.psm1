@@ -92,4 +92,15 @@ function Assert-DaymarkArchive([string]$ArchivePath,[string]$PackageDirectory) {
     return $expectedHash.ToLowerInvariant()
 }
 
-Export-ModuleMember -Function Assert-DaymarkPackage,Assert-DaymarkArchive
+function Get-DaymarkRuntimeOrigin([string]$ModuleName,[string]$ModulePath,[string]$PackageRoot,[string]$WindowsRoot) {
+    $path=[IO.Path]::GetFullPath($ModulePath)
+    if([IO.Path]::GetFileName($path) -ine $ModuleName){throw 'Module name and path disagree.'}
+    $prefix=[IO.Path]::GetFullPath($PackageRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+    if($path.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)){return 'package'}
+    # Windows may resolve this graphics dependency from System32 despite a deployed fallback.
+    $systemCompiler=[IO.Path]::GetFullPath((Join-Path $WindowsRoot 'System32/D3DCompiler_47.dll'))
+    if($ModuleName -ieq 'D3DCompiler_47.dll' -and $path -ieq $systemCompiler){return 'windows-system'}
+    throw ('Runtime DLL outside permitted locations: '+$ModuleName)
+}
+
+Export-ModuleMember -Function Assert-DaymarkPackage,Assert-DaymarkArchive,Get-DaymarkRuntimeOrigin
