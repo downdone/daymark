@@ -19,6 +19,8 @@
 
 上述属于方法/信号驱动及真实Qt窗口加载/渲染；没有执行物理键鼠、Narrator/VoiceOver、IME、真实时区切换/睡眠、多屏/DPI切换、8h、macOS或干净机，保持UNVERIFIED。事件不提供小时轴、事件重复/提醒、外部账户或云同步。
 
+最终部署PASS：清除SDK PATH及Qt/QML搜索变量，验证Qt和编译器运行库均加载自包内；114阶段Release检查退出0、2窗口、warnings=false。二进制ZIP清单1453文件，重新计算的SHA与侧车一致；二进制/源码ZIP敏感扩展、日志、Git元数据扫描均0项。包名、大小、校验和和源码修订见PROGRESS及包内BUILD-INFO。部署工具仍提示缺少dxcompiler.dll/dxil.dll；当前原生加载通过不替代其他GPU与干净机验收。
+
 ---
 # UI-08 组件降干扰验证（2026-10-23）
 
