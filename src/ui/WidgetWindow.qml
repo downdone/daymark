@@ -20,6 +20,16 @@ Window {
     visible: false
     color: "transparent"
     title: qsTr("Daymark 今日任务")
+    function verifyMenu() {
+        if(!widgetMenu.visible)return "closed"
+        for(let i=0;i<widgetMenu.count;i++) {
+            const item=widgetMenu.itemAt(i) as MenuItem
+            if(item && item.text && item.width<item.implicitWidth-1)return "clipped item "+i+": "+item.width+"/"+item.implicitWidth
+        }
+        return "PASS"
+    }
+    function openVerificationMenu() {widgetMenu.open()}
+    function closeVerificationMenu() {widgetMenu.close()}
 
     Control {
         anchors.fill: parent
@@ -64,10 +74,14 @@ Window {
                 WidgetAction {objectName: "widgetAdd";symbol: "plus";description: qsTr("添加今日任务");onClicked: widget.newTaskRequested()}
                 WidgetAction {objectName: "widgetCollapse";symbol: "collapse";description: qsTr("收起为迷你条");onClicked: widget.controller.setMini(true)}
                 WidgetAction {
+                    objectName: "widgetMore"
                     description: qsTr("组件菜单")
                     onClicked: widgetMenu.open()
                     Menu {
                         id: widgetMenu
+                        objectName: "widgetMenu"
+                        x: parent.width-width
+                        y: parent.height
                         MenuItem {text: qsTr("打开主窗口");onTriggered: widget.openMainRequested()}
                         MenuSeparator {}
                         MenuItem {text: qsTr("保持置顶");checkable: true;checked: widget.controller.alwaysOnTop;onTriggered: widget.controller.setAlwaysOnTop(checked)}

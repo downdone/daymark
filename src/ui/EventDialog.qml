@@ -30,7 +30,7 @@ Dialog {
     function safely(action){if(workspace.busy)return;if(dirty){pendingAction=action;discard.open()}else action()}
     function save() {workspace.saveEvent({eventId:eventId,rowVersion:version,title:eventTitle.text,notes:notes.text,allDay:allDay.checked,startDate:startDate.text,endDate:endDate.text,startTime:startTime.text,endTime:endTime.text,zone:zone.text,links:links})}
     function addLink(task) {if(links.some(item=>item.taskId===task.taskId))return;links=links.concat([{taskId:task.taskId,title:task.title,role:"preparation"}]);dirty=true}
-    Shortcut {sequence: "Escape";enabled: root.visible && !discard.visible && !confirmDelete.visible && !dates.visible;onActivated: root.safely(function(){root.close()})}
+    Shortcut {sequence: "Escape";enabled: root.visible && !discard.visible && !confirmDelete.visible && !startDate.pickerVisible && !endDate.pickerVisible;onActivated: root.safely(function(){root.close()})}
     contentItem: ScrollView {
         clip: true
         ColumnLayout {
@@ -52,8 +52,7 @@ Dialog {
                     Label {text: qsTr("开始日期")}
                     RowLayout {
                         Layout.fillWidth: true
-                        TextField {id: startDate;Layout.fillWidth: true;placeholderText: "yyyy-MM-dd";onTextEdited: root.dirty=true}
-                        ToolButton {contentItem: AppIcon {name: "calendar"} Accessible.name: qsTr("选择事件开始日期");onClicked: dates.showFor(startDate.text,"eventStart")}
+                        DateField {id: startDate;workspace: root.workspace;dateLabel: qsTr("事件开始日期");Layout.fillWidth: true;onTextEdited: root.dirty=true;onDateChosen: root.dirty=true}
                     }
                     TextField {id: startTime;visible: !allDay.checked;Layout.fillWidth: true;placeholderText: "HH:mm";Accessible.name: qsTr("开始时间");onTextEdited: root.dirty=true}
                 }
@@ -62,8 +61,7 @@ Dialog {
                     Label {text: allDay.checked ? qsTr("结束日期（含当天）") : qsTr("结束日期")}
                     RowLayout {
                         Layout.fillWidth: true
-                        TextField {id: endDate;Layout.fillWidth: true;placeholderText: "yyyy-MM-dd";onTextEdited: root.dirty=true}
-                        ToolButton {contentItem: AppIcon {name: "calendar"} Accessible.name: qsTr("选择事件结束日期");onClicked: dates.showFor(endDate.text,"eventEnd")}
+                        DateField {id: endDate;workspace: root.workspace;dateLabel: qsTr("事件结束日期");Layout.fillWidth: true;onTextEdited: root.dirty=true;onDateChosen: root.dirty=true}
                     }
                     TextField {id: endTime;visible: !allDay.checked;Layout.fillWidth: true;placeholderText: "HH:mm";Accessible.name: qsTr("结束时间");onTextEdited: root.dirty=true}
                 }
@@ -115,6 +113,5 @@ Dialog {
     }
     Dialog {id: discard;objectName: "eventDiscard";parent: Overlay.overlay;anchors.centerIn: parent;width: Math.min(440,parent.width-32);title: qsTr("放弃未保存的事件修改？");modal: true;standardButtons: Dialog.Ok|Dialog.Cancel;onAccepted: {root.dirty=false;const action=root.pendingAction;root.pendingAction=null;if(action)action()}}
     Dialog {id: confirmDelete;parent: Overlay.overlay;anchors.centerIn: parent;width: Math.min(440,parent.width-32);title: qsTr("删除事件？关联任务会保留。");modal: true;standardButtons: Dialog.Ok|Dialog.Cancel;onAccepted: root.workspace.deleteEvent(root.eventId,root.version)}
-    DatePickerDialog {id: dates;workspace: root.workspace;parent: Overlay.overlay;anchors.centerIn: parent;title: field==="eventStart" ? qsTr("选择事件开始日") : qsTr("选择事件结束日");onDateSelected: function(date,field){if(field==="eventStart")startDate.text=date;else endDate.text=date;root.dirty=true}}
     Connections {target: root.workspace;function onOperationFinished(operation,success){if(root.visible && success && (operation==="eventSave" || operation==="eventDelete")){root.dirty=false;root.close()}}}
 }

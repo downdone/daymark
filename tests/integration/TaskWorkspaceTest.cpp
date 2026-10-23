@@ -93,8 +93,15 @@ private slots:
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("order.sqlite")));QTRY_VERIFY(!w.busy());QVERIFY(w.ready());w.setView(QStringLiteral("today"));
         for(const auto& title:{QStringLiteral("a"),QStringLiteral("b"),QStringLiteral("c")}){QVERIFY(w.createTask(title));QTRY_VERIFY(!w.busy());}
         const auto id=[&](int i){return w.tasks()->data(w.tasks()->index(i),TaskListModel::Id).toString();};
-        const auto first=id(0),last=id(2);QVERIFY(w.moveTask(first,1));QTRY_VERIFY(!w.busy());QCOMPARE(id(1),first);
+        const auto first=id(0),last=id(2);
+        QVERIFY(!w.canMoveTask(first,-1));QVERIFY(!w.canMoveTask(last,1));QVERIFY(w.canMoveTask(first,1));
+        w.setSearch(QStringLiteral("a"));QVERIFY(!w.canMoveTask(first,1));QVERIFY(!w.moveTask(first,1));w.setSearch(QString());
+        w.setTagFilter(QStringLiteral("missing"));QVERIFY(!w.canMoveTask(first,1));w.setTagFilter(QString());
+        w.setProjectFilter(QStringLiteral("missing"));QVERIFY(!w.canMoveTask(first,1));w.setProjectFilter(QString());
+        w.setView(QStringLiteral("upcoming"));QVERIFY(!w.canMoveTask(first,1));w.setView(QStringLiteral("today"));
+        QVERIFY(w.moveTask(first,1));QTRY_VERIFY(!w.busy());QCOMPARE(id(1),first);
         auto map=w.task(last);QVERIFY(w.saveDetails(last,map.value(QStringLiteral("rowVersion")).toLongLong(),{{QStringLiteral("evening"),true}}));QTRY_VERIFY(!w.busy());
+        QVERIFY(!w.canMoveTask(first,1)); // Different Today sections cannot be swapped by an arrow action.
         QVERIFY(w.dropTask(first,last));QTRY_VERIFY(!w.busy());QVERIFY(w.task(first).value(QStringLiteral("evening")).toBool());
         w.reload();QTRY_VERIFY(!w.busy());QVERIFY(w.task(first).value(QStringLiteral("evening")).toBool());
         w.setView(QStringLiteral("anytime"));QCOMPARE(id(0),first); // Today order is independent of base order.

@@ -616,14 +616,21 @@ void TaskWorkspace::setThemeMode(int mode)
     if(settings.status()!=QSettings::NoError){m_error={ErrorCode::PersistenceError,QStringLiteral("settingsWrite")};emit stateChanged();return;}
     m_themeMode=mode;emit stateChanged();
 }
-bool TaskWorkspace::moveTask(const QString& id,int direction)
+bool TaskWorkspace::canMoveTask(const QString& id,int direction) const
 {
-    if(!m_search.isEmpty() || m_view==QStringLiteral("upcoming") || m_view==QStringLiteral("logbook") || (direction!=-1 && direction!=1))return false;
-    auto tasks=QueryService::select(m_cache,m_view,m_today);
+    if(!m_ready || m_busy || !m_search.isEmpty() || !m_tagFilter.isEmpty() || !m_projectFilter.isEmpty() || m_view==QStringLiteral("upcoming") || m_view==QStringLiteral("logbook") || (direction!=-1 && direction!=1))return false;
+    const auto tasks=QueryService::select(m_cache,m_view,m_today);
     int index=-1;for(int i=0;i<tasks.size();++i)if(tasks[i].id==id){index=i;break;}
     if(index<0 || index+direction<0 || index+direction>=tasks.size())return false;
     if(m_view==QStringLiteral("today") && tasks[index].evening!=tasks[index+direction].evening)return false;
     if(m_view.startsWith(QStringLiteral("project:")) && tasks[index].headingId!=tasks[index+direction].headingId)return false;
+    return true;
+}
+bool TaskWorkspace::moveTask(const QString& id,int direction)
+{
+    if(!canMoveTask(id,direction))return false;
+    auto tasks=QueryService::select(m_cache,m_view,m_today);
+    int index=0;while(index<tasks.size() && tasks[index].id!=id)++index;
     tasks.swapItemsAt(index,index+direction);const bool today=m_view==QStringLiteral("today");
     return runCatalog([tasks,today](TaskWorker& w){return w.repository->reorder(tasks,today,w.clock.nowUtc().toUTC().toString(Qt::ISODateWithMs));},QStringLiteral("reorder"));
 }

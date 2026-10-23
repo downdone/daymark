@@ -245,22 +245,25 @@ ColumnLayout {
         }
         Dialog {
         id: moveDialog
+        objectName: "calendarMoveDialog"
         parent: Overlay.overlay
         x: (parent.width-width)/2
         y: (parent.height-height)/2
         title: qsTr("调整任务日期")
+        width: Math.min(440,parent.width-32)
         modal: true
         closePolicy: Popup.NoAutoClose
         ColumnLayout {
-            Label { text: panel.moving.title || "" }
-            Label { text: qsTr("只修改所选字段，另一个日期保持原值。") }
-            ComboBox { id: markerKind; model: [qsTr("计划开始"),qsTr("截止日期")]; enabled: panel.moving.kind === "both" }
-            TextField { id: targetDate; placeholderText: "yyyy-MM-dd"; selectByMouse: true }
+            anchors.fill: parent
+            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: panel.moving.title || "" }
+            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("只修改所选日期，另一日期保持原值。") }
+            ComboBox { id: markerKind;Layout.fillWidth: true;model: [qsTr("计划开始"),qsTr("截止日期")]; enabled: panel.moving.kind === "both" }
+            DateField { id: targetDate;objectName: "calendarMoveDate";workspace: panel.workspace;dateLabel: markerKind.currentIndex===0 ? qsTr("计划开始") : qsTr("截止日期");Layout.fillWidth: true }
             Label { text: panel.workspace.errorText; color: Theme.danger; Layout.maximumWidth: 300; wrapMode: Text.Wrap }
         }
         footer: DialogButtonBox {
             Button { text: qsTr("取消"); enabled: !panel.workspace.busy; onClicked: moveDialog.close() }
-            Button { text: qsTr("确认改期");highlighted: true;enabled: !panel.workspace.busy; onClicked: panel.workspace.moveCalendar(panel.moving.taskId,panel.moving.rowVersion,markerKind.currentIndex === 0 ? "start" : "deadline",targetDate.text) }
+            Button {objectName: "confirmCalendarMove";text: qsTr("确认改期");highlighted: true;enabled: !panel.workspace.busy; onClicked: panel.workspace.moveCalendar(panel.moving.taskId,panel.moving.rowVersion,markerKind.currentIndex === 0 ? "start" : "deadline",targetDate.text) }
         }
         }
     }

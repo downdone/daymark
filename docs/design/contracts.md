@@ -67,3 +67,5 @@ QLockFile + QLocalServer 用于本机单实例；仅本机 IPC，不提供网络
 一致快照使用经实际 Kit 验证的 VACUUM INTO 或 backup API；不直接复制 WAL 主文件。迁移备份失败停止。每日首次启动最多一次并保留最近7份。
 
 导入先解析、版本/ID/日期/外键全部校验、预览，然后单事务写；失败零修改。替换模式双重确认且先备份；仅添加遇 ID 冲突跳过并报告。导出版本名和规范化样本由 M2-07 冻结，M7 实现往返验证。
+
+UI-09补充：TaskWorkspace.canMoveTask仅在任务菜单打开时查询可移动性，复用QueryService结果及moveTask相同的范围/邻接组边界；忙碌、首尾、搜索/筛选、Upcoming/Logbook禁用。QML不自行推断排序业务，避免高频逐行全表查询。DateField只输出ISO草稿，所有实际保存和改期仍经TaskWorkspace/服务校验。

@@ -1,3 +1,20 @@
+# UI-09 · 详情、日期与菜单精修验证（2026-10-23）
+
+Windows11 x64 / Qt6.10.2 / MinGW13.1，版本仍1.0.0-rc.2、schema3。全部业务和UI探针使用QTemporaryDir，没有触碰真实任务库。
+
+| 检查 | 结果 | 覆盖与边界 |
+|---|---|---|
+| Debug build / CTest | PASS，14/14，21.35秒 | 新增排序能力边界：首尾、搜索、筛选、Upcoming、Today跨组禁用；原数据/草稿回归 |
+| Release build / CTest | PASS，14/14，21.53秒 | 同一套业务与QML启动回归 |
+| 两个QML lint目标 | PASS，无警告 | DateField、主窗/事件/菜单和既有界面 |
+| Windows原生132阶段合成检查 | PASS，退出0，2窗口，warnings=false | 日期展开保留文本焦点、QKeyEvent输入非法日期后打开日历不篡改输入、选择/清除只改草稿；改期表单保存只改开始日、截止不变 |
+| 菜单与截图 | PASS，所检布局 | 260宽组件独立菜单窗口默认/200%文字可读，所有文字项目宽度断言；详情/Today、窄窗搜索及改期日历200%截图 |
+| 文档与diff | PASS | 44份Markdown本地链接，git diff --check |
+
+截图为build/ui09-verified-screens下合成数据；默认/880×580/1440×900逻辑尺寸及浅深/200%沿用探针。当前截图PNG/逻辑尺寸比含1.25和1.5；不是物理多屏或全部DPI验收。窄窗大字日历可滚动，弹层避开日期输入框。修复两位日期被水平内边距省略、200%菜单勾选间距；菜单使用独立Popup.Window、明确文字测宽和右侧对齐，避免小组件范围压缩/裁切。
+
+offscreen不验证OS文本焦点；该断言仅在windows后端执行。QKeyEvent/信号调用是合成操作，不能替代物理键盘、中文IME、Narrator/VoiceOver和真实用户验收。macOS、干净机、多屏/睡眠/8小时仍UNVERIFIED。部署与包信息最终以PROGRESS为准。
+
 # CAL-01/02 · RC2验证（2026-10-23）
 
 环境：Windows11 x64、Qt6.10.2、MinGW13.1；全部业务测试使用QTemporaryDir，截图为合成数据。新增FR-019及ADR-013，schema3。实际实现见RC2说明，状态与包信息只维护在PROGRESS。

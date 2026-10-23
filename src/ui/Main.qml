@@ -42,6 +42,11 @@ ApplicationWindow {
     property var pendingAction: null
     property bool forceQuit: false
     property bool batchMode: false
+    property bool searchExpanded: false
+    property bool filtersExpanded: false
+    property bool taskDragging: false
+    property string selectedTag: ""
+    property string selectedProject: ""
     readonly property bool toolModalOpen: organization.visible || recurrence.visible || extendedDetails.visible || windowSettings.visible || dataTools.visible || notifications.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen
     property var batchSelection: []
     function toggleBatch(id,version) {
@@ -176,8 +181,8 @@ ApplicationWindow {
     Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+4" : "Ctrl+4";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("someday")}
     Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+5" : "Ctrl+5";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("month")}
     Shortcut {sequences: [StandardKey.Preferences];enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.openTool("settings")}
-    Shortcut { sequences: [StandardKey.Find];enabled: !mainWindow.toolModalOpen;onActivated: { if (!editor.visible || mainWindow.detailDocked) mainWindow.focusHeader(search) } }
-    Shortcut { sequence: "Escape";enabled: editor.visible && !leaveDialog.visible && !datePicker.visible && !removeToday.visible && !extendedDetails.visible;onActivated: mainWindow.navigateSafely(function(){editor.close();taskList.forceActiveFocus()}) }
+    Shortcut { sequences: [StandardKey.Find];enabled: !mainWindow.toolModalOpen;onActivated: { if (!editor.visible || mainWindow.detailDocked) {mainWindow.searchExpanded=true;Qt.callLater(function(){mainWindow.focusHeader(search)})} } }
+    Shortcut { sequence: "Escape";enabled: editor.visible && !leaveDialog.visible && !datePicker.visible && !startDate.pickerVisible && !deadline.pickerVisible && !removeToday.visible && !extendedDetails.visible;onActivated: mainWindow.navigateSafely(function(){editor.close();taskList.forceActiveFocus()}) }
 
     RowLayout {
         anchors.fill: parent
@@ -271,7 +276,20 @@ ApplicationWindow {
                     Layout.fillWidth: true
                 }
                 BusyIndicator { running: mainWindow.taskWorkspace.busy; visible: running; Layout.preferredWidth: 28; Layout.preferredHeight: 28 }
-                Button { text: qsTr("重新加载");flat: true;enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.reload()}) }
+                Button {visible: !mainWindow.calendarVisible;text: qsTr("搜索");flat: true;onClicked: {if(mainWindow.searchExpanded || search.text.length>0){search.clear();mainWindow.searchExpanded=false;taskList.forceActiveFocus()}else{mainWindow.searchExpanded=true;search.forceActiveFocus()}}}
+                Button {visible: !mainWindow.calendarVisible;text: (mainWindow.selectedTag || mainWindow.selectedProject) ? qsTr("清除筛选") : mainWindow.filtersExpanded ? qsTr("收起筛选") : qsTr("筛选");flat: true;onClicked: {if(mainWindow.selectedTag || mainWindow.selectedProject){tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("");mainWindow.filtersExpanded=false}else mainWindow.filtersExpanded=!mainWindow.filtersExpanded}}
+                ToolButton {
+                    Accessible.name: qsTr("页面操作")
+                    contentItem: AppIcon {name: "more"}
+                    onClicked: pageMenu.open()
+                    Menu {
+                        id: pageMenu
+                        x: parent.width-width
+                        y: parent.height
+                        MenuItem {text: mainWindow.batchMode ? qsTr("退出多选") : qsTr("选择多个任务…");enabled: !mainWindow.calendarVisible;onTriggered: mainWindow.navigateSafely(function(){editor.close();mainWindow.batchMode=!mainWindow.batchMode;mainWindow.batchSelection=[]})}
+                        MenuItem {text: qsTr("重新加载");enabled: !mainWindow.taskWorkspace.busy;onTriggered: mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.reload()})}
+                    }
+                }
             }
             ScrollView {
                 id: headerScroll
@@ -285,19 +303,26 @@ ApplicationWindow {
                 spacing: 8
             TextField {
                 id: search
-                visible: !mainWindow.calendarVisible
+                objectName: "taskSearch"
+                visible: !mainWindow.calendarVisible && (mainWindow.searchExpanded || text.length>0)
                 Layout.fillWidth: true
                 placeholderText: qsTr("搜索任务、备注与清单…")
                 Accessible.name: qsTr("全局搜索任务、备注与清单")
                 onTextChanged: mainWindow.taskWorkspace.setSearch(text)
-                Keys.onEscapePressed: {clear();taskList.forceActiveFocus()}
+                Keys.onEscapePressed: {clear();mainWindow.searchExpanded=false;taskList.forceActiveFocus()}
                 selectByMouse: true
             }
-            RowLayout {
-                visible: !mainWindow.calendarVisible
+            ColumnLayout {
+                Layout.fillWidth: true
+                visible: !mainWindow.calendarVisible && (mainWindow.filtersExpanded || mainWindow.selectedTag.length>0 || mainWindow.selectedProject.length>0 || search.text.length>0 || mainWindow.taskWorkspace.view.startsWith("project:"))
                 CheckBox { visible: search.text.trim().length>0 || mainWindow.taskWorkspace.view.startsWith("project:"); text: qsTr("包括已完成/取消"); checked: mainWindow.taskWorkspace.includeCompleted; onClicked: mainWindow.taskWorkspace.includeCompleted=checked }
-                ComboBox { property var tags: mainWindow.taskWorkspace.catalogOf("tag"); Layout.fillWidth: true; model: [qsTr("全部标签")].concat(tags.map(function(t){return t.title})); onActivated: mainWindow.taskWorkspace.setTagFilter(currentIndex===0 ? "" : tags[currentIndex-1].id) }
-                ComboBox {property var projects: mainWindow.taskWorkspace.catalogOf("project");Layout.fillWidth: true;model: [qsTr("全部项目")].concat(projects.map(item=>item.title));onActivated: mainWindow.taskWorkspace.setProjectFilter(currentIndex===0 ? "" : projects[currentIndex-1].id)}
+                RowLayout {
+                Layout.fillWidth: true
+                visible: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject
+                ComboBox {id: tagFilter;property var tags: mainWindow.taskWorkspace.catalogOf("tag"); Layout.fillWidth: true; model: [qsTr("全部标签")].concat(tags.map(function(t){return t.title})); onActivated: {mainWindow.selectedTag=currentIndex===0 ? "" : tags[currentIndex-1].id;mainWindow.taskWorkspace.setTagFilter(mainWindow.selectedTag)} }
+                ComboBox {id: projectFilter;property var projects: mainWindow.taskWorkspace.catalogOf("project");Layout.fillWidth: true;model: [qsTr("全部项目")].concat(projects.map(item=>item.title));onActivated: {mainWindow.selectedProject=currentIndex===0 ? "" : projects[currentIndex-1].id;mainWindow.taskWorkspace.setProjectFilter(mainWindow.selectedProject)}}
+                ToolButton {text: qsTr("清除");Accessible.name: qsTr("清除标签和项目筛选");enabled: !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("")}}
+                }
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -323,7 +348,7 @@ ApplicationWindow {
                     onAccepted: mainWindow.taskWorkspace.createTask(text)
                     Keys.onEscapePressed: taskList.forceActiveFocus()
                 }
-                Button { text: qsTr("添加");highlighted: true;onClicked: mainWindow.taskWorkspace.createTask(newTitle.text) }
+                Button { text: qsTr("添加");highlighted: true;enabled: newTitle.text.trim().length>0;onClicked: mainWindow.taskWorkspace.createTask(newTitle.text) }
             }
             Label {
                 visible: !mainWindow.calendarVisible && (mainWindow.taskWorkspace.view==="someday" || mainWindow.taskWorkspace.tasks.count===0)
@@ -333,17 +358,17 @@ ApplicationWindow {
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
             }
-            Label { visible: mainWindow.taskWorkspace.view === "today"; text: mainWindow.taskWorkspace.localToday+qsTr(" · 待办 %1 · 今日完成 %2").arg(mainWindow.taskWorkspace.todayTasks.count).arg(mainWindow.taskWorkspace.completedToday); color: Theme.secondary;font.pixelSize: Theme.captionSize }
+            Label { visible: mainWindow.taskWorkspace.view === "today";Layout.fillWidth: true;wrapMode: Text.Wrap;text: mainWindow.taskWorkspace.localToday+qsTr(" · 待办 %1 · 今日完成 %2").arg(mainWindow.taskWorkspace.todayTasks.count).arg(mainWindow.taskWorkspace.completedToday); color: Theme.secondary;font.pixelSize: Theme.captionSize }
             Flow {
                 Layout.fillWidth: true
                 spacing: 8
-                visible: !mainWindow.calendarVisible
-                Button {text: mainWindow.batchMode ? qsTr("退出多选") : qsTr("多选…");onClicked: mainWindow.navigateSafely(function(){editor.close();mainWindow.batchMode=!mainWindow.batchMode;mainWindow.batchSelection=[]})}
+                visible: !mainWindow.calendarVisible && (mainWindow.batchMode || mainWindow.taskWorkspace.view==="logbook")
+                Button {visible: mainWindow.batchMode;text: qsTr("退出多选");onClicked: {mainWindow.batchMode=false;mainWindow.batchSelection=[]}}
                 Button {visible: mainWindow.batchMode;text: qsTr("批量修改（%1）").arg(mainWindow.batchSelection.length);enabled: mainWindow.batchSelection.length>0;onClicked: {batchDialog.selection=mainWindow.batchSelection;batchDialog.open()}}
                 ComboBox {visible: mainWindow.taskWorkspace.view==="logbook";model: [qsTr("全部历史"),qsTr("近7天"),qsTr("近30天")];onActivated: mainWindow.taskWorkspace.historyDays=[0,7,30][currentIndex]}
             }
             RowLayout {
-                visible: mainWindow.taskWorkspace.view === "today"
+                visible: mainWindow.taskWorkspace.view === "today" && mainWindow.taskDragging
                 Repeater {
                     model: [qsTr("拖入今天"),qsTr("拖入今晚")]
                     Label {
@@ -394,6 +419,11 @@ ApplicationWindow {
                     enabled: mainWindow.taskWorkspace.ready && !mainWindow.taskWorkspace.busy
                     highlighted: taskList.currentIndex === index
                     selectionMode: mainWindow.batchMode
+                    canMoveUp: index>0
+                    canMoveDown: index<taskList.count-1
+                    onMenuRequested: {canMoveUp=mainWindow.taskWorkspace.canMoveTask(taskId,-1);canMoveDown=mainWindow.taskWorkspace.canMoveTask(taskId,1)}
+                    onEveningRequested: function(value){mainWindow.setTaskEvening(taskId,value)}
+                    onDragStateChanged: function(active){mainWindow.taskDragging=active}
                     selectedForBatch: mainWindow.batchSelection.some(item=>item.taskId===taskId)
                     onSelectionRequested: mainWindow.toggleBatch(taskId,rowVersion)
                     onEditRequested: {taskList.currentIndex=index;mainWindow.openEditor(taskId)}
@@ -443,66 +473,41 @@ ApplicationWindow {
             width: editor.availableWidth-12
             spacing: Theme.fieldGap
             enabled: !mainWindow.taskWorkspace.busy
-            Label { text: qsTr("标题") }
-            TextField { id: editTitle; objectName: "editTaskTitle"; Layout.fillWidth: true; selectByMouse: true; onTextChanged: mainWindow.markDirty() }
-            Label { text: qsTr("备注") }
+            TextField { id: editTitle; objectName: "editTaskTitle"; Layout.fillWidth: true; placeholderText: qsTr("任务标题");Accessible.name: qsTr("任务标题");font.bold: true;selectByMouse: true; onTextChanged: mainWindow.markDirty() }
             ScrollView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 96
-                TextArea { id: editNotes; wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: mainWindow.markDirty() }
+                Layout.preferredHeight: Math.max(72,Theme.bodySize*3)
+                TextArea { id: editNotes; placeholderText: qsTr("添加备注…");Accessible.name: qsTr("备注");wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: mainWindow.markDirty() }
             }
             ColumnLayout {
                 SectionLabel { text: qsTr("规划与日期") }
-                ComboBox { id: planning; model: [qsTr("收集箱"), qsTr("已激活"), qsTr("以后再说")]; onCurrentIndexChanged: mainWindow.markDirty() }
+                ComboBox { id: planning;Layout.fillWidth: true;Accessible.name: qsTr("任务规划状态");model: [qsTr("收集箱"), qsTr("已激活"), qsTr("以后再说")]; onCurrentIndexChanged: mainWindow.markDirty() }
                 CheckBox { id: focusToday; text: qsTr("持续关注今天"); onCheckedChanged: mainWindow.markDirty();onClicked: if(!checked && mainWindow.taskWorkspace.todayAfterRemovingFocus(mainWindow.editId))removeToday.open() }
             }
             GridLayout {
                 columns: mainWindow.detailDocked ? 1 : 2
                 Layout.fillWidth: true
                 Label { text: qsTr("计划开始");Layout.fillWidth: true;wrapMode: Text.Wrap }
-                TextField { id: startDate; objectName: "editStartDate"; Layout.fillWidth: true; placeholderText: qsTr("留空清除"); onTextChanged: mainWindow.markDirty() }
+                DateField { id: startDate; objectName: "editStartDate";workspace: mainWindow.taskWorkspace;dateLabel: qsTr("计划开始"); Layout.fillWidth: true; onTextChanged: mainWindow.markDirty() }
                 Label { text: qsTr("截止日期");Layout.fillWidth: true;wrapMode: Text.Wrap }
-                TextField { id: deadline; Layout.fillWidth: true; placeholderText: qsTr("留空清除"); onTextChanged: mainWindow.markDirty() }
+                DateField { id: deadline;workspace: mainWindow.taskWorkspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true; onTextChanged: mainWindow.markDirty() }
             }
-            Flow {
-                Layout.fillWidth: true
-                spacing: 6
-                Button { text: qsTr("选择开始日…"); onClicked: datePicker.showFor(startDate.text,"start") }
-                Button { text: qsTr("选择截止日…"); onClicked: datePicker.showFor(deadline.text,"deadline") }
-            }
-            Flow {
-                Layout.fillWidth: true
-                spacing: 6
-                Button { text: qsTr("开始：今天"); onClicked: startDate.text=mainWindow.taskWorkspace.dateOffset(0) }
-                Button { text: qsTr("明天"); onClicked: startDate.text=mainWindow.taskWorkspace.dateOffset(1) }
-                Button { text: qsTr("清除开始"); onClicked: startDate.clear() }
-                Button { text: qsTr("清除截止"); onClicked: deadline.clear() }
-            }
-            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("设置日期或今日关注会自动激活收集箱任务；加入今天会调整将来的开始日。以后再说会保留日期并暂停执行。"); font.pixelSize: Theme.captionSize; color: Theme.secondary }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: planning.currentIndex===2 ? qsTr("以后再说：保留日期，暂停执行。") : qsTr("安排日期或关注今天会激活任务。"); font.pixelSize: Theme.captionSize; color: Theme.secondary }
+            Button {text: qsTr("归属、标签与清单…");flat: true;Layout.fillWidth: true;onClicked: mainWindow.navigateSafely(function(){editor.close();extendedDetails.openTask(mainWindow.editId)})}
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; visible: mainWindow.taskWorkspace.errorText.length > 0; text: mainWindow.taskWorkspace.errorText; color: Theme.danger }
             }
         }
         footer: ActionBar {
             gap: 8
-            Button {
-                text: qsTr("归属/标签/清单…")
-                enabled: !mainWindow.taskWorkspace.busy
-                onClicked: mainWindow.navigateSafely(function(){editor.close();extendedDetails.openTask(mainWindow.editId)})
-            }
-            Button {
-                text: qsTr("取消任务")
-                flat: true
-                palette.buttonText: Theme.danger
-                visible: mainWindow.editStatus === "OPEN"
-                enabled: !mainWindow.taskWorkspace.busy
-                onClicked: mainWindow.navigateSafely(function() { mainWindow.taskWorkspace.changeState(mainWindow.editId, mainWindow.editVersion, "cancel"); editor.close() })
-            }
-            Button {
-                text: qsTr("删除")
-                flat: true
-                palette.buttonText: Theme.danger
-                enabled: !mainWindow.taskWorkspace.busy
-                onClicked: mainWindow.navigateSafely(function() { mainWindow.taskWorkspace.changeState(mainWindow.editId, mainWindow.editVersion, "delete"); editor.close() })
+            ToolButton {
+                Accessible.name: qsTr("更多任务操作")
+                contentItem: AppIcon {name: "more"}
+                onClicked: editorMenu.open()
+                Menu {
+                    id: editorMenu
+                    MenuItem {text: qsTr("取消任务");enabled: mainWindow.editStatus==="OPEN" && !mainWindow.taskWorkspace.busy;onTriggered: mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.changeState(mainWindow.editId,mainWindow.editVersion,"cancel");editor.close()})}
+                    MenuItem {text: qsTr("删除任务");enabled: !mainWindow.taskWorkspace.busy;onTriggered: mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.changeState(mainWindow.editId,mainWindow.editVersion,"delete");editor.close()})}
+                }
             }
             Button { objectName: "returnFromEditor"; text: qsTr("返回"); enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.navigateSafely(function() { editor.close() }) }
             Button { text: qsTr("保存"); enabled: !mainWindow.taskWorkspace.busy; highlighted: true; onClicked: { mainWindow.pendingAction = null; mainWindow.saveEditor() } }

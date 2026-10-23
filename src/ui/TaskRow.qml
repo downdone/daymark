@@ -19,17 +19,22 @@ ItemDelegate {
     required property bool inToday
     property bool selectionMode: false
     property bool selectedForBatch: false
+    property bool canMoveUp: true
+    property bool canMoveDown: true
     signal selectionRequested()
     signal completeRequested()
     signal editRequested()
     signal moveRequested(int direction)
     signal dropRequested(string source)
     signal activateRequested()
+    signal eveningRequested(bool value)
+    signal dragStateChanged(bool active)
+    signal menuRequested()
     Drag.active: drag.active
     Drag.source: root
     Drag.hotSpot.x: width/2+drag.centroid.position.x-drag.centroid.pressPosition.x
     Drag.hotSpot.y: height/2+drag.centroid.position.y-drag.centroid.pressPosition.y
-    DragHandler {id: drag;target: null;onActiveChanged: if(!active)root.Drag.drop()}
+    DragHandler {id: drag;target: null;onActiveChanged: {if(!active)root.Drag.drop();root.dragStateChanged(active)}}
     DropArea {anchors.fill: parent;onDropped: function(drop){const source=drop.source as TaskRow;if(source){root.dropRequested(source.taskId);drop.acceptProposedAction()}}}
     implicitHeight: Math.max(Theme.compact ? 40 : 48,contentItem.implicitHeight+(Theme.compact ? 8 : 16))
     Accessible.name: title + (isDone ? qsTr("，已结束") : qsTr("，未完成"))
@@ -71,10 +76,14 @@ ItemDelegate {
             onClicked: menu.open()
             Menu {
                 id: menu
+                onAboutToShow: root.menuRequested()
+                x: parent.width-width
+                y: parent.height
                 MenuItem { text: qsTr("编辑详情…"); onTriggered: root.editRequested() }
+                MenuItem {text: root.evening ? qsTr("安排到今天") : qsTr("安排到今晚");visible: root.inToday && !root.isDone;onTriggered: root.eveningRequested(!root.evening)}
                 MenuItem {text: qsTr("激活到随时可做");enabled: !root.isDone;onTriggered: root.activateRequested()}
-                MenuItem { text: qsTr("上移"); onTriggered: root.moveRequested(-1) }
-                MenuItem { text: qsTr("下移"); onTriggered: root.moveRequested(1) }
+                MenuItem { text: qsTr("上移");enabled: root.canMoveUp; onTriggered: root.moveRequested(-1) }
+                MenuItem { text: qsTr("下移");enabled: root.canMoveDown; onTriggered: root.moveRequested(1) }
             }
         }
     }

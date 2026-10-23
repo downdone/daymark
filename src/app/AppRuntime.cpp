@@ -10,6 +10,7 @@
 #include <QTimer>
 #include <QDir>
 #include <QStandardPaths>
+#include <QKeyEvent>
 
 namespace daymark {
 
@@ -152,6 +153,86 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
+            } else if(phase>=112) {
+                auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
+                auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
+                if(!widget){fail("refinement widget");return;}
+                if(phase==112) {
+                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("editor"))),Q_ARG(QVariant,QVariant(taskId)));
+                } else if(phase==113) {
+                    if(!QMetaObject::invokeMethod(startDate,"openPicker")){fail("date field open");return;}
+                } else if(phase==114) {
+                    const bool nativeFocus=QGuiApplication::platformName()==QStringLiteral("offscreen") || startDate->property("activeFocus").toBool();
+                    if(!startDate->property("pickerVisible").toBool() || startDate->property("readOnly").toBool() || !nativeFocus || !capture(QStringLiteral("date-field"))){fail("editable date picker");return;}
+                    QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(1))));
+                } else if(phase==115) {
+                    if(startDate->property("pickerVisible").toBool() || startDate->property("text").toString()!=m_workspace.dateOffset(1) || !mainWindow->property("draftDirty").toBool()){fail("date selection draft");return;}
+                    QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(QString())));
+                    if(!startDate->property("text").toString().isEmpty()){fail("date clear draft");return;}
+                    if(QGuiApplication::platformName()!=QStringLiteral("offscreen")) {
+                        QKeyEvent typed(QEvent::KeyPress,Qt::Key_unknown,Qt::NoModifier,QStringLiteral("2026-02-31"));QCoreApplication::sendEvent(mainWindow,&typed);
+                    } else startDate->setProperty("text",QStringLiteral("2026-02-31"));
+                    QMetaObject::invokeMethod(startDate,"openPicker");
+                } else if(phase==116) {
+                    if(startDate->property("text").toString()!=QStringLiteral("2026-02-31")){fail("picker retains manual input");return;}
+                    QMetaObject::invokeMethod(startDate,"closePicker");startDate->setProperty("text",m_workspace.dateOffset(0));
+                    if(!capture(QStringLiteral("refined-editor"))){fail("refined editor capture");return;}
+                    mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");
+                    m_workspace.setView(QStringLiteral("today"));
+                } else if(phase==117) {
+                    if(!capture(QStringLiteral("refined-today"))){fail("refined today capture");return;}
+                    widget->resize(260,360);QMetaObject::invokeMethod(widget,"openVerificationMenu");
+                } else if(phase==118 || phase==120) {
+                    QVariant result;QMetaObject::invokeMethod(widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
+                    if(result.toString()!=QStringLiteral("PASS")){qCritical()<<result;fail("widget menu labels fit");return;}
+                    if(!screenshotPath.isEmpty()) {
+                        bool captured=false;
+                        for(auto* window:QGuiApplication::allWindows())if(auto* popup=qobject_cast<QQuickWindow*>(window);popup && popup!=mainWindow && popup!=widget && popup->isVisible()) {
+                            captured=popup->grabWindow().save(screenshotPath+(phase==118 ? QStringLiteral(".widget-menu.png") : QStringLiteral(".widget-menu-200.png")));
+                        }
+                        if(!captured){fail("widget popup native capture");return;}
+                    }
+                    QMetaObject::invokeMethod(widget,"closeVerificationMenu");
+                    if(phase==118)m_workspace.setTextScale(2);else m_workspace.setTextScale(1);
+                } else if(phase==119)QMetaObject::invokeMethod(widget,"openVerificationMenu");
+                else if(phase==121) {
+                    mainWindow->setProperty("searchExpanded",true);mainWindow->setProperty("filtersExpanded",true);mainWindow->resize(880,580);m_workspace.setTextScale(2);
+                    auto* search=mainWindow->findChild<QObject*>(QStringLiteral("taskSearch"));if(!search){fail("search entry");return;}search->setProperty("text",QStringLiteral("候选"));
+                } else if(phase==122) {
+                    if(!capture(QStringLiteral("refined-tools-200"))){fail("refined tools large capture");return;}
+                    mainWindow->setProperty("searchExpanded",false);mainWindow->setProperty("filtersExpanded",false);m_workspace.setTextScale(1);mainWindow->resize(1120,720);
+                    auto* search=mainWindow->findChild<QObject*>(QStringLiteral("taskSearch"));search->setProperty("text",QString());
+                } else if(phase==123) {
+                    m_workspace.setView(QStringLiteral("month"));
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));
+                    auto entry=m_workspace.task(taskId);entry.insert(QStringLiteral("kind"),QStringLiteral("both"));
+                    if(!panel || !QMetaObject::invokeMethod(panel,"offerMove",Q_ARG(QVariant,QVariant(entry)),Q_ARG(QVariant,QVariant(m_workspace.dateOffset(0))))){fail("calendar move dialog open");return;}
+                } else if(phase==124) {
+                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDate"));
+                    if(!field || !QMetaObject::invokeMethod(field,"openPicker")){fail("calendar move date picker");return;}
+                } else if(phase==125) {
+                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDate"));
+                    auto* submit=mainWindow->findChild<QObject*>(QStringLiteral("confirmCalendarMove"));
+                    if(!field || !field->property("pickerVisible").toBool() || !capture(QStringLiteral("calendar-move-picker")) || !submit){fail("calendar move date capture");return;}
+                    QMetaObject::invokeMethod(field,"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(1))));
+                    QMetaObject::invokeMethod(submit,"clicked");
+                } else if(phase==126) {
+                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDialog"));
+                    const auto task=m_workspace.task(taskId);
+                    if(!dialog || dialog->property("visible").toBool() || task.value(QStringLiteral("startOn")).toString()!=m_workspace.dateOffset(1) || task.value(QStringLiteral("deadlineOn")).toString()!=m_workspace.dateOffset(2)){fail("calendar move only changes selected field");return;}
+                    m_workspace.setTextScale(2);mainWindow->resize(880,580);
+                } else if(phase==127) {
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));
+                    auto entry=m_workspace.task(taskId);entry.insert(QStringLiteral("kind"),QStringLiteral("both"));
+                    QMetaObject::invokeMethod(panel,"offerMove",Q_ARG(QVariant,QVariant(entry)),Q_ARG(QVariant,QVariant(m_workspace.dateOffset(1))));
+                } else if(phase==128) {
+                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDate"));QMetaObject::invokeMethod(field,"openPicker");
+                } else if(phase==129) {
+                    if(!capture(QStringLiteral("calendar-move-picker-200"))){fail("large calendar date capture");return;}
+                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDate"));QMetaObject::invokeMethod(field,"closePicker");
+                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDialog"));QMetaObject::invokeMethod(dialog,"close");
+                    m_workspace.setTextScale(1);mainWindow->resize(1120,720);m_workspace.setView(QStringLiteral("today"));
+                }
             } else if(phase>=96) {
                 auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
                 auto* eventEditor=mainWindow->findChild<QObject*>(QStringLiteral("eventDialog"));
@@ -342,7 +423,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<114)return;
+            if(phase<132)return;
             int visibleWindows = 0;
             for (auto* window : QGuiApplication::allWindows()) {
                 if (qobject_cast<QQuickWindow*>(window) && window->isVisible()

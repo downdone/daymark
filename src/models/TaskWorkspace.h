@@ -108,6 +108,7 @@ public:
     Q_INVOKABLE bool previewImport(const QString& path,bool snapshot=false);
     Q_INVOKABLE bool applyImport(bool replace);
     Q_INVOKABLE bool moveTask(const QString& id,int direction);
+    Q_INVOKABLE bool canMoveTask(const QString& id,int direction) const;
     Q_INVOKABLE bool dropTask(const QString& source,const QString& target);
     int themeMode() const {return m_themeMode;}
     double textScale() const {return m_textScale;}
