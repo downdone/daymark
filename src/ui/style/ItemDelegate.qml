@@ -3,9 +3,9 @@ import QtQuick.Templates as T
 T.ItemDelegate {
     id: control
     implicitWidth: contentItem.implicitWidth+leftPadding+rightPadding
-    implicitHeight: Math.max(36,contentItem.implicitHeight+16)
-    padding: 8
-    horizontalPadding: 12
+    implicitHeight: Math.max(32,contentItem.implicitHeight+12)
+    padding: 6
+    horizontalPadding: 10
     hoverEnabled: true
     font.pixelSize: DesignTokens.body
     contentItem: Text {text: control.text;font: control.font;color: control.enabled ? DesignTokens.text : DesignTokens.disabledText;elide: Text.ElideRight;verticalAlignment: Text.AlignVCenter}

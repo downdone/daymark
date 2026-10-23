@@ -3,9 +3,9 @@ import QtQuick.Templates as T
 T.Button {
     id: control
     implicitWidth: contentItem.implicitWidth+leftPadding+rightPadding
-    implicitHeight: Math.max(DesignTokens.controlHeight,contentItem.implicitHeight+16)
-    padding: 8
-    horizontalPadding: 12
+    implicitHeight: Math.max(DesignTokens.controlHeight,contentItem.implicitHeight+12)
+    padding: 6
+    horizontalPadding: 10
     spacing: 8
     hoverEnabled: true
     font.pixelSize: DesignTokens.body

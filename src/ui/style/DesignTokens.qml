@@ -3,6 +3,7 @@ import QtQuick
 QtObject {
     property int mode: 0
     property real scale: 1
+    property bool compact: false
     property SystemPalette systemPalette: SystemPalette {colorGroup: SystemPalette.Active}
     readonly property bool dark: mode===2 || (mode===0 && systemPalette.window.hslLightness<0.5)
     readonly property color surface: dark ? "#202124" : "#ffffff"
@@ -23,12 +24,12 @@ QtObject {
     readonly property int caption: Math.round(12*scale)
     readonly property int section: Math.round(15*scale)
     readonly property int heading: Math.round(18*scale)
-    readonly property int title: Math.round(26*scale)
-    readonly property int controlHeight: Math.max(36,body+22)
+    readonly property int title: Math.round(24*scale)
+    readonly property int controlHeight: Math.max(32,body+(compact ? 14 : 18))
     readonly property int radius: 6
     readonly property int panelRadius: 12
     readonly property int gap: 8
-    readonly property int fieldGap: 12
-    readonly property int pagePadding: 24
-    readonly property int panelPadding: 20
+    readonly property int fieldGap: compact ? 8 : 10
+    readonly property int pagePadding: 20
+    readonly property int panelPadding: 16
 }

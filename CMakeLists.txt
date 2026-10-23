@@ -57,6 +57,17 @@ set(DAYMARK_WINDOW_SOURCES
 )
 
 qt_add_executable(daymark src/main.cpp src/app/AppRuntime.h src/app/AppRuntime.cpp src/app/SoakRunner.h src/app/SoakRunner.cpp)
+qt_add_resources(daymark daymark_brand PREFIX "/daymark/icons" BASE assets/icons FILES
+    assets/icons/daymark-16.png assets/icons/daymark-32.png assets/icons/daymark-48.png assets/icons/daymark-256.png)
+if(WIN32)
+    enable_language(RC)
+    configure_file(src/platform/windows/daymark.rc.in "${CMAKE_CURRENT_BINARY_DIR}/daymark.rc" @ONLY)
+    target_sources(daymark PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/daymark.rc")
+elseif(APPLE)
+    target_sources(daymark PRIVATE assets/icons/daymark.icns)
+    set_source_files_properties(assets/icons/daymark.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    set_target_properties(daymark PROPERTIES MACOSX_BUNDLE_ICON_FILE daymark.icns)
+endif()
 set_source_files_properties(src/ui/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 target_sources(daymark PRIVATE src/platform/common/DesktopTray.h src/platform/common/DesktopTray.cpp)
 target_sources(daymark PRIVATE src/platform/common/WindowStateStore.h src/platform/common/WindowStateStore.cpp)

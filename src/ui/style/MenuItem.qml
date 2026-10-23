@@ -4,7 +4,7 @@ T.MenuItem {
     id: control
     TextMetrics {id: labelMetrics;text: control.text;font: control.font}
     implicitWidth: labelMetrics.advanceWidth+leftPadding+rightPadding
-    implicitHeight: Math.max(34,contentItem.implicitHeight+14)
+    implicitHeight: Math.max(32,contentItem.implicitHeight+12)
     height: visible ? implicitHeight : 0
     leftPadding: (checkable ? 32 : 12)*DesignTokens.scale
     rightPadding: 12*DesignTokens.scale

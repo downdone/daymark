@@ -1,7 +1,6 @@
 #include "DesktopTray.h"
 #include <QAction>
-#include <QPainter>
-#include <QPixmap>
+#include <QGuiApplication>
 #include <QMetaObject>
 
 namespace daymark {
@@ -15,11 +14,7 @@ DesktopTray::DesktopTray(WidgetViewModel& widget,QWindow* mainWindow,QObject* pa
     :QObject(parent),m_widget(widget),m_mainWindow(mainWindow)
 {
     if(!QSystemTrayIcon::isSystemTrayAvailable()){m_widget.setTrayAvailable(false);return;}
-    QPixmap pixmap(32,32);pixmap.fill(Qt::transparent);
-    QPainter painter(&pixmap);painter.setRenderHint(QPainter::Antialiasing);
-    painter.setBrush(QColor(QStringLiteral("#315DB5")));painter.setPen(Qt::NoPen);painter.drawRoundedRect(2,2,28,28,7,7);
-    painter.setPen(QPen(Qt::white,3,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));painter.drawLine(9,17,14,22);painter.drawLine(14,22,24,10);painter.end();
-    m_tray.setIcon(QIcon(pixmap));m_tray.setToolTip(QStringLiteral("Daymark"));
+    m_tray.setIcon(QGuiApplication::windowIcon());m_tray.setToolTip(QStringLiteral("Daymark"));
     const auto showMain=[this]{if(m_mainWindow){m_mainWindow->showNormal();m_mainWindow->requestActivate();}};
     m_menu.addAction(tr("打开主窗口"),this,showMain);
     m_menu.addAction(tr("新建任务…"),this,[this,showMain]{showMain();if(m_mainWindow)QMetaObject::invokeMethod(m_mainWindow,"newTask",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));});

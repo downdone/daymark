@@ -22,5 +22,5 @@ T.TextArea {
         wrapMode: Text.Wrap
         visible: control.length===0 && !control.preeditText
     }
-    background: Rectangle {radius: DesignTokens.radius;color: DesignTokens.surface;border.color: control.activeFocus ? DesignTokens.accent : DesignTokens.outline;border.width: control.activeFocus ? 2 : 1}
+    background: Rectangle {radius: DesignTokens.radius;color: DesignTokens.surface;border.color: control.activeFocus ? DesignTokens.accent : control.hovered ? DesignTokens.secondary : DesignTokens.outline;border.width: control.activeFocus ? 2 : 1}
 }

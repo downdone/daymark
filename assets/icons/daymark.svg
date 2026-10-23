@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>Daymark</title>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="#315db5"/>
+  <rect x="52" y="61" width="152" height="151" rx="24" fill="#fff"/>
+  <path d="M52 102H204" stroke="#315db5" stroke-width="12"/>
+  <path d="M88 48V74M168 48V74" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+  <path d="M88 153L115 180L171 127" fill="none" stroke="#315db5" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

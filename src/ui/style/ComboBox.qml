@@ -4,8 +4,8 @@ import QtQuick.Templates as T
 T.ComboBox {
     id: control
     implicitWidth: Math.max(140,implicitContentWidth+leftPadding+rightPadding)
-    implicitHeight: Math.max(DesignTokens.controlHeight,implicitContentHeight+16)
-    leftPadding: 12
+    implicitHeight: Math.max(DesignTokens.controlHeight,implicitContentHeight+12)
+    leftPadding: 10
     rightPadding: 32
     font.pixelSize: DesignTokens.body
     hoverEnabled: true
@@ -32,7 +32,7 @@ T.ComboBox {
         onInkChanged: requestPaint()
         onPaint: {const c=getContext("2d");c.reset();c.strokeStyle=ink;c.lineWidth=1.7;c.lineCap="round";c.lineJoin="round";c.beginPath();c.moveTo(3,5);c.lineTo(7,9);c.lineTo(11,5);c.stroke()}
     }
-    background: Rectangle {radius: DesignTokens.radius;color: control.down ? DesignTokens.selected : control.hovered ? DesignTokens.hover : DesignTokens.surface;border.width: control.visualFocus ? 2 : 1;border.color: control.visualFocus ? DesignTokens.accent : DesignTokens.border}
+    background: Rectangle {radius: DesignTokens.radius;color: control.down ? DesignTokens.selected : control.hovered ? DesignTokens.hover : DesignTokens.surface;border.width: control.visualFocus ? 2 : 1;border.color: control.visualFocus ? DesignTokens.accent : control.hovered ? DesignTokens.secondary : DesignTokens.outline}
     delegate: MenuItem {
         required property int index
         required property var model

@@ -135,7 +135,12 @@ Window {
                     id: todayRow
                     width: todayList.width
                     ToolButton {
-                        contentItem: AppIcon {name: "circle"}
+                        Layout.preferredWidth: 32
+                        Layout.preferredHeight: 32
+                        contentItem: Item {
+                            implicitWidth: 18;implicitHeight: 18
+                            AppIcon {anchors.centerIn: parent;width: 18;height: 18;name: "circle"}
+                        }
                         Accessible.name: qsTr("完成任务")
                         enabled: widget.workspace.ready && !widget.workspace.busy
                         onClicked: widget.workspace.changeState(todayRow.taskId, todayRow.rowVersion, "complete")

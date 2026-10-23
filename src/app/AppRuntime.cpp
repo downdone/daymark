@@ -16,6 +16,7 @@
 #include <QWheelEvent>
 #include <QSet>
 #include <QPointer>
+#include <QIcon>
 
 namespace daymark {
 
@@ -86,6 +87,8 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             auto* editor=mainWindow->findChild<QObject*>(QStringLiteral("taskEditor"));
             if(!input || !editTitle || !startDate || !editor){fail("UI objects");return;}
             if(phase==0) {
+                const auto icon=QGuiApplication::windowIcon();
+                if(icon.isNull() || icon.pixmap(16,16).isNull() || icon.pixmap(256,256).isNull()) {fail("application icon resources");return;}
                 // Start-Process -WindowStyle Hidden suppresses the first Win32 show.
                 // Native focus/layout checks require an exposed rendering surface.
                 if(QGuiApplication::platformName()!=QStringLiteral("offscreen")) {

@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <QFileInfo>
 #include <QDir>
+#include <QIcon>
 
 int main(int argc, char* argv[])
 {
@@ -13,6 +14,9 @@ int main(int argc, char* argv[])
     QCoreApplication::setApplicationName(QStringLiteral("Daymark"));
     QCoreApplication::setOrganizationName(QStringLiteral("Daymark"));
     QCoreApplication::setApplicationVersion(QStringLiteral(DAYMARK_VERSION));
+    QIcon applicationIcon;
+    for(const int size:{16,32,48,256})applicationIcon.addFile(QStringLiteral(":/daymark/icons/daymark-%1.png").arg(size));
+    QApplication::setWindowIcon(applicationIcon);
     QQuickStyle::setStyle(QStringLiteral("DaymarkStyle"));
     QQuickStyle::setFallbackStyle(QStringLiteral("Basic"));
 

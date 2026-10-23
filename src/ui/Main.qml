@@ -60,7 +60,7 @@ ApplicationWindow {
     }
     readonly property bool calendarVisible: taskWorkspace.view === "month" || taskWorkspace.view === "week"
     readonly property real sidebarWidth: taskWorkspace.preferences.sidebarCollapsed ? 0 : Math.min(300,220*Theme.scale)
-    readonly property real detailWidth: Math.max(320,280*Theme.scale)
+    readonly property real detailWidth: Math.max(344,280*Theme.scale)
     readonly property bool detailDocked: editor.visible && !calendarVisible && width >= sidebarWidth+440+detailWidth+80
 
     function markDirty() { if (!fillingDraft) draftDirty = true }
@@ -251,8 +251,8 @@ ApplicationWindow {
             ColumnLayout {
                 width: navigationScroll.availableWidth
                 height: Math.max(implicitHeight,navigationScroll.availableHeight)
-                spacing: 8
-                Label { text: "Daymark"; font.pixelSize: Theme.headingSize; font.bold: true; Layout.bottomMargin: 22 }
+                spacing: 6
+                Label { text: "Daymark"; font.pixelSize: Theme.headingSize; font.bold: true; Layout.bottomMargin: 16 }
                 Repeater {
                     model: mainWindow.viewNames
                     NavRow {
@@ -314,8 +314,8 @@ ApplicationWindow {
             visible: !editor.visible || mainWindow.detailDocked
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.margins: 24
-            Layout.rightMargin: mainWindow.detailDocked ? mainWindow.detailWidth+40 : 24
+            Layout.margins: Theme.pagePadding
+            Layout.rightMargin: mainWindow.detailDocked ? mainWindow.detailWidth+Theme.pagePadding+16 : Theme.pagePadding
             spacing: Theme.fieldGap
             RowLayout {
                 ToolButton {Accessible.name: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? qsTr("显示导航") : qsTr("收起导航");contentItem: AppIcon {name: "sidebar"} onClicked: mainWindow.taskWorkspace.setPreference("sidebarCollapsed",!mainWindow.taskWorkspace.preferences.sidebarCollapsed)}
@@ -323,12 +323,12 @@ ApplicationWindow {
                     text: search.text.trim().length > 0 ? qsTr("搜索结果") : mainWindow.currentViewTitle()
                     font.pixelSize: Theme.titleSize
                     elide: Text.ElideRight
-                    font.bold: true
+                    font.weight: Font.DemiBold
                     Layout.fillWidth: true
                 }
                 BusyIndicator { running: mainWindow.taskWorkspace.busy; visible: running; Layout.preferredWidth: 28; Layout.preferredHeight: 28 }
-                Button {visible: !mainWindow.calendarVisible;text: qsTr("搜索");flat: true;onClicked: {if(mainWindow.searchExpanded || search.text.length>0){search.clear();mainWindow.searchExpanded=false;taskList.forceActiveFocus()}else{mainWindow.searchExpanded=true;search.forceActiveFocus()}}}
-                Button {visible: !mainWindow.calendarVisible;text: (mainWindow.selectedTag || mainWindow.selectedProject) ? qsTr("清除筛选") : mainWindow.filtersExpanded ? qsTr("收起筛选") : qsTr("筛选");flat: true;onClicked: {if(mainWindow.selectedTag || mainWindow.selectedProject){tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("");mainWindow.filtersExpanded=false}else mainWindow.filtersExpanded=!mainWindow.filtersExpanded}}
+                WidgetAction {visible: !mainWindow.calendarVisible;symbol: "search";description: mainWindow.searchExpanded ? qsTr("关闭搜索") : qsTr("搜索任务");checked: mainWindow.searchExpanded || search.text.length>0;onClicked: {if(mainWindow.searchExpanded || search.text.length>0){search.clear();mainWindow.searchExpanded=false;taskList.forceActiveFocus()}else{mainWindow.searchExpanded=true;search.forceActiveFocus()}}}
+                WidgetAction {visible: !mainWindow.calendarVisible;symbol: "filter";description: (mainWindow.selectedTag || mainWindow.selectedProject) ? qsTr("清除筛选") : mainWindow.filtersExpanded ? qsTr("收起筛选") : qsTr("筛选任务");checked: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {if(mainWindow.selectedTag || mainWindow.selectedProject){tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("");mainWindow.filtersExpanded=false}else mainWindow.filtersExpanded=!mainWindow.filtersExpanded}}
                 ToolButton {
                     Accessible.name: qsTr("页面操作")
                     contentItem: AppIcon {name: "more"}
@@ -470,6 +470,7 @@ ApplicationWindow {
                     width: taskList.width
                     enabled: mainWindow.taskWorkspace.ready && !mainWindow.taskWorkspace.busy
                     highlighted: taskList.currentIndex === index
+                    showTodayMarker: mainWindow.taskWorkspace.view!=="today"
                     selectionMode: mainWindow.batchMode
                     canMoveUp: index>0
                     canMoveDown: index<taskList.count-1

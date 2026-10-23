@@ -30,6 +30,9 @@ Canvas {
         else if(name==="plus") {line([[5,12],[19,12]],false);line([[12,5],[12,19]],false)}
         else if(name==="expand") {line([[5,19],[19,5]],false);line([[9,5],[19,5],[19,15]],false)}
         else if(name==="pin") {line([[8,3],[16,3],[15,10],[19,14],[5,14],[9,10]],true);line([[12,14],[12,22]],false)}
+        else if(name==="search") {circle(10.5,10.5,6.5);line([[15.5,15.5],[21,21]],false)}
+        else if(name==="filter") {line([[4,6],[20,6]],false);line([[7,12],[17,12]],false);line([[10,18],[14,18]],false)}
+        else if(name==="settings") {circle(12,12,3);for(let i=0;i<8;i++){const a=i*Math.PI/4;line([[12+7*Math.cos(a),12+7*Math.sin(a)],[12+9*Math.cos(a),12+9*Math.sin(a)]],false)}}
         else if(name==="close") {line([[6,6],[18,18]],false);line([[18,6],[6,18]],false)}
         else if(name==="sidebar") {p.strokeRect(3,4,18,16);line([[9,4],[9,20]],false)}
         else if(name==="trash") {line([[4,6],[20,6]],false);line([[9,3],[15,3]],false);line([[6,6],[7,21],[17,21],[18,6]],false);line([[10,10],[10,17]],false);line([[14,10],[14,17]],false)}

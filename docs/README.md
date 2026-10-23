@@ -55,3 +55,5 @@ Windows离线交付的只读清单、原生运行及ZIP验证见[设计](design/
 原始三个编号文档保留，不为迎合实现删除需求；用户已指定的 Qt 版本选择见 ADR-007。冲突按 PRD 产品行为、TDD 工程约束、Plan 顺序裁决。未解决的冲突不得自动当作需求放弃。
 
 统一滚动边界、惯性及备注单一滚动轴见[UI-11设计](design/scroll-interaction.md)。
+
+布局密度、图标及程序文件标识精修见[UI-12设计](design/ui-polish.md)。

@@ -30,6 +30,7 @@ ItemDelegate {
     required property int checklistPending
     required property bool evening
     required property bool inToday
+    property bool showTodayMarker: true
     property bool selectionMode: false
     property bool selectedForBatch: false
     property bool canMoveUp: true
@@ -49,33 +50,34 @@ ItemDelegate {
     Drag.hotSpot.y: height/2+drag.centroid.position.y-drag.centroid.pressPosition.y
     DragHandler {id: drag;target: null;onActiveChanged: {if(!active)root.Drag.drop();root.dragStateChanged(active)}}
     DropArea {anchors.fill: parent;onDropped: function(drop){const source=drop.source as TaskRow;if(source){root.dropRequested(source.taskId);drop.acceptProposedAction()}}}
-    implicitHeight: Math.max(Theme.compact ? 40 : 48,contentItem.implicitHeight+(Theme.compact ? 8 : 16))
+    implicitHeight: Math.max(Theme.compact ? 38 : 44,contentItem.implicitHeight+(Theme.compact ? 6 : 10))
     Accessible.name: title + (isDone ? qsTr("，已结束") : qsTr("，未完成"))
     onClicked: selectionMode ? selectionRequested() : editRequested()
     contentItem: RowLayout {
-        spacing: 12
+        spacing: 8
         CheckBox {visible: root.selectionMode;checked: root.selectedForBatch;Accessible.name: qsTr("选择任务：")+root.title;onClicked: root.selectionRequested()}
         ToolButton {
             Layout.preferredWidth: 32
             Layout.preferredHeight: 32
             Accessible.name: (root.isDone ? qsTr("恢复任务：") : qsTr("完成任务："))+root.title
             onClicked: root.completeRequested()
-            contentItem: Rectangle {
-                implicitWidth: 18
-                implicitHeight: 18
-                radius: width/2
-                color: root.isDone ? Theme.accent : "transparent"
-                border.color: Theme.secondary
-                AppIcon {anchors.centerIn: parent;name: "check";width: 14;height: 14;visible: root.isDone;ink: Theme.dark ? "#191a1d" : "white"}
+            contentItem: Item {
+                implicitWidth: 18;implicitHeight: 18
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 18;height: 18;radius: 9
+                    color: root.isDone ? Theme.accent : "transparent"
+                    border.color: root.isDone ? Theme.accent : Theme.secondary
+                    AppIcon {anchors.centerIn: parent;name: "check";width: 12;height: 12;visible: root.isDone;ink: Theme.dark ? "#191a1d" : "white"}
+                }
             }
         }
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 4
+            spacing: 2
             Label { text: root.title; font.pixelSize: Theme.bodySize; color: Theme.text; font.strikeout: root.isDone; Layout.fillWidth: true; elide: Text.ElideRight }
-            Label {visible: root.inToday;text: qsTr("今日");color: Theme.accent;font.pixelSize: Theme.captionSize}
             Label {
-                text: [root.projectName,root.tagSummary,root.checklistPending>0 ? qsTr("清单剩余 %1").arg(root.checklistPending) : "",root.startOn ? qsTr("开始 %1").arg(root.startOn) : "",root.deadlineOn ? qsTr("⚑ 截止 %1").arg(root.deadlineOn) : "",root.taskStatus === "CANCELLED" ? qsTr("已取消") : ""].filter(function(x){return x.length>0}).join(" · ")
+                text: [root.inToday && root.showTodayMarker ? qsTr("今日") : "",root.projectName,root.tagSummary,root.checklistPending>0 ? qsTr("清单剩余 %1").arg(root.checklistPending) : "",root.startOn ? qsTr("开始 %1").arg(root.startOn) : "",root.deadlineOn ? qsTr("截止 %1").arg(root.deadlineOn) : "",root.taskStatus === "CANCELLED" ? qsTr("已取消") : ""].filter(function(x){return x.length>0}).join(" · ")
                 visible: text.length>0
                 color: root.isOverdue ? Theme.danger : Theme.secondary
                 font.pixelSize: Theme.captionSize

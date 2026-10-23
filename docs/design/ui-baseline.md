@@ -149,3 +149,5 @@ macOS菜单栏提供应用/文件/编辑/视图/窗口/帮助的适用命令；W
 新增Theme/Tokens及独立NavRow、TaskRow、IconButton等QML组件，封装视觉与输入；QueryService/Repository保持既有边界。主题切换只改token，日期/状态判定仍在C++。先做一个Today完整纵切再推广，不一次重写全应用。
 
 每次UI改动先列受影响UX基准ID、状态和验收截图条件；完成后按 [UI验收](ui-acceptance.md) 检查。新视觉可以逐步落地，当前BASIC-01在未迁移组件上允许保留，但不得将其截图作为最终UI目标。
+
+UI-12自主数值修订：默认控件32DIP起（文字放大按内容增高），标题24DIP、页边20DIP、字段间10DIP，紧凑模式字段间8DIP；其他操作和可访问性目标保留。具体设计见[整体精修](ui-polish.md)，实际状态只见PROGRESS。

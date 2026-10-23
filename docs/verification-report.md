@@ -1,3 +1,13 @@
+# UI-12整体精修（2026-10-23）
+
+Windows11 x64、Qt6.10.2/MinGW13.1，schema3。Debug构建/CTest17/17（29.47秒）、Release17/17（29.90秒），两个QML lint通过。当前Windows原生152阶段退出0、双窗口、warnings=false，无unfinished creation诊断；另有系统clipboard重试提示，不计为QML错误。
+
+截图查看Today默认/200%、统一详情宽窗/200%、浅深控件、日历宽窗深色、默认/200%小窗和Mini。Today上下文去掉重复标记、元信息合并、完成圆不再被按钮拉伸；原断言继续覆盖日期/草稿/菜单/长短备注和焦点路径。未把截图或合成事件当作物理DPI/读屏/IME/跨屏验收。
+
+应用图标资源在合成启动时检查16/256像素pixmap非空。用Windows实际资源API读取Release EXE的RT_GROUP_ICON，8帧尺寸为16/20/24/32/48/64/128/256；ExtractAssociatedIcon提取32像素图像查看通过。ICNS头长及7个PNG块结构通过，macOS Finder/Dock实机UNVERIFIED。图标由仓库脚本和系统Drawing生成，未下载第三方资产或引入运行时依赖。脚本语法与实际生成通过。
+
+完整图标/布局设计见[UI-12](design/ui-polish.md)。原始日志/截图保留在忽略的build目录，数据来自QTemporaryDir，无用户库访问。V-03W既有Release部署失败仍按原记录保留；UI修改不会自动解除发行门禁。
+
 # UI-11及小窗置顶入口（2026-10-23）
 
 Windows11 x64、Qt6.10.2/MinGW13.1，schema3。自动测试使用QTemporaryDir；未访问用户任务库、未结束已有用户进程。

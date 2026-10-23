@@ -36,3 +36,5 @@ DaymarkStyle是仅展示层的Qt Quick Controls样式模块，基于QtQuick.Temp
 Windows复现：设置DAYMARK_QT与DAYMARK_MINGW后运行`./scripts/build-windows.ps1`、`./scripts/test-windows.ps1`，再运行`cmake --build --preset windows-debug --target daymark_style_qmllint daymark_qmllint`。以windows原生后端运行`daymark.exe --smoke-test --screenshot <合成PNG绝对路径>`输出各页和ui-style/ui-menu/ui-choice/ui-style-dark/ui-style-200截图。自动smoke使用临时目录，不加载用户库。
 
 macOS保持`bash scripts/build-macos.sh`入口；当前无机器，构建与全部平台体验UNVERIFIED。系统文件选择器、窗口边框、托盘菜单保留原生样式；自定义QML样式不替换这些系统界面。
+
+后续UI-12对密度数值及应用图标作修订，见[整体精修](ui-polish.md)。本文件早期36DIP/26DIP等数值保留为历史设计；新实现以UI-12与共享token为准。
