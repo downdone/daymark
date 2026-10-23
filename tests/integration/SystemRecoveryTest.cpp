@@ -12,6 +12,14 @@ using namespace daymark;
 class SystemRecoveryTest:public QObject {
     Q_OBJECT
 private slots:
+    void calendarGeometryUsesSeparateNamespaceAndMinimum() {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("windows.ini"));
+        QSettings settings(path,QSettings::IniFormat);const QRect mainGeometry(20,20,1000,650);settings.setValue(QStringLiteral("main/geometry"),mainGeometry);settings.sync();
+        QWindow calendar;calendar.setGeometry(30,30,500,500);
+        {WindowStateStore state(&calendar,path,nullptr,QStringLiteral("desktopCalendar"),QSize(420,480));state.save();}
+        settings.sync();QCOMPARE(settings.value(QStringLiteral("main/geometry")).toRect(),mainGeometry);
+        const auto saved=settings.value(QStringLiteral("desktopCalendar/geometry")).toRect();QVERIFY(saved.isValid());QVERIFY(saved.width()>=420);QVERIFY(saved.height()>=480);
+    }
     void coalescesBurstAndCancelsOnDestruction() {
         int calls=0;
         {

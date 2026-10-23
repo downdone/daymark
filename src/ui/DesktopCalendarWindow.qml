@@ -1,0 +1,77 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+ApplicationWindow {
+    id: calendar
+    objectName: "desktopCalendarWindow"
+    required property TaskWorkspace workspace
+    signal openTask(string taskId)
+    width: 760;height: 720
+    minimumWidth: 420;minimumHeight: 480
+    visible: workspace.ready && workspace.preferences.desktopCalendarVisible
+    transientParent: null
+    flags: Qt.Window | Qt.FramelessWindowHint | (workspace.preferences.desktopCalendarTopmost ? Qt.WindowStaysOnTopHint : 0)
+    title: qsTr("Daymark · 桌面日历")
+    color: "transparent"
+    font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize
+    palette.windowText: Theme.text;palette.text: Theme.text;palette.buttonText: Theme.text
+    background: Rectangle {
+        color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,calendar.workspace.preferences.desktopCalendarOpacity/100)
+        radius: Theme.panelRadius;border.color: Theme.separator
+    }
+    onClosing: function(event) {
+        event.accepted=false
+        if(!page.protectClose(function(){calendar.workspace.setPreference("desktopCalendarVisible",false)}))calendar.workspace.setPreference("desktopCalendarVisible",false)
+    }
+    function protectClose(action) {
+        if(!page.protectClose(action))return false
+        workspace.setPreference("desktopCalendarVisible",true);requestActivate();return true
+    }
+    function resetPosition() {x=Screen.virtualX+Math.max(0,(Screen.width-width)/2);y=Screen.virtualY+Math.max(0,(Screen.height-height)/2)}
+    function verifyIndependence() {
+        const oldView=workspace.view
+        const oldTitle=workspace.calendarTitle
+        const original=page.anchorDate
+        const originalSelection=page.selectedDate
+        page.step(1)
+        const changed=page.anchorDate!==original && page.days.length===42
+        page.anchorDate=original;page.selectedDate=originalSelection
+        return changed && workspace.view===oldView && workspace.calendarTitle===oldTitle
+    }
+    ColumnLayout {
+        anchors.fill: parent;anchors.margins: 14
+        spacing: 8
+        RowLayout {
+            Layout.fillWidth: true
+            Label {text: qsTr("日历");font.weight: Font.DemiBold;Layout.fillWidth: true
+                DragHandler {target: null;onActiveChanged: if(active)calendar.startSystemMove()}
+            }
+            WidgetAction {symbol: "pin";description: qsTr("日历置顶");checked: calendar.workspace.preferences.desktopCalendarTopmost;onClicked: calendar.workspace.setPreference("desktopCalendarTopmost",!checked)}
+            WidgetAction {symbol: "settings";description: qsTr("日历透明度与位置");onClicked: options.open()
+                Menu {
+                    id: options
+                    MenuItem {text: qsTr("背景透明度 %1%").arg(calendar.workspace.preferences.desktopCalendarOpacity);enabled: false}
+                    MenuItem {text: qsTr("100% · 实色");onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",100)}
+                    MenuItem {text: "90%";onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",90)}
+                    MenuItem {text: "70%";onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",70)}
+                    MenuItem {text: "50%";onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",50)}
+                    MenuSeparator {}
+                    MenuItem {text: qsTr("重置位置");onTriggered: calendar.resetPosition()}
+                }
+            }
+            WidgetAction {symbol: "close";description: qsTr("隐藏桌面日历");onClicked: calendar.close()}
+        }
+        CalendarPanel {
+            id: page
+            objectName: "desktopCalendarPanel"
+            Layout.fillWidth: true;Layout.fillHeight: true
+            workspace: calendar.workspace
+            independent: true
+            onOpenTask: function(taskId){calendar.openTask(taskId)}
+            onCompleteTask: function(taskId,version,action){calendar.workspace.changeState(taskId,version,action)}
+        }
+        Label {visible: calendar.workspace.errorText.length>0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: calendar.workspace.errorText;color: Theme.danger}
+    }
+    MouseArea {anchors.right: parent.right;anchors.bottom: parent.bottom;width: 16;height: 16;cursorShape: Qt.SizeFDiagCursor;onPressed: calendar.startSystemResize(Qt.RightEdge|Qt.BottomEdge)}
+}

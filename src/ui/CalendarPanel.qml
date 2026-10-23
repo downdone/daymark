@@ -7,10 +7,21 @@ ColumnLayout {
     id: panel
     objectName: "calendarPanel"
     required property TaskWorkspace workspace
+    signal desktopRequested()
+    property bool independent: false
+    property bool weekMode: false
+    property string anchorDate: workspace.dateOffset(0)
+    property var independentDays: []
+    readonly property bool isWeek: independent ? weekMode : workspace.view==="week"
+    function refreshIndependent() {if(independent)independentDays=workspace.calendarDaysFor(anchorDate,weekMode)}
+    onAnchorDateChanged: refreshIndependent()
+    onWeekModeChanged: refreshIndependent()
+    Component.onCompleted: refreshIndependent()
+    function step(offset) {if(independent){anchorDate=workspace.shiftCalendar(anchorDate,offset,weekMode);selectedDate=anchorDate}else workspace.stepCalendar(offset)}
     signal openTask(string taskId)
     signal completeTask(string taskId,real version,string action)
     property string selectedDate: workspace.dateOffset(0)
-    readonly property var days: workspace.calendarDays
+    readonly property var days: independent ? independentDays : workspace.calendarDays
     readonly property var selectedDay: days.find(day=>day.date===selectedDate) || ({date:"",entries:[],events:[]})
     readonly property bool compact: width<800*Theme.scale
     readonly property int rowMinimum: Math.max(72,Math.ceil(Theme.bodySize*1.5+Theme.captionSize*3+16))
@@ -42,7 +53,7 @@ ColumnLayout {
     function moveSelection(offset) {
         const target=workspace.shiftDate(selectedDate,offset)
         selectedDate=target
-        if(!days.some(day=>day.date===target))workspace.selectCalendarDate(target)
+        if(!days.some(day=>day.date===target)){if(independent)anchorDate=target;else workspace.selectCalendarDate(target)}
         Qt.callLater(focusSelected)
     }
     component CalendarDay: ItemDelegate {
@@ -50,7 +61,7 @@ ColumnLayout {
         required property var modelData
         readonly property var items: panel.entries(modelData)
         readonly property int markerLineHeight: Math.ceil(Theme.captionSize*1.5)
-        readonly property int entryLimit: Math.max(1,Math.min(panel.workspace.view==="week" ? 8 : 3,Math.floor((availableHeight-dayNumber.implicitHeight-markerLineHeight-6)/(markerLineHeight+2))))
+        readonly property int entryLimit: Math.max(1,Math.min(panel.isWeek ? 8 : 3,Math.floor((availableHeight-dayNumber.implicitHeight-markerLineHeight-6)/(markerLineHeight+2))))
         readonly property int displayedCount: markers.count
         readonly property string firstDisplayedTitle: {if(markers.count<1)return "";const label=markers.itemAt(0) as Label;return label ? label.text : ""}
         readonly property real markerBottom: dayNumber.height+1+markers.count*(markerLineHeight+1)
@@ -73,7 +84,7 @@ ColumnLayout {
         contentItem: Column {
             spacing: 1
             clip: true
-            Label {id: dayNumber;width: dayCell.availableWidth;text: dayCell.modelData.day;color: dayCell.modelData.today ? Theme.accent : dayCell.modelData.inMonth ? Theme.text : Theme.secondary;font.bold: dayCell.modelData.today}
+            Label {id: dayNumber;width: dayCell.availableWidth;text: dayCell.modelData.day;color: dayCell.modelData.today ? Theme.accent : dayCell.modelData.inMonth && !dayCell.modelData.weekend ? Theme.text : Theme.secondary;font.bold: dayCell.modelData.today || dayCell.highlighted}
             Repeater {
                 id: markers
                 model: dayCell.items.slice(0,dayCell.entryLimit)
@@ -107,11 +118,12 @@ ColumnLayout {
                 TapHandler {onTapped: {panel.selectedDate=dayCell.modelData.date;panel.showAgenda()}}
             }
         }
+        Rectangle {anchors.bottom: parent.bottom;width: parent.width;height: 1;color: Theme.separator;opacity: 0.45}
         DropArea {anchors.fill: parent;onDropped: function(drop){if(panel.draggedEntry){panel.offerMove(panel.draggedEntry,dayCell.modelData.date);drop.acceptProposedAction()}}}
     }
     Connections {
         target: panel.workspace
-        function onStateChanged() {if(!panel.days.some(day=>day.date===panel.selectedDate)){const day=panel.days.find(day=>day.inMonth);if(day)panel.selectedDate=day.date}}
+        function onStateChanged() {panel.refreshIndependent();if(!panel.days.some(day=>day.date===panel.selectedDate)){const day=panel.days.find(day=>day.inMonth);if(day)panel.selectedDate=day.date}}
         function onOperationFinished(operation,success) {
             if(success && operation==="calendarCreate")newTitle.clear()
             if(success && operation==="calendarMove")moveDialog.close()
@@ -119,15 +131,16 @@ ColumnLayout {
     }
     RowLayout {
         Layout.fillWidth: true
-        ToolButton {contentItem: AppIcon {name:"left"} Accessible.name: qsTr("上一页");onClicked: panel.workspace.stepCalendar(-1)}
-        Label {text: panel.workspace.calendarTitle;font.pixelSize: Theme.headingSize;font.bold: true;Layout.fillWidth: true;elide: Text.ElideRight}
-        Button {text: qsTr("今天");flat: true;onClicked: {panel.selectedDate=panel.workspace.dateOffset(0);panel.workspace.stepCalendar(0)}}
-        ToolButton {contentItem: AppIcon {name:"right"} Accessible.name: qsTr("下一页");onClicked: panel.workspace.stepCalendar(1)}
+        ToolButton {contentItem: AppIcon {name:"left"} Accessible.name: qsTr("上一页");onClicked: panel.step(-1)}
+        Label {text: panel.independent ? panel.workspace.calendarTitleFor(panel.anchorDate,panel.weekMode) : panel.workspace.calendarTitle;font.pixelSize: Theme.headingSize;font.bold: true;Layout.fillWidth: true;elide: Text.ElideRight}
+        Button {text: qsTr("今天");flat: true;onClicked: {panel.selectedDate=panel.workspace.dateOffset(0);panel.step(0)}}
+        ToolButton {contentItem: AppIcon {name:"right"} Accessible.name: qsTr("下一页");onClicked: panel.step(1)}
     }
     Flow {
         Layout.fillWidth: true
         spacing: Theme.gap
-        SegmentedPicker {width: 104*Theme.scale;model: [qsTr("月"),qsTr("周")];currentIndex: panel.workspace.view==="week" ? 1 : 0;onActivated: function(index){panel.workspace.setView(index===1 ? "week" : "month")}}
+        SegmentedPicker {width: 104*Theme.scale;model: [qsTr("月"),qsTr("周")];currentIndex: panel.isWeek ? 1 : 0;onActivated: function(index){if(panel.independent)panel.weekMode=index===1;else panel.workspace.setView(index===1 ? "week" : "month")}}
+        Button {visible: !panel.independent;text: qsTr("桌面日历");onClicked: panel.desktopRequested()}
         Button {text: qsTr("新建事件");highlighted: true;enabled: panel.workspace.ready && !panel.workspace.busy;onClicked: panel.openEvent("")}
         Button {
             text: qsTr("显示…")
@@ -160,7 +173,7 @@ ColumnLayout {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: !panel.compact
-                Layout.preferredHeight: panel.compact ? (panel.workspace.view==="week" ? Math.max(160,panel.rowMinimum) : 6*panel.rowMinimum)+28 : -1
+                Layout.preferredHeight: panel.compact ? (panel.isWeek ? Math.max(160,panel.rowMinimum) : 6*panel.rowMinimum)+28 : -1
                 RowLayout {
                     Layout.fillWidth: true
                     Repeater {

@@ -9,6 +9,23 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void independentCalendarSharesDataWithoutChangingMainView() {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("calendar.sqlite"));
+        {TaskWorkspace w;w.start(path);QTRY_VERIFY(!w.busy());QVERIFY(w.ready());
+        w.setView(QStringLiteral("today"));const auto title=w.calendarTitle();
+        QCOMPARE(w.calendarDaysFor(QStringLiteral("2028-02-29"),false).size(),42);
+        QCOMPARE(w.calendarDaysFor(QStringLiteral("2028-02-29"),true).size(),7);
+        QCOMPARE(w.shiftCalendar(QStringLiteral("2028-01-31"),1,false),QStringLiteral("2028-02-29"));
+        QVERIFY(w.calendarDaysFor(QStringLiteral("invalid"),false).isEmpty());
+        QVERIFY(w.createForDate(QStringLiteral("shared calendar item"),w.dateOffset(0)));QTRY_VERIFY(!w.busy());
+        bool found=false;for(const auto& day:w.calendarDaysFor(w.dateOffset(0),false))for(const auto& item:day.toMap().value(QStringLiteral("entries")).toList())if(item.toMap().value(QStringLiteral("title")).toString()==QStringLiteral("shared calendar item"))found=true;
+        QVERIFY(found);QCOMPARE(w.view(),QStringLiteral("today"));QCOMPARE(w.calendarTitle(),title);
+        QVERIFY(w.setPreference(QStringLiteral("desktopCalendarVisible"),true));
+        QVERIFY(w.setPreference(QStringLiteral("desktopCalendarOpacity"),70));
+        QVERIFY(!w.setPreference(QStringLiteral("desktopCalendarOpacity"),49));
+        QVERIFY(!w.setPreference(QStringLiteral("desktopCalendarOpacity"),101));}
+        TaskWorkspace restored;restored.start(path);QTRY_VERIFY(!restored.busy());QVERIFY(restored.preferences().value(QStringLiteral("desktopCalendarVisible")).toBool());QCOMPARE(restored.preferences().value(QStringLiteral("desktopCalendarOpacity")).toInt(),70);
+    }
     void refreshDuringWriteIsCoalescedAndPreservesValidationError() {
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("recovery.sqlite")));QTRY_VERIFY(!w.busy());QVERIFY(w.ready());
         QSignalSpy operations(&w,&TaskWorkspace::operationFinished);

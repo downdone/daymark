@@ -29,6 +29,7 @@ private:
     QQmlApplicationEngine m_engine;
     std::unique_ptr<DesktopTray> m_tray;
     std::unique_ptr<WindowStateStore> m_mainState;
+    std::unique_ptr<WindowStateStore> m_calendarState;
     std::unique_ptr<SystemEventFilter> m_systemEvents;
     bool m_qmlWarnings = false;
     int m_startupExitCode = 1;

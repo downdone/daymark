@@ -60,6 +60,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     auto* mainWindow=qobject_cast<QQuickWindow*>(m_engine.rootObjects().first());
     if(!smokeTest)m_mainState=std::make_unique<WindowStateStore>(mainWindow,QDir(directory).filePath(QStringLiteral("ui.ini")));
     if(m_mainState)QObject::connect(m_mainState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);
+    auto* desktopCalendar=mainWindow->findChild<QWindow*>(QStringLiteral("desktopCalendarWindow"));
+    m_calendarState=std::make_unique<WindowStateStore>(desktopCalendar,QDir(directory).filePath(QStringLiteral("ui.ini")),nullptr,QStringLiteral("desktopCalendar"),QSize(420,480));
+    QObject::connect(m_calendarState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);
     if(!smokeTest)m_tray=std::make_unique<DesktopTray>(m_widget,mainWindow);
     QObject::connect(&m_workspace,&TaskWorkspace::reminderReady,&m_engine,[this](const QString& title,const QString& message){
         if(m_tray)m_tray->notify(title,message);
@@ -323,6 +326,23 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto* settings=mainWindow->findChild<QObject*>(QStringLiteral("settingsDialog"));QVariant result;
                     if(!settings || !QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,result)) || result.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("hig-settings-default-dark"))){fail("default dark settings");return;}
                     QMetaObject::invokeMethod(settings,"close");m_workspace.setThemeMode(1);
+                } else if(phase==161) {
+                    m_workspace.setPreference(QStringLiteral("desktopCalendarOpacity"),70);
+                    m_workspace.setPreference(QStringLiteral("desktopCalendarVisible"),true);
+                } else if(phase==162) {
+                    auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));QVariant independent;
+                    if(!calendar || !calendar->isVisible() || !mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"))->isVisible() || !QMetaObject::invokeMethod(calendar,"verifyIndependence",Q_RETURN_ARG(QVariant,independent)) || !independent.toBool() || m_workspace.view()!=QStringLiteral("today")){fail("independent calendar and widget coexist");return;}
+                    if(!screenshotPath.isEmpty() && !calendar->grabWindow().save(screenshotPath+QStringLiteral(".desktop-calendar.png"))){fail("desktop calendar capture");return;}
+                    m_workspace.setTextScale(2);calendar->resize(880,640);
+                } else if(phase==163) {
+                    auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));
+                    if(!calendar || !calendar->isVisible()){fail("large desktop calendar");return;}
+                    if(!screenshotPath.isEmpty() && !calendar->grabWindow().save(screenshotPath+QStringLiteral(".desktop-calendar-200.png"))){fail("large desktop calendar capture");return;}
+                    QMetaObject::invokeMethod(calendar,"close");
+                } else if(phase==164) {
+                    auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));
+                    if(!calendar || calendar->isVisible() || !mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"))->isVisible() || m_workspace.preferences().value(QStringLiteral("desktopCalendarVisible")).toBool()){fail("calendar hide preserves task widget");return;}
+                    m_workspace.setTextScale(1);
                 }
             } else if(phase>=112) {
                 auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
@@ -379,16 +399,16 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto entry=m_workspace.task(taskId);entry.insert(QStringLiteral("kind"),QStringLiteral("both"));
                     if(!panel || !QMetaObject::invokeMethod(panel,"offerMove",Q_ARG(QVariant,QVariant(entry)),Q_ARG(QVariant,QVariant(m_workspace.dateOffset(0))))){fail("calendar move dialog open");return;}
                 } else if(phase==124) {
-                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDate"));
+                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("calendarMoveDate"));
                     if(!field || !QMetaObject::invokeMethod(field,"openPicker")){fail("calendar move date picker");return;}
                 } else if(phase==125) {
-                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDate"));
-                    auto* submit=mainWindow->findChild<QObject*>(QStringLiteral("confirmCalendarMove"));
+                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("calendarMoveDate"));
+                    auto* submit=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("confirmCalendarMove"));
                     if(!field || !field->property("pickerVisible").toBool() || !capture(QStringLiteral("calendar-move-picker")) || !submit){fail("calendar move date capture");return;}
                     QMetaObject::invokeMethod(field,"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(1))));
                     QMetaObject::invokeMethod(submit,"clicked");
                 } else if(phase==126) {
-                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDialog"));
+                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("calendarMoveDialog"));
                     const auto task=m_workspace.task(taskId);
                     if(!dialog || dialog->property("visible").toBool() || task.value(QStringLiteral("startOn")).toString()!=m_workspace.dateOffset(1) || task.value(QStringLiteral("deadlineOn")).toString()!=m_workspace.dateOffset(2)){fail("calendar move only changes selected field");return;}
                     m_workspace.setTextScale(2);mainWindow->resize(880,580);
@@ -397,16 +417,16 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto entry=m_workspace.task(taskId);entry.insert(QStringLiteral("kind"),QStringLiteral("both"));
                     QMetaObject::invokeMethod(panel,"offerMove",Q_ARG(QVariant,QVariant(entry)),Q_ARG(QVariant,QVariant(m_workspace.dateOffset(1))));
                 } else if(phase==128) {
-                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDate"));QMetaObject::invokeMethod(field,"openPicker");
+                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("calendarMoveDate"));QMetaObject::invokeMethod(field,"openPicker");
                 } else if(phase==129) {
                     if(!capture(QStringLiteral("calendar-move-picker-200"))){fail("large calendar date capture");return;}
-                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDate"));QMetaObject::invokeMethod(field,"closePicker");
-                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarMoveDialog"));QMetaObject::invokeMethod(dialog,"close");
+                    auto* field=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("calendarMoveDate"));QMetaObject::invokeMethod(field,"closePicker");
+                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("calendarMoveDialog"));QMetaObject::invokeMethod(dialog,"close");
                     m_workspace.setTextScale(1);mainWindow->resize(1120,720);m_workspace.setView(QStringLiteral("today"));
                 }
             } else if(phase>=96) {
                 auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
-                auto* eventEditor=mainWindow->findChild<QObject*>(QStringLiteral("eventDialog"));
+                auto* eventEditor=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDialog"));
                 auto show=[&](const QString& page,const QString& id){return QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(page)),Q_ARG(QVariant,QVariant(id)));};
                 if(!eventEditor){fail("event editor");return;}
                 if(phase==96) {
@@ -422,7 +442,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 } else if(phase==99) {if(m_workspace.calendarEvents().size()!=2 || !show(QStringLiteral("month"),QString())){fail("calendar events loaded");return;}mainWindow->resize(1000,720);}
                 else if(phase==100){auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));QVariant titles;if(!panel || !QMetaObject::invokeMethod(panel,"verifyDayTitles",Q_RETURN_ARG(QVariant,titles)) || titles.toString()!=QStringLiteral("PASS")){qWarning()<<"Calendar title check:"<<titles;fail("calendar concrete titles");return;}if(!capture(QStringLiteral("calendar-agenda")) || !show(QStringLiteral("event"),eventId)){fail("event open");return;}}
                 else if(phase==101){
-                    auto* title=mainWindow->findChild<QObject*>(QStringLiteral("eventTitle"));auto* save=mainWindow->findChild<QObject*>(QStringLiteral("saveEvent"));
+                    auto* title=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventTitle"));auto* save=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("saveEvent"));
                     if(!eventEditor->property("visible").toBool() || !title || !save || !capture(QStringLiteral("calendar-event"))){fail("event form");return;}
                     title->setProperty("text",QStringLiteral("产品评审 · 已更新"));if(!QMetaObject::invokeMethod(save,"clicked")){fail("event form save");return;}
                 } else if(phase==102){if(eventEditor->property("visible").toBool() || m_workspace.calendarEvent(eventId).value(QStringLiteral("title")).toString()!=QStringLiteral("产品评审 · 已更新")){fail("event UI committed");return;}}
@@ -434,9 +454,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 else if(phase==104){if(m_workspace.task(linkedTaskId).value(QStringLiteral("taskStatus")).toString()!=QStringLiteral("COMPLETED") || m_workspace.calendarEvents().size()!=2){fail("calendar completion independent of event");return;}m_workspace.setCalendarCompleted(true);}
                 else if(phase==105){if(!capture(QStringLiteral("calendar-completed"))){fail("completed agenda screenshot");return;}m_workspace.setTextScale(2);mainWindow->resize(880,580);}
                 else if(phase==106){auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));QVariant titles;if(!panel || !QMetaObject::invokeMethod(panel,"verifyDayTitles",Q_RETURN_ARG(QVariant,titles)) || titles.toString()!=QStringLiteral("PASS")){qWarning()<<"Calendar title check:"<<titles;fail("compact calendar concrete titles");return;}if(!capture(QStringLiteral("calendar-200")) || !panel || !QMetaObject::invokeMethod(panel,"showAgenda")){fail("large calendar agenda entry");return;}}
-                else if(phase==107){auto* agenda=mainWindow->findChild<QQuickItem*>(QStringLiteral("calendarAgenda"));if(!agenda || agenda->mapToScene(QPointF(0,0)).y()<0 || agenda->mapToScene(QPointF(0,0)).y()>mainWindow->height() || !capture(QStringLiteral("calendar-agenda-200")) || !show(QStringLiteral("event"),eventId)){fail("large agenda reachable");return;}}
+                else if(phase==107){auto* agenda=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QQuickItem*>(QStringLiteral("calendarAgenda"));if(!agenda || agenda->mapToScene(QPointF(0,0)).y()<0 || agenda->mapToScene(QPointF(0,0)).y()>mainWindow->height() || !capture(QStringLiteral("calendar-agenda-200")) || !show(QStringLiteral("event"),eventId)){fail("large agenda reachable");return;}}
                 else if(phase==108){if(!capture(QStringLiteral("calendar-event-200"))){fail("large event form");return;}eventEditor->setProperty("dirty",true);QMetaObject::invokeMethod(mainWindow,"close");}
-                else if(phase==109){auto* discard=mainWindow->findChild<QObject*>(QStringLiteral("eventDiscard"));if(!discard || !discard->property("visible").toBool()){fail("event draft close protection");return;}QMetaObject::invokeMethod(discard,"reject");}
+                else if(phase==109){auto* discard=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDiscard"));if(!discard || !discard->property("visible").toBool()){fail("event draft close protection");return;}QMetaObject::invokeMethod(discard,"reject");}
                 else if(phase==110){if(!eventEditor->property("visible").toBool() || !eventEditor->property("dirty").toBool()){fail("event draft cancellation retained");return;}eventEditor->setProperty("dirty",false);QMetaObject::invokeMethod(eventEditor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(2);mainWindow->resize(1440,900);}
                 else if(phase==111){if(!capture(QStringLiteral("calendar-dark-wide"))){fail("dark calendar");return;}m_workspace.setThemeMode(1);mainWindow->resize(1120,720);}
             } else if(phase>=78) {
@@ -602,7 +622,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==161) {
+            if(phase==166) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
                 QList<QPointer<QObject>> pending;
@@ -619,7 +639,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<162)return;
+            if(phase<167)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -649,7 +669,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         probe->start();
         // Capturing every surface adds synchronous GPU readbacks; keep the
         // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=162)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=167)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

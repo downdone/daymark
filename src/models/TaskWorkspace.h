@@ -83,6 +83,9 @@ public:
     bool canUndo() const { return !m_lastDeleted.isEmpty(); }
     QVariantList catalog() const;
     QVariantList calendarDays() const;
+    Q_INVOKABLE QVariantList calendarDaysFor(const QString& anchor,bool week) const;
+    Q_INVOKABLE QString calendarTitleFor(const QString& anchor,bool week) const;
+    Q_INVOKABLE QString shiftCalendar(const QString& anchor,int offset,bool week) const;
     QVariantList calendarEvents() const;
     Q_INVOKABLE QVariantMap calendarEvent(const QString& id) const;
     Q_INVOKABLE QVariantList eventsForTask(const QString& id) const;
@@ -203,7 +206,7 @@ private:
     int m_upcomingDays=30;
     int m_historyDays=0;
     bool m_calendarCompleted=false;
-    QVariantMap m_preferences{{"compact",false},{"sidebarCollapsed",false},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true}};
+    QVariantMap m_preferences{{"compact",false},{"sidebarCollapsed",false},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
 };
 

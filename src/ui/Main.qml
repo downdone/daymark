@@ -460,6 +460,7 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 visible: mainWindow.calendarVisible
                 workspace: mainWindow.taskWorkspace
+                onDesktopRequested: mainWindow.taskWorkspace.setPreference("desktopCalendarVisible",true)
                 onOpenTask: function(taskId) {mainWindow.openEditor(taskId)}
                 onCompleteTask: function(id,version,action) {mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.changeState(id,version,action)})}
             }
@@ -693,6 +694,7 @@ ApplicationWindow {
 
     SettingsDialog {
         id: windowSettings
+        onCalendarVisibilityRequested: function(visible){if(visible)mainWindow.taskWorkspace.setPreference("desktopCalendarVisible",true);else desktopCalendar.close()}
         parent: Overlay.overlay
         anchors.centerIn: parent
         workspace: mainWindow.taskWorkspace
@@ -715,6 +717,11 @@ ApplicationWindow {
                 } else mainWindow.pendingAction = null
             }
         }
+    }
+    DesktopCalendarWindow {
+        id: desktopCalendar
+        workspace: mainWindow.taskWorkspace
+        onOpenTask: function(taskId){mainWindow.showNormal();mainWindow.requestActivate();mainWindow.openEditor(taskId)}
     }
     WidgetWindow {
         controller: mainWindow.widgetController
@@ -779,6 +786,7 @@ ApplicationWindow {
     }
     onClosing: function(close) {
         if (taskWorkspace.busy) { close.accepted = false; return }
+        if(desktopCalendar.protectClose(function(){mainWindow.close()})){close.accepted=false;return}
         if(calendarPanel.protectClose(function(){mainWindow.close()})){close.accepted=false;return}
         if (recurrence.visible && recurrence.dirty) {close.accepted=false;recurrence.safely(function(){recurrence.close();mainWindow.close()});return}
         if (organization.visible && organization.dirty) {close.accepted=false;organization.safely(function(){organization.close();mainWindow.close()});return}

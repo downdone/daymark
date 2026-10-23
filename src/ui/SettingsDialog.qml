@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Dialog {
     id: root
     objectName: "settingsDialog"
+    signal calendarVisibilityRequested(bool visible)
     required property TaskWorkspace workspace
     required property WidgetViewModel widgetController
     required property StartupController startupController
@@ -79,6 +80,15 @@ Dialog {
                         Button {text: qsTr("重置组件位置");onClicked: root.widgetController.resetPosition()}
                     }
                 }
+                FormGroup {
+                    visible: categories.currentIndex===1
+                    heading: qsTr("独立桌面日历")
+                    CheckBox {text: qsTr("显示日历（可与任务小窗并存）");checked: root.workspace.preferences.desktopCalendarVisible;onClicked: {root.calendarVisibilityRequested(checked);checked=Qt.binding(function(){return root.workspace.preferences.desktopCalendarVisible})}}
+                    Label {text: qsTr("背景透明度 · %1%").arg(root.workspace.preferences.desktopCalendarOpacity)}
+                    Slider {Layout.fillWidth: true;Accessible.name: qsTr("日历背景透明度");from: 50;to: 100;stepSize: 5;value: root.workspace.preferences.desktopCalendarOpacity;onMoved: root.workspace.setPreference("desktopCalendarOpacity",Math.round(value))}
+                    CheckBox {text: qsTr("日历保持置顶");checked: root.workspace.preferences.desktopCalendarTopmost;onClicked: root.workspace.setPreference("desktopCalendarTopmost",checked)}
+                }
+
                 ColumnLayout {
                     id: general
                     visible: categories.currentIndex===2

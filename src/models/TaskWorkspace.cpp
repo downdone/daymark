@@ -153,6 +153,7 @@ void TaskWorkspace::start(const QString& path) {
     for(auto it=m_preferences.begin();it!=m_preferences.end();++it) {
         const auto stored=settings.value(QStringLiteral("preferences/")+it.key(),it.value());
         if(it.key()==QStringLiteral("backupDays")){const int days=stored.toInt();if(days==1 || days==7 || days==30)it.value()=days;}
+        else if(it.key()==QStringLiteral("desktopCalendarOpacity")){const int opacity=stored.toInt();if(opacity>=50 && opacity<=100)it.value()=opacity;}
         else if(stored.metaType().id()==QMetaType::Bool)it.value()=stored;
         else if(stored.toString()==QStringLiteral("true") || stored.toString()==QStringLiteral("false"))it.value()=stored.toBool();
     }
@@ -267,6 +268,7 @@ bool TaskWorkspace::setPreference(const QString& key,const QVariant& value)
 {
     if(!m_preferences.contains(key))return false;
     if(key==QStringLiteral("backupDays")){const int days=value.toInt();if(days!=1 && days!=7 && days!=30)return false;}
+    else if(key==QStringLiteral("desktopCalendarOpacity")){bool ok=false;const int opacity=value.toInt(&ok);if(!ok || opacity<50 || opacity>100)return false;}
     else if(value.metaType().id()!=QMetaType::Bool)return false;
     QSettings settings(QFileInfo(m_path).dir().filePath(QStringLiteral("ui.ini")),QSettings::IniFormat);
     settings.setValue(QStringLiteral("preferences/")+key,value);settings.sync();
@@ -435,9 +437,12 @@ bool TaskWorkspace::appendDetailsPatch(const QString& id,const QVariantMap& deta
 }
 
 QVariantList TaskWorkspace::calendarDays() const
+{return calendarDaysFor(m_calendarDate.toString(Qt::ISODate),m_view==QStringLiteral("week"));}
+QVariantList TaskWorkspace::calendarDaysFor(const QString& anchor,bool week) const
 {
     QVariantList result;
-    const auto days=CalendarService::days(m_cache,m_calendarDate,m_view==QStringLiteral("week"),m_sundayFirst,m_calendarCompleted);
+    const auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid())return {};
+    const auto days=CalendarService::days(m_cache,date,week,m_sundayFirst,m_calendarCompleted);
     QHash<QDate,QVariantList> eventDays;
     const auto zone=QTimeZone::systemTimeZone();
     if(!days.isEmpty())for(const auto& event:m_events) {
@@ -508,6 +513,18 @@ QString TaskWorkspace::calendarTitle() const
     if(m_view!=QStringLiteral("week"))return m_calendarDate.toString(QStringLiteral("yyyy年M月"));
     const auto days=CalendarService::days({},m_calendarDate,true,m_sundayFirst);
     return days.first().date.toString(Qt::ISODate)+QStringLiteral(" — ")+days.last().date.toString(Qt::ISODate);
+}
+QString TaskWorkspace::calendarTitleFor(const QString& anchor,bool week) const
+{
+    const auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid())return {};
+    if(!week)return date.toString(QStringLiteral("yyyy年M月"));
+    const auto days=CalendarService::days({},date,true,m_sundayFirst);
+    return days.first().date.toString(Qt::ISODate)+QStringLiteral(" — ")+days.last().date.toString(Qt::ISODate);
+}
+QString TaskWorkspace::shiftCalendar(const QString& anchor,int offset,bool week) const
+{
+    const auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid())return {};
+    return (offset==0?m_clock.localToday():(week?date.addDays(offset*7):date.addMonths(offset))).toString(Qt::ISODate);
 }
 void TaskWorkspace::stepCalendar(int offset)
 {
