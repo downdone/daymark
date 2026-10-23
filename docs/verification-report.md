@@ -1,3 +1,12 @@
+# CAL-03 独立桌面日历（2026-10-23）
+
+源码e2a3c8277d641b64c6bb2a6718d5c8d5931b0f86，Windows/Qt6.10.2。Debug17/17（30.59秒），应用/样式lint通过；严格打包重建Release17/17（32.04秒）。新增TaskWorkspace用例验证独立42天/7天查询、闰日翻月、非法输入、同源任务、主窗视图不变、偏好越界拒绝及重启恢复；WindowStateStore用例验证独立命名空间和最小尺寸，不覆盖主窗几何。
+
+原生探针扩展167阶段，验证独立日历和小窗可见、独立翻页不改主视图、关闭日历后小窗继续显示，最后恢复双窗退出。默认/200%截图已查看，背景RGBA采样alpha179/255符合70%设置；不是系统桌面合成/真实背景可读性的完整人工验收。早期同名事件/议程控件跨窗口定位错误导致FAIL，改为主日历面板内查找后原断言通过；验证helper翻页后恢复选中日期，避免截图议程日期与锚点不一致。
+
+严格SDK隔离检查PASS，报告3bd379fc8ede44c9901d366db9aedbd6，退出0/双窗口/warnings=false，无未完成创建诊断。Qt/MinGW来源、实际EXE版本/Qt/schema、清单1466文件与ZIP逐条/SHA侧车全部通过。包Daymark-1.0.0-rc.2-windows-x64-local-20261023-214427.zip，44990300字节，SHA256 b4458b60d5f19a178e4b4b588c05e222dcfa4ee9657a181ae127c5801c75f213。
+
+全部自动库QTemporaryDir，未触碰用户库/旧进程，无schema变更、无推送上传。macOS、真实拖动/缩放/遮挡层级、物理多屏/DPI、系统桌面合成、IME/读屏、8h/干净机、签名许可保持UNVERIFIED。最终截图复核另记于PROGRESS。
 # UI-14 Apple HIG全界面重设计（2026-10-23）
 
 Windows11 x64、Qt6.10.2/MinGW13.1，schema3。按[设计](design/hig-redesign.md)分三切片实施；初次完整Debug构建/CTest17/17（29.46秒），两项QML lint无警告。当次原生162阶段退出0、双窗口、warnings=false，无未完成创建或DelegateModel取消诊断。此前集成Release17/17（30.01秒）；最终提交的Release与严格部署另记，不把早期结果冒充最终包结果。
