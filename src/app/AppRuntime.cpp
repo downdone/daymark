@@ -411,6 +411,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(panel->property("selectedDate").toString()!=QStringLiteral("2028-02-29") || panel->findChild<QObject*>(QStringLiteral("calendarJumpDialog"))->property("visible").toBool()){fail("leap day jump");return;}
                     m_workspace.setPreference(QStringLiteral("desktopCalendarVisible"),true);
                 } else if(phase==178) {
+                    auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));calendar->resize(420,480);
                     auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("desktopCalendarPanel"));QMetaObject::invokeMethod(panel,"openDateJump");
                     panel->findChild<QObject*>(QStringLiteral("calendarJumpDate"))->setProperty("text",QStringLiteral("2024-02-29"));QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("confirmCalendarJump")),"clicked");
                     m_workspace.setTextScale(2);QMetaObject::invokeMethod(panel,"inspectEvent",Q_ARG(QVariant,QVariant(eventId)),Q_ARG(QVariant,QVariant(QString())));
@@ -418,7 +419,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));static int narrowFrames=0;calendar->grabWindow();if(++narrowFrames<4)return;
                     auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));auto* independent=mainWindow->findChild<QObject*>(QStringLiteral("desktopCalendarPanel"));
                     auto* preview=independent->findChild<QObject*>(QStringLiteral("eventPreview"));auto* edit=preview->findChild<QQuickItem*>(QStringLiteral("editPreviewEvent"));
-                    if(!preview->property("visible").toBool() || !edit || edit->mapToScene(QPointF(0,edit->height())).y()>calendar->height()+1 || (!screenshotPath.isEmpty() && !calendar->grabWindow().save(screenshotPath+QStringLiteral(".desktop-event-preview-200.png")))){fail("narrow large preview action");return;}
+                    if(calendar->width()!=420 || calendar->height()!=480 || !preview->property("visible").toBool() || !edit || edit->mapToScene(QPointF(0,edit->height())).y()>calendar->height()+1 || (!screenshotPath.isEmpty() && !calendar->grabWindow().save(screenshotPath+QStringLiteral(".desktop-event-preview-200.png")))){fail("narrow large preview action");return;}
                     QMetaObject::invokeMethod(preview,"close");m_workspace.setTextScale(1);
                     if(!independent || independent->property("anchorDate").toString()!=QStringLiteral("2024-02-29") || panel->property("selectedDate").toString()!=QStringLiteral("2028-02-29")){fail("independent date jump");return;}
                     QMetaObject::invokeMethod(mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow")),"close");
