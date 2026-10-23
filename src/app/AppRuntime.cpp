@@ -493,6 +493,16 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
+            if(phase==147) {
+                // Complete deferred control properties in the synthetic scene as
+                // well as incubators; controller count alone does not cover them.
+                auto pending=m_engine.rootObjects();
+                while(!pending.isEmpty()) {
+                    auto* item=pending.takeLast();
+                    qmlExecuteDeferred(item);
+                    pending.append(item->children());
+                }
+            }
             ++phase;
             if(phase<148)return;
             // Occluded native windows may not receive frames to finish ListView
