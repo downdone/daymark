@@ -9,6 +9,22 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void calendarOccurrenceOrderAndReadOnlyPreview() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("browse.sqlite")));QTRY_VERIFY(!w.busy());QVERIFY(w.ready());
+        QVariantMap event{{"title",QStringLiteral("later weekly")},{"allDay",false},{"startDate",QStringLiteral("2026-10-16")},{"endDate",QStringLiteral("2026-10-16")},{"startTime",QStringLiteral("16:00")},{"endTime",QStringLiteral("17:00")},{"zone",w.systemTimeZone()},{"repeatFrequency",QStringLiteral("WEEKLY")},{"alertMinutes",15}};
+        QVERIFY(w.saveEvent(event));QTRY_VERIFY(!w.busy());const auto series=w.calendarEvents().first().toMap();
+        event.insert("title",QStringLiteral("earlier once"));event.insert("startDate",QStringLiteral("2026-10-23"));event.insert("endDate",QStringLiteral("2026-10-23"));event.insert("startTime",QStringLiteral("09:00"));event.insert("endTime",QStringLiteral("10:00"));event.insert("repeatFrequency",QStringLiteral("NONE"));
+        QVERIFY(w.saveEvent(event));QTRY_VERIFY(!w.busy());
+        QVERIFY(w.saveEvent({{"title",QStringLiteral("all day")},{"startDate",QStringLiteral("2026-10-23")},{"endDate",QStringLiteral("2026-10-23")}}));QTRY_VERIFY(!w.busy());
+        QVariantList events;for(const auto& day:w.calendarDaysFor(QStringLiteral("2026-10-23"),false))if(day.toMap().value("date")==QStringLiteral("2026-10-23"))events=day.toMap().value("events").toList();
+        QCOMPARE(events.size(),3);QCOMPARE(events[0].toMap().value("title").toString(),QStringLiteral("all day"));QCOMPARE(events[1].toMap().value("title").toString(),QStringLiteral("earlier once"));QCOMPARE(events[2].toMap().value("title").toString(),QStringLiteral("later weekly"));
+        const auto id=series.value("eventId").toString(),key=events[2].toMap().value("occurrenceKey").toString();
+        const auto preview=w.calendarEventPreview(id,key);QCOMPARE(preview.value("startDate").toString(),QStringLiteral("2026-10-23"));QVERIFY(preview.value("scopeLabel").toString().contains(QStringLiteral("2026-10-16")));QVERIFY(preview.value("alertLabel").toString().contains(QStringLiteral("15")));
+        QCOMPARE(w.calendarEvent(id),series);QVERIFY(w.calendarEventPreview(id,QStringLiteral("invalid")).isEmpty());QVERIFY(w.calendarEventPreview(QStringLiteral("missing"),key).isEmpty());
+        QCOMPARE(w.calendarEventPreview(id).value("startDate"),series.value("startDate"));
+        auto changed=series;changed.insert("startTime",QStringLiteral("18:00"));changed.insert("endTime",QStringLiteral("19:00"));QVERIFY(w.saveEvent(changed));QTRY_VERIFY(!w.busy());QVERIFY(w.calendarEventPreview(id,key).isEmpty());
+        const auto latest=w.calendarEvent(id);QVERIFY(w.deleteEvent(id,latest.value("rowVersion").toLongLong()));QTRY_VERIFY(!w.busy());QVERIFY(w.calendarEventPreview(id).isEmpty());
+    }
     void independentCalendarSharesDataWithoutChangingMainView() {
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("calendar.sqlite"));
         {TaskWorkspace w;w.start(path);QTRY_VERIFY(!w.busy());QVERIFY(w.ready());

@@ -457,8 +457,17 @@ QVariantList TaskWorkspace::calendarDaysFor(const QString& anchor,bool week) con
         for(const auto& entry:day.entries) {
             auto map=TaskListModel::taskMap(entry.task);map.insert(QStringLiteral("kind"),entry.kind);entries.append(map);
         }
+        auto events=eventDays.value(day.date);
+        std::sort(events.begin(),events.end(),[](const QVariant& left,const QVariant& right){
+            const auto a=left.toMap(),b=right.toMap();
+            if(a.value("allDay").toBool()!=b.value("allDay").toBool())return a.value("allDay").toBool();
+            const auto first=a.value("occurrenceKey").toString(),second=b.value("occurrenceKey").toString();
+            if(first!=second)return first<second;
+            const int title=QString::compare(a.value("title").toString(),b.value("title").toString(),Qt::CaseInsensitive);
+            return title!=0?title<0:a.value("eventId").toString()<b.value("eventId").toString();
+        });
         result.append(QVariantMap{{"date",day.date.toString(Qt::ISODate)},{"day",day.date.day()},{"inMonth",day.inMonth},
-            {"today",day.date==m_today},{"weekend",day.date.dayOfWeek()>5},{"entries",entries},{"events",eventDays.value(day.date)}});
+            {"today",day.date==m_today},{"weekend",day.date.dayOfWeek()>5},{"entries",entries},{"events",events}});
     }
     return result;
 }
@@ -472,12 +481,42 @@ QVariantMap TaskWorkspace::eventMap(const CalendarEvent& e) const
     QVariantList links;
     for(const auto& link:e.links){auto item=task(link.taskId);if(!item.isEmpty()){item.insert(QStringLiteral("role"),link.role);links.append(item);}}
     const auto time=e.allDay?tr("全天"):localStart.toString(QStringLiteral("HH:mm"))+QStringLiteral("–")+localEnd.toString(localStart.date()==localEnd.date()?QStringLiteral("HH:mm"):QStringLiteral("M/d HH:mm"));
-    return {{"repeatFrequency",e.repeatFrequency},{"repeatInterval",e.repeatInterval},{"repeatUntil",e.repeatUntil.toString(Qt::ISODate)},{"alertMinutes",e.alertMinutes},{"eventId",e.id},{"title",e.title},{"notes",e.notes},{"allDay",e.allDay},{"rowVersion",e.rowVersion},{"zone",e.timeZone},
+    return {{"occurrenceKey",EventService::occurrenceKey(e)},{"repeatFrequency",e.repeatFrequency},{"repeatInterval",e.repeatInterval},{"repeatUntil",e.repeatUntil.toString(Qt::ISODate)},{"alertMinutes",e.alertMinutes},{"eventId",e.id},{"title",e.title},{"notes",e.notes},{"allDay",e.allDay},{"rowVersion",e.rowVersion},{"zone",e.timeZone},
         {"startDate",e.allDay?e.startOn.toString(Qt::ISODate):start.date().toString(Qt::ISODate)},{"endDate",e.allDay?e.endOn.addDays(-1).toString(Qt::ISODate):end.date().toString(Qt::ISODate)},
         {"startTime",timeInput(start.time())},{"endTime",timeInput(end.time())},{"timeLabel",time},{"links",links}};
 }
 QVariantList TaskWorkspace::calendarEvents() const{QVariantList result;for(const auto& e:m_events)result.append(eventMap(e));return result;}
 QVariantMap TaskWorkspace::calendarEvent(const QString& id) const{for(const auto& e:m_events)if(e.id==id)return eventMap(e);return {};}
+QVariantMap TaskWorkspace::calendarEventPreview(const QString& id,const QString& key) const
+{
+    for(const auto& series:m_events)if(series.id==id) {
+        CalendarEvent instance=series;
+        if(!key.isEmpty()) {
+            const auto date=series.allDay?QDate::fromString(key,Qt::ISODate):QDateTime::fromString(key,Qt::ISODateWithMs).toLocalTime().date();
+            if(!date.isValid())return {};
+            bool found=false;
+            for(const auto& candidate:EventService::occurrences(series,date,date,QTimeZone::systemTimeZone()))
+                if(EventService::occurrenceKey(candidate)==key){instance=candidate;found=true;break;}
+            if(!found)return {};
+        }
+        auto result=eventMap(instance);const bool recurring=series.repeatFrequency!=QStringLiteral("NONE");
+        QString rule=tr("不重复");
+        const QStringList frequencies={QStringLiteral("DAILY"),QStringLiteral("WEEKLY"),QStringLiteral("MONTHLY"),QStringLiteral("YEARLY")};
+        const auto index=frequencies.indexOf(series.repeatFrequency);
+        if(index>=0){const QStringList units={tr("天"),tr("周"),tr("月"),tr("年")};rule=tr("每 %1 %2").arg(series.repeatInterval).arg(units[index]);if(series.repeatUntil.isValid())rule+=tr("，至 %1（含当天）").arg(series.repeatUntil.toString(Qt::ISODate));}
+        const auto first=series.allDay?series.startOn:series.startUtc.toTimeZone(QTimeZone(series.timeZone.toUtf8())).date();
+        QString dateLabel;
+        if(instance.allDay){dateLabel=instance.startOn.toString(Qt::ISODate);if(instance.endOn.addDays(-1)!=instance.startOn)dateLabel+=QStringLiteral(" — ")+instance.endOn.addDays(-1).toString(Qt::ISODate);dateLabel+=tr(" · 全天");}
+        else dateLabel=instance.startUtc.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"))+QStringLiteral(" — ")+instance.endUtc.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"))+tr("（本机时区）");
+        const auto alert=series.alertMinutes<0?tr("不提醒"):series.alertMinutes==0?tr("开始时提醒"):tr("提前 %1 分钟").arg(series.alertMinutes);
+        result.insert(QStringLiteral("recurring"),recurring);result.insert(QStringLiteral("ruleLabel"),rule);
+        result.insert(QStringLiteral("dateLabel"),dateLabel);result.insert(QStringLiteral("alertLabel"),alert+(series.alertMinutes>=0 && series.allDay?tr(" · 当天09:00为基准"):QString()));
+        result.insert(QStringLiteral("contextLabel"),key.isEmpty() && recurring?tr("系列起始安排"):tr("本次安排"));
+        result.insert(QStringLiteral("scopeLabel"),recurring?tr("系列起点 %1 · 编辑将修改整个系列").arg(first.toString(Qt::ISODate)):tr("此事件的日期和提醒"));
+        return result;
+    }
+    return {};
+}
 QVariantList TaskWorkspace::eventsForTask(const QString& id) const {
     if(task(id).isEmpty())return {};
     QVariantList result;for(const auto& e:m_events)for(const auto& link:e.links)if(link.taskId==id){auto item=eventMap(e);item.insert(QStringLiteral("role"),link.role);result.append(item);break;}return result;

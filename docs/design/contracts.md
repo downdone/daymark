@@ -79,3 +79,5 @@ V-02W：SystemEventFilter将时间/设置/恢复及应用激活合并排队；Ta
 ## CAL-04事件系列与提醒
 
 EventService负责规则校验、可见范围实例投影与到期时间计算，EventRepository负责事件及提醒历史的SQL/事务；QML仅配置和展示。TaskWorkspace统一映射规则/实例、异步保存和提醒中心，两个CalendarPanel共用同一工作区。schema004和JSON兼容及UTC/本地日边界见[事件系列设计](event-series.md)与[ADR-014](../ADR/014-event-series.md)。
+
+CAL-05：calendarDaysFor事件增加occurrenceKey并在C++按全天/实例UTC/标题/ID稳定排序；calendarEventPreview(id,key)精确校验当前实例并输出只读规则/提醒/范围摘要。无key时明确系列起点，失效key返回空；不能用此键做单次修改。预览不写库，编辑仍走原CAS事务；导航只更新所属窗口锚点。详见[浏览定位契约](calendar-browsing.md)。

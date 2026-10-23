@@ -788,7 +788,7 @@ ApplicationWindow {
         anchors.centerIn: parent
         workspace: mainWindow.taskWorkspace
         onOpenTask: function(taskId){mainWindow.openEditor(taskId)}
-        onOpenEvent: function(eventId){mainWindow.navigateSafely(function(){calendarPanel.openEvent(eventId)})}
+        onOpenEvent: function(eventId){mainWindow.navigateSafely(function(){calendarPanel.inspectEvent(eventId,"")})}
     }
     onClosing: function(close) {
         if (taskWorkspace.busy) { close.accepted = false; return }

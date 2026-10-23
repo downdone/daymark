@@ -88,6 +88,7 @@ public:
     Q_INVOKABLE QString shiftCalendar(const QString& anchor,int offset,bool week) const;
     QVariantList calendarEvents() const;
     Q_INVOKABLE QVariantMap calendarEvent(const QString& id) const;
+    Q_INVOKABLE QVariantMap calendarEventPreview(const QString& id,const QString& occurrenceKey=QString()) const;
     Q_INVOKABLE QVariantList eventsForTask(const QString& id) const;
     Q_INVOKABLE QVariantList eventTaskChoices(const QString& search) const;
     Q_INVOKABLE QString systemTimeZone() const;

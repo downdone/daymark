@@ -2,6 +2,8 @@
 #include <QSet>
 #include <algorithm>
 namespace daymark {
+QString EventService::occurrenceKey(const CalendarEvent& e)
+{return e.allDay?e.startOn.toString(Qt::ISODate):e.startUtc.toUTC().toString(Qt::ISODateWithMs);}
 Result<void> EventService::validate(const CalendarEvent& e)
 {
     auto invalid=[](const QString& key){return Result<void>::failure(ErrorCode::ValidationError,key);};

@@ -242,8 +242,15 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto* target=phase==148 ? qobject_cast<QQuickItem*>(notes) : mainWindow->findChild<QQuickItem*>(QStringLiteral("editorPlanning"));
                     if(!target){fail("wheel target");return;}
                     if(phase==148) {
-                        QMetaObject::invokeMethod(target,"forceActiveFocus");
-                        QMetaObject::invokeMethod(mainWindow,"ensureEditorFocus",Q_ARG(QVariant,QVariant::fromValue(target)));
+                        static bool noteFocusPrepared=false;static int noteFocusFrames=0;
+                        if(!noteFocusPrepared) {
+                            QMetaObject::invokeMethod(target,"forceActiveFocus");
+                            QMetaObject::invokeMethod(mainWindow,"ensureEditorFocus",Q_ARG(QVariant,QVariant::fromValue(target)));
+                            noteFocusPrepared=true;return;
+                        }
+                        // Real wheel input follows a settled focus/layout frame;
+                        // do not synthesize it in the same callback as focus change.
+                        if(++noteFocusFrames<3)return;
                         if(flick->property("contentY").toDouble()>1
                             || notes->property("contentHeight").toDouble()>target->height()-20+1){fail("short notes focus must not scroll");return;}
                         if(!capture(QStringLiteral("scroll-short-notes-focus"))){fail("short notes focus capture");return;}
@@ -255,6 +262,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     const auto position=target->mapToScene(QPointF(target->width()/2,target->height()/2));
                     QWheelEvent wheel(position,mainWindow->mapToGlobal(position.toPoint()),QPoint(0,-96),QPoint(0,-120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
                     QCoreApplication::sendEvent(mainWindow,&wheel);
+                    qInfo()<<"Synthetic wheel"<<phase<<wheel.isAccepted()<<mainWindow->isActive()<<flick->property("contentY")<<mainWindow->property("editorManualScroll");
                 } else if(phase==150) {
                     auto* planning=mainWindow->findChild<QObject*>(QStringLiteral("editorPlanning"));
                     if(!planning || planning->property("currentIndex").toInt()!=0 || flick->property("contentY").toDouble()<=1){fail("wheel preserves choice and manual scroll");return;}
@@ -371,6 +379,50 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 } else if(phase==171) {
                     if(!capture(QStringLiteral("calendar-event-bands"))){fail("calendar bands capture");return;}
                     mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->setProperty("showTasks",true);
+                } else if(phase==172) {
+                    const auto date=QDate::fromString(m_workspace.calendarEvent(eventId).value(QStringLiteral("startDate")).toString(),Qt::ISODate).addDays(7).toString(Qt::ISODate);
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));QVariant jumped;
+                    QMetaObject::invokeMethod(panel,"jumpToDate",Q_RETURN_ARG(QVariant,jumped),Q_ARG(QVariant,QVariant(date)));
+                    QString key;for(const auto& day:m_workspace.calendarDaysFor(date,false))if(day.toMap().value(QStringLiteral("date")).toString()==date)for(const auto& event:day.toMap().value(QStringLiteral("events")).toList())if(event.toMap().value(QStringLiteral("eventId")).toString()==eventId)key=event.toMap().value(QStringLiteral("occurrenceKey")).toString();
+                    if(!jumped.toBool() || key.isEmpty() || !QMetaObject::invokeMethod(panel,"inspectEvent",Q_ARG(QVariant,QVariant(eventId)),Q_ARG(QVariant,QVariant(key)))){fail("browse later occurrence");return;}
+                } else if(phase==173) {
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));auto* preview=panel->findChild<QObject*>(QStringLiteral("eventPreview"));
+                    const auto date=QDate::fromString(m_workspace.calendarEvent(eventId).value(QStringLiteral("startDate")).toString(),Qt::ISODate).addDays(7).toString(Qt::ISODate);
+                    if(!preview || !preview->property("visible").toBool() || preview->property("modal").toBool() || panel->findChild<QObject*>(QStringLiteral("eventDialog"))->property("visible").toBool() || !preview->findChild<QObject*>(QStringLiteral("previewDate"))->property("text").toString().contains(date) || !capture(QStringLiteral("event-preview"))){fail("read-only occurrence context");return;}
+                    m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
+                } else if(phase==174) {
+                    static int previewFrames=0;mainWindow->grabWindow();if(++previewFrames<4)return;
+                    auto* preview=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventPreview"));auto* button=preview->findChild<QQuickItem*>(QStringLiteral("editPreviewEvent"));
+                    if(!button || button->mapToScene(QPointF(0,button->height())).y()>mainWindow->height()+1 || !capture(QStringLiteral("event-preview-dark-200")) || !QMetaObject::invokeMethod(button,"clicked")){fail("preview edit action reachable");return;}
+                } else if(phase==175) {
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));auto* editor=panel->findChild<QObject*>(QStringLiteral("eventDialog"));
+                    if(!editor->property("visible").toBool() || panel->findChild<QObject*>(QStringLiteral("eventPreview"))->property("visible").toBool()){fail("explicit series edit from preview");return;}
+                    QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);
+                    QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("calendarJump")),"clicked");
+                    panel->findChild<QObject*>(QStringLiteral("calendarJumpDate"))->setProperty("text",QStringLiteral("2026-02-30"));QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("confirmCalendarJump")),"clicked");
+                } else if(phase==176) {
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));
+                    const auto expected=QDate::fromString(m_workspace.calendarEvent(eventId).value(QStringLiteral("startDate")).toString(),Qt::ISODate).addDays(7).toString(Qt::ISODate);
+                    if(!panel->findChild<QObject*>(QStringLiteral("calendarJumpDialog"))->property("visible").toBool() || panel->property("selectedDate").toString()!=expected){fail("invalid jump preserves calendar");return;}
+                    if(!capture(QStringLiteral("calendar-jump-error"))){fail("jump error capture");return;}
+                    panel->findChild<QObject*>(QStringLiteral("calendarJumpDate"))->setProperty("text",QStringLiteral("2028-02-29"));QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("confirmCalendarJump")),"clicked");
+                } else if(phase==177) {
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));
+                    if(panel->property("selectedDate").toString()!=QStringLiteral("2028-02-29") || panel->findChild<QObject*>(QStringLiteral("calendarJumpDialog"))->property("visible").toBool()){fail("leap day jump");return;}
+                    m_workspace.setPreference(QStringLiteral("desktopCalendarVisible"),true);
+                } else if(phase==178) {
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("desktopCalendarPanel"));QMetaObject::invokeMethod(panel,"openDateJump");
+                    panel->findChild<QObject*>(QStringLiteral("calendarJumpDate"))->setProperty("text",QStringLiteral("2024-02-29"));QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("confirmCalendarJump")),"clicked");
+                    m_workspace.setTextScale(2);QMetaObject::invokeMethod(panel,"inspectEvent",Q_ARG(QVariant,QVariant(eventId)),Q_ARG(QVariant,QVariant(QString())));
+                } else if(phase==179) {
+                    auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));static int narrowFrames=0;calendar->grabWindow();if(++narrowFrames<4)return;
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));auto* independent=mainWindow->findChild<QObject*>(QStringLiteral("desktopCalendarPanel"));
+                    auto* preview=independent->findChild<QObject*>(QStringLiteral("eventPreview"));auto* edit=preview->findChild<QQuickItem*>(QStringLiteral("editPreviewEvent"));
+                    if(!preview->property("visible").toBool() || !edit || edit->mapToScene(QPointF(0,edit->height())).y()>calendar->height()+1 || (!screenshotPath.isEmpty() && !calendar->grabWindow().save(screenshotPath+QStringLiteral(".desktop-event-preview-200.png")))){fail("narrow large preview action");return;}
+                    QMetaObject::invokeMethod(preview,"close");m_workspace.setTextScale(1);
+                    if(!independent || independent->property("anchorDate").toString()!=QStringLiteral("2024-02-29") || panel->property("selectedDate").toString()!=QStringLiteral("2028-02-29")){fail("independent date jump");return;}
+                    QMetaObject::invokeMethod(mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow")),"close");
+                    m_workspace.selectCalendarDate(m_workspace.calendarEvent(eventId).value(QStringLiteral("startDate")).toString());
                 }
             } else if(phase>=112) {
                 auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
@@ -650,7 +702,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==171) {
+            if(phase==179) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
                 QList<QPointer<QObject>> pending;
@@ -667,7 +719,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<172)return;
+            if(phase<180)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -697,7 +749,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         probe->start();
         // Capturing every surface adds synchronous GPU readbacks; keep the
         // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=172)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=180)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

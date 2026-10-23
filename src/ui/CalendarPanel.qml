@@ -25,7 +25,7 @@ ColumnLayout {
     readonly property var selectedDay: days.find(day=>day.date===selectedDate) || ({date:"",entries:[],events:[]})
     readonly property bool compact: width<800*Theme.scale
     readonly property int rowMinimum: Math.max(80,Math.ceil(Theme.bodySize*1.5+Theme.captionSize*3+16))
-    readonly property bool modalOpen: eventEditor.visible || moveDialog.visible || unscheduled.visible
+    readonly property bool modalOpen: eventEditor.visible || eventPreview.visible || jumpDialog.visible || moveDialog.visible || unscheduled.visible
     property bool showTasks: true
     property bool showEvents: true
     property var moving: ({})
@@ -46,8 +46,18 @@ ColumnLayout {
     }
     function kindText(kind) {return kind==="both" ? qsTr("计划＋截止") : kind==="deadline" ? qsTr("截止") : qsTr("计划")}
     function offerMove(entry,date) {moving=entry;targetDate.text=date;markerKind.currentIndex=entry.kind==="deadline" ? 1 : 0;moveDialog.open()}
-    function openEvent(id) {eventEditor.showEvent(id,selectedDate)}
-    function protectClose(action) {if(eventEditor.visible && eventEditor.dirty){eventEditor.safely(function(){eventEditor.close();action()});return true}return false}
+    function openEvent(id) {eventPreview.close();eventEditor.showEvent(id,selectedDate)}
+    function inspectEvent(id,key) {eventPreview.showEvent(id,key || "")}
+    function openDateJump() {jumpDate.text=selectedDate;jumpError.text="";jumpDialog.open();jumpDate.forceActiveFocus()}
+    function jumpToDate(value) {
+        const date=workspace.shiftDate(value,0)
+        if(!date){jumpError.text=qsTr("请输入有效日期，例如2028-02-29。");return false}
+        selectedDate=date
+        if(independent)anchorDate=date;else workspace.selectCalendarDate(date)
+        jumpDialog.close();Qt.callLater(focusSelected);return true
+    }
+    onVisibleChanged: if(!visible && eventPreview && jumpDialog){eventPreview.close();jumpDialog.close()}
+    function protectClose(action) {if(eventEditor.visible && eventEditor.dirty){eventEditor.safely(function(){eventEditor.close();action()});return true}eventPreview.close();jumpDialog.close();return false}
     function showAgenda() {const flick=body.contentItem as Flickable;if(flick)flick.contentY=Math.max(0,Math.min(flick.contentHeight-flick.height,agendaSection.y));newTitle.forceActiveFocus()}
     function focusSelected() {for(let i=0;i<days.length;i++)if(days[i].date===selectedDate){const tile=dayCells.itemAt(i) as CalendarDay;if(tile){tile.forceActiveFocus();const flick=body.contentItem as Flickable;if(flick){const y=tile.mapToItem(flick.contentItem,0,0).y;if(y<flick.contentY)flick.contentY=y;else if(y+tile.height>flick.contentY+flick.height)flick.contentY=y+tile.height-flick.height}}break}}
     function moveSelection(offset) {
@@ -111,7 +121,7 @@ ColumnLayout {
                     ToolTip.visible: markerHover.hovered
                     ToolTip.text: modelData.title
                     HoverHandler {id: markerHover}
-                    TapHandler {onTapped: {panel.selectedDate=dayCell.modelData.date;if(marker.modelData.eventId)panel.openEvent(marker.modelData.eventId);else panel.openTask(marker.modelData.taskId)}}
+                    TapHandler {onTapped: {panel.selectedDate=dayCell.modelData.date;if(marker.modelData.eventId)panel.inspectEvent(marker.modelData.eventId,marker.modelData.occurrenceKey);else panel.openTask(marker.modelData.taskId)}}
                     Drag.active: markerDrag.active
                     Drag.source: marker
                     DragHandler {id: markerDrag;target: null;enabled: !marker.modelData.eventId;onActiveChanged: {panel.draggingMarker=active;if(active)panel.draggedEntry=marker.modelData;else {marker.Drag.drop();panel.draggedEntry=null}}}
@@ -148,6 +158,7 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: Theme.gap
         SegmentedPicker {width: 104*Theme.scale;model: [qsTr("月"),qsTr("周")];currentIndex: panel.isWeek ? 1 : 0;onActivated: function(index){if(panel.independent)panel.weekMode=index===1;else panel.workspace.setView(index===1 ? "week" : "month")}}
+        Button {objectName: "calendarJump";text: qsTr("跳转日期…");onClicked: panel.openDateJump()}
         Button {visible: !panel.independent;text: qsTr("桌面日历");onClicked: panel.desktopRequested()}
         Button {text: qsTr("新建事件");highlighted: true;enabled: panel.workspace.ready && !panel.workspace.busy;onClicked: panel.openEvent("")}
         Button {
@@ -172,6 +183,36 @@ ColumnLayout {
         Layout.fillHeight: true
         clip: true
         contentWidth: availableWidth
+        EventPreview {
+            id: eventPreview
+            parent: Overlay.overlay
+            anchors.centerIn: parent
+            workspace: panel.workspace
+            onEditEvent: function(id){panel.openEvent(id)}
+            onOpenTask: function(id){panel.openTask(id)}
+        }
+        Dialog {
+            id: jumpDialog
+            objectName: "calendarJumpDialog"
+            parent: Overlay.overlay
+            anchors.centerIn: parent
+            width: Math.min(400*Theme.scale,parent.width-32)
+            title: qsTr("跳转日期")
+            modal: true
+            closePolicy: Popup.NoAutoClose
+            ColumnLayout {
+                width: jumpDialog.availableWidth
+                Label {Layout.fillWidth: true;wrapMode: Text.Wrap;color: Theme.secondary;text: qsTr("选择或输入日期，定位到所在月份或周。")}
+                DateField {id: jumpDate;objectName: "calendarJumpDate";workspace: panel.workspace;dateLabel: qsTr("跳转目标日期");Layout.fillWidth: true;onAccepted: panel.jumpToDate(jumpDate.text)}
+                Label {id: jumpError;Layout.fillWidth: true;wrapMode: Text.Wrap;visible: text.length>0;color: Theme.danger}
+            }
+            Shortcut {sequence: "Escape";enabled: jumpDialog.visible && !jumpDate.pickerVisible;onActivated: jumpDialog.close()}
+            onClosed: jumpDate.closePicker()
+            footer: ActionBar {
+                Button {text: qsTr("取消");onClicked: jumpDialog.close()}
+                Button {objectName: "confirmCalendarJump";text: qsTr("前往");highlighted: true;onClicked: panel.jumpToDate(jumpDate.text)}
+            }
+        }
         GridLayout {
             width: body.availableWidth
             height: Math.max(body.availableHeight,implicitHeight)
@@ -252,7 +293,7 @@ ColumnLayout {
                                     Accessible.name: agendaRow.modelData.title
                                     implicitHeight: contentItem.implicitHeight+12
                                     contentItem: Text {text: agendaRow.modelData.title;font.pixelSize: Theme.bodySize;color: Theme.text;wrapMode: Text.Wrap;font.strikeout: agendaRow.modelData.taskStatus==="COMPLETED"}
-                                    onClicked: {if(agendaRow.modelData.eventId)panel.openEvent(agendaRow.modelData.eventId);else panel.openTask(agendaRow.modelData.taskId)}
+                                    onClicked: {if(agendaRow.modelData.eventId)panel.inspectEvent(agendaRow.modelData.eventId,agendaRow.modelData.occurrenceKey);else panel.openTask(agendaRow.modelData.taskId)}
                                 }
                                 WidgetAction {visible: !agendaRow.modelData.eventId;symbol: "calendar";description: qsTr("调整任务日期");enabled: !panel.workspace.busy;onClicked: panel.offerMove(agendaRow.modelData,panel.selectedDate)}
                             }

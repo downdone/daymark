@@ -65,3 +65,5 @@ Apple HIG为项目UI/UX强制依据，见[原则P-13](principles.md)；完整视
 独立桌面日历的查询、窗口、透明度、草稿与验收契约见[CAL-03设计](design/desktop-calendar.md)。
 
 循环事件、事件提醒、schema4升级与iOS参考的月历层级见[CAL-04](design/event-series.md)、[ADR-014](ADR/014-event-series.md)。
+
+当前版本系统评估和后续路线见[评估](review-rc2.md)，CAL-05契约见[日程浏览定位](design/calendar-browsing.md)。

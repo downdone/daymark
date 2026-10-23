@@ -82,3 +82,5 @@ UI-14按[Apple HIG全界面设计](design/hig-redesign.md)分三片：共享组�
 CAL-03按[独立日历设计](design/desktop-calendar.md)扩展FR-020：参数化共享查询、独立窗口与透明/几何持久化、共享日历精修，再验证三窗并存/独立翻页/数据同步/草稿/200%与严格Windows部署；平台人工门禁保持独立。
 
 CAL-04按[事件系列设计](design/event-series.md)扩展FR-021：领域规则与004迁移/旧JSON兼容 → 表单/色条/提醒中心 → 月末闰日/DST/提醒去重及失败分支 → Windows构建、原生截图和严格部署。编辑删除整个系列，真实系统通知送达与macOS保留独立验收。
+
+CAL-05按[评估路线](review-rc2.md)及[浏览定位设计](design/calendar-browsing.md)依次交付查询排序/定位键、只读预览、直接日期跳转和本地验证。其后CAL-06、REL-01、CAL-07、ENG-01、REL-02分别解决查找密度、真实平台验收、循环例外、维护性及正式发布；不混淆设备依赖和可本地实现项。
