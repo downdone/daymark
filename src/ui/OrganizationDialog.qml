@@ -85,7 +85,7 @@ Dialog {
             ColumnLayout {
             width: catalogForm.availableWidth-12
             spacing: Theme.fieldGap
-            enabled: !root.workspace.busy
+            enabled: !root.workspace.busy || root.workspace.backgroundBusy
             SectionLabel { text: root.selected.id ? qsTr("编辑组织项") : qsTr("新建组织项") }
             ComboBox { id: kind; model: root.names; enabled: !root.selected.id; onActivated: root.resetForm() }
             TextField { id: itemTitle; Layout.fillWidth: true; placeholderText: qsTr("名称"); onTextEdited: root.dirty=true }

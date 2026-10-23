@@ -9,6 +9,22 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void refreshDuringWriteIsCoalescedAndPreservesValidationError() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("recovery.sqlite")));QTRY_VERIFY(!w.busy());QVERIFY(w.ready());
+        QSignalSpy operations(&w,&TaskWorkspace::operationFinished);
+        bool sawBackground=false;
+        connect(&w,&TaskWorkspace::stateChanged,&w,[&]{if(w.backgroundBusy())sawBackground=true;});
+        QVERIFY(w.createTask(QStringLiteral("accepted before wake")));QVERIFY(w.busy());
+        QVERIFY(!w.backgroundBusy());
+        for(int i=0;i<100;i++)w.refreshClock();
+        QTRY_VERIFY(!w.busy());QTRY_VERIFY(operations.count()>=2);
+        int maintained=0;for(const auto& args:operations)if(args[0].toString()==QStringLiteral("maintenance")){QVERIFY(args[1].toBool());++maintained;}
+        QCOMPARE(maintained,1);QVERIFY(sawBackground);QVERIFY(!w.backgroundBusy());QCOMPARE(w.tasks()->rowCount(),1);
+        const auto id=w.tasks()->data(w.tasks()->index(0),TaskListModel::Id).toString();const auto task=w.task(id);
+        QVERIFY(w.saveTask(id,task.value(QStringLiteral("rowVersion")).toLongLong(),QStringLiteral(""),QString(),QStringLiteral("INBOX"),QString(),QString(),false));QTRY_VERIFY(!w.busy());
+        const auto error=w.errorText();QVERIFY(!error.isEmpty());operations.clear();w.refreshClock();
+        QTRY_VERIFY(!operations.isEmpty());QTRY_VERIFY(!w.busy());QCOMPARE(w.errorText(),error);QCOMPARE(w.task(id),task);
+    }
     void unifiedEditorCommitsOneVersionOrNothing() {
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("unified.sqlite")));QTRY_VERIFY(!w.busy());QVERIFY(w.ready());
         QVERIFY(w.createTask(QStringLiteral("original")));QTRY_VERIFY(!w.busy());

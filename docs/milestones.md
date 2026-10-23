@@ -70,3 +70,7 @@ M0/M1 优先解决窗口和可靠性；不得跳到云、AI、移动端。Window
 每个任务覆盖适用的失败分支；UI自动探针不能替代人工窗口验证。未满足项保持TODO/BLOCKED，不“完成后补测试”。新需求先映射FR/TC并评估依赖；没有规格对应的扩展放候选清单，不插入当前切片。
 
 任务状态见 [PROGRESS](PROGRESS.md)，执行记录用 [模板](templates/task.md)，结果见 [验证报告](verification-report.md)。
+
+## Windows候选后的执行切片
+
+V-02W按[稳定性设计](design/windows-stability.md)补系统恢复回归和同进程隔离长跑/资源报告工具。先运行短时工具验证，再执行8h与真实睡眠/物理多屏；这些是不同验收项，当前结果仅在PROGRESS维护。V-03/V-04仍保留干净机、签名许可和macOS门槛。

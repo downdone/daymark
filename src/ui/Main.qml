@@ -48,6 +48,7 @@ ApplicationWindow {
     property string selectedTag: ""
     property string selectedProject: ""
     property Item editorFocusTarget: null
+    property string editorFocusLayoutKey: ""
     readonly property bool toolModalOpen: organization.visible || recurrence.visible || windowSettings.visible || dataTools.visible || notifications.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen
     property var batchSelection: []
     function toggleBatch(id,version) {
@@ -84,7 +85,7 @@ ApplicationWindow {
         draftDirty = false
         taskWorkspace.clearError()
         editor.open()
-        const flick=editorScroll.contentItem as Flickable
+        const flick=editorScroll
         if(flick)flick.contentY=0
         editTitle.forceActiveFocus()
     }
@@ -106,7 +107,7 @@ ApplicationWindow {
         while(ancestor && ancestor!==editorFields)ancestor=ancestor.parent
         if(!ancestor)return
         editorFocusTarget=item
-        const flick=editorScroll.contentItem as Flickable
+        const flick=editorScroll
         if(!flick)return
         const y=item.mapToItem(flick.contentItem,0,0).y
         const bottom=y+Math.min(item.height,flick.height/2)
@@ -118,9 +119,24 @@ ApplicationWindow {
         editorFocusDelay.restart()
     }
     Timer {id: editorFocusDelay;interval: 16;onTriggered: mainWindow.ensureEditorFocus(mainWindow.editorFocusTarget)}
+    // Nested layouts can move a focused child after their parent's height signal.
+    // Observe the settled geometry after polish, without undoing manual scrolling.
+    onAfterAnimating: if(editor.visible)Qt.callLater(mainWindow.followEditorLayout)
+    function followEditorLayout() {
+        const item=activeFocusItem
+        if(!editor.visible || !item)return
+        let ancestor=item
+        while(ancestor && ancestor!==editorFields)ancestor=ancestor.parent
+        if(!ancestor)return
+        const position=item.mapToItem(editorFields,0,0)
+        const key=[position.y,item.height,editorScroll.width,editorScroll.height].join(":")
+        if(item===editorFocusTarget && key===editorFocusLayoutKey)return
+        editorFocusLayoutKey=key
+        if(item===editNotes)ensureNotesCursor();else ensureEditorFocus(item)
+    }
     function ensureNotesCursor() {
         if(!editor.visible || fillingDraft || !editNotes.activeFocus)return
-        const flick=editorScroll.contentItem as Flickable
+        const flick=editorScroll
         if(!flick)return
         const position=editNotes.mapToItem(flick.contentItem,0,editNotes.cursorRectangle.y)
         const bottom=position.y+editNotes.cursorRectangle.height+8
@@ -370,7 +386,7 @@ ApplicationWindow {
             }
             RowLayout {
                 Layout.fillWidth: true
-                enabled: mainWindow.taskWorkspace.ready && !mainWindow.taskWorkspace.busy && mainWindow.taskWorkspace.view !== "logbook"
+                enabled: mainWindow.taskWorkspace.ready && (!mainWindow.taskWorkspace.busy || mainWindow.taskWorkspace.backgroundBusy) && mainWindow.taskWorkspace.view !== "logbook"
                 visible: !mainWindow.calendarVisible
                 TextField {
                     id: newTitle
@@ -381,7 +397,7 @@ ApplicationWindow {
                     onAccepted: mainWindow.taskWorkspace.createTask(text)
                     Keys.onEscapePressed: taskList.forceActiveFocus()
                 }
-                Button { text: qsTr("添加");highlighted: true;enabled: newTitle.text.trim().length>0;onClicked: mainWindow.taskWorkspace.createTask(newTitle.text) }
+                Button { text: qsTr("添加");highlighted: true;enabled: !mainWindow.taskWorkspace.busy && newTitle.text.trim().length>0;onClicked: mainWindow.taskWorkspace.createTask(newTitle.text) }
             }
             Label {
                 visible: !mainWindow.calendarVisible && (mainWindow.taskWorkspace.view==="someday" || mainWindow.taskWorkspace.tasks.count===0)
@@ -512,18 +528,19 @@ ApplicationWindow {
             Label {text: qsTr("任务详情");font.pixelSize: Theme.headingSize;font.bold: true;Layout.fillWidth: true}
             Label {text: mainWindow.draftDirty ? qsTr("未保存") : qsTr("本地");font.pixelSize: Theme.captionSize;color: Theme.secondary}
         }
-        ScrollView {
+        Flickable {
             id: editorScroll
             objectName: "taskEditorScroll"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            leftPadding: 16
-            rightPadding: 16
+            Layout.leftMargin: 16
+            Layout.rightMargin: 16
+            contentWidth: width
+            contentHeight: editorFields.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            flickableDirection: Flickable.VerticalFlick
             clip: true
-            Connections {
-                target: editorScroll.contentItem as Flickable
-                function onContentHeightChanged() {if(editor.visible)editorFocusDelay.restart()}
-            }
+            onContentHeightChanged: if(editor.visible)editorFocusDelay.restart()
             ScrollBar.vertical: ScrollBar {
                 objectName: "editorScrollBar"
                 x: editorScroll.width-width
@@ -533,9 +550,9 @@ ApplicationWindow {
             ColumnLayout {
             id: editorFields
             onHeightChanged: if(editor.visible)editorFocusDelay.restart()
-            width: editorScroll.availableWidth
+            width: editorScroll.width-12
             spacing: Theme.fieldGap
-            enabled: !mainWindow.taskWorkspace.busy
+            enabled: !mainWindow.taskWorkspace.busy || mainWindow.taskWorkspace.backgroundBusy
             TextField { id: editTitle; objectName: "editTaskTitle"; Layout.fillWidth: true; placeholderText: qsTr("任务标题");Accessible.name: qsTr("任务标题");font.bold: true;selectByMouse: true; onTextChanged: mainWindow.markDirty() }
             TextArea { id: editNotes;objectName: "editTaskNotes";Layout.fillWidth: true;implicitHeight: Math.max(72,Theme.bodySize*3,contentHeight+topPadding+bottomPadding);placeholderText: qsTr("添加备注…");Accessible.name: qsTr("备注");wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: mainWindow.markDirty();onCursorRectangleChanged: Qt.callLater(mainWindow.ensureNotesCursor) }
             ColumnLayout {
@@ -554,6 +571,8 @@ ApplicationWindow {
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: planning.currentIndex===2 ? qsTr("以后再说：保留日期，暂停执行。") : qsTr("安排日期或关注今天会激活任务。"); font.pixelSize: Theme.captionSize; color: Theme.secondary }
             TaskDetailsFields {
                 id: extraFields
+                onYChanged: if(editor.visible)editorFocusDelay.restart()
+                onHeightChanged: if(editor.visible)editorFocusDelay.restart()
                 objectName: "taskDetailsFields"
                 Layout.fillWidth: true
                 workspace: mainWindow.taskWorkspace

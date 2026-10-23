@@ -36,7 +36,7 @@ Dialog {
         ColumnLayout {
             width: root.availableWidth-12
             spacing: Theme.fieldGap
-            enabled: !root.workspace.busy
+            enabled: !root.workspace.busy || root.workspace.backgroundBusy
             Label {text: qsTr("标题")}
             TextField {id: eventTitle;objectName: "eventTitle";Layout.fillWidth: true;placeholderText: qsTr("例如：产品评审");onTextEdited: root.dirty=true}
             Label {text: qsTr("备注")}

@@ -27,3 +27,16 @@
 | 签名/独立干净机/8h稳定性 | UNVERIFIED | UNVERIFIED | UNVERIFIED |
 
 部署包在本机去除SDK PATH后单独测试，结果追加验证报告；这不是独立干净机验收。不得批量将本表改为PASS。
+
+## V-02W自动恢复与短跑补充（2026-10-23）
+
+| 范围 | Windows11 x64 / Qt6.10.2 | macOS |
+|---|---|---|
+| 时间/恢复MSG类型、合并、析构取消 | PASS；消息注入，非真实睡眠 | UNVERIFIED |
+| 写入时延后维护、保留校验错误与编辑状态 | PASS；隔离模型及原生合成流程 | UNVERIFIED |
+| 主窗规范化、隐藏/最小化保持、销毁安全 | PASS；Qt状态与合成离屏坐标 | UNVERIFIED |
+| 连续业务循环/完整性检查/资源采样工具 | PASS；Debug 3循环、Release 6循环 | UNVERIFIED |
+| Release 10k混合数据层 | PASS；129/1/8ms加载/搜索/月索引 | UNVERIFIED |
+| 8h、真实睡眠、物理拔屏/DPI、闲置CPU与内存趋势 | UNVERIFIED；短跑不能替代 | UNVERIFIED |
+
+本轮数据与短跑限制见[验证报告](verification-report.md)，执行方法见[指南](stability-guide.md)。

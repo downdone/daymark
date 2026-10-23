@@ -28,6 +28,8 @@ CAL-01/02的追加行为见 [FR-019](01_PRODUCT_SPEC.md)、[ADR-013](ADR/013-loc
 
 统一任务编辑面板及单一草稿/滚动契约见 [UI-10设计](design/unified-task-editor.md)。
 
+Windows稳定性与恢复切片见[设计](design/windows-stability.md)及[连续运行验收指南](stability-guide.md)。短跑与8小时、真实睡眠、多屏验收分别记录。
+
 ## 文档归属
 
 | 事实 | 唯一归属 |

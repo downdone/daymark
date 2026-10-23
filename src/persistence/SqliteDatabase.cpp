@@ -10,6 +10,15 @@
 static void initializeSchemaResource() { Q_INIT_RESOURCE(daymark_schema); }
 
 namespace daymark {
+Result<void> SqliteDatabase::checkIntegrity() const
+{
+    QSqlQuery check(m_db);
+    if(!check.exec(QStringLiteral("PRAGMA quick_check")) || !check.next() || check.value(0).toString()!=QStringLiteral("ok") || check.next())
+        return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("integrityFailed"));
+    if(!check.exec(QStringLiteral("PRAGMA foreign_key_check")) || check.next())
+        return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("integrityFailed"));
+    return {};
+}
 
 Result<void> MigrationManager::initialize(QSqlDatabase& db)
 {

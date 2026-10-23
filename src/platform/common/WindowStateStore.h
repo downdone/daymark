@@ -10,10 +10,10 @@ class WindowStateStore final:public QObject {
 public:
     WindowStateStore(QWindow* window,const QString& settingsPath,QObject* parent=nullptr);
     void save();
+    void normalize();
 signals:
     void saveFailed();
 private:
-    void normalize();
     QPointer<QWindow> m_window;
     QSettings m_settings;
     QTimer m_timer;

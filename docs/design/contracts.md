@@ -70,6 +70,8 @@ QLockFile + QLocalServer 用于本机单实例；仅本机 IPC，不提供网络
 
 UI-09补充：TaskWorkspace.canMoveTask仅在任务菜单打开时查询可移动性，复用QueryService结果及moveTask相同的范围/邻接组边界；忙碌、首尾、搜索/筛选、Upcoming/Logbook禁用。QML不自行推断排序业务，避免高频逐行全表查询。DateField只输出ISO草稿，所有实际保存和改期仍经TaskWorkspace/服务校验。
 
-UI-10：saveTaskWithDetails将标题/备注/规划/日期/今日关注与归属/标签/清单/提醒构成单个TaskPatch；复用appendDetailsPatch解析提醒和关系，再经TaskService.edit单次CAS/事务提交。saveTask和saveDetails兼容已有独立动作。输入解析或领域/数据库失败不允许部分字段提前写入。任务详情由同一Pane和单个ScrollView呈现，窄窗主内容替换，不再存在二级TaskDetailsDialog。
+UI-10：saveTaskWithDetails将标题/备注/规划/日期/今日关注与归属/标签/清单/提醒构成单个TaskPatch；复用appendDetailsPatch解析提醒和关系，再经TaskService.edit单次CAS/事务提交。saveTask和saveDetails兼容已有独立动作。输入解析或领域/数据库失败不允许部分字段提前写入。任务详情由同一Pane和单个Flickable正文呈现，窄窗主内容替换，不再存在二级TaskDetailsDialog。
 
 UI-10分组投影：TaskListModel增加viewSection角色，refresh按当前视图选择既有分组元信息，QML固定section.property。内容/分组切换通过模型通知更新，避免隐藏/显示编辑面板时动态重设Qt Quick分组属性；不改变QueryService归属或排序。
+
+V-02W：SystemEventFilter将时间/设置/恢复及应用激活合并排队；TaskWorkspace.refreshClock在写入忙碌时保留一次维护请求，operationFinished后补做。backgroundBusy只代表后台维护，表单保持可编辑而写命令仍由busy互斥；维护成功不清除校验错误。SqliteDatabase.checkIntegrity只读检查quick_check与foreign_key_check，失败返回integrityFailed；verifyStorage仅供C++验收工具调用，不向QML暴露数据库接口。窗口规范化只调整可达几何，不主动显示/解除最小化。详见[稳定性设计](windows-stability.md)。

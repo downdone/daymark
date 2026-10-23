@@ -16,7 +16,7 @@ namespace daymark {
 // Composition root. Business services will be injected here as slices are delivered.
 class AppRuntime final {
 public:
-    bool start(bool smokeTest, const QString& dataDirectory = {}, const QString& screenshotPath = {});
+    bool start(bool smokeTest, const QString& dataDirectory = {}, const QString& screenshotPath = {},int soakSeconds=0,const QString& soakReport={});
     int startupExitCode() const { return m_startupExitCode; }
 
 private:

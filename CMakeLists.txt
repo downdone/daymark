@@ -55,7 +55,7 @@ set(DAYMARK_WINDOW_SOURCES
     src/models/WidgetViewModel.h src/models/WidgetViewModel.cpp
 )
 
-qt_add_executable(daymark src/main.cpp src/app/AppRuntime.h src/app/AppRuntime.cpp)
+qt_add_executable(daymark src/main.cpp src/app/AppRuntime.h src/app/AppRuntime.cpp src/app/SoakRunner.h src/app/SoakRunner.cpp)
 set_source_files_properties(src/ui/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 target_sources(daymark PRIVATE src/platform/common/DesktopTray.h src/platform/common/DesktopTray.cpp)
 target_sources(daymark PRIVATE src/platform/common/WindowStateStore.h src/platform/common/WindowStateStore.cpp)
@@ -80,6 +80,14 @@ endif()
 
 if(BUILD_TESTING)
     find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Test)
+    qt_add_executable(test_integrity tests/integration/IntegrityTest.cpp)
+    target_link_libraries(test_integrity PRIVATE daymark_core Qt6::Test)
+    add_test(NAME storage_integrity COMMAND test_integrity)
+    qt_add_executable(test_system_recovery tests/integration/SystemRecoveryTest.cpp src/platform/common/SystemEventFilter.cpp src/platform/common/WindowStateStore.h src/platform/common/WindowStateStore.cpp)
+    target_include_directories(test_system_recovery PRIVATE src)
+    target_link_libraries(test_system_recovery PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
+    add_test(NAME system_recovery COMMAND test_system_recovery)
+    set_tests_properties(system_recovery PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20)
     qt_add_executable(test_startup tests/integration/StartupTest.cpp src/platform/common/StartupController.h src/platform/common/StartupController.cpp)
     target_include_directories(test_startup PRIVATE src)
     target_link_libraries(test_startup PRIVATE Qt6::Core Qt6::Qml Qt6::Test)

@@ -42,6 +42,7 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(daymark::TaskListModel* deadlineTasks READ deadlineTasks CONSTANT)
     Q_PROPERTY(bool ready READ ready NOTIFY stateChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY stateChanged)
+    Q_PROPERTY(bool backgroundBusy READ backgroundBusy NOTIFY stateChanged)
     Q_PROPERTY(QString view READ view NOTIFY stateChanged)
     Q_PROPERTY(QString errorText READ errorText NOTIFY stateChanged)
     Q_PROPERTY(QString infoText READ infoText NOTIFY stateChanged)
@@ -75,6 +76,7 @@ public:
     TaskListModel* deadlineTasks() {return &m_deadlineTasks;}
     bool ready() const { return m_ready; }
     bool busy() const { return m_busy; }
+    bool backgroundBusy() const { return m_busy && m_backgroundMaintenance; }
     QString view() const { return m_view; }
     QString errorText() const;
     QString infoText() const { return m_info; }
@@ -152,6 +154,7 @@ public:
     Q_INVOKABLE bool setPreference(const QString& key,const QVariant& value);
     Q_INVOKABLE bool undoDelete();
     Q_INVOKABLE bool createBackup();
+    bool verifyStorage();
     Q_INVOKABLE void clearError();
     Q_INVOKABLE bool saveCatalog(const QVariantMap& item);
     Q_INVOKABLE bool deleteCatalog(const QString& kind,const QString& id,qint64 version);
@@ -163,7 +166,7 @@ signals:
     void reminderReady(const QString& title,const QString& message);
 private:
     bool appendDetailsPatch(const QString& id,const QVariantMap& details,TaskPatch& patch);
-    bool begin();
+    bool begin(bool clearFeedback=true);
     QVariantMap eventMap(const CalendarEvent& event) const;
     void refresh();
     bool runTask(const QString& operation,std::function<Result<Task>(TaskWorker&)> command);
@@ -187,6 +190,9 @@ private:
     QString m_projectFilter;
     Error m_error;
     bool m_ready=false,m_busy=false;
+    bool m_backgroundMaintenance=false;
+    bool m_refreshPending=false;
+    QTimer m_pendingMaintenance;
     SystemClock m_clock;
     QDate m_today;
     QDate m_calendarDate=QDate::currentDate();

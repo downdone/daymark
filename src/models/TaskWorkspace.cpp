@@ -125,11 +125,14 @@ TaskWorkspace::TaskWorkspace(QObject* parent) : QObject(parent),m_today(m_clock.
     connect(&m_dateTimer,&QTimer::timeout,this,checkDate);
     m_dateTimer.start(60000);checkDate();
     m_maintenanceTimer.setInterval(30000);
+    m_pendingMaintenance.setSingleShot(true);
+    connect(&m_pendingMaintenance,&QTimer::timeout,this,&TaskWorkspace::maintain);
     connect(&m_maintenanceTimer,&QTimer::timeout,this,&TaskWorkspace::maintain);m_maintenanceTimer.start();
     m_undoTimer.setSingleShot(true);m_undoTimer.setInterval(8000);
     m_eventUndoTimer.setSingleShot(true);m_eventUndoTimer.setInterval(8000);
     connect(&m_eventUndoTimer,&QTimer::timeout,this,[this]{m_eventUndoId.clear();emit stateChanged();});
     connect(this,&TaskWorkspace::operationFinished,this,[this](const QString& operation,bool success){
+        if(m_refreshPending && m_ready)m_pendingMaintenance.start(0);
         if(operation==QStringLiteral("eventDelete") && success){m_eventUndoId=m_eventDeleteCandidate;m_eventUndoVersion=m_eventDeleteVersion+1;m_eventUndoTimer.start();emit stateChanged();}
         if(success && (operation==QStringLiteral("eventRestore") || operation==QStringLiteral("applyImport"))){m_eventUndoId.clear();m_eventUndoTimer.stop();emit stateChanged();}
     });
@@ -155,10 +158,10 @@ void TaskWorkspace::start(const QString& path) {
     }
     reload();
 }
-bool TaskWorkspace::begin()
+bool TaskWorkspace::begin(bool clearFeedback)
 {
     if(m_busy) return false;
-    m_busy=true;m_error={};m_info.clear();m_pendingInfo.clear();emit stateChanged();return true;
+    m_backgroundMaintenance=!clearFeedback;m_busy=true;if(clearFeedback){m_error={};m_info.clear();m_pendingInfo.clear();}emit stateChanged();return true;
 }
 void TaskWorkspace::reload()
 {
@@ -196,7 +199,7 @@ void TaskWorkspace::setView(const QString& view)
     m_view=view;refresh();emit stateChanged();
 }
 void TaskWorkspace::setSearch(const QString& search) {m_search=search.trimmed();m_searchTimer.start();}
-void TaskWorkspace::refreshClock(){m_today=m_clock.localToday();refresh();emit stateChanged();maintain();}
+void TaskWorkspace::refreshClock(){m_today=m_clock.localToday();refresh();emit stateChanged();m_refreshPending=true;m_pendingMaintenance.start(0);}
 QVariantMap TaskWorkspace::task(const QString& id) const
 {
     const auto item=m_taskIndex.constFind(id);
@@ -308,6 +311,8 @@ bool TaskWorkspace::createBackup()
     },Qt::QueuedConnection);
     return true;
 }
+bool TaskWorkspace::verifyStorage()
+{return runCatalog([](TaskWorker& w){return w.database.checkIntegrity();},QStringLiteral("integrity"));}
 void TaskWorkspace::clearError(){m_error={};m_info.clear();emit stateChanged();}
 QString TaskWorkspace::errorText() const
 {
@@ -330,6 +335,7 @@ QString TaskWorkspace::errorText() const
     if(key==QStringLiteral("ownershipInvalid"))return tr("归属无效。请确认项目、领域或分组仍存在，且分组属于所选项目。");
     if(key==QStringLiteral("tagConflict"))return tr("标签名称已存在（不区分大小写），或标签无法写入。请修改名称后重试。");
     if(key==QStringLiteral("reminderInvalid"))return tr("提醒必须是有效的将来时间。请重新选择时间，或清除提醒。");
+    if(key==QStringLiteral("integrityFailed"))return tr("本地数据完整性检查失败。请停止编辑并保留当前数据，使用已验证的备份在独立目录恢复。");
     if(key==QStringLiteral("calendarAmbiguous"))return tr("同日标记包含开始和截止。请明确选择要移动的日期字段。");
     if(key==QStringLiteral("recurrenceInvalid"))return tr("重复规则无效。请检查日期、周期和星期选择。");
     if(key==QStringLiteral("recurrenceModeImmutable"))return tr("请停止旧规则后建立另一周期类型，以保留现有实例的时间语义。");
@@ -359,16 +365,16 @@ QVariantList TaskWorkspace::catalogOf(const QString& kind,const QString& parent)
 }
 bool TaskWorkspace::runCatalog(std::function<Result<void>(TaskWorker&)> command,const QString& operation)
 {
-    if(!m_ready || !begin())return false;
+    if(!m_ready || !begin(operation!=QStringLiteral("maintenance")))return false;
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
     QMetaObject::invokeMethod(worker,[self,worker,operation,command=std::move(command)]{
         const auto result=command(*worker);
-        const auto generated=result.ok() && operation!=QStringLiteral("batch")?worker->recurrenceService->generate():Result<int>{{},result.error};
+        const auto generated=result.ok() && operation!=QStringLiteral("batch") && operation!=QStringLiteral("integrity")?worker->recurrenceService->generate():Result<int>{{},result.error};
         const auto tasks=worker->repository->all();const auto catalog=worker->catalog->all();const auto rules=worker->recurrence->all();
         const auto events=EventRepository(worker->database.connection()).all();
         if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,generated,operation]{
             if(!self)return;
-            self->m_busy=false;self->m_error=result.error;
+            self->m_busy=false;if(operation!=QStringLiteral("maintenance") || !result.ok())self->m_error=result.error;
             if(tasks.ok())self->m_cache=tasks.value;else self->m_error=tasks.error;
             if(catalog.ok())self->m_catalog=catalog.value;else self->m_error=catalog.error;
             if(rules.ok())self->m_rules=rules.value;else self->m_error=rules.error;
@@ -553,6 +559,7 @@ QVariantList TaskWorkspace::notifications() const
 void TaskWorkspace::maintain()
 {
     if(!m_ready || m_busy)return;
+    m_refreshPending=false;
     QPointer<TaskWorkspace> self(this);
     runCatalog([self](TaskWorker& w){
         const auto due=w.repository->claimDueReminders(w.clock.nowUtc().toUTC().toString(Qt::ISODateWithMs));

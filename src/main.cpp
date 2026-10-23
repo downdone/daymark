@@ -4,6 +4,8 @@
 #include <QCommandLineParser>
 #include <QQuickStyle>
 #include <cstdio>
+#include <QFileInfo>
+#include <QDir>
 
 int main(int argc, char* argv[])
 {
@@ -21,8 +23,20 @@ int main(int argc, char* argv[])
     parser.addOption({QStringLiteral("smoke-test"), QStringLiteral("Check QML startup and exit without user data access.")});
     parser.addOption({QStringLiteral("data-dir"), QStringLiteral("Use an explicit local data directory."), QStringLiteral("directory")});
     parser.addOption({QStringLiteral("screenshot"),QStringLiteral("Save the synthetic smoke-test window image."),QStringLiteral("path")});
+    parser.addOption({QStringLiteral("soak-seconds"),QStringLiteral("After isolated smoke, run a continuous synthetic stability test (10..43200 seconds)."),QStringLiteral("seconds")});
+    parser.addOption({QStringLiteral("soak-report"),QStringLiteral("Write a new JSON stability report; requires --soak-seconds."),QStringLiteral("path")});
     parser.process(app);
-    if(parser.isSet(QStringLiteral("smoke-test"))) {
+    int soakSeconds=0;
+    if(parser.isSet(QStringLiteral("soak-seconds"))) {
+        bool valid=false;soakSeconds=parser.value(QStringLiteral("soak-seconds")).toInt(&valid);
+        const auto report=QFileInfo(parser.value(QStringLiteral("soak-report")));
+        if(!valid || soakSeconds<10 || soakSeconds>43200 || parser.isSet(QStringLiteral("data-dir"))
+           || parser.value(QStringLiteral("soak-report")).isEmpty() || report.exists() || !report.dir().exists()) {
+            std::fprintf(stderr,"Invalid stability options: use 10..43200 seconds, a new report path in an existing directory, and no --data-dir.\n");return 2;
+        }
+    } else if(parser.isSet(QStringLiteral("soak-report"))) {std::fprintf(stderr,"--soak-report requires --soak-seconds.\n");return 2;}
+    const bool verification=parser.isSet(QStringLiteral("smoke-test")) || soakSeconds>0;
+    if(verification) {
         qInstallMessageHandler([](QtMsgType,const QMessageLogContext&,const QString& message){
             const auto utf8=message.toUtf8();
             std::fprintf(stderr,"%s\n",utf8.constData());std::fflush(stderr);
@@ -30,7 +44,7 @@ int main(int argc, char* argv[])
     }
 
     daymark::AppRuntime runtime;
-    if (!runtime.start(parser.isSet(QStringLiteral("smoke-test")),parser.value(QStringLiteral("data-dir")),parser.value(QStringLiteral("screenshot"))))
+    if (!runtime.start(verification,parser.value(QStringLiteral("data-dir")),parser.value(QStringLiteral("screenshot")),soakSeconds,parser.value(QStringLiteral("soak-report"))))
         return runtime.startupExitCode();
     return app.exec();
 }

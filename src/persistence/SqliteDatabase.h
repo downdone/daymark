@@ -16,6 +16,7 @@ public:
     Result<void> open(const QString& path);
     Result<QString> createSnapshot(const QString& directory);
     Result<void> ensureDailySnapshot();
+    Result<void> checkIntegrity() const;
     QSqlDatabase connection() const { return m_db; } // Persistence layer/tests only.
 private:
     QString m_connectionName;

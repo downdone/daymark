@@ -41,7 +41,7 @@ Dialog {
         columns: root.stacked ? 1 : 2
         columnSpacing: 20
         rowSpacing: Theme.fieldGap
-        enabled: !root.workspace.busy
+        enabled: !root.workspace.busy || root.workspace.backgroundBusy
         ScrollView {
             id: ruleList
             Layout.preferredWidth: 180

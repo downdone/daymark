@@ -1,4 +1,5 @@
 #include "AppRuntime.h"
+#include "SoakRunner.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -14,7 +15,7 @@
 
 namespace daymark {
 
-bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QString& screenshotPath)
+bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QString& screenshotPath,int soakSeconds,const QString& soakReport)
 {
     QString directory=dataDirectory;
     if(smokeTest) {
@@ -63,14 +64,14 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         if(mainWindow) {mainWindow->showNormal();mainWindow->requestActivate();}
     });
     m_workspace.start(QDir(directory).filePath(QStringLiteral("daymark.sqlite")));
-    QObject::connect(qGuiApp,&QGuiApplication::applicationStateChanged,&m_workspace,[this](Qt::ApplicationState state){if(state==Qt::ApplicationActive)m_workspace.refreshClock();});
-    m_systemEvents=std::make_unique<SystemEventFilter>([this]{QMetaObject::invokeMethod(&m_workspace,"refreshClock",Qt::QueuedConnection);});
+    m_systemEvents=std::make_unique<SystemEventFilter>([this]{m_workspace.refreshClock();m_widget.normalizeGeometry();if(m_mainState)m_mainState->normalize();});
+    QObject::connect(qGuiApp,&QGuiApplication::applicationStateChanged,&m_workspace,[this](Qt::ApplicationState state){if(state==Qt::ApplicationActive)m_systemEvents->requestRefresh();});
 
     if (smokeTest) {
         auto* probe=new QTimer(&m_engine);
         auto smokePhase=std::make_shared<int>(0);
         probe->setInterval(100);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,soakSeconds,soakReport,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString()]() mutable {
             *smokePhase=phase;
             if(m_workspace.busy())return;
             auto fail=[probe](const char* stage){qCritical()<<"Basic UI smoke failed at"<<stage;probe->stop();QCoreApplication::exit(2);};
@@ -81,6 +82,11 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             auto* editor=mainWindow->findChild<QObject*>(QStringLiteral("taskEditor"));
             if(!input || !editTitle || !startDate || !editor){fail("UI objects");return;}
             if(phase==0) {
+                // Start-Process -WindowStyle Hidden suppresses the first Win32 show.
+                // Native focus/layout checks require an exposed rendering surface.
+                if(QGuiApplication::platformName()!=QStringLiteral("offscreen")) {
+                    mainWindow->hide();mainWindow->show();mainWindow->requestActivate();
+                }
                 if(!screenshotPath.isEmpty())mainWindow->resize(880,580);
                 m_workspace.setView(QStringLiteral("today"));
                 input->setProperty("text",QStringLiteral("准备今日工作"));
@@ -165,7 +171,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 auto open=[&]{return QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));};
                 auto click=[&](const char* name){auto* button=mainWindow->findChild<QObject*>(QString::fromLatin1(name));return button && QMetaObject::invokeMethod(button,"clicked");};
                 auto navigate=[&]{QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("anytime"))));};
-                auto* flick=qvariant_cast<QObject*>(scroll->property("contentItem"));
+                auto* flick=static_cast<QObject*>(scroll);
                 const auto rowName=QStringLiteral("taskRow-")+secondId;
                 std::function<QQuickItem*(QQuickItem*)> findRow=[&](QQuickItem* item)->QQuickItem*{if(!item)return nullptr;if(item->objectName()==rowName)return item;for(auto* child:item->childItems())if(auto* found=findRow(child))return found;return nullptr;};
                 if(phase==132){m_workspace.setView(QStringLiteral("inbox"));m_workspace.createTask(QStringLiteral("统一编辑原始"));}
@@ -188,7 +194,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 else if(phase==138){if(!click("discardDraft")){fail("unified discard navigation");return;}}
                 else if(phase==139){
                     if(editor->property("visible").toBool() || m_workspace.task(secondId).value(QStringLiteral("checklist")).toList().size()!=1){fail("unified discard zero mutation");return;}
-                    m_workspace.setView(QStringLiteral("inbox"));open();notes->setProperty("text",QStringLiteral("长备注验证，单一滚动轴。\n").repeated(24));QMetaObject::invokeMethod(newStep,"forceActiveFocus");
+                    m_workspace.setView(QStringLiteral("inbox"));open();notes->setProperty("text",QStringLiteral("长备注验证，单一滚动轴。\n").repeated(24));QMetaObject::invokeMethod(newStep,"forceActiveFocus");m_workspace.refreshClock();
                 } else if(phase>=140 && phase<=143){
                     // Allow one rendered layout and the focus-follow timer to settle
                     // before inspecting text-scale/viewport-dependent geometry.
@@ -498,11 +504,17 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             const bool screenshotOk=screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath);
             qInfo() << "QML startup: visible windows=" << visibleWindows
                     << "warnings=" << m_qmlWarnings;
+            *smokePhase=phase;
+            if(passed && screenshotOk && soakSeconds>0) {
+                probe->stop();
+                auto* soak=new SoakRunner(m_workspace,m_widget,mainWindow,soakSeconds,soakReport,[this]{return m_qmlWarnings;},&m_engine);
+                soak->start();return;
+            }
             QCoreApplication::exit(passed && screenshotOk ? 0 : 2);
             probe->stop();
         });
         probe->start();
-        QTimer::singleShot(45000,&m_engine,[smokePhase]{qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(45000,&m_engine,[smokePhase]{if(*smokePhase>=148)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }
