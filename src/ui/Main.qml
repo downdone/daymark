@@ -18,6 +18,7 @@ ApplicationWindow {
     title: "Daymark"
     color: Theme.content
     font.pixelSize: Theme.bodySize
+    font.family: Theme.fontFamily
     palette.window: Theme.content
     palette.windowText: Theme.text
     palette.base: Theme.content
@@ -514,32 +515,39 @@ ApplicationWindow {
         objectName: "taskEditor"
         visible: false
         z: 1
-        x: mainWindow.detailDocked ? mainWindow.width-width-16 : mainWindow.sidebarWidth+16
-        y: 16
-        width: mainWindow.detailDocked ? mainWindow.detailWidth : mainWindow.width-mainWindow.sidebarWidth-32
-        height: mainWindow.height-32
+        readonly property real bodyWidth: Math.min(width-32,680*Theme.scale)
+        readonly property real bodyInset: (width-bodyWidth)/2
+        x: mainWindow.detailDocked ? mainWindow.width-width : mainWindow.sidebarWidth
+        y: 0
+        width: mainWindow.detailDocked ? mainWindow.detailWidth : mainWindow.width-mainWindow.sidebarWidth
+        height: mainWindow.height
         padding: 0
         function open() {visible=true}
         function close() {startDate.closePicker();deadline.closePicker();visible=false}
         onWidthChanged: if(visible)Qt.callLater(function(){mainWindow.ensureEditorFocus(mainWindow.activeFocusItem)})
         onHeightChanged: if(visible)Qt.callLater(function(){mainWindow.ensureEditorFocus(mainWindow.activeFocusItem)})
-        background: Rectangle {color: Theme.content;radius: Theme.panelRadius;border.color: Theme.separator}
+        background: Rectangle {
+            color: Theme.content
+            Rectangle {visible: mainWindow.detailDocked;width: 1;height: parent.height;color: Theme.separator}
+        }
         contentItem: ColumnLayout {
         spacing: 0
         RowLayout {
             Layout.fillWidth: true
-            Layout.margins: 16
-            Label {text: qsTr("任务详情");font.pixelSize: Theme.headingSize;font.bold: true;Layout.fillWidth: true}
-            Label {text: mainWindow.draftDirty ? qsTr("未保存") : qsTr("本地");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+            Layout.topMargin: 20
+            Layout.bottomMargin: 16
+            Layout.leftMargin: editor.bodyInset
+            Layout.rightMargin: editor.bodyInset
+            Label {text: qsTr("任务详情");font.pixelSize: Theme.headingSize;font.weight: Font.DemiBold;Layout.fillWidth: true}
+            Label {visible: mainWindow.draftDirty;text: qsTr("未保存");font.pixelSize: Theme.captionSize;color: Theme.secondary}
         }
         Flickable {
             DS.ScrollPhysics {target: editorScroll}
             id: editorScroll
             objectName: "taskEditorScroll"
-            Layout.fillWidth: true
+            Layout.preferredWidth: editor.bodyWidth
+            Layout.alignment: Qt.AlignHCenter
             Layout.fillHeight: true
-            Layout.leftMargin: 16
-            Layout.rightMargin: 16
             contentWidth: width
             contentHeight: editorFields.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
@@ -558,20 +566,41 @@ ApplicationWindow {
             width: editorScroll.width-12
             spacing: Theme.fieldGap
             enabled: !mainWindow.taskWorkspace.busy || mainWindow.taskWorkspace.backgroundBusy
-            TextField { id: editTitle; objectName: "editTaskTitle"; Layout.fillWidth: true; placeholderText: qsTr("任务标题");Accessible.name: qsTr("任务标题");font.bold: true;selectByMouse: true; onTextChanged: mainWindow.markDirty() }
-            TextArea { id: editNotes;objectName: "editTaskNotes";Layout.fillWidth: true;implicitHeight: Math.max(72,Theme.bodySize*3,contentHeight+topPadding+bottomPadding);placeholderText: qsTr("添加备注…");Accessible.name: qsTr("备注");wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: mainWindow.markDirty();onCursorRectangleChanged: Qt.callLater(mainWindow.ensureNotesCursor) }
+            TextField {
+                id: editTitle;objectName: "editTaskTitle";Layout.fillWidth: true
+                placeholderText: qsTr("任务标题");Accessible.name: qsTr("任务标题")
+                font.pixelSize: Theme.taskTitleSize;font.weight: Font.DemiBold
+                leftPadding: 0;rightPadding: 0
+                background: Rectangle {color: "transparent";Rectangle {anchors.bottom: parent.bottom;width: parent.width;height: 2;visible: editTitle.activeFocus;color: Theme.accent}}
+                onTextChanged: mainWindow.markDirty()
+            }
+            TextArea {
+                id: editNotes;objectName: "editTaskNotes";Layout.fillWidth: true
+                implicitHeight: Math.max(64,Theme.bodySize*3,contentHeight+topPadding+bottomPadding)
+                leftPadding: 0;rightPadding: 0
+                placeholderText: qsTr("添加备注…");Accessible.name: qsTr("备注");wrapMode: TextEdit.Wrap
+                background: Rectangle {color: "transparent";Rectangle {anchors.bottom: parent.bottom;width: parent.width;height: 2;visible: editNotes.activeFocus;color: Theme.accent}}
+                onTextChanged: mainWindow.markDirty();onCursorRectangleChanged: Qt.callLater(mainWindow.ensureNotesCursor)
+            }
             ColumnLayout {
                 SectionLabel { text: qsTr("规划与日期") }
                 ComboBox { id: planning;objectName: "editorPlanning";Layout.fillWidth: true;Accessible.name: qsTr("任务规划状态");model: [qsTr("收集箱"), qsTr("已激活"), qsTr("以后再说")]; onCurrentIndexChanged: mainWindow.markDirty() }
                 CheckBox { id: focusToday; text: qsTr("持续关注今天"); onCheckedChanged: mainWindow.markDirty();onClicked: if(!checked && mainWindow.taskWorkspace.todayAfterRemovingFocus(mainWindow.editId))removeToday.open() }
             }
             GridLayout {
-                columns: 1
+                columns: editorFields.width>=480*Theme.scale ? 2 : 1
                 Layout.fillWidth: true
-                Label { text: qsTr("计划开始");Layout.fillWidth: true;wrapMode: Text.Wrap }
-                DateField { id: startDate; objectName: "editStartDate";workspace: mainWindow.taskWorkspace;dateLabel: qsTr("计划开始"); Layout.fillWidth: true; onTextChanged: mainWindow.markDirty() }
-                Label { text: qsTr("截止日期");Layout.fillWidth: true;wrapMode: Text.Wrap }
-                DateField { id: deadline;workspace: mainWindow.taskWorkspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true; onTextChanged: mainWindow.markDirty() }
+                columnSpacing: 12
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Label {text: qsTr("计划开始");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                    DateField {id: startDate;objectName: "editStartDate";workspace: mainWindow.taskWorkspace;dateLabel: qsTr("计划开始");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Label {text: qsTr("截止日期");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                    DateField {id: deadline;workspace: mainWindow.taskWorkspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                }
             }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: planning.currentIndex===2 ? qsTr("以后再说：保留日期，暂停执行。") : qsTr("安排日期或关注今天会激活任务。"); font.pixelSize: Theme.captionSize; color: Theme.secondary }
             TaskDetailsFields {
@@ -589,7 +618,8 @@ ApplicationWindow {
         }
         Label {Layout.fillWidth: true;Layout.leftMargin: 16;Layout.rightMargin: 16;wrapMode: Text.Wrap;visible: mainWindow.taskWorkspace.errorText.length>0;text: mainWindow.taskWorkspace.errorText;color: Theme.danger}
         ActionBar {
-            Layout.fillWidth: true
+            Layout.preferredWidth: editor.bodyWidth+32
+            Layout.alignment: Qt.AlignHCenter
             gap: 8
             ToolButton {
                 Accessible.name: qsTr("更多任务操作")

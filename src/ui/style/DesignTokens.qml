@@ -20,6 +20,10 @@ QtObject {
     readonly property color success: dark ? "#8bd5ad" : "#216b46"
     readonly property color border: dark ? "#41454e" : "#d8dce3"
     readonly property color outline: dark ? "#858c99" : "#8b929e"
+    readonly property color fieldFill: dark ? "#292c32" : "#f5f6f8"
+    readonly property color fieldLine: dark ? "#858c99" : "#808a99"
+    readonly property string fontFamily: Application.font.family
+    readonly property int taskTitle: Math.round(20*scale)
     readonly property int body: Math.round(14*scale)
     readonly property int caption: Math.round(12*scale)
     readonly property int section: Math.round(15*scale)
@@ -27,6 +31,7 @@ QtObject {
     readonly property int title: Math.round(24*scale)
     readonly property int controlHeight: Math.max(32,body+(compact ? 14 : 18))
     readonly property int radius: 6
+    readonly property int rowRadius: 8
     readonly property int panelRadius: 12
     readonly property int gap: 8
     readonly property int fieldGap: compact ? 8 : 10

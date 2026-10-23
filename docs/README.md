@@ -57,3 +57,5 @@ Windows离线交付的只读清单、原生运行及ZIP验证见[设计](design/
 统一滚动边界、惯性及备注单一滚动轴见[UI-11设计](design/scroll-interaction.md)。
 
 布局密度、图标及程序文件标识精修见[UI-12设计](design/ui-polish.md)。
+
+Apple HIG为项目UI/UX强制依据，见[原则P-13](principles.md)；完整视觉关系及月格标题契约见[UI-13设计](design/visual-system.md)。

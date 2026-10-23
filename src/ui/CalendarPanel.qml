@@ -13,6 +13,7 @@ ColumnLayout {
     readonly property var days: workspace.calendarDays
     readonly property var selectedDay: days.find(day=>day.date===selectedDate) || ({date:"",entries:[],events:[]})
     readonly property bool compact: width<800*Theme.scale
+    readonly property int rowMinimum: Math.max(72,Math.ceil(Theme.bodySize*1.5+Theme.captionSize*3+16))
     readonly property bool modalOpen: eventEditor.visible || moveDialog.visible || unscheduled.visible
     property bool showTasks: true
     property bool showEvents: true
@@ -21,17 +22,92 @@ ColumnLayout {
     property bool draggingMarker: false
     spacing: Theme.gap
     function entries(day) {return (showTasks ? day.entries : []).concat(showEvents ? day.events : [])}
+    function verifyDayTitles() {
+        let populated=0
+        for(let i=0;i<dayCells.count;i++) {
+            const tile=dayCells.itemAt(i) as CalendarDay
+            if(!tile || tile.items.length===0)continue
+            populated++
+            if(tile.displayedCount<1 || tile.firstDisplayedTitle.indexOf(tile.items[0].title)<0)return "missing concrete title"
+            if(tile.markerBottom>tile.availableHeight+1)return "clipped concrete title"
+        }
+        return populated>0 ? "PASS" : "no populated dates"
+    }
     function kindText(kind) {return kind==="both" ? qsTr("计划＋截止") : kind==="deadline" ? qsTr("截止") : qsTr("计划")}
     function offerMove(entry,date) {moving=entry;targetDate.text=date;markerKind.currentIndex=entry.kind==="deadline" ? 1 : 0;moveDialog.open()}
     function openEvent(id) {eventEditor.showEvent(id,selectedDate)}
     function protectClose(action) {if(eventEditor.visible && eventEditor.dirty){eventEditor.safely(function(){eventEditor.close();action()});return true}return false}
     function showAgenda() {const flick=body.contentItem as Flickable;if(flick)flick.contentY=Math.max(0,Math.min(flick.contentHeight-flick.height,agendaSection.y));newTitle.forceActiveFocus()}
-    function focusSelected() {for(let i=0;i<days.length;i++)if(days[i].date===selectedDate){const tile=dayCells.itemAt(i);if(tile){tile.forceActiveFocus();const flick=body.contentItem as Flickable;if(flick){const y=tile.mapToItem(flick.contentItem,0,0).y;if(y<flick.contentY)flick.contentY=y;else if(y+tile.height>flick.contentY+flick.height)flick.contentY=y+tile.height-flick.height}}break}}
+    function focusSelected() {for(let i=0;i<days.length;i++)if(days[i].date===selectedDate){const tile=dayCells.itemAt(i) as CalendarDay;if(tile){tile.forceActiveFocus();const flick=body.contentItem as Flickable;if(flick){const y=tile.mapToItem(flick.contentItem,0,0).y;if(y<flick.contentY)flick.contentY=y;else if(y+tile.height>flick.contentY+flick.height)flick.contentY=y+tile.height-flick.height}}break}}
     function moveSelection(offset) {
         const target=workspace.shiftDate(selectedDate,offset)
         selectedDate=target
         if(!days.some(day=>day.date===target))workspace.selectCalendarDate(target)
         Qt.callLater(focusSelected)
+    }
+    component CalendarDay: ItemDelegate {
+        id: dayCell
+        required property var modelData
+        readonly property var items: panel.entries(modelData)
+        readonly property int markerLineHeight: Math.ceil(Theme.captionSize*1.5)
+        readonly property int entryLimit: Math.max(1,Math.min(panel.workspace.view==="week" ? 8 : 3,Math.floor((availableHeight-dayNumber.implicitHeight-markerLineHeight-6)/(markerLineHeight+2))))
+        readonly property int displayedCount: markers.count
+        readonly property string firstDisplayedTitle: {if(markers.count<1)return "";const label=markers.itemAt(0) as Label;return label ? label.text : ""}
+        readonly property real markerBottom: dayNumber.height+1+markers.count*(markerLineHeight+1)
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.preferredWidth: 1
+        Layout.minimumWidth: 32
+        Layout.minimumHeight: panel.rowMinimum
+        padding: 4
+        highlighted: panel.selectedDate===modelData.date
+        focusPolicy: highlighted ? Qt.StrongFocus : Qt.ClickFocus
+        onActiveFocusChanged: if(activeFocus)panel.selectedDate=modelData.date
+        Accessible.name: modelData.date+qsTr("，%1项").arg(items.length)
+        onClicked: panel.selectedDate=modelData.date
+        onDoubleClicked: {panel.selectedDate=modelData.date;newTitle.forceActiveFocus()}
+        Keys.onLeftPressed: function(event){panel.moveSelection(-1);event.accepted=true}
+        Keys.onRightPressed: function(event){panel.moveSelection(1);event.accepted=true}
+        Keys.onUpPressed: function(event){panel.moveSelection(-7);event.accepted=true}
+        Keys.onDownPressed: function(event){panel.moveSelection(7);event.accepted=true}
+        contentItem: Column {
+            spacing: 1
+            clip: true
+            Label {id: dayNumber;width: dayCell.availableWidth;text: dayCell.modelData.day;color: dayCell.modelData.today ? Theme.accent : dayCell.modelData.inMonth ? Theme.text : Theme.secondary;font.bold: dayCell.modelData.today}
+            Repeater {
+                id: markers
+                model: dayCell.items.slice(0,dayCell.entryLimit)
+                Label {
+                    id: marker
+                    required property var modelData
+                    width: dayCell.availableWidth
+                    height: dayCell.markerLineHeight
+                    verticalAlignment: Text.AlignVCenter
+                    text: (modelData.eventId ? "▰ " : modelData.taskStatus==="COMPLETED" ? "✓ " : modelData.kind==="deadline" ? "⚑ " : "○ ")+modelData.title
+                    font.strikeout: modelData.taskStatus==="COMPLETED"
+                    elide: Text.ElideRight
+                    font.pixelSize: Theme.captionSize
+                    color: modelData.eventId ? Theme.text : modelData.kind==="start" ? Theme.accent : Theme.danger
+                    Accessible.name: modelData.title
+                    ToolTip.visible: markerHover.hovered
+                    ToolTip.text: modelData.title
+                    HoverHandler {id: markerHover}
+                    TapHandler {onTapped: {panel.selectedDate=dayCell.modelData.date;if(marker.modelData.eventId)panel.openEvent(marker.modelData.eventId);else panel.openTask(marker.modelData.taskId)}}
+                    Drag.active: markerDrag.active
+                    Drag.source: marker
+                    DragHandler {id: markerDrag;target: null;enabled: !marker.modelData.eventId;onActiveChanged: {panel.draggingMarker=active;if(active)panel.draggedEntry=marker.modelData;else {marker.Drag.drop();panel.draggedEntry=null}}}
+                }
+            }
+            Label {
+                width: dayCell.availableWidth
+                visible: dayCell.items.length>dayCell.entryLimit
+                text: "+"+(dayCell.items.length-dayCell.entryLimit)
+                font.pixelSize: Theme.captionSize
+                color: Theme.accent
+                TapHandler {onTapped: {panel.selectedDate=dayCell.modelData.date;panel.showAgenda()}}
+            }
+        }
+        DropArea {anchors.fill: parent;onDropped: function(drop){if(panel.draggedEntry){panel.offerMove(panel.draggedEntry,dayCell.modelData.date);drop.acceptProposedAction()}}}
     }
     Connections {
         target: panel.workspace
@@ -84,7 +160,7 @@ ColumnLayout {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: !panel.compact
-                Layout.preferredHeight: panel.compact ? (panel.workspace.view==="week" ? 160 : 6*Math.max(58,Theme.bodySize+Theme.captionSize+14))+28 : -1
+                Layout.preferredHeight: panel.compact ? (panel.workspace.view==="week" ? Math.max(160,panel.rowMinimum) : 6*panel.rowMinimum)+28 : -1
                 RowLayout {
                     Layout.fillWidth: true
                     Repeater {
@@ -101,58 +177,7 @@ ColumnLayout {
                     Repeater {
                         id: dayCells
                         model: panel.days
-                        ItemDelegate {
-                            id: dayCell
-                            required property var modelData
-                            readonly property var items: panel.entries(modelData)
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            Layout.preferredWidth: 1
-                            Layout.minimumWidth: 32
-                            Layout.minimumHeight: panel.compact ? Math.max(58,Theme.bodySize+Theme.captionSize+14) : Math.max(42,Theme.bodySize+12)
-                            padding: 4
-                            highlighted: panel.selectedDate===modelData.date
-                            focusPolicy: highlighted ? Qt.StrongFocus : Qt.ClickFocus
-                            onActiveFocusChanged: if(activeFocus)panel.selectedDate=modelData.date
-                            Accessible.name: modelData.date+qsTr("，%1项").arg(items.length)
-                            onClicked: panel.selectedDate=modelData.date
-                            onDoubleClicked: {panel.selectedDate=modelData.date;newTitle.forceActiveFocus()}
-                            Keys.onLeftPressed: function(event){panel.moveSelection(-1);event.accepted=true}
-                            Keys.onRightPressed: function(event){panel.moveSelection(1);event.accepted=true}
-                            Keys.onUpPressed: function(event){panel.moveSelection(-7);event.accepted=true}
-                            Keys.onDownPressed: function(event){panel.moveSelection(7);event.accepted=true}
-                            contentItem: Column {
-                                spacing: 1
-                                clip: true
-                                Label {width: dayCell.availableWidth;text: dayCell.modelData.day;color: dayCell.modelData.today ? Theme.accent : dayCell.modelData.inMonth ? Theme.text : Theme.secondary;font.bold: dayCell.modelData.today}
-                                Repeater {
-                                    model: dayCell.items.slice(0,panel.compact ? 0 : panel.workspace.view==="week" ? 8 : 3)
-                                    Label {
-                                        id: marker
-                                        required property var modelData
-                                        width: dayCell.availableWidth
-                                        text: (modelData.eventId ? "▰ " : modelData.taskStatus==="COMPLETED" ? "✓ " : modelData.kind==="deadline" ? "⚑ " : "○ ")+modelData.title
-                                        font.strikeout: modelData.taskStatus==="COMPLETED"
-                                        elide: Text.ElideRight
-                                        font.pixelSize: Theme.captionSize
-                                        color: modelData.eventId ? Theme.text : modelData.kind==="start" ? Theme.accent : Theme.danger
-                                        TapHandler {onTapped: {panel.selectedDate=dayCell.modelData.date;if(marker.modelData.eventId)panel.openEvent(marker.modelData.eventId);else panel.openTask(marker.modelData.taskId)}}
-                                        Drag.active: markerDrag.active
-                                        Drag.source: marker
-                                        DragHandler {id: markerDrag;target: null;enabled: !marker.modelData.eventId;onActiveChanged: {panel.draggingMarker=active;if(active)panel.draggedEntry=marker.modelData;else {marker.Drag.drop();panel.draggedEntry=null}}}
-                                    }
-                                }
-                                Label {
-                                    width: dayCell.availableWidth
-                                    visible: panel.compact ? dayCell.items.length>0 : dayCell.items.length>(panel.workspace.view==="week" ? 8 : 3)
-                                    text: panel.compact ? qsTr("%1项").arg(dayCell.items.length) : "+"+(dayCell.items.length-(panel.workspace.view==="week" ? 8 : 3))
-                                    font.pixelSize: Theme.captionSize
-                                    color: Theme.accent
-                                    TapHandler {onTapped: {panel.selectedDate=dayCell.modelData.date;panel.showAgenda()}}
-                                }
-                            }
-                            DropArea {anchors.fill: parent;onDropped: function(drop){if(panel.draggedEntry){panel.offerMove(panel.draggedEntry,dayCell.modelData.date);drop.acceptProposedAction()}}}
-                        }
+                        delegate: CalendarDay {}
                     }
                 }
             }

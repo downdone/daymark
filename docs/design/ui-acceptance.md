@@ -64,7 +64,7 @@
 ## 5. 评审模板
 
 ```text
-任务：UI-xx；关联UX-xx、FR/TC：
+任务：UI-xx；适用Apple HIG原则及官方来源；关联UX-xx、FR/TC：
 目标用户操作链：
 布局/主要动作/次级动作/数据写入边界：
 状态：默认、hover、selected、focus、pending、success、error、empty
@@ -73,3 +73,7 @@
 结果：PASS / FAIL / UNVERIFIED（逐项，不用总分掩盖阻塞项）
 遗留与解除条件：
 ```
+
+## Apple HIG强制评审
+
+遵守[项目原则P-13](../principles.md)。每轮说明适用原则、用户操作链、视觉层级与完整状态，并用本表UX项给出证据或UNVERIFIED。使用HIG不能替代键盘、200%、真实辅助技术及平台实测，也不能将Daymark自主token写成Apple规定。

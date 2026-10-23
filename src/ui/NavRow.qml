@@ -20,5 +20,5 @@ ItemDelegate {
         Label { text: root.text; color: Theme.text; font.pixelSize: Theme.bodySize; Layout.fillWidth: true; elide: Text.ElideRight }
         Label { visible: root.count>=0; text: root.count; color: Theme.secondary; font.pixelSize: Theme.captionSize }
     }
-    background: Rectangle { radius: 6; color: root.selected ? Theme.selected : root.hovered ? Theme.hover : "transparent"; border.width: root.activeFocus ? 2 : 0; border.color: Theme.accent }
+    background: Rectangle { radius: Theme.rowRadius; color: root.selected ? Theme.selected : root.hovered ? Theme.hover : "transparent"; border.width: root.activeFocus ? 2 : 0; border.color: Theme.accent }
 }

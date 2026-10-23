@@ -34,6 +34,7 @@ Window {
 
     Control {
         anchors.fill: parent
+        font.family: Theme.fontFamily
         font.pixelSize: Theme.bodySize
         palette.window: Theme.content
         palette.windowText: Theme.text

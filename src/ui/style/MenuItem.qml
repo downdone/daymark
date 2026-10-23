@@ -9,6 +9,7 @@ T.MenuItem {
     leftPadding: (checkable ? 32 : 12)*DesignTokens.scale
     rightPadding: 12*DesignTokens.scale
     hoverEnabled: true
+    font.family: DesignTokens.fontFamily
     font.pixelSize: DesignTokens.body
     contentItem: Text {text: control.text;font: control.font;color: control.enabled ? DesignTokens.text : DesignTokens.disabledText;verticalAlignment: Text.AlignVCenter;wrapMode: Text.Wrap}
     indicator: Text {visible: control.checked;x: 10*DesignTokens.scale;y: (control.height-height)/2;text: "✓";color: DesignTokens.accent;font.pixelSize: DesignTokens.body}

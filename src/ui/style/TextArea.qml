@@ -6,6 +6,7 @@ T.TextArea {
     implicitHeight: Math.max(96,contentHeight+20)
     padding: 10
     font.pixelSize: DesignTokens.body
+    font.family: DesignTokens.fontFamily
     color: enabled ? DesignTokens.text : DesignTokens.disabledText
     placeholderTextColor: DesignTokens.secondary
     selectionColor: DesignTokens.accent
@@ -22,5 +23,5 @@ T.TextArea {
         wrapMode: Text.Wrap
         visible: control.length===0 && !control.preeditText
     }
-    background: Rectangle {radius: DesignTokens.radius;color: DesignTokens.surface;border.color: control.activeFocus ? DesignTokens.accent : control.hovered ? DesignTokens.secondary : DesignTokens.outline;border.width: control.activeFocus ? 2 : 1}
+    background: FieldSurface {focused: control.activeFocus;hovered: control.hovered;enabledField: control.enabled}
 }

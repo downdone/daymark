@@ -16,7 +16,22 @@
 | P-10 | 保持简单，按证据抽象 | 优先 Qt 公共 API；不预建云端/插件框架/通用 ORM；第三方依赖必须有 ADR |
 | P-11 | 变化有边界且可追溯 | 一个文件/模块一个写入者；接口、schema、行为变化同步契约、测试和 ADR |
 | P-12 | 状态来自证据 | IMPLEMENTED、AUTO-PASS、MANUAL-PASS、RELEASE-READY 不互相替代；缺平台写 UNVERIFIED |
+| P-13 | Apple HIG是UI/UX的强制设计依据 | 设计先映射HIG原则，再落实到交互、布局、字体、颜色、图形、动效与可访问性；提交需有状态、键盘、缩放与实际截图证据 |
 
 普通工程细节由开发者在既有授权内决定；只有确实影响数据安全、产品范围或外部发布的决定才向用户提出具体问题，不用审批取代工程判断。
 
-UI目标落实P-07/P-08/P-09：以 [设计基准](design/ui-baseline.md) 的内容优先、渐进呈现、可恢复操作、平台熟悉感和辅助技术为设计依据，并按 [UX验收](design/ui-acceptance.md) 记录真实结果。Things和Apple仅为明确来源的参考，布局token与跨平台表达由Daymark独立定义。
+UI目标落实P-07/P-08/P-09：以 [设计基准](design/ui-baseline.md) 的内容优先、渐进呈现、可恢复操作、平台熟悉感和辅助技术为设计依据，并按 [UX验收](design/ui-acceptance.md) 记录真实结果。Things仅为交互机制参考；Apple HIG按P-13作为强制设计依据，布局token与跨平台表达由Daymark独立定义。
+
+## Apple HIG项目约束（2026-10-23用户指定）
+
+从本轮起，Apple HIG由参考升级为项目UI/UX设计与评审的强制依据。入口为[Apple中文入门指南](https://developer.apple.com/cn/design/human-interface-guidelines/getting-started)，核心为[设计原则](https://developer.apple.com/design/human-interface-guidelines/design-principles)、[布局](https://developer.apple.com/design/human-interface-guidelines/layout)及[可访问性](https://developer.apple.com/design/human-interface-guidelines/accessibility)。八项原则及Daymark映射见[官方调研](design/ui-research.md)。
+
+必须执行：
+
+1. 内容与主要任务优先；用排版、对齐、留白和分组建立层次，避免依靠层层边框堆叠界面。
+2. 一致、熟悉且可恢复；相同动作共享控件和反馈，保留撤销、草稿与明确错误处理，尊重用户控制。
+3. 适应用户与上下文；支持宽窄窗口、浅深主题、200%文字、键盘及可访问名称，不仅靠颜色传达状态。
+4. 打磨完整状态；默认、悬停、选中、焦点、禁用、空态、忙碌和错误都进入设计与验收，动效有目的且可减少。
+5. 设计先于实现；每项UI变更记录适用HIG原则、Daymark具体规则及验证证据。原则冲突需写明取舍，不能以“更像Apple”为由丢失功能或数据保护。
+
+Windows采用其原生窗口、系统字体回退、Ctrl快捷键及托盘习惯；macOS遵循对应平台交互。Qt实现、数值token和独立资源由Daymark定义；不复制Apple专有字体/图标，也不因采用HIG而承诺Liquid Glass等原生能力。无实机或辅助技术证据的项目仍为UNVERIFIED，不宣称已通过Apple官方认证。

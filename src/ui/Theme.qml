@@ -25,6 +25,9 @@ QtObject {
     readonly property color danger: DS.DesignTokens.danger
     readonly property color success: DS.DesignTokens.success
     readonly property color separator: DS.DesignTokens.border
+    readonly property string fontFamily: DS.DesignTokens.fontFamily
+    readonly property int taskTitleSize: DS.DesignTokens.taskTitle
+    readonly property int rowRadius: DS.DesignTokens.rowRadius
     readonly property int bodySize: DS.DesignTokens.body
     readonly property int captionSize: DS.DesignTokens.caption
     readonly property int sectionSize: DS.DesignTokens.section

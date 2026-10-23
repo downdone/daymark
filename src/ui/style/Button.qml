@@ -9,6 +9,7 @@ T.Button {
     spacing: 8
     hoverEnabled: true
     font.pixelSize: DesignTokens.body
+    font.family: DesignTokens.fontFamily
     font.weight: highlighted ? Font.DemiBold : Font.Normal
     readonly property string labelText: {
         if(!T.DialogButtonBox.buttonBox)return text
@@ -26,8 +27,8 @@ T.Button {
     }
     background: Rectangle {
         radius: DesignTokens.radius
-        color: !control.enabled ? DesignTokens.sidebar : control.highlighted ? (control.down ? Qt.darker(DesignTokens.accent,1.12) : DesignTokens.accent) : control.down ? DesignTokens.pressed : control.hovered ? DesignTokens.hover : control.flat ? "transparent" : DesignTokens.surface
-        border.width: control.visualFocus ? 2 : control.flat || control.highlighted ? 0 : 1
-        border.color: control.visualFocus ? DesignTokens.accent : DesignTokens.border
+        color: !control.enabled ? DesignTokens.sidebar : control.highlighted ? (control.down ? Qt.darker(DesignTokens.accent,1.12) : DesignTokens.accent) : control.down ? DesignTokens.pressed : control.hovered ? DesignTokens.hover : control.flat ? "transparent" : DesignTokens.fieldFill
+        border.width: control.visualFocus ? 2 : 0
+        border.color: DesignTokens.accent
     }
 }

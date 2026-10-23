@@ -10,7 +10,7 @@
 - Windows入口：`scripts/build-windows.ps1`、`scripts/test-windows.ps1`、`scripts/run-windows.ps1`；macOS入口：`bash scripts/build-macos.sh`。
 - Kit路径通过 DAYMARK_QT / DAYMARK_MINGW 注入，禁止提交本机绝对路径。只读参考相邻项目。
 - 默认单代理；子代理/并行委派须用户明确授权。未经授权不自动推送、上传或发布。
-- UI变更须先读 `docs/design/ui-baseline.md` 与 `docs/design/ui-acceptance.md`，引用受影响UX目标及状态/键盘/缩放验收；来源事实见ui-research.md。以Things交互机制、Apple原则为参考，视觉与资源独立实现；不得将目标当成现有界面已通过。
+- UI变更须先读 `docs/design/ui-baseline.md` 与 `docs/design/ui-acceptance.md`，引用受影响UX目标及状态/键盘/缩放验收；来源事实见ui-research.md。**Apple HIG是项目UI/UX的强制设计与评审依据**，遵守 `docs/principles.md` 的P-13：先映射HIG原则、定义完整视觉/交互关系，再实现和验证。Things仅作交互机制参考；遵守运行平台习惯，视觉与资源独立实现，不得将目标当成现有界面已通过。
 
 ## 基本任务
 

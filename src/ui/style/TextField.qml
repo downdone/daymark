@@ -8,6 +8,7 @@ T.TextField {
     leftPadding: 10
     rightPadding: 10
     font.pixelSize: DesignTokens.body
+    font.family: DesignTokens.fontFamily
     color: enabled ? DesignTokens.text : DesignTokens.disabledText
     placeholderTextColor: DesignTokens.secondary
     selectionColor: DesignTokens.accent
@@ -27,5 +28,5 @@ T.TextField {
         elide: Text.ElideRight
         visible: control.length===0 && !control.preeditText
     }
-    background: Rectangle {radius: DesignTokens.radius;color: control.enabled ? DesignTokens.surface : DesignTokens.sidebar;border.color: control.activeFocus ? DesignTokens.accent : control.hovered ? DesignTokens.secondary : DesignTokens.outline;border.width: control.activeFocus ? 2 : 1}
+    background: FieldSurface {focused: control.activeFocus;hovered: control.hovered;enabledField: control.enabled}
 }

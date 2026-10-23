@@ -102,5 +102,5 @@ ItemDelegate {
             }
         }
     }
-    background: Rectangle { radius: 6; color: root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"; border.width: root.activeFocus ? 2 : 0; border.color: Theme.accent }
+    background: Rectangle { radius: Theme.rowRadius; color: root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"; border.width: root.activeFocus ? 2 : 0; border.color: Theme.accent }
 }

@@ -3,10 +3,12 @@ import QtQuick.Templates as T
 T.SpinBox {
     id: control
     wheelEnabled: false
+    hoverEnabled: true
     implicitWidth: Math.max(112,contentItem.implicitWidth+leftPadding+rightPadding)
     implicitHeight: DesignTokens.controlHeight
     leftPadding: DesignTokens.controlHeight
     rightPadding: DesignTokens.controlHeight
+    font.family: DesignTokens.fontFamily
     font.pixelSize: DesignTokens.body
     validator: IntValidator {bottom: Math.min(control.from,control.to);top: Math.max(control.from,control.to)}
     contentItem: TextInput {
@@ -33,5 +35,5 @@ T.SpinBox {
         color: control.down.pressed ? DesignTokens.pressed : "transparent"
         Text {anchors.centerIn: parent;text: "−";font.pixelSize: DesignTokens.heading;color: control.enabled && control.value>control.from ? DesignTokens.accent : DesignTokens.disabledText}
     }
-    background: Rectangle {radius: DesignTokens.radius;color: DesignTokens.surface;border.width: control.visualFocus ? 2 : 1;border.color: control.visualFocus ? DesignTokens.accent : DesignTokens.border}
+    background: FieldSurface {focused: control.activeFocus;hovered: control.hovered;enabledField: control.enabled}
 }

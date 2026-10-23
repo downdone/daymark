@@ -7,6 +7,7 @@ T.CheckBox {
     padding: 6
     spacing: 8
     hoverEnabled: true
+    font.family: DesignTokens.fontFamily
     font.pixelSize: DesignTokens.body
     indicator: Rectangle {
         implicitWidth: Math.max(18,18*DesignTokens.scale)
