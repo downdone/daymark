@@ -40,3 +40,7 @@
 | 8h、真实睡眠、物理拔屏/DPI、闲置CPU与内存趋势 | UNVERIFIED；短跑不能替代 | UNVERIFIED |
 
 本轮数据与短跑限制见[验证报告](verification-report.md)，执行方法见[指南](stability-guide.md)。
+
+## CAL-05浏览与定位补充（2026-10-24）
+
+Windows自动：实例排序/只读/失效key/软删测试PASS；Qt合成主/独立窗日期跳转、非法日期保持、实际预览/编辑路径PASS；原生180阶段、浅深/200%截图与420×480逻辑窄窗200%预览PASS。严格SDK隔离、清单/ZIP与运行库来源PASS。上述不替代物理键鼠/IME/读屏/多屏/真实通知/8h或干净机，macOS仍UNVERIFIED。当前包与源码证据只见PROGRESS。
