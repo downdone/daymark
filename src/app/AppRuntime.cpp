@@ -420,6 +420,15 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     else if(phase==92){
                         auto* tasks=widget->findChild<QQuickItem*>(QStringLiteral("widgetTasks"));
                         auto* collapse=widget->findChild<QQuickItem*>(QStringLiteral("widgetCollapse"));
+                        auto* pin=widget->findChild<QQuickItem*>(QStringLiteral("widgetPin"));
+                        const bool wasPinned=m_widget.alwaysOnTop();
+                        if(!pin || pin->width()<32 || pin->height()<32 || pin->mapToScene(QPointF(0,0)).x()<0
+                           || pin->mapToScene(QPointF(pin->width(),pin->height())).x()>widget->width()
+                           || pin->mapToScene(QPointF(pin->width(),pin->height())).y()>widget->height()
+                           || pin->property("checked").toBool()!=wasPinned
+                           || !QMetaObject::invokeMethod(pin,"clicked") || m_widget.alwaysOnTop()==wasPinned
+                           || pin->property("checked").toBool()!=m_widget.alwaysOnTop()
+                           || !QMetaObject::invokeMethod(pin,"clicked") || m_widget.alwaysOnTop()!=wasPinned){fail("floating pin toggle and state");return;}
                         if(!tasks || tasks->height()<120 || !collapse || collapse->height()<32 || collapse->height()>40 || collapse->mapToScene(QPointF(collapse->width(),0)).x()>widget->width() || !widgetCapture(QStringLiteral("compact-widget-200")) || !QMetaObject::invokeMethod(collapse,"clicked")){fail("compact large widget layout");return;}
                     } else if(phase==93){
                         auto* expand=widget->findChild<QQuickItem*>(QStringLiteral("widgetExpand"));

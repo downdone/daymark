@@ -10,7 +10,7 @@ ToolButton {
     implicitHeight: implicitWidth
     padding: 6
     Accessible.name: description
-    contentItem: AppIcon {name: action.symbol;ink: action.enabled ? Theme.secondary : Theme.separator;implicitWidth: action.glyphSize;implicitHeight: action.glyphSize}
+    contentItem: AppIcon {name: action.symbol;ink: !action.enabled ? Theme.separator : action.checked ? Theme.accent : Theme.secondary;implicitWidth: action.glyphSize;implicitHeight: action.glyphSize}
     ToolTip.visible: hovered || activeFocus
     ToolTip.delay: 600
     ToolTip.text: description

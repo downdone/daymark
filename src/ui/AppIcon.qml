@@ -29,6 +29,7 @@ Canvas {
         else if(name==="collapse")line([[5,9],[12,16],[19,9]],false)
         else if(name==="plus") {line([[5,12],[19,12]],false);line([[12,5],[12,19]],false)}
         else if(name==="expand") {line([[5,19],[19,5]],false);line([[9,5],[19,5],[19,15]],false)}
+        else if(name==="pin") {line([[8,3],[16,3],[15,10],[19,14],[5,14],[9,10]],true);line([[12,14],[12,22]],false)}
         else if(name==="close") {line([[6,6],[18,18]],false);line([[18,6],[6,18]],false)}
         else if(name==="sidebar") {p.strokeRect(3,4,18,16);line([[9,4],[9,20]],false)}
         else if(name==="trash") {line([[4,6],[20,6]],false);line([[9,3],[15,3]],false);line([[6,6],[7,21],[17,21],[18,6]],false);line([[10,10],[10,17]],false);line([[14,10],[14,17]],false)}

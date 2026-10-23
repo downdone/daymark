@@ -73,6 +73,15 @@ Window {
                     }
                 }
                 WidgetAction {objectName: "widgetAdd";symbol: "plus";description: qsTr("添加今日任务");onClicked: widget.newTaskRequested()}
+                WidgetAction {
+                    objectName: "widgetPin"
+                    symbol: "pin"
+                    checked: widget.controller.alwaysOnTop
+                    Accessible.checkable: true
+                    Accessible.checked: checked
+                    description: checked ? qsTr("取消置顶") : qsTr("置顶组件")
+                    onClicked: widget.controller.setAlwaysOnTop(!widget.controller.alwaysOnTop)
+                }
                 WidgetAction {objectName: "widgetCollapse";symbol: "collapse";description: qsTr("收起为迷你条");onClicked: widget.controller.setMini(true)}
                 WidgetAction {
                     objectName: "widgetMore"
