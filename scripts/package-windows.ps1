@@ -70,6 +70,9 @@ $manifest=Get-ChildItem -LiteralPath $packageRoot -Recurse -File | ForEach-Objec
 }
 [ordered]@{version=$Version;platform='windows-x64';scope='local verification';qt='6.10.2';files=@($manifest)} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $packageRoot 'manifest.json') -Encoding utf8
 & (Join-Path $PSScriptRoot 'Test-Package.ps1') -PackageDirectory $packageRoot -ReportParent (Join-Path $projectRoot 'build')
+$finalRevision=(& git -C $projectRoot rev-parse HEAD).Trim()
+$finalChanges=@(& git -C $projectRoot status --porcelain --untracked-files=normal)
+if($LASTEXITCODE -ne 0 -or $finalRevision -cne $sourceRevision -or $finalChanges.Count){throw 'Checkout changed during packaging; no archive created.'}
 $archive="$packageRoot.zip"
 Compress-Archive -LiteralPath $packageRoot -DestinationPath $archive -CompressionLevel Optimal
 $hash=(Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()

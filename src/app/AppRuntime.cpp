@@ -6,6 +6,7 @@
 #include <QGuiApplication>
 #include <QMessageBox>
 #include <QQmlError>
+#include <QQmlIncubator>
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QTimer>
@@ -494,6 +495,13 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             }
             ++phase;
             if(phase<148)return;
+            // Occluded native windows may not receive frames to finish ListView
+            // incubation. Complete the synthetic view before reporting/teardown.
+            if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
+                controller->incubateFor(5);
+                // Let creation-triggered queued bindings settle before checking again.
+                --phase;return;
+            }
             int visibleWindows = 0;
             for (auto* window : QGuiApplication::allWindows()) {
                 if (qobject_cast<QQuickWindow*>(window) && window->isVisible()

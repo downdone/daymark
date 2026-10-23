@@ -57,7 +57,9 @@ try {
     $process.WaitForExit()
     if($process.ExitCode -ne 0){throw 'Native smoke failed.'}
     foreach($required in @('Qt6Core.dll','qwindows.dll','qsqlite.dll')){if(!$observed.Contains($required)){throw 'Required runtime module was not observed.'}}
-    if([IO.File]::ReadAllText((Join-Path $output 'native.log')) -notmatch 'QML startup: visible windows=\s*2 warnings=\s*false'){throw 'Native smoke completion evidence missing.'}
+    $nativeLog=[IO.File]::ReadAllText((Join-Path $output 'native.log'))
+    if($nativeLog -notmatch 'QML startup: visible windows=\s*2 warnings=\s*false'){throw 'Native smoke completion evidence missing.'}
+    if($nativeLog -match 'items in the process of being created at engine destruction'){throw 'Native smoke exited with unfinished QML creation.'}
     $null=Assert-DaymarkPackage $package.root
     $passed=$true
 } catch {$failure=$_.Exception.Message}
