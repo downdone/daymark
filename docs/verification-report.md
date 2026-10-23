@@ -8,6 +8,16 @@ Windows11 x64、Qt6.10.2/MinGW13.1，schema3。Debug构建/CTest17/17（29.47秒
 
 完整图标/布局设计见[UI-12](design/ui-polish.md)。原始日志/截图保留在忽略的build目录，数据来自QTemporaryDir，无用户库访问。V-03W既有Release部署失败仍按原记录保留；UI修改不会自动解除发行门禁。
 
+## UI-12最终本地交付 / V-03W复验
+
+源码2c349320082d49af8f6792e99cc2a9562467b813；打包入口重建Release并运行17/17 CTest（28.04秒）。新候选155600：SDK路径隔离、完整生命周期DLL审计、1463文件清单、程序版本、最终ZIP逐条内容及SHA侧车全部PASS。Windows原生152阶段退出0、2窗口、warnings=false，无unfinished creation诊断。
+
+再从最终ZIP解压到独立中文/空格目录，直接运行包内verification/Test-Package.ps1（不传PackageDirectory），再次PASS；调用前注入无效QT_PLUGIN_PATH哨兵，PATH和该变量均正确恢复。报告范围仍为本机SDK隔离，不是独立干净机。用户库访问标记false，license/cleanMachine验证标记false。
+
+本地ZIP44852604字节，SHA256 cf08e97c44bbb2e58222d114e744a0a635dcbe211c40562e4301bb1bee39d96e。源码ZIP459625字节，SHA256 d104ba66ea2f3e0fe19ba94508836f17b8dcc6017e9ff30f831b400acaa1b73e，源包敏感扩展/构建/Git扫描0项。原始报告f4076fcb/68dd2a11保留在忽略的build内。
+
+早期153556/123917/124722的退出诊断FAIL仍保留，不改写历史记录。当前候选两次通过不表示Qt根因普遍修复；完整8h、真实系统矩阵、独立干净机、公开许可、签名和macOS继续UNVERIFIED。
+
 # UI-11及小窗置顶入口（2026-10-23）
 
 Windows11 x64、Qt6.10.2/MinGW13.1，schema3。自动测试使用QTemporaryDir；未访问用户任务库、未结束已有用户进程。
