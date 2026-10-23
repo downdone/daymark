@@ -8,7 +8,13 @@ Windows11 x64、Qt6.10.2/MinGW13.1，schema3。最新Debug构建/CTest17/17（28
 
 sRGB对比计算：浅色底线#808A99/填充#F5F6F8为3.23，深色#858C99/#292C32为4.14；焦点线/填充为5.77/6.91，次级文字/填充为5.11/7.03。此为所列组合计算，不是全状态或OS高对比模式验收。官方HIG已复核，P-13写入项目约束；自主数值与官方原则分列，未复制字体/图标资产。
 
-原始日志和合成截图留在忽略的build。临时库QTemporaryDir，不访问真实用户任务库，不操作旧用户进程，不推送。macOS、Narrator/VoiceOver、真实睡眠/多屏、完整8h和公开许可仍UNVERIFIED。最新部署待记录。
+原始日志和合成截图留在忽略的build。临时库QTemporaryDir，不访问真实用户任务库，不操作旧用户进程，不推送。macOS、Narrator/VoiceOver、真实睡眠/多屏、完整8h和公开许可仍UNVERIFIED。最终部署见下段。
+
+## UI-13最终严格部署
+
+源码f0392c6d49de70dae739a80938dde08c1234d469，Release重建/CTest17/17（28.62秒）。SDK隔离152阶段PASS：退出0、双窗口、warnings=false，无unfinished creation诊断。清单1464文件、EXE版本及Qt/schema元数据、完整生命周期模块来源审计、最终ZIP每个条目内容和SHA侧车检查全部通过。唯一系统运行库例外D3DCompiler_47，其余Qt/MinGW/QML来自包内；报告c5cf5936保留在忽略的build。
+
+二进制ZIP44885877字节，SHA256 7829f453ad1ef69a15d5c7dea7acbfc5f7425458761bc9843ab1ffb0f3824597。源码ZIP468017字节，SHA256 578c7a88378a08a53e47115bd0be722cae716873a070eb01f13327df390e674e，源包敏感文件扫描0项。无用户库访问、不推送；独立干净机、macOS、真实辅助技术/多屏/8h及公开许可仍UNVERIFIED。当前包未另跑中文路径，不重复声称UI-12该项证据为本包新结果。
 
 # UI-12整体精修（2026-10-23）
 
