@@ -12,6 +12,9 @@ Dialog {
     property var headings: []
     property var tagIds: []
     property bool dirty: false
+    signal openEvent(string eventId)
+    property string pendingEvent: ""
+    property var relatedEvents: []
     title: qsTr("归属、标签和清单")
     modal: true
     closePolicy: Popup.NoAutoClose
@@ -19,6 +22,7 @@ Dialog {
     height: Math.min(610, parent.height - 40)
     function openTask(id) {
         taskData = workspace.task(id)
+        relatedEvents=workspace.eventsForTask(id);pendingEvent=""
         projects = workspace.catalogOf("project")
         areas = workspace.catalogOf("area")
         tagIds = taskData.tagIds.slice()
@@ -58,6 +62,17 @@ Dialog {
             Label { text: root.taskData.title || ""; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
             Label { text: qsTr("创建 %1\n修改 %2").arg(root.workspace.localReminder(root.taskData.createdAtUtc || "")).arg(root.workspace.localReminder(root.taskData.updatedAtUtc || "")); color: Theme.secondary; font.pixelSize: Theme.captionSize }
             Label { visible: !!root.taskData.completedAtUtc; text: qsTr("完成 %1").arg(root.workspace.localReminder(root.taskData.completedAtUtc || "")); color: Theme.secondary; font.pixelSize: Theme.captionSize }
+            SectionLabel {text: qsTr("关联事件");visible: root.relatedEvents.length>0}
+            Repeater {
+                model: root.relatedEvents
+                ItemDelegate {
+                    id: related
+                    required property var modelData
+                    Layout.fillWidth: true
+                    text: modelData.title+" · "+modelData.startDate
+                    onClicked: {if(root.dirty){root.pendingEvent=modelData.eventId;discard.open()}else{root.close();root.openEvent(modelData.eventId)}}
+                }
+            }
             SectionLabel { text: qsTr("归属") }
             Label {text: qsTr("项目 / 直接领域（二选一）");font.pixelSize: Theme.captionSize;color: Theme.secondary}
             ComboBox {
@@ -120,6 +135,14 @@ Dialog {
         Button { text: qsTr("返回"); enabled: !root.workspace.busy; onClicked: {if(root.dirty)discard.open();else root.close()} }
         Button { text: qsTr("保存"); highlighted: true; enabled: !root.workspace.busy; onClicked: root.save() }
     }
-    Dialog { id: discard; anchors.centerIn: parent; modal: true; title: qsTr("放弃未保存的修改？"); standardButtons: Dialog.Ok|Dialog.Cancel; onAccepted: {root.dirty=false;root.close()} }
+    Dialog {
+        id: discard
+        anchors.centerIn: parent
+        modal: true
+        title: qsTr("放弃未保存的修改？")
+        standardButtons: Dialog.Ok|Dialog.Cancel
+        onAccepted: {root.dirty=false;root.close();if(root.pendingEvent){const id=root.pendingEvent;root.pendingEvent="";root.openEvent(id)}}
+        onRejected: root.pendingEvent=""
+    }
     Connections { target: root.workspace; function onOperationFinished(operation,success){if(operation==="details" && success){root.dirty=false;root.close()}} }
 }

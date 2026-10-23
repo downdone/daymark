@@ -1,4 +1,5 @@
 #include "DataTransfer.h"
+#include "services/EventService.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -13,7 +14,11 @@
 #include <cmath>
 namespace daymark {
 namespace {
-const QStringList tables={QStringLiteral("areas"),QStringLiteral("projects"),QStringLiteral("headings"),QStringLiteral("tags"),QStringLiteral("recurrence_templates"),QStringLiteral("tasks"),QStringLiteral("checklist_items"),QStringLiteral("task_tags"),QStringLiteral("task_view_order")};
+const QStringList tables={QStringLiteral("areas"),QStringLiteral("projects"),QStringLiteral("headings"),QStringLiteral("tags"),QStringLiteral("recurrence_templates"),QStringLiteral("tasks"),QStringLiteral("checklist_items"),QStringLiteral("task_tags"),QStringLiteral("task_view_order"),QStringLiteral("events"),QStringLiteral("event_tasks")};
+bool supportedSchema(const QJsonObject& root){const double v=root.value(QStringLiteral("schemaVersion")).toDouble(-1);return v==1 || v==2 || v==3;}
+QJsonObject normalized(QJsonObject root) {
+    if(root.value(QStringLiteral("schemaVersion")).toInt()<3){auto data=root.value(QStringLiteral("tables")).toObject();for(const auto& table:{QStringLiteral("events"),QStringLiteral("event_tasks")})if(!data.contains(table))data.insert(table,QJsonArray{});root.insert(QStringLiteral("tables"),data);}return root;
+}
 template<class T> Result<T> invalid(){return Result<T>::failure(ErrorCode::ValidationError,QStringLiteral("importInvalid"));}
 template<class T> Result<T> ioError(){return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("transferFailed"));}
 bool protectedOutput(const QString& path,const QString& database)
@@ -36,7 +41,7 @@ Result<QJsonObject> DataTransfer::document(QSqlDatabase db)
     QJsonObject portable{{QStringLiteral("sundayFirst"),settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool()},
         {QStringLiteral("themeMode"),qBound(0,settings.value(QStringLiteral("appearance/themeMode"),0).toInt(),2)},
         {QStringLiteral("textScale"),qBound(1.0,settings.value(QStringLiteral("appearance/textScale"),1.0).toDouble(),2.0)}};
-    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),2},
+    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),3},
         {QStringLiteral("createdAtUtc"),QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{QStringLiteral("tables"),data},{QStringLiteral("settings"),portable}}, {}};
 }
 Result<void> DataTransfer::exportJson(const QString& path) const
@@ -77,7 +82,8 @@ Result<ImportPlan> DataTransfer::preview(const QString& path,bool snapshot)
         if(error.error!=QJsonParseError::NoError || !json.isObject())return invalid<ImportPlan>();root=json.object();
     }
     if(root.value(QStringLiteral("format")).toString()!=QStringLiteral("daymark") || root.value(QStringLiteral("formatVersion")).toDouble(-1)!=1
-       || (root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=1 && root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=2) || !root.value(QStringLiteral("tables")).isObject())return invalid<ImportPlan>();
+       || !supportedSchema(root) || !root.value(QStringLiteral("tables")).isObject())return invalid<ImportPlan>();
+    root=normalized(root);
     const auto data=root.value(QStringLiteral("tables")).toObject();
     auto keys=data.keys();auto expected=tables;keys.sort();expected.sort();if(keys!=expected)return invalid<ImportPlan>();
     int rows=0;for(const auto& table:tables){if(!data.value(table).isArray())return invalid<ImportPlan>();rows+=data.value(table).toArray().size();if(rows>100000)return invalid<ImportPlan>();}
@@ -85,9 +91,11 @@ Result<ImportPlan> DataTransfer::preview(const QString& path,bool snapshot)
     const auto valid=insert(validation.connection(),root,false,true);if(!valid.ok())return {{},valid.error};
     return {{root,rows},{}};
 }
-Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& root,bool replace,bool validateOnly)
+Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& input,bool replace,bool validateOnly)
 {
-    if(root.value(QStringLiteral("format")).toString()!=QStringLiteral("daymark") || root.value(QStringLiteral("formatVersion")).toDouble(-1)!=1 || (root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=1 && root.value(QStringLiteral("schemaVersion")).toDouble(-1)!=2))return invalid<ImportOutcome>();
+    if(!supportedSchema(input))return invalid<ImportOutcome>();
+    const auto root=normalized(input);
+    if(root.value(QStringLiteral("format")).toString()!=QStringLiteral("daymark") || root.value(QStringLiteral("formatVersion")).toDouble(-1)!=1)return invalid<ImportOutcome>();
     const auto tableData=root.value(QStringLiteral("tables")).toObject();auto keys=tableData.keys();auto expected=tables;keys.sort();expected.sort();if(keys!=expected)return invalid<ImportOutcome>();
     for(const auto& table:tables)if(!tableData.value(table).isArray())return invalid<ImportOutcome>();
     if(root.contains(QStringLiteral("settings"))) {
@@ -101,7 +109,7 @@ Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& ro
     }
     if(!db.transaction())return ioError<ImportOutcome>();
     auto fail=[&]{db.rollback();return invalid<ImportOutcome>();};
-    QSqlQuery q(db);ImportOutcome result;const auto data=root.value(QStringLiteral("tables")).toObject();
+    QSqlQuery q(db);ImportOutcome result;const auto data=root.value(QStringLiteral("tables")).toObject();QSet<QString> skippedEvents;
     if(replace)for(auto it=tables.crbegin();it!=tables.crend();++it)if(!q.exec(QStringLiteral("DELETE FROM ")+*it))return fail();
     for(const auto& table:tables) {
         if(!q.exec(QStringLiteral("PRAGMA table_info(")+table+QLatin1Char(')')))return fail();
@@ -111,6 +119,13 @@ Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& ro
             if(!value.isObject())return fail();auto row=value.toObject();
             if(root.value(QStringLiteral("schemaVersion")).toInt()==1 && table==QStringLiteral("areas") && !row.contains(QStringLiteral("archived")))row.insert(QStringLiteral("archived"),0);
             auto keys=row.keys();auto expected=columns;keys.sort();expected.sort();if(keys!=expected)return fail();
+            if(table==QStringLiteral("event_tasks") && skippedEvents.contains(row.value(QStringLiteral("event_id")).toString())){++result.skipped;continue;}
+            if(table==QStringLiteral("events")) {
+                CalendarEvent e;e.title=row.value(QStringLiteral("title")).toString();e.allDay=row.value(QStringLiteral("all_day")).toInt()==1;
+                e.startOn=QDate::fromString(row.value(QStringLiteral("start_on")).toString(),Qt::ISODate);e.endOn=QDate::fromString(row.value(QStringLiteral("end_on")).toString(),Qt::ISODate);
+                e.startUtc=QDateTime::fromString(row.value(QStringLiteral("start_at_utc")).toString(),Qt::ISODateWithMs);e.endUtc=QDateTime::fromString(row.value(QStringLiteral("end_at_utc")).toString(),Qt::ISODateWithMs);e.timeZone=row.value(QStringLiteral("time_zone")).toString();
+                if(!EventService::validate(e).ok())return fail();
+            }
             if(table==QStringLiteral("recurrence_templates")) {
                 const auto frequency=row.value(QStringLiteral("frequency")).toString();
                 const auto interval=row.value(QStringLiteral("interval_n")).toDouble();
@@ -118,7 +133,7 @@ Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& ro
                 if((frequency==QStringLiteral("MONTHLY") || frequency==QStringLiteral("YEARLY")) && (row.value(QStringLiteral("month_day")).toInt()<1 || row.value(QStringLiteral("month_day")).toInt()>31))return fail();
                 if(frequency==QStringLiteral("YEARLY") && !QDate(2000,row.value(QStringLiteral("year_month")).toInt(),row.value(QStringLiteral("month_day")).toInt()).isValid())return fail();
             }
-            const auto identity=row.contains(QStringLiteral("id"))?row.value(QStringLiteral("id")).toString():table==QStringLiteral("task_tags")?row.value(QStringLiteral("task_id")).toString()+QLatin1Char(':')+row.value(QStringLiteral("tag_id")).toString():row.value(QStringLiteral("view_code")).toString()+QLatin1Char(':')+row.value(QStringLiteral("task_id")).toString();
+            const auto identity=row.contains(QStringLiteral("id"))?row.value(QStringLiteral("id")).toString():table==QStringLiteral("task_tags")?row.value(QStringLiteral("task_id")).toString()+QLatin1Char(':')+row.value(QStringLiteral("tag_id")).toString():table==QStringLiteral("event_tasks")?row.value(QStringLiteral("event_id")).toString()+QLatin1Char(':')+row.value(QStringLiteral("task_id")).toString():row.value(QStringLiteral("view_code")).toString()+QLatin1Char(':')+row.value(QStringLiteral("task_id")).toString();
             if(identity.isEmpty() || seen.contains(identity))return fail();seen.insert(identity);
             QList<QVariant> values;
             for(int i=0;i<columns.size();++i) {
@@ -143,10 +158,10 @@ Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& ro
             }
             QStringList placeholders;for(int i=0;i<columns.size();++i)placeholders<<QStringLiteral("?");
             QString conflict;
-            if(!validateOnly && !replace)conflict=table==QStringLiteral("task_tags")?QStringLiteral(" ON CONFLICT(task_id,tag_id) DO NOTHING"):table==QStringLiteral("task_view_order")?QStringLiteral(" ON CONFLICT(view_code,task_id) DO NOTHING"):QStringLiteral(" ON CONFLICT(id) DO NOTHING");
+            if(!validateOnly && !replace)conflict=table==QStringLiteral("task_tags")?QStringLiteral(" ON CONFLICT(task_id,tag_id) DO NOTHING"):table==QStringLiteral("event_tasks")?QStringLiteral(" ON CONFLICT(event_id,task_id) DO NOTHING"):table==QStringLiteral("task_view_order")?QStringLiteral(" ON CONFLICT(view_code,task_id) DO NOTHING"):QStringLiteral(" ON CONFLICT(id) DO NOTHING");
             q.prepare(QStringLiteral("INSERT INTO ")+table+QLatin1Char('(')+columns.join(QLatin1Char(','))+QStringLiteral(") VALUES(")+placeholders.join(QLatin1Char(','))+QLatin1Char(')')+conflict);
             for(const auto& cell:values)q.addBindValue(cell);if(!q.exec())return fail();
-            if(q.numRowsAffected()==0)++result.skipped;else ++result.added;
+            if(q.numRowsAffected()==0){++result.skipped;if(table==QStringLiteral("events"))skippedEvents.insert(row.value(QStringLiteral("id")).toString());}else ++result.added;
         }
     }
     if(!q.exec(QStringLiteral("PRAGMA foreign_key_check")) || q.next())return fail();q.finish();

@@ -67,8 +67,10 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
 
     if (smokeTest) {
         auto* probe=new QTimer(&m_engine);
+        auto smokePhase=std::make_shared<int>(0);
         probe->setInterval(100);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,phase=0,taskId=QString(),secondId=QString()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString()]() mutable {
+            *smokePhase=phase;
             if(m_workspace.busy())return;
             auto fail=[probe](const char* stage){qCritical()<<"Basic UI smoke failed at"<<stage;probe->stop();QCoreApplication::exit(2);};
             if(!m_workspace.ready()) {fail("database initialization");return;}
@@ -150,6 +152,41 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
+            } else if(phase>=96) {
+                auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
+                auto* eventEditor=mainWindow->findChild<QObject*>(QStringLiteral("eventDialog"));
+                auto show=[&](const QString& page,const QString& id){return QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(page)),Q_ARG(QVariant,QVariant(id)));};
+                if(!eventEditor){fail("event editor");return;}
+                if(phase==96) {
+                    const auto choices=m_workspace.eventTaskChoices(QString());
+                    for(const auto& value:choices){const auto task=value.toMap();if(task.value(QStringLiteral("taskStatus")).toString()==QStringLiteral("OPEN")){linkedTaskId=task.value(QStringLiteral("taskId")).toString();break;}}
+                    if(linkedTaskId.isEmpty() || !m_workspace.saveEvent({{"title",QStringLiteral("产品评审（全天）")},{"allDay",true},{"startDate",m_workspace.dateOffset(0)},{"endDate",m_workspace.dateOffset(0)},{"links",QVariantList{QVariantMap{{"taskId",linkedTaskId},{"role",QStringLiteral("preparation")}}}}})){fail("create linked calendar event");return;}
+                } else if(phase==97) {
+                    if(m_workspace.calendarEvents().size()!=1){fail("event persisted");return;}eventId=m_workspace.calendarEvents().first().toMap().value(QStringLiteral("eventId")).toString();
+                    const auto task=m_workspace.task(linkedTaskId);
+                    if(!m_workspace.saveTask(linkedTaskId,task.value(QStringLiteral("rowVersion")).toLongLong(),task.value(QStringLiteral("title")).toString(),QString(),QStringLiteral("ACTIVE"),m_workspace.dateOffset(0),m_workspace.dateOffset(1),false)){fail("calendar agenda task");return;}
+                } else if(phase==98) {
+                    if(!m_workspace.saveEvent({{"title",QStringLiteral("设计讨论")},{"allDay",false},{"startDate",m_workspace.dateOffset(0)},{"endDate",m_workspace.dateOffset(0)},{"startTime",QStringLiteral("09:00")},{"endTime",QStringLiteral("10:00")},{"zone",m_workspace.systemTimeZone()}})){fail("create timed event");return;}
+                } else if(phase==99) {if(m_workspace.calendarEvents().size()!=2 || !show(QStringLiteral("month"),QString())){fail("calendar events loaded");return;}}
+                else if(phase==100){if(!capture(QStringLiteral("calendar-agenda")) || !show(QStringLiteral("event"),eventId)){fail("event open");return;}}
+                else if(phase==101){
+                    auto* title=mainWindow->findChild<QObject*>(QStringLiteral("eventTitle"));auto* save=mainWindow->findChild<QObject*>(QStringLiteral("saveEvent"));
+                    if(!eventEditor->property("visible").toBool() || !title || !save || !capture(QStringLiteral("calendar-event"))){fail("event form");return;}
+                    title->setProperty("text",QStringLiteral("产品评审 · 已更新"));if(!QMetaObject::invokeMethod(save,"clicked")){fail("event form save");return;}
+                } else if(phase==102){if(eventEditor->property("visible").toBool() || m_workspace.calendarEvent(eventId).value(QStringLiteral("title")).toString()!=QStringLiteral("产品评审 · 已更新")){fail("event UI committed");return;}}
+                else if(phase==103){
+                    const auto name=QStringLiteral("calendarComplete-")+linkedTaskId;
+                    std::function<QQuickItem*(QQuickItem*)> findVisual=[&](QQuickItem* item)->QQuickItem*{if(!item)return nullptr;if(item->objectName()==name)return item;for(auto* child:item->childItems())if(auto* found=findVisual(child))return found;return nullptr;};
+                    auto* complete=findVisual(mainWindow->contentItem());if(!complete || !QMetaObject::invokeMethod(complete,"clicked")){fail("calendar direct complete");return;}
+                }
+                else if(phase==104){if(m_workspace.task(linkedTaskId).value(QStringLiteral("taskStatus")).toString()!=QStringLiteral("COMPLETED") || m_workspace.calendarEvents().size()!=2){fail("calendar completion independent of event");return;}m_workspace.setCalendarCompleted(true);}
+                else if(phase==105){if(!capture(QStringLiteral("calendar-completed"))){fail("completed agenda screenshot");return;}m_workspace.setTextScale(2);mainWindow->resize(880,580);}
+                else if(phase==106){auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));if(!capture(QStringLiteral("calendar-200")) || !panel || !QMetaObject::invokeMethod(panel,"showAgenda")){fail("large calendar agenda entry");return;}}
+                else if(phase==107){auto* agenda=mainWindow->findChild<QQuickItem*>(QStringLiteral("calendarAgenda"));if(!agenda || agenda->mapToScene(QPointF(0,0)).y()<0 || agenda->mapToScene(QPointF(0,0)).y()>mainWindow->height() || !capture(QStringLiteral("calendar-agenda-200")) || !show(QStringLiteral("event"),eventId)){fail("large agenda reachable");return;}}
+                else if(phase==108){if(!capture(QStringLiteral("calendar-event-200"))){fail("large event form");return;}eventEditor->setProperty("dirty",true);QMetaObject::invokeMethod(mainWindow,"close");}
+                else if(phase==109){auto* discard=mainWindow->findChild<QObject*>(QStringLiteral("eventDiscard"));if(!discard || !discard->property("visible").toBool()){fail("event draft close protection");return;}QMetaObject::invokeMethod(discard,"reject");}
+                else if(phase==110){if(!eventEditor->property("visible").toBool() || !eventEditor->property("dirty").toBool()){fail("event draft cancellation retained");return;}eventEditor->setProperty("dirty",false);QMetaObject::invokeMethod(eventEditor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(2);mainWindow->resize(1440,900);}
+                else if(phase==111){if(!capture(QStringLiteral("calendar-dark-wide"))){fail("dark calendar");return;}m_workspace.setThemeMode(1);mainWindow->resize(1120,720);}
             } else if(phase>=78) {
                 auto* gallery=mainWindow->findChild<QObject*>(QStringLiteral("styleGallery"));
                 if(!gallery){fail("style gallery");return;}
@@ -305,7 +342,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<96)return;
+            if(phase<114)return;
             int visibleWindows = 0;
             for (auto* window : QGuiApplication::allWindows()) {
                 if (qobject_cast<QQuickWindow*>(window) && window->isVisible()
@@ -320,7 +357,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             probe->stop();
         });
         probe->start();
-        QTimer::singleShot(25000,&m_engine,[]{QCoreApplication::exit(3);});
+        QTimer::singleShot(45000,&m_engine,[smokePhase]{qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

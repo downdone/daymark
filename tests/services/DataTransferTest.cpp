@@ -41,7 +41,7 @@ private slots:
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("upgrade.sqlite"));
         {
             SqliteDatabase db;QVERIFY(db.open(path).ok());TaskRepository repo(db.connection());SystemClock clock;TaskService service(repo,clock);QVERIFY(service.create(QStringLiteral("retained" )).ok());
-            QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("ALTER TABLE areas DROP COLUMN archived")));QVERIFY(q.exec(QStringLiteral("PRAGMA user_version=1")));
+            QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("DROP TABLE event_tasks")));QVERIFY(q.exec(QStringLiteral("DROP TABLE events")));QVERIFY(q.exec(QStringLiteral("ALTER TABLE areas DROP COLUMN archived")));QVERIFY(q.exec(QStringLiteral("PRAGMA user_version=1")));
         }
         QFile blocker(dir.filePath(QStringLiteral("backups")));QVERIFY(blocker.open(QIODevice::WriteOnly));blocker.close();
         {
@@ -52,7 +52,7 @@ private slots:
         SqliteDatabase upgraded;QVERIFY(upgraded.open(path).ok());
         QCOMPARE(TaskRepository(upgraded.connection()).all().value.size(),1);
         const auto backups=QDir(dir.filePath(QStringLiteral("backups/migrations"))).entryList({QStringLiteral("*.sqlite")},QDir::Files);QCOMPARE(backups.size(),1);
-        QSqlQuery q(upgraded.connection());QVERIFY(q.exec(QStringLiteral("PRAGMA user_version")));QVERIFY(q.next());QCOMPARE(q.value(0).toInt(),2);
+        QSqlQuery q(upgraded.connection());QVERIFY(q.exec(QStringLiteral("PRAGMA user_version")));QVERIFY(q.next());QCOMPARE(q.value(0).toInt(),3);
     }
     void roundtripPreviewMergeAndRestore()
     {

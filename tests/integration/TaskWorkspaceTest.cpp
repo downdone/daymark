@@ -9,6 +9,26 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void localEventsCalendarAndRelationsPersist() {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("calendar.sqlite"));QString taskId,eventId;
+        {
+            TaskWorkspace w;w.start(path);QTRY_VERIFY(!w.busy());QVERIFY(w.ready());
+            w.setView(QStringLiteral("today"));QVERIFY(w.createForDate(QStringLiteral("prepare"),w.dateOffset(0)));QTRY_VERIFY(!w.busy());
+            taskId=w.tasks()->data(w.tasks()->index(0),TaskListModel::Id).toString();QVERIFY(!taskId.isEmpty());
+            QVariantMap e{{"title",QStringLiteral("review")},{"allDay",true},{"startDate",w.dateOffset(0)},{"endDate",w.dateOffset(0)},{"links",QVariantList{QVariantMap{{"taskId",taskId},{"role",QStringLiteral("followup")}}}}};
+            QVERIFY(w.saveEvent(e));QTRY_VERIFY(!w.busy());QVERIFY(w.errorText().isEmpty());QCOMPARE(w.calendarEvents().size(),1);
+            auto saved=w.calendarEvents().first().toMap();eventId=saved.value(QStringLiteral("eventId")).toString();QCOMPARE(w.eventsForTask(taskId).size(),1);
+            w.setView(QStringLiteral("month"));bool found=false;for(const auto& value:w.calendarDays()){const auto day=value.toMap();if(day.value(QStringLiteral("date"))==w.dateOffset(0)){QCOMPARE(day.value(QStringLiteral("entries")).toList().size(),1);QCOMPARE(day.value(QStringLiteral("events")).toList().size(),1);found=true;}}QVERIFY(found);
+            saved.insert(QStringLiteral("title"),QStringLiteral("changed"));QVERIFY(w.saveEvent(saved));QTRY_VERIFY(!w.busy());QVERIFY(w.errorText().isEmpty());
+            QVERIFY(w.saveEvent(saved));QTRY_VERIFY(!w.busy());QVERIFY(!w.errorText().isEmpty());QCOMPARE(w.calendarEvent(eventId).value(QStringLiteral("title")).toString(),QStringLiteral("changed"));
+            auto task=w.task(taskId);QVERIFY(w.changeState(taskId,task.value(QStringLiteral("rowVersion")).toLongLong(),QStringLiteral("complete")));QTRY_VERIFY(!w.busy());QCOMPARE(w.calendarEvents().size(),1);
+            auto current=w.calendarEvent(eventId);QVERIFY(w.deleteEvent(eventId,current.value(QStringLiteral("rowVersion")).toLongLong()));QTRY_VERIFY(!w.busy());QVERIFY(w.calendarEvents().isEmpty());QVERIFY(w.canUndoEvent());QVERIFY(!w.task(taskId).isEmpty());
+            QVERIFY(w.undoEventDelete());QTRY_VERIFY(!w.busy());QCOMPARE(w.eventsForTask(taskId).size(),1);
+            current=w.calendarEvent(eventId);current.insert(QStringLiteral("allDay"),false);current.insert(QStringLiteral("zone"),QStringLiteral("invalid"));QVERIFY(w.saveEvent(current));QTRY_VERIFY(!w.busy());QVERIFY(!w.errorText().isEmpty());QVERIFY(w.calendarEvent(eventId).value(QStringLiteral("allDay")).toBool());
+            current.insert(QStringLiteral("zone"),QStringLiteral("UTC"));current.insert(QStringLiteral("startTime"),QStringLiteral("09:00:12.123"));current.insert(QStringLiteral("endTime"),QStringLiteral("10:00:20.456"));QVERIFY(w.saveEvent(current));QTRY_VERIFY(!w.busy());QVERIFY(w.errorText().isEmpty());current=w.calendarEvent(eventId);QCOMPARE(current.value(QStringLiteral("startTime")).toString(),QStringLiteral("09:00:12.123"));current.insert(QStringLiteral("notes"),QStringLiteral("precision preserved"));QVERIFY(w.saveEvent(current));QTRY_VERIFY(!w.busy());QCOMPARE(w.calendarEvent(eventId).value(QStringLiteral("startTime")).toString(),QStringLiteral("09:00:12.123"));
+        }
+        TaskWorkspace reopened;reopened.start(path);QTRY_VERIFY(!reopened.busy());QVERIFY(reopened.ready());QCOMPARE(reopened.calendarEvents().size(),1);QCOMPARE(reopened.eventsForTask(taskId).size(),1);
+    }
     void candidatePreferencesAndBatchCommandsPersist()
     {
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("batch.sqlite"));QString id;

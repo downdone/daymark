@@ -18,7 +18,7 @@ Dialog {
         width: root.availableWidth-12
         spacing: Theme.fieldGap
         enabled: !root.workspace.busy
-        Label { text: qsTr("数据只保存在本机。JSON保留任务、组织、清单和重复规则；CSV供表格阅读。"); Layout.fillWidth: true; wrapMode: Text.Wrap }
+        Label { text: qsTr("数据只保存在本机。JSON保留任务、事件、关联、组织、清单和重复规则；CSV仅导出任务供表格阅读。"); Layout.fillWidth: true; wrapMode: Text.Wrap }
         SectionLabel {text: qsTr("导出与备份")}
         Flow {
             Layout.fillWidth: true;spacing: Theme.gap

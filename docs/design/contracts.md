@@ -44,6 +44,8 @@
 
 ## 5. CalendarService（FR-010/011）
 
+CAL-01/02追加：事件相关契约见[ADR-013](../ADR/013-local-events.md)。EventService校验全天排他日期/定时UTC与时区，visibleDates在可见日期范围内生成投影；EventRepository独占事件和关系SQL。TaskWorkspace工作线程执行保存、软删、撤销，界面bool返回仅代表已接收，operationFinished成功才代表提交；calendarEvent/eventsForTask与同一任务缓存组成双向展示。缓存用任务ID索引查找关联，日历不在QML判定时间或Today归属。
+
 `CalendarEntry{taskId, displayOn, kind}` 的 kind 为 Start/Deadline/StartAndDeadline。start/deadline 同日合并；不同日可有两个引用。只显示有效活动任务，完成态由明确开关扩展。
 
 moveCalendarEntry 必须指定要修改的字段；合并条目先由 UI 选择 Start 或 Deadline，服务拒绝含糊移动。新日期违反 start<=deadline 时拒绝并保留原值；不自动推动另一日期。MonthGrid 0-based 在边界转换，模型输出完整 QDate/ISO 日期，测试闰年、跨年和周首日。

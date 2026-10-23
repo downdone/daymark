@@ -649,3 +649,7 @@ QSettings 记录：`widgetMode`, `clickThrough`, `alwaysOnTop`, `locked`, `opaci
 - Qt Windows deployment: <https://doc.qt.io/qt-6.8/windows-deployment.html>
 - Qt macOS deployment: <https://doc.qt.io/qt-6/macos-deployment.html>
 - QSystemTrayIcon: <https://doc.qt.io/qt-6/qsystemtrayicon.html>
+
+## 追加设计：本地事件（ADR-013，2026-10-23）
+
+用户授权FR-019。本地EventService/EventRepository与TaskService/Repository并列，不将任务日期改造成时间块。schema003、全天排他结束日、定时UTC与IANA时区、DST拒绝策略、关系事务/软删/撤销、JSON旧版本兼容以[ADR-013](ADR/013-local-events.md)为准。QML只展示服务投影并提交命令，事件不参与Today/Upcoming业务筛选。周视图继续无小时轴。

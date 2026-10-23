@@ -1,11 +1,13 @@
 #pragma once
 #include "domain/Task.h"
+#include "domain/CalendarEvent.h"
 #include <QAbstractListModel>
 #include <QThread>
 #include <QTimer>
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 #include <functional>
+#include <QHash>
 
 namespace daymark {
 
@@ -45,6 +47,8 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY stateChanged)
     Q_PROPERTY(QVariantList catalog READ catalog NOTIFY stateChanged)
     Q_PROPERTY(QVariantList calendarDays READ calendarDays NOTIFY stateChanged)
+    Q_PROPERTY(QVariantList calendarEvents READ calendarEvents NOTIFY stateChanged)
+    Q_PROPERTY(bool canUndoEvent READ canUndoEvent NOTIFY stateChanged)
     Q_PROPERTY(QString calendarTitle READ calendarTitle NOTIFY stateChanged)
     Q_PROPERTY(bool sundayFirst READ sundayFirst WRITE setSundayFirst NOTIFY stateChanged)
     Q_PROPERTY(QVariantList recurrenceRules READ recurrenceRules NOTIFY stateChanged)
@@ -76,10 +80,21 @@ public:
     bool canUndo() const { return !m_lastDeleted.isEmpty(); }
     QVariantList catalog() const;
     QVariantList calendarDays() const;
+    QVariantList calendarEvents() const;
+    Q_INVOKABLE QVariantMap calendarEvent(const QString& id) const;
+    Q_INVOKABLE QVariantList eventsForTask(const QString& id) const;
+    Q_INVOKABLE QVariantList eventTaskChoices(const QString& search) const;
+    Q_INVOKABLE QString systemTimeZone() const;
+    Q_INVOKABLE bool saveEvent(const QVariantMap& event);
+    Q_INVOKABLE bool deleteEvent(const QString& id,qint64 version);
+    Q_INVOKABLE bool undoEventDelete();
+    bool canUndoEvent() const{return !m_eventUndoId.isEmpty();}
     QString calendarTitle() const;
     bool sundayFirst() const {return m_sundayFirst;}
     void setSundayFirst(bool enabled);
     Q_INVOKABLE void stepCalendar(int offset);
+    Q_INVOKABLE QString shiftDate(const QString& date,int days)const{return QDate::fromString(date,Qt::ISODate).addDays(days).toString(Qt::ISODate);}
+    Q_INVOKABLE void selectCalendarDate(const QString& date){const auto d=QDate::fromString(date,Qt::ISODate);if(d.isValid()){m_calendarDate=d;emit stateChanged();}}
     Q_INVOKABLE bool createForDate(const QString& title,const QString& date);
     Q_INVOKABLE bool moveCalendar(const QString& id,qint64 version,const QString& kind,const QString& date);
     QVariantList recurrenceRules() const;
@@ -144,6 +159,7 @@ signals:
     void reminderReady(const QString& title,const QString& message);
 private:
     bool begin();
+    QVariantMap eventMap(const CalendarEvent& event) const;
     void refresh();
     bool runTask(const QString& operation,std::function<Result<Task>(TaskWorker&)> command);
     void finishTask(const QString& operation,const Result<Task>& result);
@@ -153,6 +169,11 @@ private:
     TaskWorker* m_worker=nullptr;
     TaskListModel m_tasks, m_todayTasks,m_deadlineTasks;
     QList<Task> m_cache;
+    QHash<QString,Task> m_taskIndex;
+    QList<CalendarEvent> m_events;
+    QString m_eventUndoId,m_eventDeleteCandidate;
+    qint64 m_eventUndoVersion=0,m_eventDeleteVersion=0;
+    QTimer m_eventUndoTimer;
     QList<CatalogItem> m_catalog;
     QList<RecurrenceRule> m_rules;
     QString m_path,m_view=QStringLiteral("inbox"),m_search,m_lastDeleted,m_info,m_pendingInfo;

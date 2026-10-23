@@ -22,6 +22,8 @@
 
 组件降干扰及Apple日历/提醒事项对照见 [UI-08评估](design/widget-calendar-review.md)，包含任务日期与独立事件的边界、关联契约和后续切片。
 
+CAL-01/02的追加行为见 [FR-019](01_PRODUCT_SPEC.md)、[ADR-013](ADR/013-local-events.md)和[RC2说明](release-notes-v1-rc2.md)。
+
 ## 文档归属
 
 | 事实 | 唯一归属 |

@@ -10,3 +10,5 @@ ADR-001～006 已记录在 [原始 TDD](../02_TECHNICAL_DESIGN.md)，继续有�
 | [010](010-ui-ux-target.md) | Things/Apple参考下的独立UI/UX目标与分批验收 | 已接受：用户指定设计目标 |
 | [011](011-release-and-recurrence.md) | 本地v0.1交付、周期身份边界和预备CI | 实施；远程发布等待用户后续安排 |
 | [012](012-v1-candidate-and-area-archive.md) | Windows V1候选范围、领域归档迁移与JSON兼容 | 实施；正式双平台门禁保留 |
+
+| [013](013-local-events.md) | 本地事件、任务议程、schema003及关系/时区边界 | 已接受：用户授权CAL-01/02 |

@@ -1,4 +1,4 @@
-param([string]$Version='1.0.0-rc.1')
+param([string]$Version='1.0.0-rc.2')
 $ErrorActionPreference='Stop'
 if ($Version -notmatch '^\d+\.\d+\.\d+(-rc\.\d+)?$') { throw 'Version must be major.minor.patch or major.minor.patch-rc.N.' }
 $projectRoot=Split-Path $PSScriptRoot -Parent
@@ -33,7 +33,7 @@ try {
 解压后双击 daymark.exe。默认数据保存在系统应用数据目录，包内没有个人任务数据库。
 
 - [使用指南](docs/user-guide.md)
-- [发行说明和未验证项](docs/release-notes-v1-rc.md)
+- [发行说明和未验证项](docs/release-notes-v1-rc2.md)
 - [第三方组件/再分发边界](docs/third-party-notices.md)
 
 本包只交付本地验证，未进行GitHub发布、macOS验收或签名。
@@ -67,9 +67,9 @@ QmlImports=qml
     }
     if($loaded.Count -eq 0){throw 'Could not verify deployed runtime modules.'}
     foreach($module in $loaded){if(!$module.FileName.StartsWith($packageRoot+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw "Runtime loaded outside package: $($module.ModuleName)"}}
-    if(!$process.WaitForExit(30000)){$process.Kill();throw 'Deployed smoke timed out.'}
+    if(!$process.WaitForExit(55000)){$process.Kill();throw 'Deployed smoke timed out.'}
     if($process.ExitCode -ne 0) {throw "Deployed smoke failed. Inspect $log"}
-    [ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=2;scope='Windows local release candidate';deployedNativeSmoke='PASS';runtimeModules='verified inside package';signed=$false} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
+    [ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=3;scope='Windows local release candidate';deployedNativeSmoke='PASS';runtimeModules='verified inside package';signed=$false} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
 } finally {
     if($null -ne $process -and !$process.HasExited){$process.Kill();$process.WaitForExit()}
     $env:PATH=$originalPath

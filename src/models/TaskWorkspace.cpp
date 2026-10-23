@@ -3,6 +3,7 @@
 #include "persistence/TaskRepository.h"
 #include "services/TaskService.h"
 #include "services/CalendarService.h"
+#include "services/EventService.h"
 #include "services/RecurrenceService.h"
 #include "persistence/DataTransfer.h"
 #include <QUrl>
@@ -124,6 +125,12 @@ TaskWorkspace::TaskWorkspace(QObject* parent) : QObject(parent),m_today(m_clock.
     m_maintenanceTimer.setInterval(30000);
     connect(&m_maintenanceTimer,&QTimer::timeout,this,&TaskWorkspace::maintain);m_maintenanceTimer.start();
     m_undoTimer.setSingleShot(true);m_undoTimer.setInterval(8000);
+    m_eventUndoTimer.setSingleShot(true);m_eventUndoTimer.setInterval(8000);
+    connect(&m_eventUndoTimer,&QTimer::timeout,this,[this]{m_eventUndoId.clear();emit stateChanged();});
+    connect(this,&TaskWorkspace::operationFinished,this,[this](const QString& operation,bool success){
+        if(operation==QStringLiteral("eventDelete") && success){m_eventUndoId=m_eventDeleteCandidate;m_eventUndoVersion=m_eventDeleteVersion+1;m_eventUndoTimer.start();emit stateChanged();}
+        if(success && (operation==QStringLiteral("eventRestore") || operation==QStringLiteral("applyImport"))){m_eventUndoId.clear();m_eventUndoTimer.stop();emit stateChanged();}
+    });
     connect(&m_undoTimer,&QTimer::timeout,this,[this]{m_lastDeleted.clear();emit stateChanged();});
 }
 TaskWorkspace::~TaskWorkspace()
@@ -159,12 +166,14 @@ void TaskWorkspace::reload()
         const auto result=worker->load(path);
         const auto catalogs=result.ok()?worker->catalog->all():Result<QList<CatalogItem>>{{},result.error};
         const auto rules=result.ok()?worker->recurrence->all():Result<QList<RecurrenceRule>>{{},result.error};
-        if(self) QMetaObject::invokeMethod(self.data(),[self,result,catalogs,rules]{
+        const auto events=result.ok()?EventRepository(worker->database.connection()).all():Result<QList<CalendarEvent>>{{},result.error};
+        if(self) QMetaObject::invokeMethod(self.data(),[self,result,catalogs,rules,events]{
             if(!self)return;
             self->m_busy=false;self->m_ready=result.ok() && catalogs.ok() && rules.ok();self->m_error=result.ok()?(catalogs.ok()?rules.error:catalogs.error):result.error;
             if(result.ok()) {self->m_cache=result.value;self->refresh();}
             if(catalogs.ok())self->m_catalog=catalogs.value;
             if(rules.ok())self->m_rules=rules.value;
+            if(events.ok())self->m_events=events.value;else {self->m_error=events.error;self->m_ready=false;}
             emit self->stateChanged();emit self->operationFinished(QStringLiteral("load"),self->m_ready);
             if(self->m_ready)self->maintain();
         },Qt::QueuedConnection);
@@ -172,6 +181,7 @@ void TaskWorkspace::reload()
 }
 void TaskWorkspace::refresh()
 {
+    m_taskIndex.clear();for(const auto& task:m_cache)m_taskIndex.insert(task.id,task);
     m_tasks.replace(QueryService::select(m_cache,m_view,m_today,m_search,m_includeCompleted,m_tagFilter,m_upcomingDays,m_historyDays,m_projectFilter),m_today);
     m_todayTasks.replace(QueryService::select(m_cache,QStringLiteral("today"),m_today),m_today);
     m_deadlineTasks.replace(QueryService::select(m_cache,QStringLiteral("deadlines"),m_today,{},false,{},m_upcomingDays),m_today);
@@ -186,7 +196,8 @@ void TaskWorkspace::setSearch(const QString& search) {m_search=search.trimmed();
 void TaskWorkspace::refreshClock(){m_today=m_clock.localToday();refresh();emit stateChanged();maintain();}
 QVariantMap TaskWorkspace::task(const QString& id) const
 {
-    for(const auto& task:m_cache) if(task.id==id && task.deletedAtUtc.isEmpty()) return TaskListModel::taskMap(task);
+    const auto item=m_taskIndex.constFind(id);
+    if(item!=m_taskIndex.cend() && item->deletedAtUtc.isEmpty())return TaskListModel::taskMap(item.value());
     return {};
 }
 bool TaskWorkspace::runTask(const QString& operation,std::function<Result<Task>(TaskWorker&)> command)
@@ -297,6 +308,11 @@ QString TaskWorkspace::errorText() const
     const auto& key=m_error.key;
     if(key==QStringLiteral("titleInvalid"))return tr("标题不能为空，且不能超过512个Unicode字符。");
     if(key==QStringLiteral("dateInvalid"))return tr("日期无效。请使用 yyyy-MM-dd，或留空清除日期。");
+    if(key==QStringLiteral("eventRange"))return tr("事件结束必须晚于开始。请检查日期、时间及有效时区。");
+    if(key==QStringLiteral("eventTime"))return tr("时间或时区无效，或处于夏令时跳变的缺失/重复时段。请更换明确的当地时间（yyyy-MM-dd HH:mm）。");
+    if(key==QStringLiteral("eventTaskMissing"))return tr("关联任务已删除或不可用。请重新选择任务后保存，原事件未修改。");
+    if(key==QStringLiteral("eventInvalid"))return tr("事件或关联无效。请检查标题、日期及重复关联后重试。");
+    if(key==QStringLiteral("eventConflict"))return tr("事件已被修改或删除，当前输入已保留。请记录修改内容，再按“重新载入”检查最新事件。");
     if(key==QStringLiteral("dateOrder"))return tr("计划开始日期不能晚于截止日期。请调整日期后重试。");
     if(key==QStringLiteral("conflict"))return tr("任务已被修改。请重新加载后打开任务，再应用修改；当前输入已保留。");
     if(key==QStringLiteral("notFound"))return tr("任务已不存在或已删除。请重新加载列表。");
@@ -342,14 +358,16 @@ bool TaskWorkspace::runCatalog(std::function<Result<void>(TaskWorker&)> command,
         const auto result=command(*worker);
         const auto generated=result.ok() && operation!=QStringLiteral("batch")?worker->recurrenceService->generate():Result<int>{{},result.error};
         const auto tasks=worker->repository->all();const auto catalog=worker->catalog->all();const auto rules=worker->recurrence->all();
-        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,generated,operation]{
+        const auto events=EventRepository(worker->database.connection()).all();
+        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,generated,operation]{
             if(!self)return;
             self->m_busy=false;self->m_error=result.error;
             if(tasks.ok())self->m_cache=tasks.value;else self->m_error=tasks.error;
             if(catalog.ok())self->m_catalog=catalog.value;else self->m_error=catalog.error;
             if(rules.ok())self->m_rules=rules.value;else self->m_error=rules.error;
+            if(events.ok())self->m_events=events.value;else self->m_error=events.error;
             if(!generated.ok())self->m_error=generated.error;
-            self->refresh();emit self->stateChanged();emit self->operationFinished(operation,result.ok() && tasks.ok() && catalog.ok() && rules.ok() && generated.ok());
+            self->refresh();emit self->stateChanged();emit self->operationFinished(operation,result.ok() && tasks.ok() && catalog.ok() && rules.ok() && events.ok() && generated.ok());
             if(operation==QStringLiteral("batch") && result.ok())self->maintain();
         },Qt::QueuedConnection);
     },Qt::QueuedConnection);return true;
@@ -401,15 +419,71 @@ bool TaskWorkspace::saveDetails(const QString& id,qint64 version,const QVariantM
 QVariantList TaskWorkspace::calendarDays() const
 {
     QVariantList result;
-    for(const auto& day:CalendarService::days(m_cache,m_calendarDate,m_view==QStringLiteral("week"),m_sundayFirst,m_calendarCompleted)) {
+    const auto days=CalendarService::days(m_cache,m_calendarDate,m_view==QStringLiteral("week"),m_sundayFirst,m_calendarCompleted);
+    QHash<QDate,QVariantList> eventDays;
+    const auto zone=QTimeZone::systemTimeZone();
+    if(!days.isEmpty())for(const auto& event:m_events) {
+        const auto dates=EventService::visibleDates(event,days.first().date,days.last().date,zone);
+        if(dates.isEmpty())continue;
+        const auto map=eventMap(event);for(const auto& date:dates)eventDays[date].append(map);
+    }
+    for(const auto& day:days) {
         QVariantList entries;
         for(const auto& entry:day.entries) {
             auto map=TaskListModel::taskMap(entry.task);map.insert(QStringLiteral("kind"),entry.kind);entries.append(map);
         }
         result.append(QVariantMap{{"date",day.date.toString(Qt::ISODate)},{"day",day.date.day()},{"inMonth",day.inMonth},
-            {"today",day.date==m_today},{"weekend",day.date.dayOfWeek()>5},{"entries",entries}});
+            {"today",day.date==m_today},{"weekend",day.date.dayOfWeek()>5},{"entries",entries},{"events",eventDays.value(day.date)}});
     }
     return result;
+}
+QString TaskWorkspace::systemTimeZone() const{return QString::fromUtf8(QTimeZone::systemTimeZoneId());}
+QVariantMap TaskWorkspace::eventMap(const CalendarEvent& e) const
+{
+    const QTimeZone zone(e.timeZone.toUtf8());
+    const auto start=e.startUtc.toTimeZone(zone),end=e.endUtc.toTimeZone(zone);
+    const auto localStart=e.startUtc.toLocalTime(),localEnd=e.endUtc.toLocalTime();
+    auto timeInput=[](const QTime& time){return time.toString(time.second()!=0 || time.msec()!=0?QStringLiteral("HH:mm:ss.zzz"):QStringLiteral("HH:mm"));};
+    QVariantList links;
+    for(const auto& link:e.links){auto item=task(link.taskId);if(!item.isEmpty()){item.insert(QStringLiteral("role"),link.role);links.append(item);}}
+    const auto time=e.allDay?tr("全天"):localStart.toString(QStringLiteral("HH:mm"))+QStringLiteral("–")+localEnd.toString(localStart.date()==localEnd.date()?QStringLiteral("HH:mm"):QStringLiteral("M/d HH:mm"));
+    return {{"eventId",e.id},{"title",e.title},{"notes",e.notes},{"allDay",e.allDay},{"rowVersion",e.rowVersion},{"zone",e.timeZone},
+        {"startDate",e.allDay?e.startOn.toString(Qt::ISODate):start.date().toString(Qt::ISODate)},{"endDate",e.allDay?e.endOn.addDays(-1).toString(Qt::ISODate):end.date().toString(Qt::ISODate)},
+        {"startTime",timeInput(start.time())},{"endTime",timeInput(end.time())},{"timeLabel",time},{"links",links}};
+}
+QVariantList TaskWorkspace::calendarEvents() const{QVariantList result;for(const auto& e:m_events)result.append(eventMap(e));return result;}
+QVariantMap TaskWorkspace::calendarEvent(const QString& id) const{for(const auto& e:m_events)if(e.id==id)return eventMap(e);return {};}
+QVariantList TaskWorkspace::eventsForTask(const QString& id) const {
+    if(task(id).isEmpty())return {};
+    QVariantList result;for(const auto& e:m_events)for(const auto& link:e.links)if(link.taskId==id){auto item=eventMap(e);item.insert(QStringLiteral("role"),link.role);result.append(item);break;}return result;
+}
+QVariantList TaskWorkspace::eventTaskChoices(const QString& search) const {
+    QVariantList result;for(const auto& t:m_cache)if(t.deletedAtUtc.isEmpty() && (search.trimmed().isEmpty() || t.title.contains(search.trimmed(),Qt::CaseInsensitive) || t.notes.contains(search.trimmed(),Qt::CaseInsensitive))){result.append(TaskListModel::taskMap(t));if(result.size()>=200)break;}return result;
+}
+bool TaskWorkspace::saveEvent(const QVariantMap& value) {
+    return runCatalog([value](TaskWorker& w){
+        CalendarEvent e;e.id=value.value(QStringLiteral("eventId")).toString();e.rowVersion=value.value(QStringLiteral("rowVersion"),1).toLongLong();e.title=value.value(QStringLiteral("title")).toString();e.notes=value.value(QStringLiteral("notes")).toString();e.allDay=value.value(QStringLiteral("allDay"),true).toBool();
+        if(e.allDay){e.startOn=QDate::fromString(value.value(QStringLiteral("startDate")).toString(),Qt::ISODate);e.endOn=QDate::fromString(value.value(QStringLiteral("endDate")).toString(),Qt::ISODate).addDays(1);}
+        else {
+            e.timeZone=value.value(QStringLiteral("zone")).toString();
+            const auto start=EventService::localInstant(value.value(QStringLiteral("startDate")).toString()+QLatin1Char(' ')+value.value(QStringLiteral("startTime")).toString(),e.timeZone);
+            const auto end=EventService::localInstant(value.value(QStringLiteral("endDate")).toString()+QLatin1Char(' ')+value.value(QStringLiteral("endTime")).toString(),e.timeZone);
+            if(!start.ok() || !end.ok())return Result<void>{!start.ok()?start.error:end.error};
+            e.startUtc=start.value;e.endUtc=end.value;
+        }
+        for(const auto& item:value.value(QStringLiteral("links")).toList()){const auto link=item.toMap();e.links.append({link.value(QStringLiteral("taskId")).toString(),link.value(QStringLiteral("role"),QStringLiteral("preparation")).toString()});}
+        EventRepository repo(w.database.connection());return EventService(repo,w.clock).save(e);
+    },QStringLiteral("eventSave"));
+}
+bool TaskWorkspace::deleteEvent(const QString& id,qint64 version) {
+    if(!m_ready || m_busy)return false;
+    m_eventDeleteCandidate=id;m_eventDeleteVersion=version;
+    return runCatalog([id,version](TaskWorker& w){EventRepository repo(w.database.connection());return EventService(repo,w.clock).setDeleted(id,version,true);},QStringLiteral("eventDelete"));
+}
+bool TaskWorkspace::undoEventDelete() {
+    if(m_eventUndoId.isEmpty())return false;
+    const auto id=m_eventUndoId;const auto version=m_eventUndoVersion;
+    return runCatalog([id,version](TaskWorker& w){EventRepository repo(w.database.connection());return EventService(repo,w.clock).setDeleted(id,version,false);},QStringLiteral("eventRestore"));
 }
 QString TaskWorkspace::calendarTitle() const
 {
@@ -488,12 +562,14 @@ bool TaskWorkspace::runTransfer(const QString& operation,std::function<Result<QS
     QMetaObject::invokeMethod(worker,[self,worker,operation,command=std::move(command)]{
         const auto result=command(*worker);
         const auto tasks=worker->repository->all();const auto catalog=worker->catalog->all();const auto rules=worker->recurrence->all();
-        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,operation]{
+        const auto events=EventRepository(worker->database.connection()).all();
+        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,operation]{
             if(!self)return;
             self->m_busy=false;self->m_error=result.error;
             if(tasks.ok())self->m_cache=tasks.value;else self->m_error=tasks.error;
             if(catalog.ok())self->m_catalog=catalog.value;else self->m_error=catalog.error;
             if(rules.ok())self->m_rules=rules.value;else self->m_error=rules.error;
+            if(events.ok())self->m_events=events.value;else self->m_error=events.error;
             if(result.ok()) {
                 self->m_info=result.value;
                 if(operation==QStringLiteral("previewImport"))self->m_importSummary=result.value;
@@ -505,7 +581,7 @@ bool TaskWorkspace::runTransfer(const QString& operation,std::function<Result<QS
                     self->m_textScale=qBound(1.0,settings.value(QStringLiteral("appearance/textScale"),1.0).toDouble(),2.0);
                 }
             }
-            self->refresh();emit self->stateChanged();emit self->operationFinished(operation,result.ok() && tasks.ok() && catalog.ok() && rules.ok());
+            self->refresh();emit self->stateChanged();emit self->operationFinished(operation,result.ok() && tasks.ok() && catalog.ok() && rules.ok() && events.ok());
         },Qt::QueuedConnection);
     },Qt::QueuedConnection);return true;
 }
@@ -576,7 +652,8 @@ QVariantMap TaskWorkspace::datePicker(const QString& anchor,int offset) const
 }
 bool TaskWorkspace::todayAfterRemovingFocus(const QString& id) const
 {
-    for(auto task:m_cache)if(task.id==id){task.todayFocus=false;return QueryService::inView(task,QStringLiteral("today"),m_today);}return false;
+    for(auto task:m_cache)if(task.id==id){task.todayFocus=false;return QueryService::inView(task,QStringLiteral("today"),m_today);}
+    return false;
 }
 int TaskWorkspace::openProjectTasks(const QString& id)const
 {return int(std::count_if(m_cache.begin(),m_cache.end(),[&](const auto& task){return task.projectId==id && task.status==QStringLiteral("OPEN") && task.deletedAtUtc.isEmpty();}));}

@@ -18,10 +18,21 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
         return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseRead"));
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 2)
+    if (version > 3)
         return Result<void>::failure(ErrorCode::ValidationError, QStringLiteral("schemaTooNew"));
-    if (version == 2)
+    if (version == 3)
         return {};
+    if(version==2) {
+        initializeSchemaResource();
+        QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/003_calendar_events.sql"));
+        if(!schema.open(QIODevice::ReadOnly))return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("schemaResource"));
+        if(!db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+        for(const auto& statement:QString::fromUtf8(schema.readAll()).split(';',Qt::SkipEmptyParts)) {
+            if(!statement.trimmed().isEmpty() && !query.exec(statement)){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
+        }
+        if(!query.exec(QStringLiteral("PRAGMA user_version=3")) || !db.commit()){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
+        return {};
+    }
     if(version==1) {
         initializeSchemaResource();
         QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/002_area_archive.sql"));
@@ -31,7 +42,7 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
             if(!statement.trimmed().isEmpty() && !query.exec(statement)){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
         }
         if(!query.exec(QStringLiteral("PRAGMA user_version=2")) || !db.commit()){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
-        return {};
+        return initialize(db);
     }
     if (version != 0)
         return Result<void>::failure(ErrorCode::ValidationError, QStringLiteral("unknownSchema"));
@@ -85,7 +96,7 @@ Result<void> SqliteDatabase::open(const QString& path)
         QSqlQuery version(m_db);
         if(!version.exec(QStringLiteral("PRAGMA user_version")) || !version.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
         const int current=version.value(0).toInt();version.finish();
-        if(current==1) {
+        if(current==1 || current==2) {
             const auto snapshot=createSnapshot(QFileInfo(path).dir().filePath(QStringLiteral("backups/migrations")));
             if(!snapshot.ok()){m_db.close();return {snapshot.error};}
         }
@@ -112,7 +123,7 @@ Result<void> SqliteDatabase::open(const QString& path)
 Result<void> SqliteDatabase::ensureDailySnapshot()
 {
     QSqlQuery query(m_db);
-    if(!query.exec(QStringLiteral("SELECT (SELECT count(*) FROM tasks)+(SELECT count(*) FROM projects)+(SELECT count(*) FROM areas)+(SELECT count(*) FROM recurrence_templates)+(SELECT count(*) FROM tags)")) || !query.next())
+    if(!query.exec(QStringLiteral("SELECT (SELECT count(*) FROM tasks)+(SELECT count(*) FROM projects)+(SELECT count(*) FROM areas)+(SELECT count(*) FROM recurrence_templates)+(SELECT count(*) FROM tags)+(SELECT count(*) FROM events)")) || !query.next())
         return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     const bool empty=query.value(0).toLongLong()==0;query.finish();if(empty)return {};
     QDir directory(QFileInfo(m_db.databaseName()).dir().filePath(QStringLiteral("backups/daily")));

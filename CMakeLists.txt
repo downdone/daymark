@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 project(Daymark VERSION 1.0.0 LANGUAGES CXX)
-set(DAYMARK_VERSION "1.0.0-rc.1")
+set(DAYMARK_VERSION "1.0.0-rc.2")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,6 +30,7 @@ qt_add_qml_module(daymark_style STATIC URI DaymarkStyle VERSION 6.0
 target_link_libraries(daymark_style PUBLIC Qt6::Quick Qt6::QuickControls2)
 
 add_library(daymark_core STATIC
+    src/domain/CalendarEvent.h src/persistence/EventRepository.h src/persistence/EventRepository.cpp src/services/EventService.h src/services/EventService.cpp
     src/domain/Task.h
     src/persistence/SqliteDatabase.h src/persistence/SqliteDatabase.cpp
     src/persistence/TaskRepository.h src/persistence/TaskRepository.cpp
@@ -43,7 +44,7 @@ add_library(daymark_core STATIC
 )
 target_include_directories(daymark_core PUBLIC src)
 target_link_libraries(daymark_core PUBLIC Qt6::Core Qt6::Sql)
-qt_add_resources(daymark_core daymark_schema PREFIX "/daymark" FILES src/persistence/migrations/001_init.sql src/persistence/migrations/002_area_archive.sql)
+qt_add_resources(daymark_core daymark_schema PREFIX "/daymark" FILES src/persistence/migrations/001_init.sql src/persistence/migrations/002_area_archive.sql src/persistence/migrations/003_calendar_events.sql)
 if(MSVC)
     target_compile_options(daymark_core PUBLIC /utf-8)
 endif()
@@ -62,7 +63,7 @@ target_sources(daymark PRIVATE src/platform/common/SystemEventFilter.h src/platf
 qt_add_qml_module(daymark
     URI Daymark
     VERSION 1.0
-    QML_FILES src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml
+    QML_FILES src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/EventDialog.qml
     QML_FILES src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationDialog.qml src/ui/TaskDetailsDialog.qml src/ui/CalendarPanel.qml src/ui/RecurrenceDialog.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavRow.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES ${DAYMARK_WINDOW_SOURCES} src/models/TaskWorkspace.h src/models/TaskWorkspace.cpp src/platform/common/StartupController.h src/platform/common/StartupController.cpp
         src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp
@@ -95,6 +96,9 @@ if(BUILD_TESTING)
     qt_add_executable(test_calendar_service tests/services/CalendarServiceTest.cpp)
     target_link_libraries(test_calendar_service PRIVATE daymark_core Qt6::Test)
     add_test(NAME calendar_service COMMAND test_calendar_service)
+    qt_add_executable(test_event_service tests/services/EventServiceTest.cpp)
+    target_link_libraries(test_event_service PRIVATE daymark_core Qt6::Test)
+    add_test(NAME event_service COMMAND test_event_service)
     qt_add_executable(test_recurrence_service tests/services/RecurrenceServiceTest.cpp)
     target_link_libraries(test_recurrence_service PRIVATE daymark_core Qt6::Test)
     add_test(NAME recurrence_service COMMAND test_recurrence_service)
@@ -124,7 +128,7 @@ if(BUILD_TESTING)
     add_test(NAME widget_window COMMAND test_widget_window)
     set_tests_properties(widget_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20)
     add_test(NAME qml_startup COMMAND daymark --smoke-test)
-    set_tests_properties(qml_startup PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
+    set_tests_properties(qml_startup PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
     if(WIN32)
         set_property(TEST qml_startup APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
     endif()

@@ -42,7 +42,7 @@ ApplicationWindow {
     property var pendingAction: null
     property bool forceQuit: false
     property bool batchMode: false
-    readonly property bool toolModalOpen: organization.visible || recurrence.visible || extendedDetails.visible || windowSettings.visible || dataTools.visible || notifications.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible
+    readonly property bool toolModalOpen: organization.visible || recurrence.visible || extendedDetails.visible || windowSettings.visible || dataTools.visible || notifications.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen
     property var batchSelection: []
     function toggleBatch(id,version) {
         const next=batchSelection.slice()
@@ -165,6 +165,7 @@ ApplicationWindow {
         else if(page === "editor")openEditor(taskId)
         else if(page === "batch"){batchDialog.selection=[taskWorkspace.task(taskId)];batchDialog.open()}
         else if(page === "style")styleGallery.open()
+        else if(page === "event")calendarPanel.openEvent(taskId)
         else taskWorkspace.setView(page)
     }
 
@@ -361,11 +362,13 @@ ApplicationWindow {
                 }
             }
             CalendarPanel {
+                id: calendarPanel
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: mainWindow.calendarVisible
                 workspace: mainWindow.taskWorkspace
                 onOpenTask: function(taskId) {mainWindow.openEditor(taskId)}
+                onCompleteTask: function(id,version,action) {mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.changeState(id,version,action)})}
             }
             ListView {
                 id: taskList
@@ -414,9 +417,10 @@ ApplicationWindow {
                 Button { text: qsTr("查看任务"); onClicked: mainWindow.openEditor(approaching.currentValue) }
             }
             RowLayout {
-                Label { text: mainWindow.calendarVisible ? qsTr("按计划开始与截止显示") : qsTr("%1 项").arg(mainWindow.taskWorkspace.tasks.count); color: Theme.secondary; Layout.fillWidth: true }
+                Label { text: mainWindow.calendarVisible ? qsTr("任务与事件") : qsTr("%1 项").arg(mainWindow.taskWorkspace.tasks.count); color: Theme.secondary; Layout.fillWidth: true;elide: Text.ElideRight }
                 Button {visible: mainWindow.taskWorkspace.view === "upcoming";text: qsTr("未来%1天 · 再显示30天").arg(mainWindow.taskWorkspace.upcomingDays);onClicked: mainWindow.taskWorkspace.loadMoreUpcoming()}
                 Button { visible: mainWindow.taskWorkspace.canUndo; text: qsTr("撤销删除"); enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.taskWorkspace.undoDelete() }
+                Button {visible: mainWindow.taskWorkspace.canUndoEvent;text: qsTr("撤销删除事件");enabled: !mainWindow.taskWorkspace.busy;onClicked: mainWindow.taskWorkspace.undoEventDelete()}
                 Label { text: mainWindow.taskWorkspace.busy ? qsTr("正在保存…") : mainWindow.taskWorkspace.ready ? qsTr("已保存在本机") : qsTr("数据未就绪"); color: Theme.secondary }
             }
         }
@@ -602,7 +606,7 @@ ApplicationWindow {
     OrganizationDialog { id: organization; parent: Overlay.overlay; anchors.centerIn: parent; workspace: mainWindow.taskWorkspace }
     StyleGallery {id: styleGallery;parent: Overlay.overlay;anchors.centerIn: parent}
     BatchTaskDialog {id: batchDialog;parent: Overlay.overlay;anchors.centerIn: parent;workspace: mainWindow.taskWorkspace;onCommitted: {mainWindow.batchSelection=[];mainWindow.batchMode=false}}
-    TaskDetailsDialog { id: extendedDetails; parent: Overlay.overlay; anchors.centerIn: parent; workspace: mainWindow.taskWorkspace }
+    TaskDetailsDialog { id: extendedDetails; parent: Overlay.overlay; anchors.centerIn: parent; workspace: mainWindow.taskWorkspace;onOpenEvent: function(id){mainWindow.navigateSafely(function(){editor.close();calendarPanel.openEvent(id)})} }
     RecurrenceDialog { id: recurrence; parent: Overlay.overlay; anchors.centerIn: parent; workspace: mainWindow.taskWorkspace }
     DataToolsDialog { id: dataTools; parent: Overlay.overlay; anchors.centerIn: parent; workspace: mainWindow.taskWorkspace }
     DatePickerDialog {id: datePicker;parent: Overlay.overlay;anchors.centerIn: parent;workspace: mainWindow.taskWorkspace;onDateSelected: function(date,field){if(field==="start")startDate.text=date;else deadline.text=date}}
@@ -668,6 +672,7 @@ ApplicationWindow {
     }
     onClosing: function(close) {
         if (taskWorkspace.busy) { close.accepted = false; return }
+        if(calendarPanel.protectClose(function(){mainWindow.close()})){close.accepted=false;return}
         if (recurrence.visible && recurrence.dirty) {close.accepted=false;recurrence.forceActiveFocus();return}
         if (organization.visible && organization.dirty) {close.accepted=false;organization.forceActiveFocus();return}
         if (extendedDetails.visible && extendedDetails.dirty) {close.accepted=false;extendedDetails.forceActiveFocus();return}
