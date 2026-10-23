@@ -11,6 +11,8 @@ T.DialogButtonBox {
     contentWidth: (contentItem as ListView).contentWidth
     delegate: Button {highlighted: T.DialogButtonBox.buttonRole===T.DialogButtonBox.AcceptRole || T.DialogButtonBox.buttonRole===T.DialogButtonBox.YesRole}
     contentItem: ListView {
+                // Avoid background row incubation across model resets on Qt 6.10.2.
+                cacheBuffer: 0
         id: motionSurface1
         ScrollPhysics {target: motionSurface1}
         implicitWidth: contentWidth

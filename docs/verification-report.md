@@ -9,6 +9,19 @@ Windows11 x64、Qt6.10.2/MinGW13.1，schema3。按[设计](design/hig-redesign.m
 失败与修正：首次设置点击因Repeater委托不在C++预期QObject子树而FAIL，改由类型化QML helper调用实际Button.clicked并保留内容断言；同目录构建/lint误并发触发Ninja锁冲突，串行复跑通过。一次原生退出复现未完成创建5项及DelegateModel取消提示；下拉框只在展开时绑定选项后，连续两次带截图原生复跑干净，严格部署仍拒绝该诊断，不宣称已普遍修复Qt内部生命周期。逐项审查补回系统提醒选项，并加入当前设置窗错误提示。
 
 数据全部QTemporaryDir，启动项用隔离ini，未操作真实用户库/启动项/旧进程。macOS、IME/Narrator/VoiceOver、OS高对比/物理DPI、多屏/睡眠/8h、独立干净机、许可与签名仍UNVERIFIED。原始日志和截图仅留忽略的build目录。
+## UI-14严格部署首轮及创建时序修正
+
+5d27e52源码的首次严格部署FAIL（171729目录、报告89301ddc）。Release重建CTest17/17（30.38秒），SDK隔离探针退出0/2窗口/warnings=false，但退出记录DelegateModel::cancel及未完成创建2项，校验工具正确拒绝，没有生成ZIP。这覆盖前文源码环境两次干净复跑，说明仅限制隐藏下拉框不足以消除部署场景问题。
+
+依据[Qt 6.10 ListView cacheBuffer](https://doc.qt.io/qt-6.10/qml-qtquick-listview.html#cacheBuffer-prop)：缓冲区会异步创建视口外委托。采用公共属性cacheBuffer=0，覆盖任务、小窗、议程、关联选择、提醒及共享菜单/下拉/按钮行，保持可见行虚拟化、模型增量与完整数据；停止视口外预创建以减少切换/重置与委托创建交叠。这是本Kit的保守规避，不修改Qt或业务模型，不声称已定位Qt内部根因。取舍为滚动新行时即时创建，尚未实测10k复杂委托的滚动帧率。最终结果见后续记录。
+
+中途验证还暴露两项：取消缓存后下拉框初始视口为零，原生实际选项测试FAIL；补非零估算高度后复验。备注立即滚动与焦点定位排队重叠，原滚轮断言FAIL；正文新增非阻断轮事件观察，取消过期定位且继续交由原Flickable滚动，阻断观察的初次实现失败后改为blocking=false。新增诊断曾漏QObject到QQuickItem类型转换导致编译失败，已修正。所有原断言保留；修正后Debug17/17（36.71秒），当前最新视口修正与Release连续检查另记。
+最新视口/滚轮修正后：Debug17/17（31.35秒），两项lint无警告；Release连续3次原生162阶段均PASS，退出0/双窗口/warnings=false，无未完成创建/DelegateModel取消。失败日志保留，未删除或绕过任何原断言；最终带截图检查与严格部署另记。
+
+最终带截图Release复验首跑在phase151触发45秒看门狗，功能断言未报错；截图模式涉及逐页同步读回，单独设置90秒有界预算。普通/CTest/严格包检查保留45秒，未放宽业务、滚轮、焦点或创建诊断门禁。最新源码重建并复跑截图及CTest，结果另记。
+
+最终源码Debug17/17（29.45秒），Release全截图162阶段PASS（退出0/双窗口/warnings=false，无创建/取消诊断）。查看最新选项弹层、短备注焦点/滚轮、浅深/200%和三类设置截图；较早源码的失败证据保留。最后UI改动的两项lint已通过，随后仅C++诊断/截图时限调整。下一段记录严格部署。
+
 # UI-13视觉系统与月格事项（2026-10-23）
 
 Windows11 x64、Qt6.10.2/MinGW13.1，schema3。最新Debug构建/CTest17/17（28.43秒），应用/样式lint无警告；此前Release17/17（29.82秒），最新探针随严格打包再验。原生152阶段退出0、双窗口、warnings=false，本次日志无unfinished creation诊断。

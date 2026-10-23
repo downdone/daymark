@@ -245,7 +245,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                             || notes->property("contentHeight").toDouble()>target->height()-20+1){fail("short notes focus must not scroll");return;}
                         if(!capture(QStringLiteral("scroll-short-notes-focus"))){fail("short notes focus capture");return;}
                     } else {
-                        if(flick->property("contentY").toDouble()<=1){fail("notes wheel must scroll outer body");return;}
+                        if(flick->property("contentY").toDouble()<=1){qCritical()<<"Wheel geometry"<<flick->property("contentY")<<flick->property("contentHeight")<<flick->property("height")<<qobject_cast<QQuickItem*>(notes)->mapToScene(QPointF(0,0))<<mainWindow->activeFocusItem();fail("notes wheel must scroll outer body");return;}
                         QMetaObject::invokeMethod(target,"forceActiveFocus");
                         if(target->property("wheelEnabled").toBool() || target->property("currentIndex").toInt()!=0){fail("combo wheel policy");return;}
                     }
@@ -647,7 +647,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             probe->stop();
         });
         probe->start();
-        QTimer::singleShot(45000,&m_engine,[smokePhase]{if(*smokePhase>=162)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        // Capturing every surface adds synchronous GPU readbacks; keep the
+        // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=162)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

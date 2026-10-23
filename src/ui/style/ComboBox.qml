@@ -44,9 +44,12 @@ T.ComboBox {
     popup: T.Popup {
         y: control.height+4
         width: control.width
-        implicitHeight: Math.min(320,contentItem.implicitHeight+12)
+        // Bootstrap a nonzero viewport without relying on offscreen cache rows.
+        implicitHeight: Math.min(320,Math.max(contentItem.implicitHeight,Math.min(control.count,8)*DesignTokens.controlHeight)+12)
         padding: 6
         contentItem: ListView {
+                // Avoid background row incubation across model resets on Qt 6.10.2.
+                cacheBuffer: 0
             id: motionSurface1
             ScrollPhysics {target: motionSurface1}
             implicitHeight: contentHeight

@@ -121,6 +121,8 @@ Window {
                 color: Theme.danger
             }
             ListView {
+                // Avoid background row incubation across model resets on Qt 6.10.2.
+                cacheBuffer: 0
                 DS.ScrollPhysics {target: todayList}
                 id: todayList
                 objectName: "widgetTasks"

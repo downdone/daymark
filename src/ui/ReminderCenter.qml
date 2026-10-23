@@ -16,6 +16,8 @@ Dialog {
     contentItem: ColumnLayout {
         Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("最近50条触发记录 · 应用运行时检查提醒");font.pixelSize: Theme.captionSize;color: Theme.secondary}
         ListView {
+                // Avoid background row incubation across model resets on Qt 6.10.2.
+                cacheBuffer: 0
             id: reminders
             DS.ScrollPhysics {target: reminders}
             Layout.fillWidth: true;Layout.fillHeight: true

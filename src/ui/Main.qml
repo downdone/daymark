@@ -464,6 +464,8 @@ ApplicationWindow {
                 onCompleteTask: function(id,version,action) {mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.changeState(id,version,action)})}
             }
             ListView {
+                // Avoid background row incubation across model resets on Qt 6.10.2.
+                cacheBuffer: 0
                 DS.ScrollPhysics {target: taskList}
                 id: taskList
                 objectName: "taskList"
@@ -572,6 +574,14 @@ ApplicationWindow {
             boundsBehavior: Flickable.StopAtBounds
             flickableDirection: Flickable.VerticalFlick
             clip: true
+            // A deliberate scroll wins over a queued focus reveal.
+            onMovementStarted: editorFocusDelay.stop()
+            WheelHandler {
+                target: null
+                blocking: false
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: function(event) {editorFocusDelay.stop();event.accepted=false}
+            }
             onContentHeightChanged: if(editor.visible)editorFocusDelay.restart()
             ScrollBar.vertical: ScrollBar {
                 objectName: "editorScrollBar"

@@ -97,6 +97,8 @@ Dialog {
             TextField {id: search;Accessible.name: qsTr("搜索关联任务");Layout.fillWidth: true;placeholderText: qsTr("搜索要关联的任务（最多显示200项）");onTextChanged: searchDelay.restart()}
             Timer {id: searchDelay;interval: 250;onTriggered: root.choices=root.workspace.eventTaskChoices(search.text)}
             ListView {
+                // Avoid background row incubation across model resets on Qt 6.10.2.
+                cacheBuffer: 0
                 id: motionSurface1
                 DS.ScrollPhysics {target: motionSurface1}
                 Layout.fillWidth: true

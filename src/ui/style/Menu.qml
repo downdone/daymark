@@ -18,6 +18,8 @@ T.Menu {
     font.pixelSize: DesignTokens.body
     delegate: MenuItem {}
     contentItem: ListView {
+                // Avoid background row incubation across model resets on Qt 6.10.2.
+                cacheBuffer: 0
         id: motionSurface1
         ScrollPhysics {target: motionSurface1}
         implicitHeight: contentHeight;model: control.contentModel;currentIndex: control.currentIndex;interactive: contentHeight>height;clip: true;boundsBehavior: Flickable.StopAtBounds}
