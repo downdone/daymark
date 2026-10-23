@@ -2,6 +2,12 @@
 
 ## 当前目标与范围
 
+### V-03W：Windows离线交付验收（IN_PROGRESS）
+
+按design/windows-delivery.md实施M7-06/08、NFR-06/07/08/11/12的可独立工程部分：只读清单/元数据/路径与敏感文件检查、持续DLL来源审计、SDK隔离原生验收入口、最终ZIP校验及篡改回归。先合成失败测试，再构建/CTest和真实Release部署。保持schema3、离线本地范围，不改用户库/进程，不推送。风险：侧车不是签名；真实干净机/再分发许可/macOS和完整V-02仍UNVERIFIED。
+
+已实施独立Test-Package/PackageValidation、包内verification入口、提交/版本守卫和打包时重新构建测试；篡改回归覆盖清单与ZIP内容/侧车不一致。Debug17/17（28.82秒）、Release17/17（28.89秒），脚本语法及49份Markdown链接通过；脏源码及版本重标拒绝通过。下一步执行真实SDK隔离部署及整包ZIP逐文件核对，尚未将其标PASS。
+
 ### V-02W：Windows稳定性与恢复验收基础（DONE：实现与短跑；完整V-02门禁未完成）
 
 下一里程碑按M7/V-02推进，设计见design/windows-stability.md。补系统事件合并/忙碌期间维护补偿、主窗工作区变化恢复和同进程隔离长跑工具，覆盖FR-003/014/015/018及NFR-04/05/06/08/10。先实现测试再Debug/Release与短时原生实跑；完整8h、真实睡眠/多屏/干净机/macOS保持UNVERIFIED，不以短跑替代。默认单代理，不修改用户数据库、启动项或托盘进程，不推送。

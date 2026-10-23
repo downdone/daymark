@@ -30,6 +30,8 @@ CAL-01/02的追加行为见 [FR-019](01_PRODUCT_SPEC.md)、[ADR-013](ADR/013-loc
 
 Windows稳定性与恢复切片见[设计](design/windows-stability.md)及[连续运行验收指南](stability-guide.md)。短跑与8小时、真实睡眠、多屏验收分别记录。
 
+Windows离线交付的只读清单、原生运行及ZIP验证见[设计](design/windows-delivery.md)和[交付校验指南](delivery-guide.md)。
+
 ## 文档归属
 
 | 事实 | 唯一归属 |

@@ -39,6 +39,8 @@ bash scripts/build-macos.sh macos-release
 
 ## 测试与诊断
 
+Windows构建测试/交付脚本使用PowerShell 7（pwsh）；CTest额外执行package_validation合成篡改回归。独立候选包校验无需Qt SDK，见[交付指南](delivery-guide.md)。
+
 - sqlite_runtime使用QTemporaryDir，验证QSQLITE/WAL、回滚、中文往返、重开；不是Repository/迁移测试。
 - qml_startup使用offscreen及QTemporaryDir真实文件库，加载模块、等待worker就绪，并通过实际QML输入/详情信号执行新增→非法日期拒绝保留草稿→编辑→完成/恢复→软删撤销→未保存离开保护；检查两窗口且无QML警告，不写真实用户库。
 - CTest使用noTestsAction=error；零测试不能冒充通过。日志在对应build目录Testing/Temporary，原始日志含本机路径，不提交。
