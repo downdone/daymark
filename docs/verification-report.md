@@ -8,6 +8,7 @@ Windows11 x64、Qt6.10.2、MinGW13.1；schema仍3。所有自动测试/合成数
 | Release构建/CTest | PASS，14/14，25.57秒 | 同上；分组投影与原查询/导入备份/事件回归 |
 | 应用/样式QML lint | PASS，无警告 | Pane、完整字段、固定section角色、菜单隐藏项高度 |
 | Windows原生148阶段合成检查 | PASS，退出0、2窗口、warnings=false | 窄窗非模态主内容页、宽窗并排，未提交清单与标题一起保存；非法提醒保留全部草稿，取消/放弃导航不误写 |
+| SDK隔离部署 | PASS | 原生148阶段退出0、2窗口、warnings=false；Qt/MinGW模块来自包内，ZIP敏感扩展/日志/Git扫描0项，SHA与侧车一致 |
 | 长备注/大字/菜单 | PASS，所检布局 | 24行备注自然增高；面板仅1个可见Flickable，清单输入焦点可见；880/1440往返及200%，隐藏菜单项高度0、有效项连续无空行 |
 | 文档与diff | PASS | 45份Markdown本地链接、git diff --check |
 
