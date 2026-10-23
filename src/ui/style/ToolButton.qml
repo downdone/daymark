@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Templates as T
 T.ToolButton {
     id: control
-    implicitWidth: Math.max(32,contentItem.implicitWidth+16)
+    implicitWidth: Math.max(32,contentItem.implicitWidth+12)
     implicitHeight: Math.max(32,contentItem.implicitHeight+12)
     padding: 6
     hoverEnabled: true

@@ -21,5 +21,5 @@ T.Menu {
         id: motionSurface1
         ScrollPhysics {target: motionSurface1}
         implicitHeight: contentHeight;model: control.contentModel;currentIndex: control.currentIndex;interactive: contentHeight>height;clip: true;boundsBehavior: Flickable.StopAtBounds}
-    background: Rectangle {color: DesignTokens.surface;radius: DesignTokens.radius;border.color: DesignTokens.border}
+    background: Rectangle {color: DesignTokens.surface;radius: DesignTokens.panelRadius;border.color: DesignTokens.border}
 }

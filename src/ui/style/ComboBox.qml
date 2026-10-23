@@ -51,11 +51,12 @@ T.ComboBox {
             ScrollPhysics {target: motionSurface1}
             implicitHeight: contentHeight
             clip: true
-            model: control.delegateModel
+            // Closed popups must not incubate rows while form models refresh.
+            model: control.popup.visible ? control.delegateModel : null
             currentIndex: control.highlightedIndex
             highlightMoveDuration: 0
             boundsBehavior: Flickable.StopAtBounds
         }
-        background: Rectangle {radius: DesignTokens.radius;color: DesignTokens.surface;border.color: DesignTokens.border}
+        background: Rectangle {radius: DesignTokens.panelRadius;color: DesignTokens.surface;border.color: DesignTokens.border}
     }
 }

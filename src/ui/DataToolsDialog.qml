@@ -12,6 +12,7 @@ Dialog {
     title: qsTr("数据导出、导入与恢复")
     modal: true
     closePolicy: Popup.NoAutoClose
+    Shortcut {sequence: "Escape";enabled: root.visible && !root.workspace.busy && !replaceFirst.visible && !replaceSecond.visible;onActivated: root.close()}
     contentItem: ScrollView {
         clip: true
     ColumnLayout {
@@ -19,14 +20,19 @@ Dialog {
         spacing: Theme.fieldGap
         enabled: !root.workspace.busy
         Label { text: qsTr("数据只保存在本机。JSON保留任务、事件、关联、组织、清单和重复规则；CSV仅导出任务供表格阅读。"); Layout.fillWidth: true; wrapMode: Text.Wrap }
-        SectionLabel {text: qsTr("导出与备份")}
+        FormGroup {
+            heading: qsTr("导出与备份")
+            detail: qsTr("JSON保留全部内容，CSV供表格阅读；快照用于完整恢复。")
         Flow {
             Layout.fillWidth: true;spacing: Theme.gap
             Button { text: qsTr("导出JSON…"); onClicked: exportJson.open() }
             Button { text: qsTr("导出CSV…"); onClicked: exportCsv.open() }
             Button { text: qsTr("创建快照"); onClicked: root.workspace.createBackup() }
         }
-        SectionLabel {text: qsTr("导入与恢复")}
+        }
+        FormGroup {
+            heading: qsTr("导入与恢复")
+            detail: qsTr("先预览，再选择仅添加或替换。")
         Flow {
             Layout.fillWidth: true;spacing: Theme.gap
             Button { text: qsTr("预览JSON导入…"); onClicked: importJson.open() }
@@ -36,8 +42,9 @@ Dialog {
         Flow {
             Layout.fillWidth: true;spacing: Theme.gap
             visible: root.workspace.importSummary.length>0
-            Button { text: qsTr("仅添加，跳过相同ID"); onClicked: root.workspace.applyImport(false) }
+            Button { highlighted: true;text: qsTr("仅添加，跳过相同ID"); onClicked: root.workspace.applyImport(false) }
             Button { text: qsTr("替换当前数据…"); palette.buttonText: Theme.danger; flat: true; onClicked: replaceFirst.open() }
+        }
         }
         Label { text: root.workspace.errorText || root.workspace.infoText; Layout.fillWidth: true; wrapMode: Text.Wrap; color: root.workspace.errorText ? Theme.danger : Theme.success }
         Label { text: qsTr("默认每日首次启动自动保留快照（最近7份）。替换/恢复前另建完整快照；损坏导入不修改数据。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }

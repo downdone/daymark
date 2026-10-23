@@ -273,6 +273,56 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     }
                     if(!capture(QStringLiteral("scroll-short-notes"))){fail("short notes wheel capture");return;}
                     mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");m_workspace.setView(QStringLiteral("today"));
+                } else if(phase==151) {
+                    m_workspace.setTextScale(2);mainWindow->resize(880,580);
+                    QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("settings"))));
+                    auto* settings=mainWindow->findChild<QObject*>(QStringLiteral("settingsDialog"));
+                    if(!settings || !QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(0)))){fail("categorized settings open");return;}
+                } else if(phase>=152 && phase<=154) {
+                    auto* settings=mainWindow->findChild<QObject*>(QStringLiteral("settingsDialog"));QVariant result;
+                    if(!settings || settings->property("categoryIndex").toInt()!=phase-152 || !QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,result)) || result.toString()!=QStringLiteral("PASS")){fail("settings category content and navigation");return;}
+                    if(!capture(QStringLiteral("hig-settings-%1-200").arg(phase-152))){fail("settings category capture");return;}
+                    if(phase<154) {
+                        QVariant clicked;
+                        if(!QMetaObject::invokeMethod(settings,"activateVerificationCategory",Q_RETURN_ARG(QVariant,clicked),Q_ARG(QVariant,QVariant(phase-151))) || !clicked.toBool()){fail("settings category click");return;}
+                    } else {
+                        QMetaObject::invokeMethod(settings,"close");m_workspace.setTextScale(1);mainWindow->resize(1120,720);
+                        QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("notifications"))));
+                    }
+                } else if(phase==155) {
+                    auto* center=mainWindow->findChild<QObject*>(QStringLiteral("reminderCenter"));
+                    if(!center || !center->property("visible").toBool() || !capture(QStringLiteral("hig-reminders"))){fail("reminder center");return;}
+                    QMetaObject::invokeMethod(center,"close");
+                    QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("recurrence"))));
+                    auto* title=mainWindow->findChild<QObject*>(QStringLiteral("recurrenceTitle"));
+                    auto* create=mainWindow->findChild<QObject*>(QStringLiteral("newRecurrence"));
+                    if(!title || !create){fail("rule navigation controls");return;}
+                    title->setProperty("text",QStringLiteral("临时规则草稿"));QMetaObject::invokeMethod(title,"textEdited");QMetaObject::invokeMethod(create,"clicked");
+                } else if(phase>=156 && phase<=158) {
+                    auto* rule=mainWindow->findChild<QObject*>(QStringLiteral("recurrenceDialog"));
+                    auto* title=mainWindow->findChild<QObject*>(QStringLiteral("recurrenceTitle"));
+                    auto* discard=mainWindow->findChild<QObject*>(QStringLiteral("recurrenceDiscard"));
+                    auto* create=mainWindow->findChild<QObject*>(QStringLiteral("newRecurrence"));
+                    if(!rule || !title || !discard || !create){fail("rule draft objects");return;}
+                    if(phase==156) {
+                        if(!discard->property("visible").toBool() || title->property("text").toString()!=QStringLiteral("临时规则草稿")){fail("rule draft navigation guard");return;}
+                        QMetaObject::invokeMethod(discard,"reject");
+                    } else if(phase==157) {
+                        if(!rule->property("dirty").toBool() || !rule->property("visible").toBool() || title->property("text").toString()!=QStringLiteral("临时规则草稿")){fail("rule cancel preserves draft");return;}
+                        QMetaObject::invokeMethod(create,"clicked");QMetaObject::invokeMethod(discard,"accept");
+                    } else {
+                        if(rule->property("dirty").toBool() || !rule->property("visible").toBool() || !title->property("text").toString().isEmpty()){fail("rule discard continues requested navigation");return;}
+                        QMetaObject::invokeMethod(rule,"close");m_workspace.setView(QStringLiteral("today"));
+                    }
+                } else if(phase==159) {
+                    m_workspace.setThemeMode(2);
+                    QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("settings"))));
+                    auto* settings=mainWindow->findChild<QObject*>(QStringLiteral("settingsDialog"));
+                    if(!settings || !QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(0)))){fail("default settings");return;}
+                } else if(phase==160) {
+                    auto* settings=mainWindow->findChild<QObject*>(QStringLiteral("settingsDialog"));QVariant result;
+                    if(!settings || !QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,result)) || result.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("hig-settings-default-dark"))){fail("default dark settings");return;}
+                    QMetaObject::invokeMethod(settings,"close");m_workspace.setThemeMode(1);
                 }
             } else if(phase>=112) {
                 auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
@@ -552,7 +602,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==151) {
+            if(phase==161) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
                 QList<QPointer<QObject>> pending;
@@ -569,7 +619,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<152)return;
+            if(phase<162)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -597,7 +647,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             probe->stop();
         });
         probe->start();
-        QTimer::singleShot(45000,&m_engine,[smokePhase]{if(*smokePhase>=152)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(45000,&m_engine,[smokePhase]{if(*smokePhase>=162)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

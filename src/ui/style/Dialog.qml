@@ -6,6 +6,7 @@ T.Dialog {
     implicitHeight: implicitContentHeight+topPadding+bottomPadding+(header && header.visible ? header.implicitHeight+spacing : 0)+(footer && footer.visible ? footer.implicitHeight+spacing : 0)
     padding: DesignTokens.panelPadding
     spacing: 16
+    font.family: DesignTokens.fontFamily
     font.pixelSize: DesignTokens.body
     background: Rectangle {color: DesignTokens.surface;radius: DesignTokens.panelRadius;border.color: DesignTokens.border}
     header: Text {

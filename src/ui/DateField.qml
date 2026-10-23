@@ -98,7 +98,9 @@ TextField {
                             text: modelData.day
                             flat: field.text!==modelData.date
                             highlighted: field.text===modelData.date
-                            Accessible.name: modelData.date+(modelData.today ? qsTr("，今天") : "")
+                            font.weight: modelData.today ? Font.DemiBold : Font.Normal
+                            palette.buttonText: modelData.today ? Theme.accent : Theme.text
+                            Accessible.name: modelData.date+(modelData.today ? qsTr("，今天") : "")+(highlighted ? qsTr("，已选择") : "")
                             onClicked: field.chooseDate(modelData.date)
                             function focusOffset(offset) {const next=dayButtons.itemAt(Math.max(0,Math.min(dayButtons.count-1,index+offset)));if(next)next.forceActiveFocus()}
                             Keys.onLeftPressed: focusOffset(-1)

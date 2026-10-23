@@ -8,6 +8,7 @@ QtObject {
     readonly property bool dark: mode===2 || (mode===0 && systemPalette.window.hslLightness<0.5)
     readonly property color surface: dark ? "#202124" : "#ffffff"
     readonly property color sidebar: dark ? "#191a1d" : "#f3f4f6"
+    readonly property color grouped: dark ? "#25272d" : "#f7f8fa"
     readonly property color hover: dark ? "#2b2d32" : "#f1f3f6"
     readonly property color pressed: dark ? "#373b43" : "#e1e5ec"
     readonly property color selected: dark ? "#263a5b" : "#e8effc"

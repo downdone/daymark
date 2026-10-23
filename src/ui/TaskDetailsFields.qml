@@ -54,7 +54,8 @@ ColumnLayout {
         newItem.clear();root.draftChanged();newItem.forceActiveFocus()
     }
     ListModel {id: checklist}
-    SectionLabel {text: qsTr("归属")}
+    FormGroup {
+        compact: true;heading: qsTr("归属")
     Label {text: qsTr("项目");font.pixelSize: Theme.captionSize;color: Theme.secondary}
     ComboBox {
         id: projectChoice
@@ -81,8 +82,10 @@ ColumnLayout {
         model: [qsTr("无分组")].concat(root.headings.map(item=>item.title))
         onActivated: root.draftChanged()
     }
-    SectionLabel {text: qsTr("标签")}
-    Label {visible: root.tags.length===0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("暂无标签，可在设置与工具中创建。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+    }
+    FormGroup {
+        compact: true;heading: qsTr("标签")
+    Label {visible: root.tags.length===0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("暂无标签，可在侧栏更多菜单的组织管理中创建。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
     Flow {
         Layout.fillWidth: true
         spacing: 6
@@ -100,7 +103,9 @@ ColumnLayout {
             }
         }
     }
-    SectionLabel {text: qsTr("检查清单")}
+    }
+    FormGroup {
+        compact: true;heading: qsTr("检查清单")
     Label {visible: checklist.count===0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("把任务拆成可勾选的小步骤。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
     Repeater {
         model: checklist
@@ -122,12 +127,16 @@ ColumnLayout {
         TextField {id: newItem;objectName: "editorNewChecklistItem";Layout.fillWidth: true;placeholderText: qsTr("新增步骤，Enter 添加");Accessible.name: qsTr("新增清单项");onTextEdited: root.draftChanged();onAccepted: root.addChecklistItem();onActiveFocusChanged: if(activeFocus)root.focusRequested(this)}
         ToolButton {contentItem: AppIcon {name: "plus"} Accessible.name: qsTr("添加清单项");enabled: newItem.text.trim().length>0;onClicked: root.addChecklistItem()}
     }
-    SectionLabel {text: qsTr("提醒与执行")}
+    }
+    FormGroup {
+        compact: true;heading: qsTr("提醒与执行")
     CheckBox {id: evening;text: qsTr("安排到今晚");onClicked: root.draftChanged()}
     Label {text: qsTr("提醒 · 本地时间");font.pixelSize: Theme.captionSize;color: Theme.secondary}
     TextField {id: reminder;objectName: "editorReminder";Layout.fillWidth: true;placeholderText: "yyyy-MM-dd HH:mm";Accessible.name: qsTr("本地时间提醒，留空清除");onTextEdited: root.draftChanged()}
     Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("留空清除。程序运行时检查提醒，系统展示取决于通知权限。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-    SectionLabel {text: qsTr("关联事件")}
+    }
+    FormGroup {
+        compact: true;heading: qsTr("关联事件")
     Label {visible: root.relatedEvents.length===0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("暂无关联事件，可在日历事件中关联此任务。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
     Repeater {
         model: root.relatedEvents
@@ -138,7 +147,10 @@ ColumnLayout {
             onClicked: root.openEvent(modelData.eventId)
         }
     }
-    SectionLabel {text: qsTr("任务信息")}
+    }
+    FormGroup {
+        compact: true;heading: qsTr("任务信息")
     Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("创建 %1\n修改 %2").arg(root.workspace.localReminder(root.taskData.createdAtUtc || "")).arg(root.workspace.localReminder(root.taskData.updatedAtUtc || ""));font.pixelSize: Theme.captionSize;color: Theme.secondary}
     Label {visible: !!root.taskData.completedAtUtc;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("完成 %1").arg(root.workspace.localReminder(root.taskData.completedAtUtc || ""));font.pixelSize: Theme.captionSize;color: Theme.secondary}
+    }
 }

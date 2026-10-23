@@ -38,10 +38,15 @@ Dialog {
             width: root.availableWidth-12
             spacing: Theme.fieldGap
             enabled: !root.workspace.busy || root.workspace.backgroundBusy
+            FormGroup {
+                heading: qsTr("事件内容")
             Label {text: qsTr("标题")}
-            TextField {id: eventTitle;objectName: "eventTitle";Layout.fillWidth: true;placeholderText: qsTr("例如：产品评审");onTextEdited: root.dirty=true}
+            TextField {id: eventTitle;Accessible.name: qsTr("事件标题");objectName: "eventTitle";Layout.fillWidth: true;placeholderText: qsTr("例如：产品评审");onTextEdited: root.dirty=true}
             Label {text: qsTr("备注")}
-            TextArea {id: notes;Layout.fillWidth: true;wrapMode: Text.Wrap;placeholderText: qsTr("地点、准备说明等");onTextChanged: if(activeFocus)root.dirty=true}
+            TextArea {id: notes;Accessible.name: qsTr("事件备注");Layout.fillWidth: true;wrapMode: Text.Wrap;placeholderText: qsTr("地点、准备说明等");onTextChanged: if(activeFocus)root.dirty=true}
+            }
+            FormGroup {
+                heading: qsTr("时间安排")
             CheckBox {id: allDay;text: qsTr("全天事件");onClicked: root.dirty=true}
             GridLayout {
                 Layout.fillWidth: true
@@ -68,9 +73,12 @@ Dialog {
                 }
             }
             Label {visible: !allDay.checked;text: qsTr("输入时间所属时区")}
-            TextField {id: zone;visible: !allDay.checked;Layout.fillWidth: true;placeholderText: "Asia/Shanghai";onTextEdited: root.dirty=true}
+            TextField {id: zone;Accessible.name: qsTr("事件时区");visible: !allDay.checked;Layout.fillWidth: true;placeholderText: "Asia/Shanghai";onTextEdited: root.dirty=true}
             Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("事件按本机时区显示在日历。修改事件日期不会自动移动关联任务的计划或截止日期。")}
-            SectionLabel {text: qsTr("关联任务")}
+            }
+            FormGroup {
+                heading: qsTr("关联任务")
+                detail: qsTr("关联准备或跟进任务；事件改期不会改动任务日期。")
             Repeater {
                 model: root.links
                 ColumnLayout {
@@ -86,7 +94,7 @@ Dialog {
                     }
                 }
             }
-            TextField {id: search;Layout.fillWidth: true;placeholderText: qsTr("搜索要关联的任务（最多显示200项）");onTextChanged: searchDelay.restart()}
+            TextField {id: search;Accessible.name: qsTr("搜索关联任务");Layout.fillWidth: true;placeholderText: qsTr("搜索要关联的任务（最多显示200项）");onTextChanged: searchDelay.restart()}
             Timer {id: searchDelay;interval: 250;onTriggered: root.choices=root.workspace.eventTaskChoices(search.text)}
             ListView {
                 id: motionSurface1
@@ -104,6 +112,7 @@ Dialog {
                     enabled: !root.links.some(item=>item.taskId===modelData.taskId)
                     onClicked: root.addLink(candidate.modelData)
                 }
+            }
             }
             Label {Layout.fillWidth: true;wrapMode: Text.Wrap;color: Theme.danger;text: root.workspace.errorText}
         }

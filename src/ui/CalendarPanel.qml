@@ -123,11 +123,11 @@ ColumnLayout {
         Label {text: panel.workspace.calendarTitle;font.pixelSize: Theme.headingSize;font.bold: true;Layout.fillWidth: true;elide: Text.ElideRight}
         Button {text: qsTr("今天");flat: true;onClicked: {panel.selectedDate=panel.workspace.dateOffset(0);panel.workspace.stepCalendar(0)}}
         ToolButton {contentItem: AppIcon {name:"right"} Accessible.name: qsTr("下一页");onClicked: panel.workspace.stepCalendar(1)}
-        Button {text: panel.workspace.view==="week" ? qsTr("月") : qsTr("周");onClicked: panel.workspace.setView(panel.workspace.view==="week" ? "month" : "week")}
     }
     Flow {
         Layout.fillWidth: true
         spacing: Theme.gap
+        SegmentedPicker {width: 104*Theme.scale;model: [qsTr("月"),qsTr("周")];currentIndex: panel.workspace.view==="week" ? 1 : 0;onActivated: function(index){panel.workspace.setView(index===1 ? "week" : "month")}}
         Button {text: qsTr("新建事件");highlighted: true;enabled: panel.workspace.ready && !panel.workspace.busy;onClicked: panel.openEvent("")}
         Button {
             text: qsTr("显示…")
@@ -223,16 +223,17 @@ ColumnLayout {
                                     enabled: !panel.workspace.busy
                                     onClicked: panel.completeTask(agendaRow.modelData.taskId,agendaRow.modelData.rowVersion,agendaRow.modelData.taskStatus==="COMPLETED" ? "reopen" : "complete")
                                 }
+                                Item {visible: !!agendaRow.modelData.eventId;Layout.preferredWidth: 32;Layout.preferredHeight: 32;AppIcon {anchors.centerIn: parent;width: 18;height: 18;name: "calendar"}}
                                 ItemDelegate {
                                     Layout.fillWidth: true
                                     Accessible.name: agendaRow.modelData.title
-                                    implicitHeight: contentItem.implicitHeight+16
+                                    implicitHeight: contentItem.implicitHeight+12
                                     contentItem: Text {text: agendaRow.modelData.title;font.pixelSize: Theme.bodySize;color: Theme.text;wrapMode: Text.Wrap;font.strikeout: agendaRow.modelData.taskStatus==="COMPLETED"}
                                     onClicked: {if(agendaRow.modelData.eventId)panel.openEvent(agendaRow.modelData.eventId);else panel.openTask(agendaRow.modelData.taskId)}
                                 }
+                                WidgetAction {visible: !agendaRow.modelData.eventId;symbol: "calendar";description: qsTr("调整任务日期");enabled: !panel.workspace.busy;onClicked: panel.offerMove(agendaRow.modelData,panel.selectedDate)}
                             }
-                            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: agendaRow.modelData.eventId ? qsTr("事件 · %1（本机时区）").arg(agendaRow.modelData.timeLabel) : qsTr("任务 · %1").arg(panel.kindText(agendaRow.modelData.kind))}
-                            Button {visible: !agendaRow.modelData.eventId;text: qsTr("改期…");flat: true;enabled: !panel.workspace.busy;onClicked: panel.offerMove(agendaRow.modelData,panel.selectedDate)}
+                            Label {Layout.fillWidth: true;Layout.leftMargin: 42;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: agendaRow.modelData.eventId ? qsTr("事件 · %1（本机时区）").arg(agendaRow.modelData.timeLabel) : qsTr("任务 · %1").arg(panel.kindText(agendaRow.modelData.kind))}
                             Repeater {
                                 model: agendaRow.modelData.eventId ? agendaRow.modelData.links : []
                                 ItemDelegate {

@@ -43,7 +43,7 @@ Window {
         palette.buttonText: Theme.text
         palette.highlight: Theme.accent
         contentItem: Rectangle {
-        radius: 14
+        radius: Theme.panelRadius
         color: Qt.rgba(Theme.content.r, Theme.content.g, Theme.content.b, widget.workspace.preferences.solidWidget ? 1 : widget.controller.backgroundOpacity)
         border.color: Theme.separator
 
@@ -104,6 +104,7 @@ Window {
                     }
                 }
             }
+            Rectangle {Layout.fillWidth: true;implicitHeight: 1;color: Theme.separator}
             Label {
                 Layout.fillWidth: true
                 visible: widget.workspace.todayTasks.count === 0
@@ -126,7 +127,7 @@ Window {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                spacing: 4
+                spacing: 2
                 model: widget.workspace.todayTasks
                 ScrollBar.vertical: ScrollBar {}
                 delegate: RowLayout {
@@ -136,11 +137,11 @@ Window {
                     id: todayRow
                     width: todayList.width
                     ToolButton {
-                        Layout.preferredWidth: 32
-                        Layout.preferredHeight: 32
+                        Layout.preferredWidth: Math.max(32,Theme.iconSize+12)
+                        Layout.preferredHeight: Math.max(32,Theme.iconSize+12)
                         contentItem: Item {
-                            implicitWidth: 18;implicitHeight: 18
-                            AppIcon {anchors.centerIn: parent;width: 18;height: 18;name: "circle"}
+                            implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize
+                            AppIcon {anchors.centerIn: parent;width: Theme.iconSize;height: width;name: "circle"}
                         }
                         Accessible.name: qsTr("完成任务")
                         enabled: widget.workspace.ready && !widget.workspace.busy

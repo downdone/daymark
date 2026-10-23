@@ -7,13 +7,14 @@ Dialog {
     required property TaskWorkspace workspace
     property var month: ({title: "",days: []})
     property string field: "start"
+    property string selectedDate: ""
     signal dateSelected(string date,string field)
     title: field === "start" ? qsTr("选择计划开始日") : qsTr("选择截止日")
     width: Math.min(500,parent.width-32)
     height: Math.min(530,parent.height-32)
     modal: true
     standardButtons: Dialog.Cancel
-    function showFor(date,which) {field=which;month=workspace.datePicker(date,0);open()}
+    function showFor(date,which) {field=which;selectedDate=date;month=workspace.datePicker(date,0);open()}
     contentItem: ScrollView {
         clip: true
         ColumnLayout {
@@ -39,9 +40,11 @@ Dialog {
                         Layout.minimumWidth: 24
                         implicitWidth: 32
                         implicitHeight: Math.max(32,contentItem.implicitHeight+8)
-                        highlighted: modelData.today
+                        highlighted: modelData.date===root.selectedDate
+                        font.weight: modelData.today ? Font.DemiBold : Font.Normal
+                        palette.buttonText: modelData.today ? Theme.accent : Theme.text
                         flat: !modelData.inMonth
-                        Accessible.name: modelData.date
+                        Accessible.name: modelData.date+(modelData.today ? qsTr("，今天") : "")+(highlighted ? qsTr("，已选择") : "")
                         onClicked: {root.dateSelected(modelData.date,root.field);root.close()}
                     }
                 }

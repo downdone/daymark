@@ -17,6 +17,7 @@ QtObject {
     readonly property bool dark: DS.DesignTokens.dark
     readonly property color content: DS.DesignTokens.surface
     readonly property color sidebar: DS.DesignTokens.sidebar
+    readonly property color grouped: DS.DesignTokens.grouped
     readonly property color hover: DS.DesignTokens.hover
     readonly property color selected: DS.DesignTokens.selected
     readonly property color text: DS.DesignTokens.text
@@ -33,7 +34,7 @@ QtObject {
     readonly property int sectionSize: DS.DesignTokens.section
     readonly property int headingSize: DS.DesignTokens.heading
     readonly property int titleSize: DS.DesignTokens.title
-    readonly property int iconSize: Math.round(18*scale)
+    readonly property int iconSize: Math.round(Math.min(24,18*scale))
     readonly property int gap: DS.DesignTokens.gap
     readonly property int fieldGap: DS.DesignTokens.fieldGap
     readonly property int panelPadding: DS.DesignTokens.panelPadding

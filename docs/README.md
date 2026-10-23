@@ -59,3 +59,5 @@ Windows离线交付的只读清单、原生运行及ZIP验证见[设计](design/
 布局密度、图标及程序文件标识精修见[UI-12设计](design/ui-polish.md)。
 
 Apple HIG为项目UI/UX强制依据，见[原则P-13](principles.md)；完整视觉关系及月格标题契约见[UI-13设计](design/visual-system.md)。
+
+全部页面的信息架构、分类设置、统一表单、空态及窗口操作链见[UI-14全界面重设计](design/hig-redesign.md)。

@@ -57,18 +57,18 @@ ItemDelegate {
         spacing: 8
         CheckBox {visible: root.selectionMode;checked: root.selectedForBatch;Accessible.name: qsTr("选择任务：")+root.title;onClicked: root.selectionRequested()}
         ToolButton {
-            Layout.preferredWidth: 32
-            Layout.preferredHeight: 32
+            Layout.preferredWidth: Math.max(32,Theme.iconSize+12)
+            Layout.preferredHeight: Math.max(32,Theme.iconSize+12)
             Accessible.name: (root.isDone ? qsTr("恢复任务：") : qsTr("完成任务："))+root.title
             onClicked: root.completeRequested()
             contentItem: Item {
-                implicitWidth: 18;implicitHeight: 18
+                implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize
                 Rectangle {
                     anchors.centerIn: parent
-                    width: 18;height: 18;radius: 9
+                    width: Theme.iconSize;height: width;radius: width/2
                     color: root.isDone ? Theme.accent : "transparent"
                     border.color: root.isDone ? Theme.accent : Theme.secondary
-                    AppIcon {anchors.centerIn: parent;name: "check";width: 12;height: 12;visible: root.isDone;ink: Theme.dark ? "#191a1d" : "white"}
+                    AppIcon {anchors.centerIn: parent;name: "check";width: Math.round(Theme.iconSize*2/3);height: width;visible: root.isDone;ink: Theme.dark ? "#191a1d" : "white"}
                 }
             }
         }
