@@ -50,18 +50,26 @@ Dialog {
             description:description.text,startOn:projectStart.text,deadlineOn:projectDeadline.text,colorKey:colors[colorChoice.currentIndex],archived:archived.checked})
     }
     onOpened: resetForm()
-    contentItem: RowLayout {
-        spacing: 20
+    readonly property bool stacked: availableWidth<640*Theme.scale
+    contentItem: GridLayout {
+        columns: root.stacked ? 1 : 2
+        columnSpacing: 20
+        rowSpacing: Theme.fieldGap
         ScrollView {
+            id: catalogList
             Layout.preferredWidth: 260
-            Layout.fillHeight: true
+            Layout.fillWidth: root.stacked
+            Layout.preferredHeight: root.stacked ? 100 : -1
+            Layout.fillHeight: !root.stacked
+            clip: true
             ColumnLayout {
-                width: 250
+                width: catalogList.availableWidth-12
                 Repeater {
                     model: root.workspace.catalog
-                    Button {
+                    ItemDelegate {
                         required property var modelData
                         Layout.fillWidth: true
+                        highlighted: root.selected.id===modelData.id
                         text: root.names[root.kinds.indexOf(modelData.kind)] + " · " + modelData.title + (modelData.archived ? qsTr("（已归档）") : modelData.status !== "OPEN" ? qsTr("（历史）") : "")
                         onClicked: root.safely(function(){root.choose(modelData)})
                     }
@@ -70,16 +78,18 @@ Dialog {
             }
         }
         ScrollView {
+            id: catalogForm
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             ColumnLayout {
-            width: root.availableWidth-300
+            width: catalogForm.availableWidth-12
+            spacing: Theme.fieldGap
             enabled: !root.workspace.busy
-            Label { text: root.selected.id ? qsTr("编辑现有项") : qsTr("新建组织项"); font.bold: true }
+            SectionLabel { text: root.selected.id ? qsTr("编辑组织项") : qsTr("新建组织项") }
             ComboBox { id: kind; model: root.names; enabled: !root.selected.id; onActivated: root.resetForm() }
             TextField { id: itemTitle; Layout.fillWidth: true; placeholderText: qsTr("名称"); onTextEdited: root.dirty=true }
-            CheckBox {id: archived;visible: kind.currentIndex===0;text: qsTr("归档领域（隐藏活动任务，可取消归档恢复）");onClicked: root.dirty=true}
+            CheckBox {id: archived;Layout.fillWidth: true;visible: kind.currentIndex===0;text: qsTr("归档领域（隐藏活动任务，可取消归档恢复）");onClicked: root.dirty=true}
             ComboBox { id: colorChoice; visible: kind.currentIndex===0 || kind.currentIndex===3; model: [qsTr("中性"),qsTr("蓝"),qsTr("绿"),qsTr("橙"),qsTr("紫")]; onActivated: root.dirty=true }
             TextField { id: description; visible: kind.currentIndex===1; Layout.fillWidth: true; placeholderText: qsTr("项目描述"); onTextEdited: root.dirty=true }
             TextField { id: projectStart; visible: kind.currentIndex===1; Layout.fillWidth: true; placeholderText: qsTr("项目开始 yyyy-MM-dd，可空"); onTextEdited: root.dirty=true }
@@ -92,19 +102,18 @@ Dialog {
                 model: [qsTr("无归属")].concat(root.parents.map(function(item) { return item.title }))
                 onActivated: root.dirty=true
             }
-            RowLayout {
+            Flow {
+                Layout.fillWidth: true
+                spacing: Theme.gap
                 visible: kind.currentIndex === 1
                 ComboBox { id: planning; model: [qsTr("已激活"), qsTr("以后再说")]; onActivated: root.dirty=true }
                 ComboBox { id: status; model: [qsTr("进行中"), qsTr("已完成"), qsTr("已取消")]; onActivated: root.dirty=true }
             }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("完成项目会隐藏其未完成任务；恢复项目后重新显示。删除领域或项目保留任务并解除归属。"); color: Theme.secondary }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: root.workspace.errorText; color: Theme.danger }
-            RowLayout {
-                Button { text: qsTr("保存"); highlighted: true; onClicked: { if (root.selected.id && kind.currentIndex === 1 && status.currentIndex > 0) confirmComplete.open(); else root.save() } }
-                Button { text: qsTr("新建"); onClicked: root.safely(function(){root.resetForm()}) }
-                Button { text: qsTr("删除…"); enabled: !!root.selected.id; onClicked: confirmDelete.open() }
-            }
-            RowLayout {
+            Flow {
+                Layout.fillWidth: true
+                spacing: Theme.gap
                 Button {text: qsTr("上移排序");enabled: !!root.selected.id && !root.dirty;onClicked: root.workspace.moveCatalog(root.selected.kind,root.selected.id,root.selected.rowVersion,-1)}
                 Button {text: qsTr("下移排序");enabled: !!root.selected.id && !root.dirty;onClicked: root.workspace.moveCatalog(root.selected.kind,root.selected.id,root.selected.rowVersion,1)}
             }
@@ -112,7 +121,12 @@ Dialog {
             }
         }
     }
-    footer: DialogButtonBox {Button {text: qsTr("返回");enabled: !root.workspace.busy;onClicked: root.safely(function(){root.close()})}}
+    footer: ActionBar {
+        Button {text: qsTr("删除…");flat: true;palette.buttonText: Theme.danger;enabled: !!root.selected.id && !root.workspace.busy;onClicked: confirmDelete.open()}
+        Button {text: qsTr("新建");flat: true;enabled: !root.workspace.busy;onClicked: root.safely(function(){root.resetForm()})}
+        Button {text: qsTr("返回");enabled: !root.workspace.busy;onClicked: root.safely(function(){root.close()})}
+        Button {text: qsTr("保存");highlighted: true;enabled: !root.workspace.busy;onClicked: {if(root.selected.id && kind.currentIndex===1 && status.currentIndex>0)confirmComplete.open();else root.save()}}
+    }
     Dialog {id: discard;modal: true;title: qsTr("放弃未保存的组织修改？");standardButtons: Dialog.Ok|Dialog.Cancel;onAccepted: {root.dirty=false;const action=root.pendingAction;root.pendingAction=null;if(action)action()}}
     Dialog {
         id: confirmDelete

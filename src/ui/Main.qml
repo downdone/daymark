@@ -16,7 +16,7 @@ ApplicationWindow {
     visible: true
     title: "Daymark"
     color: Theme.content
-    font.pixelSize: 14*Theme.scale
+    font.pixelSize: Theme.bodySize
     palette.window: Theme.content
     palette.windowText: Theme.text
     palette.base: Theme.content
@@ -155,7 +155,7 @@ ApplicationWindow {
         return qsTr("任务")
     }
     function showVerificationPage(page,taskId) {
-        editor.close();extendedDetails.close();organization.close();recurrence.close();windowSettings.close();dataTools.close();datePicker.close()
+        editor.close();extendedDetails.close();organization.close();recurrence.close();windowSettings.close();dataTools.close();datePicker.close();styleGallery.close()
         if(page === "details")extendedDetails.openTask(taskId)
         else if(page === "organization")organization.open()
         else if(page === "recurrence")recurrence.open()
@@ -164,6 +164,7 @@ ApplicationWindow {
         else if(page === "date")datePicker.showFor(taskWorkspace.dateOffset(0),"start")
         else if(page === "editor")openEditor(taskId)
         else if(page === "batch"){batchDialog.selection=[taskWorkspace.task(taskId)];batchDialog.open()}
+        else if(page === "style")styleGallery.open()
         else taskWorkspace.setView(page)
     }
 
@@ -195,7 +196,7 @@ ApplicationWindow {
                 width: navigationScroll.availableWidth
                 height: Math.max(implicitHeight,navigationScroll.availableHeight)
                 spacing: 8
-                Label { text: "Daymark"; font.pixelSize: 25*Theme.scale; font.bold: true; Layout.bottomMargin: 22 }
+                Label { text: "Daymark"; font.pixelSize: Theme.headingSize; font.bold: true; Layout.bottomMargin: 22 }
                 Repeater {
                     model: mainWindow.viewNames
                     NavRow {
@@ -204,7 +205,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         text: modelData
                         selected: mainWindow.taskWorkspace.view === mainWindow.viewCodes[index]
-                        symbol: ["▱","☀","▦","○","◌","✓"][index]
+                        symbol: ["inbox","today","upcoming","circle","someday","logbook"][index]
                         count: index===1 ? mainWindow.taskWorkspace.todayTasks.count : -1
                         acceptsTaskDrop: index===1
                         onTaskDropped: function(taskId,version){mainWindow.addToToday(taskId)}
@@ -221,7 +222,7 @@ ApplicationWindow {
                                 visible: modelData.kind !== "heading" && !modelData.hidden
                                 Layout.fillWidth: true
                                 text: modelData.title + (modelData.status !== "OPEN" ? qsTr("（历史）") : "")
-                                symbol: modelData.kind === "area" ? "▣" : modelData.kind === "project" ? "▤" : "#"
+                                symbol: modelData.kind
                                 symbolColor: Theme.catalogColor(modelData.colorKey)
                                 selected: mainWindow.taskWorkspace.view === modelData.kind+":"+modelData.id
                                 acceptsTaskDrop: modelData.kind === "project" || modelData.kind === "area"
@@ -230,7 +231,7 @@ ApplicationWindow {
                             }
                         }
                 }
-                NavRow { Layout.fillWidth: true; text: qsTr("日历"); symbol: "▦"; selected: mainWindow.calendarVisible; onClicked: mainWindow.changeView("month") }
+                NavRow { Layout.fillWidth: true; text: qsTr("日历"); symbol: "calendar"; selected: mainWindow.calendarVisible; onClicked: mainWindow.changeView("month") }
                 Button {
                     objectName: "settingsAndTools"
                     Layout.fillWidth: true
@@ -248,7 +249,7 @@ ApplicationWindow {
                         MenuItem { text: qsTr("退出 Daymark"); onTriggered: {mainWindow.forceQuit=true;mainWindow.close()} }
                     }
                 }
-                Label { text: qsTr("本地保存 · 无需登录"); color: Theme.secondary; font.pixelSize: 11*Theme.scale }
+                Label { text: qsTr("本地保存 · 无需登录"); color: Theme.secondary; font.pixelSize: Theme.captionSize }
             }
             }
         }
@@ -258,18 +259,18 @@ ApplicationWindow {
             Layout.fillHeight: true
             Layout.margins: 24
             Layout.rightMargin: mainWindow.detailDocked ? mainWindow.detailWidth+40 : 24
-            spacing: 14
+            spacing: Theme.fieldGap
             RowLayout {
-                Button {text: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? qsTr("显示导航") : qsTr("收起导航");Accessible.name: text;onClicked: mainWindow.taskWorkspace.setPreference("sidebarCollapsed",!mainWindow.taskWorkspace.preferences.sidebarCollapsed)}
+                ToolButton {Accessible.name: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? qsTr("显示导航") : qsTr("收起导航");contentItem: AppIcon {name: "sidebar"} onClicked: mainWindow.taskWorkspace.setPreference("sidebarCollapsed",!mainWindow.taskWorkspace.preferences.sidebarCollapsed)}
                 Label {
                     text: search.text.trim().length > 0 ? qsTr("搜索结果") : mainWindow.currentViewTitle()
-                    font.pixelSize: 27*Theme.scale
+                    font.pixelSize: Theme.titleSize
                     elide: Text.ElideRight
                     font.bold: true
                     Layout.fillWidth: true
                 }
                 BusyIndicator { running: mainWindow.taskWorkspace.busy; visible: running; Layout.preferredWidth: 28; Layout.preferredHeight: 28 }
-                Button { text: qsTr("重新加载"); enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.reload()}) }
+                Button { text: qsTr("重新加载");flat: true;enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.reload()}) }
             }
             ScrollView {
                 id: headerScroll
@@ -321,17 +322,17 @@ ApplicationWindow {
                     onAccepted: mainWindow.taskWorkspace.createTask(text)
                     Keys.onEscapePressed: taskList.forceActiveFocus()
                 }
-                Button { text: qsTr("添加任务"); onClicked: mainWindow.taskWorkspace.createTask(newTitle.text) }
+                Button { text: qsTr("添加");highlighted: true;onClicked: mainWindow.taskWorkspace.createTask(newTitle.text) }
             }
             Label {
-                visible: !mainWindow.calendarVisible
-                text: mainWindow.taskWorkspace.view === "someday" ? qsTr("以后再说会暂停日期，激活后重新进入执行视图。") : qsTr("点击任务编辑详情；今天与随时可做可以包含同一任务。")
+                visible: !mainWindow.calendarVisible && (mainWindow.taskWorkspace.view==="someday" || mainWindow.taskWorkspace.tasks.count===0)
+                text: mainWindow.taskWorkspace.view === "someday" ? qsTr("日期已暂停，激活后重新进入执行视图。") : qsTr("在上方收集新任务，点击列表可安排日期和归属。")
                 color: Theme.secondary
-                font.pixelSize: 12*Theme.scale
+                font.pixelSize: Theme.captionSize
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
             }
-            Label { visible: mainWindow.taskWorkspace.view === "today"; text: mainWindow.taskWorkspace.localToday+qsTr(" · 待办 %1 · 今日完成 %2").arg(mainWindow.taskWorkspace.todayTasks.count).arg(mainWindow.taskWorkspace.completedToday); color: Theme.secondary }
+            Label { visible: mainWindow.taskWorkspace.view === "today"; text: mainWindow.taskWorkspace.localToday+qsTr(" · 待办 %1 · 今日完成 %2").arg(mainWindow.taskWorkspace.todayTasks.count).arg(mainWindow.taskWorkspace.completedToday); color: Theme.secondary;font.pixelSize: Theme.captionSize }
             Flow {
                 Layout.fillWidth: true
                 spacing: 8
@@ -349,7 +350,8 @@ ApplicationWindow {
                         required property string modelData
                         required property int index
                         text: modelData
-                        padding: 8
+                        padding: 6
+                        font.pixelSize: Theme.captionSize
                         color: Theme.accent
                         background: Rectangle {color: Theme.hover;radius: 5}
                         DropArea {anchors.fill: parent;onDropped: function(drop){const source=drop.source as TaskRow;if(source){mainWindow.setTaskEvening(source.taskId,eveningDrop.index===1);drop.acceptProposedAction()}}}
@@ -378,7 +380,7 @@ ApplicationWindow {
                 keyNavigationEnabled: true
                 keyNavigationWraps: true
                 section.property: mainWindow.taskWorkspace.view === "today" ? "taskSection" : mainWindow.taskWorkspace.view === "upcoming" ? "startOn" : mainWindow.taskWorkspace.view.startsWith("project:") ? "headingTitle" : mainWindow.taskWorkspace.view==="anytime" ? "contextGroup" : ""
-                section.delegate: Label { required property string section; text: section; color: Theme.secondary; font.pixelSize: 13*Theme.scale; height: implicitHeight+20; verticalAlignment: Text.AlignVCenter }
+                section.delegate: Label { required property string section; text: section; color: Theme.secondary; font.pixelSize: Theme.sectionSize; height: implicitHeight+20; verticalAlignment: Text.AlignVCenter }
                 Keys.onReturnPressed: {const item=taskList.currentItem as TaskRow;if(item){if(mainWindow.batchMode)item.selectionRequested();else item.editRequested()}}
                 Keys.onSpacePressed: {const item=taskList.currentItem as TaskRow;if(item){if(mainWindow.batchMode)item.selectionRequested();else item.completeRequested()}}
                 model: mainWindow.taskWorkspace.tasks
@@ -435,7 +437,7 @@ ApplicationWindow {
             clip: true
             ColumnLayout {
             width: editor.availableWidth-12
-            spacing: 10
+            spacing: Theme.fieldGap
             enabled: !mainWindow.taskWorkspace.busy
             Label { text: qsTr("标题") }
             TextField { id: editTitle; objectName: "editTaskTitle"; Layout.fillWidth: true; selectByMouse: true; onTextChanged: mainWindow.markDirty() }
@@ -446,7 +448,7 @@ ApplicationWindow {
                 TextArea { id: editNotes; wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: mainWindow.markDirty() }
             }
             ColumnLayout {
-                Label { text: qsTr("规划状态") }
+                SectionLabel { text: qsTr("规划与日期") }
                 ComboBox { id: planning; model: [qsTr("收集箱"), qsTr("已激活"), qsTr("以后再说")]; onCurrentIndexChanged: mainWindow.markDirty() }
                 CheckBox { id: focusToday; text: qsTr("持续关注今天"); onCheckedChanged: mainWindow.markDirty();onClicked: if(!checked && mainWindow.taskWorkspace.todayAfterRemovingFocus(mainWindow.editId))removeToday.open() }
             }
@@ -472,12 +474,12 @@ ApplicationWindow {
                 Button { text: qsTr("清除开始"); onClicked: startDate.clear() }
                 Button { text: qsTr("清除截止"); onClicked: deadline.clear() }
             }
-            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("设置日期或今日关注会自动激活收集箱任务；加入今天会调整将来的开始日。以后再说会保留日期并暂停执行。"); font.pixelSize: 11*Theme.scale; color: Theme.secondary }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("设置日期或今日关注会自动激活收集箱任务；加入今天会调整将来的开始日。以后再说会保留日期并暂停执行。"); font.pixelSize: Theme.captionSize; color: Theme.secondary }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; visible: mainWindow.taskWorkspace.errorText.length > 0; text: mainWindow.taskWorkspace.errorText; color: Theme.danger }
             }
         }
-        footer: Flow {
-            spacing: 8
+        footer: ActionBar {
+            gap: 8
             Button {
                 text: qsTr("归属/标签/清单…")
                 enabled: !mainWindow.taskWorkspace.busy
@@ -485,12 +487,16 @@ ApplicationWindow {
             }
             Button {
                 text: qsTr("取消任务")
+                flat: true
+                palette.buttonText: Theme.danger
                 visible: mainWindow.editStatus === "OPEN"
                 enabled: !mainWindow.taskWorkspace.busy
                 onClicked: mainWindow.navigateSafely(function() { mainWindow.taskWorkspace.changeState(mainWindow.editId, mainWindow.editVersion, "cancel"); editor.close() })
             }
             Button {
                 text: qsTr("删除")
+                flat: true
+                palette.buttonText: Theme.danger
                 enabled: !mainWindow.taskWorkspace.busy
                 onClicked: mainWindow.navigateSafely(function() { mainWindow.taskWorkspace.changeState(mainWindow.editId, mainWindow.editVersion, "delete"); editor.close() })
             }
@@ -538,18 +544,22 @@ ApplicationWindow {
             clip: true
             ColumnLayout {
             width: windowSettings.availableWidth-12
+            spacing: Theme.fieldGap
+            SectionLabel {text: qsTr("外观")}
             Label { text: qsTr("主题") }
             ComboBox { model: [qsTr("跟随系统"),qsTr("浅色"),qsTr("深色")]; currentIndex: mainWindow.taskWorkspace.themeMode; onActivated: mainWindow.taskWorkspace.themeMode=currentIndex }
             Label { text: qsTr("文字大小 %1%").arg(Math.round(mainWindow.taskWorkspace.textScale*100)) }
             Slider { from: 1; to: 2; stepSize: 0.25; value: mainWindow.taskWorkspace.textScale; onMoved: mainWindow.taskWorkspace.textScale=value }
             CheckBox {text: qsTr("紧凑任务列表");checked: mainWindow.taskWorkspace.preferences.compact;onClicked: mainWindow.taskWorkspace.setPreference("compact",checked)}
             CheckBox {text: qsTr("桌面组件使用不透明背景");checked: mainWindow.taskWorkspace.preferences.solidWidget;onClicked: mainWindow.taskWorkspace.setPreference("solidWidget",checked)}
+            SectionLabel {text: qsTr("启动与数据")}
             CheckBox {text: qsTr("开机启动（当前用户）");enabled: mainWindow.startupController.supported;checked: mainWindow.startupController.enabled;onClicked: mainWindow.startupController.setEnabled(checked)}
             Label {Layout.fillWidth: true;wrapMode: Text.Wrap;color: Theme.danger;text: mainWindow.startupController.errorText}
             Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("开机启动登记当前程序路径；移动程序后请重新开启。系统策略可能禁用启动项。")}
             Label {text: qsTr("自动备份周期（启动时检查，保留最近7份）")}
             ComboBox {model: [qsTr("每天"),qsTr("每7天"),qsTr("每30天")];currentIndex: [1,7,30].indexOf(mainWindow.taskWorkspace.preferences.backupDays);onActivated: mainWindow.taskWorkspace.setPreference("backupDays",[1,7,30][currentIndex])}
             CheckBox {text: qsTr("提交系统提醒（应用内记录始终保留）");checked: mainWindow.taskWorkspace.preferences.systemReminders;onClicked: mainWindow.taskWorkspace.setPreference("systemReminders",checked)}
+            SectionLabel {text: qsTr("桌面组件")}
             Button { text: mainWindow.widgetController.visible ? qsTr("隐藏组件") : qsTr("显示组件"); onClicked: mainWindow.widgetController.setVisible(!mainWindow.widgetController.visible) }
             Button { text: mainWindow.widgetController.mini ? qsTr("展开组件") : qsTr("切换迷你条"); onClicked: mainWindow.widgetController.setMini(!mainWindow.widgetController.mini) }
             CheckBox { text: qsTr("保持置顶"); checked: mainWindow.widgetController.alwaysOnTop; onClicked: mainWindow.widgetController.setAlwaysOnTop(checked) }
@@ -590,6 +600,7 @@ ApplicationWindow {
         onSettingsRequested: {mainWindow.showNormal();mainWindow.requestActivate();mainWindow.openTool("settings")}
     }
     OrganizationDialog { id: organization; parent: Overlay.overlay; anchors.centerIn: parent; workspace: mainWindow.taskWorkspace }
+    StyleGallery {id: styleGallery;parent: Overlay.overlay;anchors.centerIn: parent}
     BatchTaskDialog {id: batchDialog;parent: Overlay.overlay;anchors.centerIn: parent;workspace: mainWindow.taskWorkspace;onCommitted: {mainWindow.batchSelection=[];mainWindow.batchMode=false}}
     TaskDetailsDialog { id: extendedDetails; parent: Overlay.overlay; anchors.centerIn: parent; workspace: mainWindow.taskWorkspace }
     RecurrenceDialog { id: recurrence; parent: Overlay.overlay; anchors.centerIn: parent; workspace: mainWindow.taskWorkspace }
@@ -605,8 +616,8 @@ ApplicationWindow {
         modal: true
         closePolicy: Popup.NoAutoClose
         contentItem: Label {text: qsTr("移除关注不会清除已到的开始/截止日期。请重新安排日期，或设为以后再说。");wrapMode: Text.Wrap}
-        footer: Flow {
-            spacing: 8
+        footer: ActionBar {
+            gap: 8
             Button {text: qsTr("保留");onClicked: {focusToday.checked=mainWindow.taskWorkspace.task(mainWindow.editId).todayFocus;removeToday.close()}}
             Button {text: qsTr("重新安排…");onClicked: {removeToday.close();datePicker.showFor(startDate.text,"start")}}
             Button {text: qsTr("以后再说");onClicked: {planning.currentIndex=2;removeToday.close()}}

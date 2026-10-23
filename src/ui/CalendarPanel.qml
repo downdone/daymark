@@ -32,10 +32,18 @@ ColumnLayout {
     }
     RowLayout {
         Layout.fillWidth: true
-        Button { text: qsTr("上一页"); onClicked: panel.workspace.stepCalendar(-1) }
-        Label { text: panel.workspace.calendarTitle; font.pixelSize: 20*Theme.scale; font.bold: true; Layout.fillWidth: true }
-        Button { text: qsTr("今天"); onClicked: panel.workspace.stepCalendar(0) }
-        Button { text: qsTr("下一页"); onClicked: panel.workspace.stepCalendar(1) }
+        ToolButton {
+            contentItem: AppIcon {name: "left"}
+            Accessible.name: qsTr("上一页")
+            onClicked: panel.workspace.stepCalendar(-1)
+        }
+        Label { text: panel.workspace.calendarTitle; font.pixelSize: Theme.headingSize; font.bold: true; Layout.fillWidth: true }
+        Button { text: qsTr("今天");flat: true;onClicked: panel.workspace.stepCalendar(0) }
+        ToolButton {
+            contentItem: AppIcon {name: "right"}
+            Accessible.name: qsTr("下一页")
+            onClicked: panel.workspace.stepCalendar(1)
+        }
         Button { text: panel.workspace.view === "week" ? qsTr("月") : qsTr("周"); onClicked: panel.workspace.setView(panel.workspace.view === "week" ? "month" : "week") }
     }
     Flow {
@@ -102,7 +110,7 @@ ColumnLayout {
                                 text: (modelData.taskStatus === "COMPLETED" ? "✓ " : "")+(modelData.kind === "start" ? "● " : modelData.kind === "deadline" ? "⚑ " : "●⚑ ") + modelData.title
                                 color: modelData.kind === "start" ? Theme.accent : Theme.danger
                                 elide: Text.ElideRight
-                                font.pixelSize: 11*Theme.scale
+                                font.pixelSize: Theme.captionSize
                                 TapHandler { onTapped: {panel.selectedDay=dayCell.modelData;panel.openTask(marker.modelData.taskId)} }
                                 Drag.active: markerDrag.active
                                 Drag.source: marker
@@ -128,7 +136,7 @@ ColumnLayout {
             Layout.fillHeight: true
             Label { text: panel.selectedDay.date || qsTr("选择日期"); font.bold: true }
             TextField { id: newTitle; Layout.fillWidth: true; placeholderText: qsTr("当天新任务，Enter添加"); enabled: !!panel.selectedDay.date && !panel.workspace.busy; onAccepted: panel.workspace.createForDate(text,panel.selectedDay.date) }
-            Label { text: qsTr("● 开始  ⚑ 截止\n同日合并；点改期可跨月调整。"); Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.secondary; font.pixelSize: 11*Theme.scale }
+            Label { text: qsTr("● 开始  ⚑ 截止\n同日合并；点改期可跨月调整。"); Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.secondary; font.pixelSize: Theme.captionSize }
             ScrollView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -141,8 +149,8 @@ ColumnLayout {
                             id: detailRow
                             required property var modelData
                             Layout.fillWidth: true
-                            Button { Layout.fillWidth: true; text: detailRow.modelData.title; onClicked: panel.openTask(detailRow.modelData.taskId) }
-                            Button { text: qsTr("改期…"); onClicked: panel.offerMove(detailRow.modelData,panel.selectedDay.date) }
+                            ItemDelegate { Layout.fillWidth: true; text: detailRow.modelData.title; onClicked: panel.openTask(detailRow.modelData.taskId) }
+                            Button { text: qsTr("改期…");flat: true;onClicked: panel.offerMove(detailRow.modelData,panel.selectedDay.date) }
                         }
                     }
                 }
@@ -184,7 +192,7 @@ ColumnLayout {
         }
         footer: DialogButtonBox {
             Button { text: qsTr("取消"); enabled: !panel.workspace.busy; onClicked: moveDialog.close() }
-            Button { text: qsTr("确认改期"); enabled: !panel.workspace.busy; onClicked: panel.workspace.moveCalendar(panel.moving.taskId,panel.moving.rowVersion,markerKind.currentIndex === 0 ? "start" : "deadline",targetDate.text) }
+            Button { text: qsTr("确认改期");highlighted: true;enabled: !panel.workspace.busy; onClicked: panel.workspace.moveCalendar(panel.moving.taskId,panel.moving.rowVersion,markerKind.currentIndex === 0 ? "start" : "deadline",targetDate.text) }
         }
         }
     }

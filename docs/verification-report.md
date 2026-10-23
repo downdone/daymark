@@ -1,3 +1,22 @@
+# UI-07 全界面视觉统一验证（2026-10-23）
+
+Windows11 x64、Qt6.10.2、MinGW13.1；使用临时库与合成任务。关联FR-001～018展示层，UX-01/02/04/05/06/07/09/10/11/13。业务命令、草稿、schema与原生系统对话框保持既有契约。
+
+| 检查 | 实际结果 | 边界 |
+|---|---|---|
+| 最终Debug构建 / CTest | PASS，13/13，15.96秒 | 包含原业务/草稿/批量/迁移回归及扩展QML smoke |
+| 最终Release构建 / CTest | PASS，13/13，16.24秒 | 同上 |
+| daymark_style_qmllint / daymark_qmllint | PASS，无警告 | 自定义样式及应用两个目标 |
+| Windows原生合成smoke | PASS，退出0，2窗口，warnings=false | 90阶段，真实Qt Quick窗口，QML方法/信号调用 |
+| 控件行为 | PASS（方法/信号范围） | 下拉delegate点击改变currentIndex并关闭popup；勾选切换、数值增减；原有标准确认与草稿保护路径继续通过 |
+| 合成截图审查 | PASS（所检场景） | 主窗、停靠/覆盖详情、组织/重复/设置/数据/日期/日历/批量/Floating/Mini；1120/880/1440 DIP、浅深色、默认/200%文字；菜单、下拉、焦点、禁用态 |
+| 窄窗复杂表单 | PASS（布局范围） | 组织/重复在大字下上下排列，正文滚动；数据工具按钮换行；保存/返回固定底部。截图存忽略目录build/ui-unify-screens |
+
+实际修复了首轮发现的TextField无效padding属性、DialogButtonBox高度循环、SpinBox无效indicator属性、QML对象分隔符、输入占位提示缺失，以及菜单宽度和管理表单固定双栏问题。Qt数值输入的键入提交依赖完整输入事件，手动调用editingFinished不能模拟该流程；本轮自动控件检查仅验证增减，不宣称物理键入通过。
+
+macOS、物理鼠标/键盘完整操作链、中文IME、Narrator/VoiceOver、高对比、跨屏/DPI切换、8h与干净机仍UNVERIFIED。200%正文出现滚动裁切是可滚动区域边界，不将截图当作全字段或辅助技术验收。部署包结果与修订记录见PROGRESS及包内BUILD-INFO。
+
+---
 # 1.0.0-rc.1 Windows候选版验证（2026-10-22）
 
 环境：Windows11 x64、Intel Core i7-13700HX、Qt6.10.2、MinGW13.1；源码与自动测试只使用合成数据及QTemporaryDir。用户确认先交付Windows候选版。

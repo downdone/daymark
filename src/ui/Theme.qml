@@ -1,24 +1,37 @@
 pragma Singleton
 import QtQuick
+import DaymarkStyle as DS
 QtObject {
     property int mode: 0
     property real scale: 1.0
     property bool compact: false
+    onModeChanged: DS.DesignTokens.mode=mode
+    onScaleChanged: DS.DesignTokens.scale=scale
     function catalogColor(key) {
         const light={neutral:"#626976",blue:"#315db5",green:"#216b46",orange:"#9a4b00",purple:"#7541a5"}
         const night={neutral:"#b3b8c2",blue:"#93b6ff",green:"#8bd5ad",orange:"#ffc48c",purple:"#d5b5ff"}
         return (dark ? night : light)[key] || secondary
     }
     property SystemPalette systemPalette: SystemPalette { colorGroup: SystemPalette.Active }
-    readonly property bool dark: mode === 2 || (mode === 0 && systemPalette.window.hslLightness < 0.5)
-    readonly property color content: dark ? "#202124" : "#ffffff"
-    readonly property color sidebar: dark ? "#191a1d" : "#f3f4f6"
-    readonly property color hover: dark ? "#2b2d32" : "#f1f3f6"
-    readonly property color selected: dark ? "#263a5b" : "#e8effc"
-    readonly property color text: dark ? "#f2f3f5" : "#24272d"
-    readonly property color secondary: dark ? "#b3b8c2" : "#626976"
-    readonly property color accent: dark ? "#93b6ff" : "#315db5"
-    readonly property color danger: dark ? "#ffb4ab" : "#b3261e"
-    readonly property color success: dark ? "#8bd5ad" : "#216b46"
-    readonly property color separator: dark ? "#41454e" : "#d8dce3"
+    readonly property bool dark: DS.DesignTokens.dark
+    readonly property color content: DS.DesignTokens.surface
+    readonly property color sidebar: DS.DesignTokens.sidebar
+    readonly property color hover: DS.DesignTokens.hover
+    readonly property color selected: DS.DesignTokens.selected
+    readonly property color text: DS.DesignTokens.text
+    readonly property color secondary: DS.DesignTokens.secondary
+    readonly property color accent: DS.DesignTokens.accent
+    readonly property color danger: DS.DesignTokens.danger
+    readonly property color success: DS.DesignTokens.success
+    readonly property color separator: DS.DesignTokens.border
+    readonly property int bodySize: DS.DesignTokens.body
+    readonly property int captionSize: DS.DesignTokens.caption
+    readonly property int sectionSize: DS.DesignTokens.section
+    readonly property int headingSize: DS.DesignTokens.heading
+    readonly property int titleSize: DS.DesignTokens.title
+    readonly property int iconSize: Math.round(18*scale)
+    readonly property int gap: DS.DesignTokens.gap
+    readonly property int fieldGap: DS.DesignTokens.fieldGap
+    readonly property int panelPadding: DS.DesignTokens.panelPadding
+    readonly property int pagePadding: DS.DesignTokens.pagePadding
 }

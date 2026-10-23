@@ -18,6 +18,8 @@
 
 当前Windows V1候选交付：[设计](design/v1-candidate.md) → [逐项需求审计](v1-feature-matrix.md) → [发行说明及升级](release-notes-v1-rc.md)。
 
+全界面视觉规范与控件实现见 [UI-07视觉统一](design/visual-unification.md)：主窗、弹窗、菜单、表单、日历和桌面组件共用设计token与DaymarkStyle。
+
 ## 文档归属
 
 | 事实 | 唯一归属 |

@@ -23,7 +23,7 @@ Window {
 
     Control {
         anchors.fill: parent
-        font.pixelSize: 14*Theme.scale
+        font.pixelSize: Theme.bodySize
         palette.window: Theme.content
         palette.windowText: Theme.text
         palette.text: Theme.text
@@ -60,7 +60,7 @@ Window {
                 Button { text: qsTr("迷你"); onClicked: widget.controller.setMini(true) }
                 Button { text: qsTr("隐藏"); onClicked: widget.controller.setVisible(false) }
                 ToolButton {
-                    text: "⋯"
+                    contentItem: AppIcon {name: "more"}
                     Accessible.name: qsTr("组件菜单")
                     onClicked: widgetMenu.open()
                     Menu {
@@ -90,7 +90,7 @@ Window {
                 wrapMode: Text.WordWrap
                 visible: widget.controller.errorText.length > 0 || widget.workspace.errorText.length > 0
                 text: widget.workspace.errorText || widget.controller.errorText
-                font.pixelSize: 11*Theme.scale
+                font.pixelSize: Theme.captionSize
                 color: Theme.danger
             }
             ListView {
@@ -107,8 +107,8 @@ Window {
                     required property real rowVersion
                     id: todayRow
                     width: todayList.width
-                    Button {
-                        text: "○"
+                    ToolButton {
+                        contentItem: AppIcon {name: "circle"}
                         Accessible.name: qsTr("完成任务")
                         enabled: widget.workspace.ready && !widget.workspace.busy
                         onClicked: widget.workspace.changeState(todayRow.taskId, todayRow.rowVersion, "complete")
@@ -131,7 +131,7 @@ Window {
                     width: parent.width
                     elide: Text.ElideRight
                     text: qsTr("今日 %1 项").arg(widget.workspace.todayTasks.count)+(widget.workspace.todayTasks.count>0 ? " · "+widget.workspace.firstTodayTitle : "")
-                    font.pixelSize: 12*Theme.scale
+                    font.pixelSize: Theme.captionSize
                     color: Theme.text
                 }
                 MouseArea {

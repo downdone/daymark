@@ -150,6 +150,30 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
+            } else if(phase>=78) {
+                auto* gallery=mainWindow->findChild<QObject*>(QStringLiteral("styleGallery"));
+                if(!gallery){fail("style gallery");return;}
+                auto state=[&](const QString& value){return QMetaObject::invokeMethod(gallery,"showState",Q_ARG(QVariant,QVariant(value)));};
+                auto capture=[&](const QString& value){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+value+QStringLiteral(".png"));};
+                if(phase==78) {
+                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("style"))),Q_ARG(QVariant,QVariant(taskId)));
+                } else if(phase==79)state(QStringLiteral("focus"));
+                else if(phase==80){if(!capture(QStringLiteral("ui-style")) || !state(QStringLiteral("menu"))){fail("style controls");return;}}
+                else if(phase==81){if(!capture(QStringLiteral("ui-menu"))){fail("style menu");return;}QMetaObject::invokeMethod(gallery,"dismissPopups");state(QStringLiteral("choice"));}
+                else if(phase==82){
+                    if(!capture(QStringLiteral("ui-choice"))){fail("style choice");return;}
+                    QVariant controlsOk;
+                    if(!QMetaObject::invokeMethod(gallery,"verifyControls",Q_RETURN_ARG(QVariant,controlsOk)) || controlsOk.toString()!=QStringLiteral("PASS")){qWarning()<<"Style check:"<<controlsOk.toString();fail("style selection/edit/check interaction");return;}
+                    QMetaObject::invokeMethod(gallery,"dismissPopups");m_workspace.setThemeMode(2);
+                }
+                else if(phase==83){if(!capture(QStringLiteral("ui-style-dark"))){fail("dark controls");return;}m_workspace.setTextScale(2);mainWindow->resize(880,580);}
+                else if(phase==84){if(!capture(QStringLiteral("ui-style-200"))){fail("large controls");return;}m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));}
+                else if(phase>=85 && phase<=88) {
+                    const QStringList pages={QStringLiteral("organization"),QStringLiteral("recurrence"),QStringLiteral("data"),QStringLiteral("today")};
+                    if(phase>85 && !capture(QStringLiteral("ui-")+pages[phase-86]+QStringLiteral("-200"))){fail("large management form");return;}
+                    m_workspace.setTextScale(phase==88 ? 1 : 2);mainWindow->resize(phase==88 ? 1120 : 880,phase==88 ? 720 : 580);
+                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-85])),Q_ARG(QVariant,QVariant(taskId)));
+                }
             } else if(phase>=46) {
                 mainWindow->grabWindow();
                 auto* batch=mainWindow->findChild<QObject*>(QStringLiteral("batchTaskDialog"));
@@ -265,7 +289,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<78)return;
+            if(phase<90)return;
             int visibleWindows = 0;
             for (auto* window : QGuiApplication::allWindows()) {
                 if (qobject_cast<QQuickWindow*>(window) && window->isVisible()

@@ -53,12 +53,13 @@ Dialog {
         clip: true
         ColumnLayout {
             width: root.availableWidth - 16
-            spacing: 10
+            spacing: Theme.fieldGap
             enabled: !root.workspace.busy
             Label { text: root.taskData.title || ""; font.bold: true; Layout.fillWidth: true; elide: Text.ElideRight }
-            Label { text: qsTr("创建 %1\n修改 %2").arg(root.workspace.localReminder(root.taskData.createdAtUtc || "")).arg(root.workspace.localReminder(root.taskData.updatedAtUtc || "")); color: Theme.secondary; font.pixelSize: 11*Theme.scale }
-            Label { visible: !!root.taskData.completedAtUtc; text: qsTr("完成 %1").arg(root.workspace.localReminder(root.taskData.completedAtUtc || "")); color: Theme.secondary; font.pixelSize: 11*Theme.scale }
-            Label { text: qsTr("项目 / 直接领域（二选一）") }
+            Label { text: qsTr("创建 %1\n修改 %2").arg(root.workspace.localReminder(root.taskData.createdAtUtc || "")).arg(root.workspace.localReminder(root.taskData.updatedAtUtc || "")); color: Theme.secondary; font.pixelSize: Theme.captionSize }
+            Label { visible: !!root.taskData.completedAtUtc; text: qsTr("完成 %1").arg(root.workspace.localReminder(root.taskData.completedAtUtc || "")); color: Theme.secondary; font.pixelSize: Theme.captionSize }
+            SectionLabel { text: qsTr("归属") }
+            Label {text: qsTr("项目 / 直接领域（二选一）");font.pixelSize: Theme.captionSize;color: Theme.secondary}
             ComboBox {
                 id: projectChoice
                 Layout.fillWidth: true
@@ -75,8 +76,8 @@ Dialog {
             CheckBox { id: evening; text: qsTr("今晚（仅Today中的任务显示该分组）"); onClicked: root.dirty=true }
             Label { text: qsTr("本地时间提醒（yyyy-MM-dd HH:mm，留空清除）") }
             TextField { id: reminder; Layout.fillWidth: true; placeholderText: "2026-10-23 09:00"; selectByMouse: true; onTextEdited: root.dirty=true }
-            Label { text: qsTr("程序运行时检查提醒；已触发记录保留在提醒中心。系统是否展示取决于通知权限。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 11*Theme.scale; color: Theme.secondary }
-            Label { text: qsTr("标签") }
+            Label { text: qsTr("程序运行时检查提醒；已触发记录保留在提醒中心。系统是否展示取决于通知权限。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }
+            SectionLabel { text: qsTr("标签") }
             Flow {
                 Layout.fillWidth: true
                 Repeater {
@@ -93,7 +94,7 @@ Dialog {
                     }
                 }
             }
-            Label { text: qsTr("检查清单（主任务完成不会自动勾选）") }
+            SectionLabel { text: qsTr("检查清单") }
             Repeater {
                 model: checklist
                 RowLayout {
@@ -104,8 +105,8 @@ Dialog {
                     Layout.fillWidth: true
                     CheckBox { checked: checklistRow.itemDone; onClicked: {checklist.setProperty(checklistRow.index,"itemDone",checked);root.dirty=true} }
                     TextField { text: checklistRow.itemTitle; Layout.fillWidth: true; onTextEdited: {checklist.setProperty(checklistRow.index,"itemTitle",text);root.dirty=true} }
-                    Button { text: "↑"; enabled: checklistRow.index>0; onClicked: {checklist.move(checklistRow.index,checklistRow.index-1,1);root.dirty=true} }
-                    Button { text: "×"; Accessible.name: qsTr("删除清单项"); onClicked: {checklist.remove(checklistRow.index);root.dirty=true} }
+                    ToolButton {contentItem: AppIcon {name: "up"} Accessible.name: qsTr("上移清单项");enabled: checklistRow.index>0; onClicked: {checklist.move(checklistRow.index,checklistRow.index-1,1);root.dirty=true} }
+                    ToolButton {contentItem: AppIcon {name: "trash";ink: Theme.danger} Accessible.name: qsTr("删除清单项"); onClicked: {checklist.remove(checklistRow.index);root.dirty=true} }
                 }
             }
             RowLayout {

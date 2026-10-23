@@ -15,10 +15,10 @@ ItemDelegate {
     highlighted: selected
     Accessible.name: text
     contentItem: RowLayout {
-        spacing: 10
-        Label { text: root.symbol; color: root.symbolColor; font.pixelSize: 17*Theme.scale; Layout.preferredWidth: 20*Theme.scale }
-        Label { text: root.text; color: Theme.text; font.pixelSize: 14*Theme.scale; Layout.fillWidth: true; elide: Text.ElideRight }
-        Label { visible: root.count>=0; text: root.count; color: Theme.secondary; font.pixelSize: 12*Theme.scale }
+        spacing: Theme.fieldGap
+        AppIcon {name: root.symbol;ink: root.symbolColor;Layout.preferredWidth: Theme.iconSize;Layout.preferredHeight: Theme.iconSize}
+        Label { text: root.text; color: Theme.text; font.pixelSize: Theme.bodySize; Layout.fillWidth: true; elide: Text.ElideRight }
+        Label { visible: root.count>=0; text: root.count; color: Theme.secondary; font.pixelSize: Theme.captionSize }
     }
     background: Rectangle { radius: 6; color: root.selected ? Theme.selected : root.hovered ? Theme.hover : "transparent"; border.width: root.activeFocus ? 2 : 0; border.color: Theme.accent }
 }

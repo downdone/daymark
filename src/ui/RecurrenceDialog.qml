@@ -36,20 +36,28 @@ Dialog {
             weekdays:mask,monthDay:monthDay.value,yearMonth:yearMonth.value,active:active.checked})
     }
     onOpened: load({})
-    contentItem: RowLayout {
+    readonly property bool stacked: availableWidth<640*Theme.scale
+    contentItem: GridLayout {
+        columns: root.stacked ? 1 : 2
+        columnSpacing: 20
+        rowSpacing: Theme.fieldGap
         enabled: !root.workspace.busy
         ScrollView {
+            id: ruleList
             Layout.preferredWidth: 180
-            Layout.fillHeight: true
+            Layout.fillWidth: root.stacked
+            Layout.preferredHeight: root.stacked ? 100 : -1
+            Layout.fillHeight: !root.stacked
             clip: true
             ColumnLayout {
-                width: 170
+                width: ruleList.availableWidth-12
                 Button { text: qsTr("新建规则"); onClicked: {if(root.dirty)discard.open();else root.load({})} }
                 Repeater {
                     model: root.workspace.recurrenceRules
-                    Button {
+                    ItemDelegate {
                         required property var modelData
                         Layout.fillWidth: true
+                        highlighted: root.selected.id===modelData.id
                         text: modelData.title
                         onClicked: {if(root.dirty)discard.open();else root.load(modelData)}
                     }
@@ -57,15 +65,18 @@ Dialog {
             }
         }
         ScrollView {
+            id: ruleForm
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             ColumnLayout {
-                width: root.availableWidth-210
+                width: ruleForm.availableWidth-12
+                spacing: Theme.fieldGap
+                SectionLabel {text: qsTr("重复规则")}
                 Label { text: qsTr("规则产生独立任务；已完成历史和手动编辑的实例保留。"); Layout.fillWidth: true; wrapMode: Text.Wrap }
                 TextField { id: ruleTitle; Layout.fillWidth: true; placeholderText: qsTr("规则标题"); onTextEdited: root.dirty=true }
                 TextField { id: notes; Layout.fillWidth: true; placeholderText: qsTr("默认备注"); onTextEdited: root.dirty=true }
-                ComboBox { id: frequency; model: [qsTr("每N天"),qsTr("每N周指定星期"),qsTr("每N月指定日"),qsTr("每N年固定月日"),qsTr("完成后N天")]; enabled: !root.selected.id; onActivated: root.dirty=true }
+                ComboBox { id: frequency;Layout.fillWidth: true;model: [qsTr("每N天"),qsTr("每N周指定星期"),qsTr("每N月指定日"),qsTr("每N年固定月日"),qsTr("完成后N天")]; enabled: !root.selected.id; onActivated: root.dirty=true }
                 RowLayout { Label { text: qsTr("间隔N") } SpinBox { id: interval; from: 1; to: 36500; editable: true; onValueModified: root.dirty=true } }
                 Label { text: qsTr("起始日 / 结束日（留空不限）") }
                 TextField { id: anchor; Layout.fillWidth: true; placeholderText: "yyyy-MM-dd"; onTextEdited: root.dirty=true }
@@ -83,9 +94,9 @@ Dialog {
                     SpinBox { id: yearMonth; visible: frequency.currentIndex===3; from: 1; to: 12; onValueModified: root.dirty=true }
                 }
                 CheckBox { id: active; text: qsTr("启用规则"); onClicked: root.dirty=true }
-                Label { text: qsTr("固定规则补全最近30日至未来30日；无效月日跳过。编辑只更新明天起未手改的实例，周期类型需另建规则。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 11*Theme.scale; color: Theme.secondary }
-                CheckBox { id: removeFuture; text: qsTr("停止规则时同时软删未来未完成实例") }
-                Button { text: qsTr("停止并删除规则…"); enabled: !!root.selected.id; onClicked: stopConfirm.open() }
+                Label { text: qsTr("固定规则补全最近30日至未来30日；无效月日跳过。编辑只更新明天起未手改的实例，周期类型需另建规则。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }
+                CheckBox { id: removeFuture;Layout.fillWidth: true;text: qsTr("停止规则时同时软删未来未完成实例") }
+                Button { text: qsTr("停止并删除规则…"); palette.buttonText: Theme.danger; flat: true; enabled: !!root.selected.id; onClicked: stopConfirm.open() }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: root.workspace.errorText; color: Theme.danger }
             }
         }

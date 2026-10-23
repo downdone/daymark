@@ -21,6 +21,7 @@ Dialog {
         clip: true
         ColumnLayout {
             width: root.availableWidth-12
+            spacing: Theme.fieldGap
             Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("所有修改一次提交；任何任务冲突或验证失败，整批保留原值。")}
             ComboBox {id: action;Layout.fillWidth: true;model: [qsTr("完成任务"),qsTr("移动到项目"),qsTr("修改开始日"),qsTr("替换标签")]}
             ComboBox {id: project;Layout.fillWidth: true;visible: action.currentIndex===1;model: [qsTr("无项目（解除项目/分组）")].concat(root.projects.map(item=>item.title))}
@@ -37,11 +38,12 @@ Dialog {
             Label {Layout.fillWidth: true;wrapMode: Text.Wrap;color: Theme.danger;text: root.workspace.errorText}
         }
     }
-    footer: Flow {
-        spacing: 8
+    footer: ActionBar {
+        gap: 8
         Button {text: qsTr("取消");enabled: !root.workspace.busy;onClicked: root.close()}
         Button {
             objectName: "applyBatchSelection"
+            highlighted: true
             text: qsTr("确认应用到 %1 项").arg(root.selection.length)
             enabled: root.selection.length>0 && !root.workspace.busy
             onClicked: root.workspace.batchTasks(root.selection,["complete","project","start","tags"][action.currentIndex],action.currentIndex===1 ? (project.currentIndex>0 ? root.projects[project.currentIndex-1].id : "") : action.currentIndex===2 ? date.text : root.tags.join(","))

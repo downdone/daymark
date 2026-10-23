@@ -6,6 +6,8 @@ Windows/macOS离线任务管理与日历应用，C++20 + **Qt 6.10.2 / Qt Quick*
 
 用户已确认暂缺macOS环境，先交付本地Windows候选版本，未推送GitHub。macOS、真实OS穿透/多屏/层级/焦点和8h稳定性保持UNVERIFIED，UI目标仍需完整体验验收。操作说明见[使用指南](docs/user-guide.md)、[候选版说明](docs/release-notes-v1-rc.md)；[v0.1记录](docs/release-notes-v0.1.md)保留历史范围。
 
+UI-07统一了主窗、详情、管理弹窗、日历与桌面组件的字体、间距、图标、控件和动作层级。规范见[视觉统一](docs/design/visual-unification.md)，本地预览包与实际验证见[进度](docs/PROGRESS.md)。
+
 ## 开始开发
 
 1. 阅读 [AGENTS.md](AGENTS.md)、[文档导航](docs/README.md)、[当前进度](docs/PROGRESS.md)。

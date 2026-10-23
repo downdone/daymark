@@ -11,6 +11,24 @@ include(CTest)
 find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Widgets Sql Network)
 qt_standard_project_setup(REQUIRES 6.10)
 
+set(DAYMARK_STYLE_FILES
+    src/ui/style/DesignTokens.qml src/ui/style/Button.qml src/ui/style/ToolButton.qml
+    src/ui/style/TextField.qml src/ui/style/TextArea.qml src/ui/style/CheckBox.qml
+    src/ui/style/Dialog.qml src/ui/style/DialogButtonBox.qml
+    src/ui/style/ComboBox.qml src/ui/style/Menu.qml src/ui/style/MenuItem.qml src/ui/style/MenuSeparator.qml
+    src/ui/style/Slider.qml src/ui/style/SpinBox.qml src/ui/style/ScrollBar.qml
+    src/ui/style/ItemDelegate.qml
+)
+foreach(style_file IN LISTS DAYMARK_STYLE_FILES)
+    get_filename_component(style_name "${style_file}" NAME)
+    set_source_files_properties("${style_file}" PROPERTIES QT_RESOURCE_ALIAS "${style_name}")
+endforeach()
+set_source_files_properties(src/ui/style/DesignTokens.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+qt_add_qml_module(daymark_style STATIC URI DaymarkStyle VERSION 6.0
+    OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/DaymarkStyle"
+    RESOURCE_PREFIX /qt/qml IMPORTS QtQuick.Controls.Basic/auto QML_FILES ${DAYMARK_STYLE_FILES})
+target_link_libraries(daymark_style PUBLIC Qt6::Quick Qt6::QuickControls2)
+
 add_library(daymark_core STATIC
     src/domain/Task.h
     src/persistence/SqliteDatabase.h src/persistence/SqliteDatabase.cpp
@@ -44,12 +62,13 @@ target_sources(daymark PRIVATE src/platform/common/SystemEventFilter.h src/platf
 qt_add_qml_module(daymark
     URI Daymark
     VERSION 1.0
+    QML_FILES src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml
     QML_FILES src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationDialog.qml src/ui/TaskDetailsDialog.qml src/ui/CalendarPanel.qml src/ui/RecurrenceDialog.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavRow.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES ${DAYMARK_WINDOW_SOURCES} src/models/TaskWorkspace.h src/models/TaskWorkspace.cpp src/platform/common/StartupController.h src/platform/common/StartupController.cpp
         src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp
 )
 target_include_directories(daymark PRIVATE src src/models src/platform/common)
-target_link_libraries(daymark PRIVATE daymark_core Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Network)
+target_link_libraries(daymark PRIVATE daymark_core daymark_styleplugin Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Network)
 target_compile_definitions(daymark PRIVATE DAYMARK_VERSION="${DAYMARK_VERSION}")
 set_target_properties(daymark PROPERTIES WIN32_EXECUTABLE TRUE MACOSX_BUNDLE TRUE)
 if(MSVC)

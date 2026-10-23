@@ -8,29 +8,40 @@ Dialog {
     id: root
     required property TaskWorkspace workspace
     width: Math.min(550,parent.width-40)
+    height: Math.min(600,parent.height-32)
     title: qsTr("数据导出、导入与恢复")
     modal: true
     closePolicy: Popup.NoAutoClose
-    contentItem: ColumnLayout {
+    contentItem: ScrollView {
+        clip: true
+    ColumnLayout {
+        width: root.availableWidth-12
+        spacing: Theme.fieldGap
         enabled: !root.workspace.busy
         Label { text: qsTr("数据只保存在本机。JSON保留任务、组织、清单和重复规则；CSV供表格阅读。"); Layout.fillWidth: true; wrapMode: Text.Wrap }
-        RowLayout {
+        SectionLabel {text: qsTr("导出与备份")}
+        Flow {
+            Layout.fillWidth: true;spacing: Theme.gap
             Button { text: qsTr("导出JSON…"); onClicked: exportJson.open() }
             Button { text: qsTr("导出CSV…"); onClicked: exportCsv.open() }
             Button { text: qsTr("创建快照"); onClicked: root.workspace.createBackup() }
         }
-        RowLayout {
+        SectionLabel {text: qsTr("导入与恢复")}
+        Flow {
+            Layout.fillWidth: true;spacing: Theme.gap
             Button { text: qsTr("预览JSON导入…"); onClicked: importJson.open() }
             Button { text: qsTr("预览快照恢复…"); onClicked: restoreSnapshot.open() }
         }
         Label { text: root.workspace.importSummary; visible: text.length>0; Layout.fillWidth: true; wrapMode: Text.Wrap }
-        RowLayout {
+        Flow {
+            Layout.fillWidth: true;spacing: Theme.gap
             visible: root.workspace.importSummary.length>0
             Button { text: qsTr("仅添加，跳过相同ID"); onClicked: root.workspace.applyImport(false) }
-            Button { text: qsTr("替换当前数据…"); onClicked: replaceFirst.open() }
+            Button { text: qsTr("替换当前数据…"); palette.buttonText: Theme.danger; flat: true; onClicked: replaceFirst.open() }
         }
         Label { text: root.workspace.errorText || root.workspace.infoText; Layout.fillWidth: true; wrapMode: Text.Wrap; color: root.workspace.errorText ? Theme.danger : Theme.success }
-        Label { text: qsTr("默认每日首次启动自动保留快照（最近7份）。替换/恢复前另建完整快照；损坏导入不修改数据。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: 11*Theme.scale; color: Theme.secondary }
+        Label { text: qsTr("默认每日首次启动自动保留快照（最近7份）。替换/恢复前另建完整快照；损坏导入不修改数据。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }
+    }
     }
     footer: DialogButtonBox { Button { text: qsTr("返回"); enabled: !root.workspace.busy; onClicked: root.close() } }
     NativeDialogs.FileDialog { id: exportJson; title: qsTr("导出Daymark JSON"); fileMode: NativeDialogs.FileDialog.SaveFile; nameFilters: ["Daymark JSON (*.json)"]; defaultSuffix: "json"; onAccepted: root.workspace.exportData(selectedFile.toString(),false) }

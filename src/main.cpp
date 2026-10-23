@@ -11,7 +11,8 @@ int main(int argc, char* argv[])
     QCoreApplication::setApplicationName(QStringLiteral("Daymark"));
     QCoreApplication::setOrganizationName(QStringLiteral("Daymark"));
     QCoreApplication::setApplicationVersion(QStringLiteral(DAYMARK_VERSION));
-    QQuickStyle::setStyle(QStringLiteral("Basic"));
+    QQuickStyle::setStyle(QStringLiteral("DaymarkStyle"));
+    QQuickStyle::setFallbackStyle(QStringLiteral("Basic"));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Daymark Windows V1 release candidate"));
