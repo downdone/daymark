@@ -10,6 +10,8 @@ Windows11 x64 / Qt6.10.2 MinGW13.1，临时库与合成数据。关联FR-012/013
 
 评估及来源见[组件与日历评估](design/widget-calendar-review.md)。日历建议先做现有任务日历的议程与完成交互，再单独评估本地事件模型；尚未进行事件/关系迁移。
 
+本地部署PASS：移除SDK与Qt/QML搜索变量，运行库路径均为包内；96阶段Release smoke退出0、2窗口、warnings=false。ZIP清单1451文件、敏感扩展/日志/Git扫描0项；包名、校验和及源码修订见PROGRESS，部署记录见包内BUILD-INFO。干净机与签名/公开再分发门禁仍未验收。
+
 ---
 # UI-07 全界面视觉统一验证（2026-10-23）
 
