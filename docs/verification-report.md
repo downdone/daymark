@@ -14,7 +14,9 @@ Windows11 x64、Qt6.10.2、MinGW13.1；使用临时库与合成任务。关联FR
 
 实际修复了首轮发现的TextField无效padding属性、DialogButtonBox高度循环、SpinBox无效indicator属性、QML对象分隔符、输入占位提示缺失，以及菜单宽度和管理表单固定双栏问题。Qt数值输入的键入提交依赖完整输入事件，手动调用editingFinished不能模拟该流程；本轮自动控件检查仅验证增减，不宣称物理键入通过。
 
-macOS、物理鼠标/键盘完整操作链、中文IME、Narrator/VoiceOver、高对比、跨屏/DPI切换、8h与干净机仍UNVERIFIED。200%正文出现滚动裁切是可滚动区域边界，不将截图当作全字段或辅助技术验收。部署包结果与修订记录见PROGRESS及包内BUILD-INFO。
+macOS、物理鼠标/键盘完整操作链、中文IME、Narrator/VoiceOver、高对比、跨屏/DPI切换、8h与干净机仍UNVERIFIED。200%正文出现滚动裁切是可滚动区域边界，不将截图当作全字段或辅助技术验收。
+
+最终本地部署PASS：清除SDK PATH与Qt/QML搜索变量，验证Qt和编译器运行库均加载自包内；Release合成smoke退出0、2窗口、warnings=false。部署工具仍提示未找到dxcompiler.dll/dxil.dll，本机原生启动通过不等于其他GPU或干净机验收。ZIP包含1450份清单文件，敏感扩展/日志/Git元数据扫描0项；包名、校验和与源码修订唯一记录在PROGRESS，包内BUILD-INFO记录部署证据。未修改旧标签或推送。
 
 ---
 # 1.0.0-rc.1 Windows候选版验证（2026-10-22）
