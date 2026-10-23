@@ -1,3 +1,16 @@
+# UI-08 组件降干扰验证（2026-10-23）
+
+Windows11 x64 / Qt6.10.2 MinGW13.1，临时库与合成数据。关联FR-012/013、UX-01/04/09/11/13；FR-010/011本轮只做官方资料与现有代码评估，不宣称日历新能力已实现。
+
+- Debug build/CTest：PASS，13/13，16.05秒；Release：PASS，13/13，16.14秒。
+- daymark_style_qmllint、daymark_qmllint：PASS，无警告；41份Markdown本地链接与diff检查通过。
+- Windows原生96阶段合成smoke：PASS，退出0、2窗口、warnings=false。新增260DIP浮窗浅/深及200%截图，收起按钮调用后进入Mini，展开图标调用后恢复Floating；断言按钮32～40DIP、列表至少120DIP可用高度、展开入口不越出48DIP迷你条。
+- 截图审查：PASS（所检布局）；build/ui08-screens中的v1-widget、compact-widget、compact-widget-dark、compact-widget-200、compact-mini-200。340宽普通表头由两排大按钮变为一排低强调图标，任务阅读空间增加；200%保留字号，长摘要省略，操作入口仍可达。
+- 本轮不改变背景alpha、整窗穿透或平台窗口策略；隐藏/打开主窗移入菜单，托盘与主窗穿透恢复保持原命令。真实鼠标/键盘/读屏、多屏/macOS仍UNVERIFIED，QML方法调用不作为完整OS操作证据。
+
+评估及来源见[组件与日历评估](design/widget-calendar-review.md)。日历建议先做现有任务日历的议程与完成交互，再单独评估本地事件模型；尚未进行事件/关系迁移。
+
+---
 # UI-07 全界面视觉统一验证（2026-10-23）
 
 Windows11 x64、Qt6.10.2、MinGW13.1；使用临时库与合成任务。关联FR-001～018展示层，UX-01/02/04/05/06/07/09/10/11/13。业务命令、草稿、schema与原生系统对话框保持既有契约。

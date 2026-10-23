@@ -174,6 +174,22 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     m_workspace.setTextScale(phase==88 ? 1 : 2);mainWindow->resize(phase==88 ? 1120 : 880,phase==88 ? 720 : 580);
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-85])),Q_ARG(QVariant,QVariant(taskId)));
                 }
+                else if(phase>=89 && phase<=94) {
+                    auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
+                    if(!widget){fail("compact widget window");return;}
+                    auto widgetCapture=[&](const QString& suffix){return screenshotPath.isEmpty() || widget->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
+                    if(phase==89){widget->resize(260,360);m_workspace.setThemeMode(1);}
+                    else if(phase==90){if(!widgetCapture(QStringLiteral("compact-widget"))){fail("compact widget screenshot");return;}m_workspace.setThemeMode(2);}
+                    else if(phase==91){if(!widgetCapture(QStringLiteral("compact-widget-dark"))){fail("dark widget screenshot");return;}m_workspace.setTextScale(2);}
+                    else if(phase==92){
+                        auto* tasks=widget->findChild<QQuickItem*>(QStringLiteral("widgetTasks"));
+                        auto* collapse=widget->findChild<QQuickItem*>(QStringLiteral("widgetCollapse"));
+                        if(!tasks || tasks->height()<120 || !collapse || collapse->height()<32 || collapse->height()>40 || collapse->mapToScene(QPointF(collapse->width(),0)).x()>widget->width() || !widgetCapture(QStringLiteral("compact-widget-200")) || !QMetaObject::invokeMethod(collapse,"clicked")){fail("compact large widget layout");return;}
+                    } else if(phase==93){
+                        auto* expand=widget->findChild<QQuickItem*>(QStringLiteral("widgetExpand"));
+                        if(!m_widget.mini() || !expand || expand->height()<32 || expand->mapToScene(QPointF(0,expand->height())).y()>widget->height() || !widgetCapture(QStringLiteral("compact-mini-200")) || !QMetaObject::invokeMethod(expand,"clicked")){fail("compact mini expand");return;}
+                    } else {if(m_widget.mini()){fail("compact widget restore");return;}m_workspace.setTextScale(1);m_workspace.setThemeMode(1);}
+                }
             } else if(phase>=46) {
                 mainWindow->grabWindow();
                 auto* batch=mainWindow->findChild<QObject*>(QStringLiteral("batchTaskDialog"));
@@ -289,7 +305,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<90)return;
+            if(phase<96)return;
             int visibleWindows = 0;
             for (auto* window : QGuiApplication::allWindows()) {
                 if (qobject_cast<QQuickWindow*>(window) && window->isVisible()

@@ -38,18 +38,22 @@ Window {
         ColumnLayout {
             visible: !widget.controller.mini
             anchors.fill: parent
-            anchors.margins: 12
-            spacing: 12
+            anchors.margins: 10
+            spacing: 8
             RowLayout {
+                objectName: "widgetHeader"
                 Layout.fillWidth: true
+                spacing: 2
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 36
-                    Label {
+                    Layout.minimumWidth: 0
+                    Layout.preferredHeight: Math.max(32,headerText.implicitHeight)
+                    Column {
+                        id: headerText
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Daymark"
-                        font.bold: true
-                        color: Theme.text
+                        width: parent.width
+                        Label {width: parent.width;text: qsTr("今天");font.bold: true;color: Theme.text;elide: Text.ElideRight}
+                        Label {width: parent.width;text: qsTr("待办 %1 · 完成 %2").arg(widget.workspace.todayTasks.count).arg(widget.workspace.completedToday);font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight}
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -57,29 +61,26 @@ Window {
                         onPressed: widget.controller.startMove()
                     }
                 }
-                Button { text: qsTr("迷你"); onClicked: widget.controller.setMini(true) }
-                Button { text: qsTr("隐藏"); onClicked: widget.controller.setVisible(false) }
-                ToolButton {
-                    contentItem: AppIcon {name: "more"}
-                    Accessible.name: qsTr("组件菜单")
+                WidgetAction {objectName: "widgetAdd";symbol: "plus";description: qsTr("添加今日任务");onClicked: widget.newTaskRequested()}
+                WidgetAction {objectName: "widgetCollapse";symbol: "collapse";description: qsTr("收起为迷你条");onClicked: widget.controller.setMini(true)}
+                WidgetAction {
+                    description: qsTr("组件菜单")
                     onClicked: widgetMenu.open()
                     Menu {
                         id: widgetMenu
+                        MenuItem {text: qsTr("打开主窗口");onTriggered: widget.openMainRequested()}
+                        MenuSeparator {}
                         MenuItem {text: qsTr("保持置顶");checkable: true;checked: widget.controller.alwaysOnTop;onTriggered: widget.controller.setAlwaysOnTop(checked)}
                         MenuItem {text: qsTr("锁定拖动");checkable: true;checked: widget.controller.locked;onTriggered: widget.controller.setLocked(checked)}
                         MenuItem {text: qsTr("鼠标穿透（托盘/主窗恢复）");enabled: widget.controller.trayAvailable;onTriggered: widget.controller.setClickThrough(true)}
                         MenuItem {text: qsTr("外观与组件设置…");onTriggered: widget.settingsRequested()}
+                        MenuSeparator {}
+                        MenuItem {text: qsTr("隐藏组件");onTriggered: widget.controller.setVisible(false)}
                     }
                 }
             }
-            Flow {
-                Layout.fillWidth: true
-                spacing: 6
-                Button {text: qsTr("+ 今天");onClicked: widget.newTaskRequested()}
-                Button {text: qsTr("打开主窗");onClicked: widget.openMainRequested()}
-                Label {text: qsTr("待办 %1 · 已完成 %2").arg(widget.workspace.todayTasks.count).arg(widget.workspace.completedToday);color: Theme.secondary}
-            }
             Label {
+                Layout.fillWidth: true
                 visible: widget.workspace.todayTasks.count === 0
                 text: widget.workspace.ready ? qsTr("今天暂无任务\n在主窗口的“今天”页面添加任务。") : qsTr("正在加载本地任务…")
                 color: Theme.secondary
@@ -95,6 +96,7 @@ Window {
             }
             ListView {
                 id: todayList
+                objectName: "widgetTasks"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
@@ -140,7 +142,7 @@ Window {
                     onPressed: widget.controller.startMove()
                 }
             }
-            Button { text: qsTr("展开"); onClicked: widget.controller.setMini(false) }
+            WidgetAction {objectName: "widgetExpand";symbol: "expand";description: qsTr("展开任务组件");onClicked: widget.controller.setMini(false)}
         }
         MouseArea {
             anchors.right: parent.right

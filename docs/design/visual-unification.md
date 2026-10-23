@@ -17,6 +17,8 @@
 | 状态 | hover弱填充、pressed加深、selected浅蓝、focus清楚轮廓、disabled降低文字对比但不整页降低opacity；错误保留文字提示 |
 | 日历/组件 | 日历延续同一表面与选择；组件独立背景alpha，文字不透明，Mini和浮窗使用同一工具按钮 |
 
+UI-08组件密度修订：浮窗工具区使用WidgetAction，默认32DIP命中区、16DIP图形，表头单排；主窗普通按钮继续36DIP起。统一颜色、焦点与图标语言，组件采用适合低干扰场景的密度。见[组件与日历评估](widget-calendar-review.md)。
+
 ## 实施接口
 
 DaymarkStyle是仅展示层的Qt Quick Controls样式模块，基于QtQuick.Templates，未定制类型回退Basic。DesignTokens是颜色、字体、尺寸来源；既有Theme桥接模式/文字缩放，业务QML仍调用原C++命令。选择Qt自定义样式使标准确认按钮、菜单内部生成控件与显式控件都采用同一外观。
