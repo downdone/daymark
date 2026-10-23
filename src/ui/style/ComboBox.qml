@@ -9,6 +9,7 @@ T.ComboBox {
     rightPadding: 32
     font.pixelSize: DesignTokens.body
     hoverEnabled: true
+    wheelEnabled: false
     contentItem: TextInput {
         enabled: control.editable
         text: control.editable ? control.editText : control.displayText
@@ -45,6 +46,8 @@ T.ComboBox {
         implicitHeight: Math.min(320,contentItem.implicitHeight+12)
         padding: 6
         contentItem: ListView {
+            id: motionSurface1
+            ScrollPhysics {target: motionSurface1}
             implicitHeight: contentHeight
             clip: true
             model: control.delegateModel

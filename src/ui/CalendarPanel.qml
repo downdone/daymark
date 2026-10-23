@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
 ColumnLayout {
@@ -168,6 +169,7 @@ ColumnLayout {
                 TextField {id: newTitle;Layout.fillWidth: true;placeholderText: qsTr("当天新任务，Enter 添加");enabled: !!panel.selectedDate && !panel.workspace.busy;onAccepted: panel.workspace.createForDate(text,panel.selectedDate)}
                 Label {text: qsTr("○ 任务 · 计划 / 截止   ▰ 事件");Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary}
                 ListView {
+                    DS.ScrollPhysics {target: agenda}
                     id: agenda
                     objectName: "calendarAgendaList"
                     Layout.fillWidth: true
@@ -237,6 +239,8 @@ ColumnLayout {
             modal: true
             standardButtons: Dialog.Close
             contentItem: ListView {
+                id: motionSurface2
+                DS.ScrollPhysics {target: motionSurface2}
                 clip: true
                 model: panel.workspace.unscheduledTasks
                 delegate: ItemDelegate {required property var modelData;width: ListView.view.width;text: modelData.title;onClicked: {unscheduled.close();panel.openTask(modelData.taskId)}}

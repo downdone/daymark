@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
 Dialog {
@@ -88,6 +89,8 @@ Dialog {
             TextField {id: search;Layout.fillWidth: true;placeholderText: qsTr("搜索要关联的任务（最多显示200项）");onTextChanged: searchDelay.restart()}
             Timer {id: searchDelay;interval: 250;onTriggered: root.choices=root.workspace.eventTaskChoices(search.text)}
             ListView {
+                id: motionSurface1
+                DS.ScrollPhysics {target: motionSurface1}
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.min(180,contentHeight)
                 clip: true

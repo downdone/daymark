@@ -11,6 +11,7 @@ T.TextArea {
     selectionColor: DesignTokens.accent
     selectedTextColor: DesignTokens.accentText
     selectByMouse: true
+    wrapMode: TextEdit.Wrap
     Text {
         x: control.leftPadding
         y: control.topPadding

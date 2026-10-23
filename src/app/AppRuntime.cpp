@@ -13,6 +13,9 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QKeyEvent>
+#include <QWheelEvent>
+#include <QSet>
+#include <QPointer>
 
 namespace daymark {
 
@@ -224,6 +227,50 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(!screenshotPath.isEmpty())for(auto* window:QGuiApplication::allWindows())if(auto* popup=qobject_cast<QQuickWindow*>(window);popup && popup!=mainWindow && popup->isVisible() && popup->objectName()!=QStringLiteral("widgetWindow"))if(!popup->grabWindow().save(screenshotPath+QStringLiteral(".task-menu.png"))){fail("task menu capture");return;}
                     QMetaObject::invokeMethod(row,"closeVerificationMenu");
                 } else if(phase==146)m_workspace.setView(QStringLiteral("today"));
+                else if(phase==147) {
+                    m_workspace.setView(QStringLiteral("inbox"));open();notes->setProperty("text",QStringLiteral("短备注"));
+                    QMetaObject::invokeMethod(editTitle,"forceActiveFocus");
+                    QMetaObject::invokeMethod(mainWindow,"ensureEditorFocus",Q_ARG(QVariant,QVariant::fromValue(editTitle)));
+                } else if(phase==148 || phase==149) {
+                    mainWindow->grabWindow();
+                    auto* target=phase==148 ? qobject_cast<QQuickItem*>(notes) : mainWindow->findChild<QQuickItem*>(QStringLiteral("editorPlanning"));
+                    if(!target){fail("wheel target");return;}
+                    if(phase==148) {
+                        QMetaObject::invokeMethod(target,"forceActiveFocus");
+                        QMetaObject::invokeMethod(mainWindow,"ensureEditorFocus",Q_ARG(QVariant,QVariant::fromValue(target)));
+                        if(flick->property("contentY").toDouble()>1
+                            || notes->property("contentHeight").toDouble()>target->height()-20+1){fail("short notes focus must not scroll");return;}
+                        if(!capture(QStringLiteral("scroll-short-notes-focus"))){fail("short notes focus capture");return;}
+                    } else {
+                        if(flick->property("contentY").toDouble()<=1){fail("notes wheel must scroll outer body");return;}
+                        QMetaObject::invokeMethod(target,"forceActiveFocus");
+                        if(target->property("wheelEnabled").toBool() || target->property("currentIndex").toInt()!=0){fail("combo wheel policy");return;}
+                    }
+                    const auto position=target->mapToScene(QPointF(target->width()/2,target->height()/2));
+                    QWheelEvent wheel(position,mainWindow->mapToGlobal(position.toPoint()),QPoint(0,-96),QPoint(0,-120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+                    QCoreApplication::sendEvent(mainWindow,&wheel);
+                } else if(phase==150) {
+                    auto* planning=mainWindow->findChild<QObject*>(QStringLiteral("editorPlanning"));
+                    if(!planning || planning->property("currentIndex").toInt()!=0 || flick->property("contentY").toDouble()<=1){fail("wheel preserves choice and manual scroll");return;}
+                    const auto policies=mainWindow->findChildren<QObject*>(QStringLiteral("daymarkScrollPhysics"));
+                    int checked=0;
+                    for(auto* policy:policies) {
+                        auto* target=policy->property("target").value<QObject*>();if(!target)continue;++checked;
+                        if(target->property("boundsBehavior").toInt()!=0 || target->property("maximumFlickVelocity").toDouble()!=1200
+                           || target->property("flickDeceleration").toDouble()!=6000 || target->property("interactive").toBool()!=policy->property("overflowing").toBool()) {fail("shared scrolling policy");return;}
+                    }
+                    if(checked<8){fail("scrolling policy coverage");return;}
+                    auto* shortList=mainWindow->findChild<QObject*>(QStringLiteral("taskList"));
+                    if(!shortList || shortList->property("count").toInt()!=1 || shortList->property("contentHeight").toDouble()>shortList->property("height").toDouble()
+                       || shortList->property("interactive").toBool()){fail("short task list must not scroll");return;}
+                    for(auto* surface:mainWindow->findChildren<QQuickItem*>(QStringLiteral("daymarkScrollView"))) {
+                        if(!surface->isVisible() || surface->width()<=0 || surface->height()<=0)continue;
+                        auto* viewport=surface->property("contentItem").value<QObject*>();
+                        if(!viewport || !viewport->inherits("QQuickFlickable") || viewport->property("contentHeight").toDouble()<=0){fail("scroll view retains automatic content sizing");return;}
+                    }
+                    if(!capture(QStringLiteral("scroll-short-notes"))){fail("short notes wheel capture");return;}
+                    mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");m_workspace.setView(QStringLiteral("today"));
+                }
             } else if(phase>=112) {
                 auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
                 auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
@@ -493,18 +540,24 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==147) {
+            if(phase==151) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
-                auto pending=m_engine.rootObjects();
+                QList<QPointer<QObject>> pending;
+                for(auto* root:m_engine.rootObjects())pending.append(root);
+                for(auto* child:m_engine.children())pending.append(child);
+                for(auto* window:QGuiApplication::allWindows())pending.append(window);
+                QSet<QObject*> visited;
                 while(!pending.isEmpty()) {
-                    auto* item=pending.takeLast();
+                    auto* item=pending.takeLast().data();if(!item || visited.contains(item))continue;visited.insert(item);
                     qmlExecuteDeferred(item);
-                    pending.append(item->children());
+                    for(auto* child:item->children())pending.append(child);
+                    if(auto* visual=qobject_cast<QQuickItem*>(item))for(auto* child:visual->childItems())pending.append(child);
+                    if(auto* window=qobject_cast<QQuickWindow*>(item))pending.append(window->contentItem());
                 }
             }
             ++phase;
-            if(phase<148)return;
+            if(phase<152)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -532,7 +585,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             probe->stop();
         });
         probe->start();
-        QTimer::singleShot(45000,&m_engine,[smokePhase]{if(*smokePhase>=148)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(45000,&m_engine,[smokePhase]{if(*smokePhase>=152)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

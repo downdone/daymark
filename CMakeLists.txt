@@ -12,6 +12,7 @@ find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickContro
 qt_standard_project_setup(REQUIRES 6.10)
 
 set(DAYMARK_STYLE_FILES
+    src/ui/style/ScrollView.qml src/ui/style/ScrollPhysics.qml
     src/ui/style/DesignTokens.qml src/ui/style/Button.qml src/ui/style/ToolButton.qml
     src/ui/style/TextField.qml src/ui/style/TextArea.qml src/ui/style/CheckBox.qml
     src/ui/style/Dialog.qml src/ui/style/DialogButtonBox.qml

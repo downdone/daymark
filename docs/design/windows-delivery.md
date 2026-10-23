@@ -8,9 +8,9 @@
 2. 元数据版本需与manifest和程序--version一致。Qt固定6.10.2、schema3；源码修订使用提交SHA，打包拒绝脏工作区，版本从CMake基线核对，不能用参数重标其他版本。公开许可与签名不由自动脚本推断。
 3. 独立脚本直接对解压目录执行，无Qt/MinGW SDK依赖。运行前先验证清单，原生smoke全部数据QTemporaryDir，不启动托盘、不开现有用户库。将PATH限制为Windows系统目录，并清空Qt/QML环境搜索路径；结束后完整恢复环境。
 4. 持续采集进程模块直到退出，按包内DLL名称检查其来源；至少观察到Qt6Core、Windows平台和SQLite插件。唯一系统来源例外为Windows/System32中的D3DCompiler_47.dll，单列报告；Qt/MinGW/QML DLL不得放宽为系统或SDK来源。拒绝相似目录前缀和路径穿越，不能只检查初始化早期Qt6Core。只结束脚本创建的子进程。诊断输出放包外无重解析点的新目录，验收前后重新核对清单。
-5. 自动回归使用合成临时目录，覆盖正确清单、改字节、缺失、额外文件、路径穿越、重复路径、敏感数据、元数据冲突和重解析点拒绝。合成测试不冒充Qt部署成功。真实部署使用Release包运行完整148阶段原生smoke。
+5. 自动回归使用合成临时目录，覆盖正确清单、改字节、缺失、额外文件、路径穿越、重复路径、敏感数据、元数据冲突和重解析点拒绝。合成测试不冒充Qt部署成功。真实部署使用Release包运行完整152阶段原生smoke。
 
-原生smoke在结束前通过public qmlExecuteDeferred补齐合成场景控件的延后属性创建，再完成异步委托并让排队绑定稳定。单纯等待incubation controller未消除已复现的退出诊断，补齐延后属性后实跑干净退出；这只调整合成验收探针，不修改日常用户退出行为。验收器同时拒绝已发现的unfinished QML creation退出诊断。DLL每100ms采样到退出，observedModules表示实际观察集合，不声称捕获了所有瞬时加载/卸载。
+原生smoke在结束前通过public qmlExecuteDeferred遍历引擎、窗口及对象/可视子树，补齐合成场景控件的延后属性创建，再完成异步委托并让排队绑定稳定。单纯等待incubation controller未消除已复现的退出诊断，补齐延后属性后实跑干净退出；这只调整合成验收探针，不修改日常用户退出行为。验收器同时拒绝已发现的unfinished QML creation退出诊断。DLL每100ms采样到退出，observedModules表示实际观察集合，不声称捕获了所有瞬时加载/卸载。
 
 实现调查参照Qt v6.10.2官方源码：[引擎退出检查](https://github.com/qt/qtdeclarative/blob/v6.10.2/src/qml/qml/qqmlengine.cpp)、[组件及延后创建](https://github.com/qt/qtdeclarative/blob/v6.10.2/src/qml/qml/qqmlcomponent.cpp)、[incubator控制器](https://github.com/qt/qtdeclarative/blob/v6.10.2/src/qml/qml/qqmlincubator.cpp)。实际通过与否仍以原生复跑和日志为准，不以源码推断代替验收。
 

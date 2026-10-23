@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -28,9 +29,9 @@ ApplicationWindow {
     palette.highlightedText: Theme.dark ? "#191a1d" : Theme.content
     palette.mid: Theme.separator
     palette.dark: Theme.secondary
-    Binding { target: Theme; property: "mode"; value: mainWindow.taskWorkspace.themeMode }
-    Binding { target: Theme; property: "scale"; value: mainWindow.taskWorkspace.textScale }
-    Binding { target: Theme; property: "compact"; value: mainWindow.taskWorkspace.preferences.compact }
+    Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "mode"; value: mainWindow.taskWorkspace.themeMode }
+    Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "scale"; value: mainWindow.taskWorkspace.textScale }
+    Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "compact"; value: mainWindow.taskWorkspace.preferences.compact }
 
     readonly property var viewCodes: ["inbox", "today", "upcoming", "anytime", "someday", "logbook"]
     readonly property var viewNames: [qsTr("收集箱"), qsTr("今天"), qsTr("即将到来"), qsTr("随时可做"), qsTr("以后再说"), qsTr("已完成")]
@@ -107,6 +108,7 @@ ApplicationWindow {
         while(ancestor && ancestor!==editorFields)ancestor=ancestor.parent
         if(!ancestor)return
         editorFocusTarget=item
+        if(item===editNotes){ensureNotesCursor();return}
         const flick=editorScroll
         if(!flick)return
         const y=item.mapToItem(flick.contentItem,0,0).y
@@ -445,6 +447,7 @@ ApplicationWindow {
                 onCompleteTask: function(id,version,action) {mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.changeState(id,version,action)})}
             }
             ListView {
+                DS.ScrollPhysics {target: taskList}
                 id: taskList
                 objectName: "taskList"
                 visible: !mainWindow.calendarVisible
@@ -529,6 +532,7 @@ ApplicationWindow {
             Label {text: mainWindow.draftDirty ? qsTr("未保存") : qsTr("本地");font.pixelSize: Theme.captionSize;color: Theme.secondary}
         }
         Flickable {
+            DS.ScrollPhysics {target: editorScroll}
             id: editorScroll
             objectName: "taskEditorScroll"
             Layout.fillWidth: true
@@ -557,7 +561,7 @@ ApplicationWindow {
             TextArea { id: editNotes;objectName: "editTaskNotes";Layout.fillWidth: true;implicitHeight: Math.max(72,Theme.bodySize*3,contentHeight+topPadding+bottomPadding);placeholderText: qsTr("添加备注…");Accessible.name: qsTr("备注");wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: mainWindow.markDirty();onCursorRectangleChanged: Qt.callLater(mainWindow.ensureNotesCursor) }
             ColumnLayout {
                 SectionLabel { text: qsTr("规划与日期") }
-                ComboBox { id: planning;Layout.fillWidth: true;Accessible.name: qsTr("任务规划状态");model: [qsTr("收集箱"), qsTr("已激活"), qsTr("以后再说")]; onCurrentIndexChanged: mainWindow.markDirty() }
+                ComboBox { id: planning;objectName: "editorPlanning";Layout.fillWidth: true;Accessible.name: qsTr("任务规划状态");model: [qsTr("收集箱"), qsTr("已激活"), qsTr("以后再说")]; onCurrentIndexChanged: mainWindow.markDirty() }
                 CheckBox { id: focusToday; text: qsTr("持续关注今天"); onCheckedChanged: mainWindow.markDirty();onClicked: if(!checked && mainWindow.taskWorkspace.todayAfterRemovingFocus(mainWindow.editId))removeToday.open() }
             }
             GridLayout {

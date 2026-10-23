@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -109,6 +110,7 @@ Window {
                 color: Theme.danger
             }
             ListView {
+                DS.ScrollPhysics {target: todayList}
                 id: todayList
                 objectName: "widgetTasks"
                 Layout.fillWidth: true

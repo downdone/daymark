@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Templates as T
 T.SpinBox {
     id: control
+    wheelEnabled: false
     implicitWidth: Math.max(112,contentItem.implicitWidth+leftPadding+rightPadding)
     implicitHeight: DesignTokens.controlHeight
     leftPadding: DesignTokens.controlHeight

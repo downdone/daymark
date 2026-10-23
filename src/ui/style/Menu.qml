@@ -17,6 +17,9 @@ T.Menu {
     padding: 6
     font.pixelSize: DesignTokens.body
     delegate: MenuItem {}
-    contentItem: ListView {implicitHeight: contentHeight;model: control.contentModel;currentIndex: control.currentIndex;interactive: contentHeight>height;clip: true;boundsBehavior: Flickable.StopAtBounds}
+    contentItem: ListView {
+        id: motionSurface1
+        ScrollPhysics {target: motionSurface1}
+        implicitHeight: contentHeight;model: control.contentModel;currentIndex: control.currentIndex;interactive: contentHeight>height;clip: true;boundsBehavior: Flickable.StopAtBounds}
     background: Rectangle {color: DesignTokens.surface;radius: DesignTokens.radius;border.color: DesignTokens.border}
 }

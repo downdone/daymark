@@ -11,6 +11,8 @@ T.DialogButtonBox {
     contentWidth: (contentItem as ListView).contentWidth
     delegate: Button {highlighted: T.DialogButtonBox.buttonRole===T.DialogButtonBox.AcceptRole || T.DialogButtonBox.buttonRole===T.DialogButtonBox.YesRole}
     contentItem: ListView {
+        id: motionSurface1
+        ScrollPhysics {target: motionSurface1}
         implicitWidth: contentWidth
         implicitHeight: DesignTokens.controlHeight
         orientation: ListView.Horizontal
