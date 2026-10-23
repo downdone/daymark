@@ -336,6 +336,7 @@ QString TaskWorkspace::errorText() const
     if(key==QStringLiteral("planningInvalid"))return tr("规划状态无效。请选择收集箱、已激活或以后再说。");
     if(key==QStringLiteral("ownershipInvalid"))return tr("归属无效。请确认项目、领域或分组仍存在，且分组属于所选项目。");
     if(key==QStringLiteral("tagConflict"))return tr("标签名称已存在（不区分大小写），或标签无法写入。请修改名称后重试。");
+    if(key==QStringLiteral("eventSeriesInvalid"))return tr("请检查循环间隔、结束日期与提醒设置；循环事件时长不得超过366天。");
     if(key==QStringLiteral("reminderInvalid"))return tr("提醒必须是有效的将来时间。请重新选择时间，或清除提醒。");
     if(key==QStringLiteral("integrityFailed"))return tr("本地数据完整性检查失败。请停止编辑并保留当前数据，使用已验证的备份在独立目录恢复。");
     if(key==QStringLiteral("calendarAmbiguous"))return tr("同日标记包含开始和截止。请明确选择要移动的日期字段。");
@@ -446,9 +447,10 @@ QVariantList TaskWorkspace::calendarDaysFor(const QString& anchor,bool week) con
     QHash<QDate,QVariantList> eventDays;
     const auto zone=QTimeZone::systemTimeZone();
     if(!days.isEmpty())for(const auto& event:m_events) {
-        const auto dates=EventService::visibleDates(event,days.first().date,days.last().date,zone);
-        if(dates.isEmpty())continue;
-        const auto map=eventMap(event);for(const auto& date:dates)eventDays[date].append(map);
+        for(const auto& instance:EventService::occurrences(event,days.first().date,days.last().date,zone)) {
+            const auto dates=EventService::visibleDates(instance,days.first().date,days.last().date,zone);
+            auto map=eventMap(instance);map.insert(QStringLiteral("recurring"),event.repeatFrequency!=QStringLiteral("NONE"));for(const auto& date:dates)eventDays[date].append(map);
+        }
     }
     for(const auto& day:days) {
         QVariantList entries;
@@ -470,7 +472,7 @@ QVariantMap TaskWorkspace::eventMap(const CalendarEvent& e) const
     QVariantList links;
     for(const auto& link:e.links){auto item=task(link.taskId);if(!item.isEmpty()){item.insert(QStringLiteral("role"),link.role);links.append(item);}}
     const auto time=e.allDay?tr("全天"):localStart.toString(QStringLiteral("HH:mm"))+QStringLiteral("–")+localEnd.toString(localStart.date()==localEnd.date()?QStringLiteral("HH:mm"):QStringLiteral("M/d HH:mm"));
-    return {{"eventId",e.id},{"title",e.title},{"notes",e.notes},{"allDay",e.allDay},{"rowVersion",e.rowVersion},{"zone",e.timeZone},
+    return {{"repeatFrequency",e.repeatFrequency},{"repeatInterval",e.repeatInterval},{"repeatUntil",e.repeatUntil.toString(Qt::ISODate)},{"alertMinutes",e.alertMinutes},{"eventId",e.id},{"title",e.title},{"notes",e.notes},{"allDay",e.allDay},{"rowVersion",e.rowVersion},{"zone",e.timeZone},
         {"startDate",e.allDay?e.startOn.toString(Qt::ISODate):start.date().toString(Qt::ISODate)},{"endDate",e.allDay?e.endOn.addDays(-1).toString(Qt::ISODate):end.date().toString(Qt::ISODate)},
         {"startTime",timeInput(start.time())},{"endTime",timeInput(end.time())},{"timeLabel",time},{"links",links}};
 }
@@ -485,7 +487,7 @@ QVariantList TaskWorkspace::eventTaskChoices(const QString& search) const {
 }
 bool TaskWorkspace::saveEvent(const QVariantMap& value) {
     return runCatalog([value](TaskWorker& w){
-        CalendarEvent e;e.id=value.value(QStringLiteral("eventId")).toString();e.rowVersion=value.value(QStringLiteral("rowVersion"),1).toLongLong();e.title=value.value(QStringLiteral("title")).toString();e.notes=value.value(QStringLiteral("notes")).toString();e.allDay=value.value(QStringLiteral("allDay"),true).toBool();
+        CalendarEvent e;e.repeatFrequency=value.value(QStringLiteral("repeatFrequency"),QStringLiteral("NONE")).toString();e.repeatInterval=value.value(QStringLiteral("repeatInterval"),1).toInt();e.alertMinutes=value.value(QStringLiteral("alertMinutes"),-1).toInt();const auto until=value.value(QStringLiteral("repeatUntil")).toString();e.repeatUntil=QDate::fromString(until,Qt::ISODate);if(!until.isEmpty() && !e.repeatUntil.isValid())return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("eventSeriesInvalid"));e.id=value.value(QStringLiteral("eventId")).toString();e.rowVersion=value.value(QStringLiteral("rowVersion"),1).toLongLong();e.title=value.value(QStringLiteral("title")).toString();e.notes=value.value(QStringLiteral("notes")).toString();e.allDay=value.value(QStringLiteral("allDay"),true).toBool();
         if(e.allDay){e.startOn=QDate::fromString(value.value(QStringLiteral("startDate")).toString(),Qt::ISODate);e.endOn=QDate::fromString(value.value(QStringLiteral("endDate")).toString(),Qt::ISODate).addDays(1);}
         else {
             e.timeZone=value.value(QStringLiteral("zone")).toString();
@@ -571,7 +573,7 @@ QVariantList TaskWorkspace::notifications() const
     QList<Task> fired;
     for(const auto& task:m_cache)if(!task.reminderFiredAtUtc.isEmpty() && task.deletedAtUtc.isEmpty())fired.append(task);
     std::stable_sort(fired.begin(),fired.end(),[](const auto& a,const auto& b){return a.reminderFiredAtUtc>b.reminderFiredAtUtc;});
-    QVariantList result;for(int i=0;i<qMin(50,int(fired.size()));++i){auto map=TaskListModel::taskMap(fired[i]);map.insert(QStringLiteral("firedAt"),fired[i].reminderFiredAtUtc);result.append(map);}return result;
+    QVariantList result;for(int i=0;i<qMin(50,int(fired.size()));++i){auto map=TaskListModel::taskMap(fired[i]);map.insert(QStringLiteral("firedAt"),fired[i].reminderFiredAtUtc);result.append(map);}for(const auto& notification:m_eventNotifications)for(const auto& event:m_events)if(event.id==notification.toMap().value(QStringLiteral("eventId")).toString()){auto record=notification.toMap();record.insert(QStringLiteral("title"),event.title);result.append(record);break;}std::stable_sort(result.begin(),result.end(),[](const auto& a,const auto& b){return a.toMap().value(QStringLiteral("firedAt")).toString()>b.toMap().value(QStringLiteral("firedAt")).toString();});while(result.size()>50)result.removeLast();return result;
 }
 void TaskWorkspace::maintain()
 {
@@ -586,6 +588,10 @@ void TaskWorkspace::maintain()
             const auto count=due.value.size();const auto message=titles.join(QLatin1Char('\n'));
             QMetaObject::invokeMethod(self.data(),[self,count,message]{if(self && self->m_preferences.value(QStringLiteral("systemReminders")).toBool())emit self->reminderReady(tr("%1 项任务到达提醒时间").arg(count),message);},Qt::QueuedConnection);
         }
+        EventRepository events(w.database.connection());EventService service(events,w.clock);
+        const auto eventDue=service.claimReminders();if(!eventDue.ok())return Result<void>{eventDue.error};
+        const auto history=service.notifications();if(!history.ok())return Result<void>{history.error};
+        if(self)QMetaObject::invokeMethod(self.data(),[self,eventDue,history]{if(!self)return;self->m_eventNotifications=history.value;emit self->stateChanged();if(!eventDue.value.isEmpty() && self->m_preferences.value(QStringLiteral("systemReminders")).toBool()){QStringList titles;for(int i=0;i<qMin(10,int(eventDue.value.size()));++i)titles.append(eventDue.value[i].toMap().value(QStringLiteral("title")).toString());emit self->reminderReady(tr("%1 项事件到达提醒时间").arg(eventDue.value.size()),titles.join(QLatin1Char('\n')));}},Qt::QueuedConnection);
         return Result<void>{};
     },QStringLiteral("maintenance"));
 }

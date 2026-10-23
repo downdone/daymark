@@ -1,5 +1,6 @@
 #pragma once
 #include "persistence/EventRepository.h"
+#include <QVariantList>
 namespace daymark {
 class EventService final {
 public:
@@ -8,6 +9,9 @@ public:
     static Result<QDateTime> localInstant(const QString& input,const QString& zone);
     static bool onDate(const CalendarEvent& event,const QDate& date,const QTimeZone& displayZone=QTimeZone::systemTimeZone());
     static QList<QDate> visibleDates(const CalendarEvent& event,const QDate& from,const QDate& through,const QTimeZone& displayZone);
+    static QList<CalendarEvent> occurrences(const CalendarEvent& event,const QDate& from,const QDate& through,const QTimeZone& displayZone);
+    Result<QVariantList> claimReminders();
+    Result<QVariantList> notifications() const;
     Result<void> save(CalendarEvent event);
     Result<void> setDeleted(const QString& id,qint64 version,bool deleted);
 private:

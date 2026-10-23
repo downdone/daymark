@@ -64,7 +64,7 @@ Prefix=.
 Plugins=.
 QmlImports=qml
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot 'qt.conf') -Encoding ascii
-[ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=3;scope='Windows local release candidate';signed=$false} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
+[ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=4;scope='Windows local release candidate';signed=$false} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
 $manifest=Get-ChildItem -LiteralPath $packageRoot -Recurse -File | ForEach-Object {
     [ordered]@{path=[IO.Path]::GetRelativePath($packageRoot,$_.FullName).Replace('\','/');size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
 }

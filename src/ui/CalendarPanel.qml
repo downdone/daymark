@@ -24,7 +24,7 @@ ColumnLayout {
     readonly property var days: independent ? independentDays : workspace.calendarDays
     readonly property var selectedDay: days.find(day=>day.date===selectedDate) || ({date:"",entries:[],events:[]})
     readonly property bool compact: width<800*Theme.scale
-    readonly property int rowMinimum: Math.max(72,Math.ceil(Theme.bodySize*1.5+Theme.captionSize*3+16))
+    readonly property int rowMinimum: Math.max(80,Math.ceil(Theme.bodySize*1.5+Theme.captionSize*3+16))
     readonly property bool modalOpen: eventEditor.visible || moveDialog.visible || unscheduled.visible
     property bool showTasks: true
     property bool showEvents: true
@@ -84,7 +84,13 @@ ColumnLayout {
         contentItem: Column {
             spacing: 1
             clip: true
-            Label {id: dayNumber;width: dayCell.availableWidth;text: dayCell.modelData.day;color: dayCell.modelData.today ? Theme.accent : dayCell.modelData.inMonth && !dayCell.modelData.weekend ? Theme.text : Theme.secondary;font.bold: dayCell.modelData.today || dayCell.highlighted}
+            Item {
+                id: dayNumber
+                width: dayCell.availableWidth;implicitHeight: Math.max(28,Math.ceil(Theme.bodySize*1.65));height: implicitHeight
+                Rectangle {width: parent.height;height: width;radius: width/2;color: dayCell.modelData.today ? Theme.danger : "transparent"
+                    Text {anchors.centerIn: parent;text: dayCell.modelData.day;font.pixelSize: Theme.bodySize;font.weight: dayCell.modelData.today || dayCell.highlighted ? Font.DemiBold : Font.Normal;color: dayCell.modelData.today ? (Theme.dark ? "#191a1d" : "white") : dayCell.modelData.inMonth && !dayCell.modelData.weekend ? Theme.text : Theme.secondary}
+                }
+            }
             Repeater {
                 id: markers
                 model: dayCell.items.slice(0,dayCell.entryLimit)
@@ -94,7 +100,9 @@ ColumnLayout {
                     width: dayCell.availableWidth
                     height: dayCell.markerLineHeight
                     verticalAlignment: Text.AlignVCenter
-                    text: (modelData.eventId ? "▰ " : modelData.taskStatus==="COMPLETED" ? "✓ " : modelData.kind==="deadline" ? "⚑ " : "○ ")+modelData.title
+                    leftPadding: modelData.eventId ? 6 : 0
+                    background: Rectangle {visible: !!marker.modelData.eventId;color: Theme.selected;radius: 4;Rectangle {width: 3;height: parent.height;radius: 1;color: Theme.accent}}
+                    text: (modelData.eventId ? (modelData.recurring ? "↻ " : "") : modelData.taskStatus==="COMPLETED" ? "✓ " : modelData.kind==="deadline" ? "⚑ " : "○ ")+modelData.title
                     font.strikeout: modelData.taskStatus==="COMPLETED"
                     elide: Text.ElideRight
                     font.pixelSize: Theme.captionSize
@@ -132,7 +140,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         ToolButton {contentItem: AppIcon {name:"left"} Accessible.name: qsTr("上一页");onClicked: panel.step(-1)}
-        Label {text: panel.independent ? panel.workspace.calendarTitleFor(panel.anchorDate,panel.weekMode) : panel.workspace.calendarTitle;font.pixelSize: Theme.headingSize;font.bold: true;Layout.fillWidth: true;elide: Text.ElideRight}
+        Label {text: panel.independent ? panel.workspace.calendarTitleFor(panel.anchorDate,panel.weekMode) : panel.workspace.calendarTitle;font.pixelSize: Theme.titleSize;font.bold: true;Layout.fillWidth: true;elide: Text.ElideRight}
         Button {text: qsTr("今天");flat: true;onClicked: {panel.selectedDate=panel.workspace.dateOffset(0);panel.step(0)}}
         ToolButton {contentItem: AppIcon {name:"right"} Accessible.name: qsTr("下一页");onClicked: panel.step(1)}
     }
@@ -199,9 +207,9 @@ ColumnLayout {
                 objectName: "calendarAgenda"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.preferredWidth: panel.compact ? -1 : 320*Theme.scale
-                Layout.minimumWidth: panel.compact ? 0 : 280*Theme.scale
-                Layout.maximumWidth: panel.compact ? Infinity : 380*Theme.scale
+                Layout.preferredWidth: panel.compact ? -1 : 280*Theme.scale
+                Layout.minimumWidth: panel.compact ? 0 : 240*Theme.scale
+                Layout.maximumWidth: panel.compact ? Infinity : 300*Theme.scale
                 Layout.preferredHeight: panel.compact ? Math.max(320,Theme.bodySize*14) : -1
                 Label {text: panel.selectedDate+qsTr(" · 当天议程");font.pixelSize: Theme.sectionSize;font.bold: true;Layout.fillWidth: true;wrapMode: Text.Wrap}
                 TextField {id: newTitle;Layout.fillWidth: true;placeholderText: qsTr("当天新任务，Enter 添加");enabled: !!panel.selectedDate && !panel.workspace.busy;onAccepted: panel.workspace.createForDate(text,panel.selectedDate)}

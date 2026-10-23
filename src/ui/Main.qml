@@ -50,6 +50,7 @@ ApplicationWindow {
     property string selectedTag: ""
     property string selectedProject: ""
     property Item editorFocusTarget: null
+    property bool editorManualScroll: false
     property string editorFocusLayoutKey: ""
     readonly property bool toolModalOpen: organization.visible || recurrence.visible || windowSettings.visible || dataTools.visible || notifications.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen
     property var batchSelection: []
@@ -66,6 +67,7 @@ ApplicationWindow {
 
     function markDirty() { if (!fillingDraft) draftDirty = true }
     function openEditor(taskId) {
+        editorManualScroll=false
         if (editor.visible && editId === taskId) { editTitle.forceActiveFocus();return }
         navigateSafely(function(){loadEditor(taskId)})
     }
@@ -104,7 +106,7 @@ ApplicationWindow {
                                      startDate.text, deadline.text, focusToday.checked,extraFields.detailsPatch())
     }
     function ensureEditorFocus(item) {
-        if(!editor.visible || !item)return
+        if(!editor.visible || !item || editorManualScroll)return
         let ancestor=item
         while(ancestor && ancestor!==editorFields)ancestor=ancestor.parent
         if(!ancestor)return
@@ -118,6 +120,7 @@ ApplicationWindow {
         else if(bottom>flick.contentY+flick.height)flick.contentY=bottom-flick.height+8
     }
     onActiveFocusItemChanged: {
+        editorManualScroll=false
         if(activeFocusItem)editorFocusTarget=activeFocusItem
         editorFocusDelay.restart()
     }
@@ -127,7 +130,7 @@ ApplicationWindow {
     onAfterAnimating: if(editor.visible)Qt.callLater(mainWindow.followEditorLayout)
     function followEditorLayout() {
         const item=activeFocusItem
-        if(!editor.visible || !item)return
+        if(!editor.visible || !item || editorManualScroll)return
         let ancestor=item
         while(ancestor && ancestor!==editorFields)ancestor=ancestor.parent
         if(!ancestor)return
@@ -138,7 +141,7 @@ ApplicationWindow {
         if(item===editNotes)ensureNotesCursor();else ensureEditorFocus(item)
     }
     function ensureNotesCursor() {
-        if(!editor.visible || fillingDraft || !editNotes.activeFocus)return
+        if(!editor.visible || fillingDraft || editorManualScroll || !editNotes.activeFocus)return
         const flick=editorScroll
         if(!flick)return
         const position=editNotes.mapToItem(flick.contentItem,0,editNotes.cursorRectangle.y)
@@ -576,12 +579,12 @@ ApplicationWindow {
             flickableDirection: Flickable.VerticalFlick
             clip: true
             // A deliberate scroll wins over a queued focus reveal.
-            onMovementStarted: editorFocusDelay.stop()
+            onMovementStarted: {mainWindow.editorManualScroll=true;editorFocusDelay.stop()}
             WheelHandler {
                 target: null
                 blocking: false
                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                onWheel: function(event) {editorFocusDelay.stop();event.accepted=false}
+                onWheel: function(event) {mainWindow.editorManualScroll=true;editorFocusDelay.stop();event.accepted=false}
             }
             onContentHeightChanged: if(editor.visible)editorFocusDelay.restart()
             ScrollBar.vertical: ScrollBar {
@@ -609,7 +612,9 @@ ApplicationWindow {
                 leftPadding: 0;rightPadding: 0
                 placeholderText: qsTr("添加备注…");Accessible.name: qsTr("备注");wrapMode: TextEdit.Wrap
                 background: Rectangle {color: "transparent";Rectangle {anchors.bottom: parent.bottom;width: parent.width;height: 2;visible: editNotes.activeFocus;color: Theme.accent}}
-                onTextChanged: mainWindow.markDirty();onCursorRectangleChanged: Qt.callLater(mainWindow.ensureNotesCursor)
+                onTextChanged: {mainWindow.markDirty();if(activeFocus)mainWindow.editorManualScroll=false}
+                onCursorPositionChanged: {mainWindow.editorManualScroll=false;Qt.callLater(mainWindow.ensureNotesCursor)}
+                onCursorRectangleChanged: Qt.callLater(mainWindow.ensureNotesCursor)
             }
             FormGroup {
                 compact: true;heading: qsTr("安排")
@@ -783,6 +788,7 @@ ApplicationWindow {
         anchors.centerIn: parent
         workspace: mainWindow.taskWorkspace
         onOpenTask: function(taskId){mainWindow.openEditor(taskId)}
+        onOpenEvent: function(eventId){mainWindow.navigateSafely(function(){calendarPanel.openEvent(eventId)})}
     }
     onClosing: function(close) {
         if (taskWorkspace.busy) { close.accepted = false; return }

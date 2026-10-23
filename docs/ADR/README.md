@@ -12,3 +12,5 @@ ADR-001～006 已记录在 [原始 TDD](../02_TECHNICAL_DESIGN.md)，继续有�
 | [012](012-v1-candidate-and-area-archive.md) | Windows V1候选范围、领域归档迁移与JSON兼容 | 实施；正式双平台门禁保留 |
 
 | [013](013-local-events.md) | 本地事件、任务议程、schema003及关系/时区边界 | 已接受：用户授权CAL-01/02 |
+
+| [014](014-event-series.md) | 事件系列、当地时间投影、schema004与提醒去重 | 已接受：用户授权CAL-04 |

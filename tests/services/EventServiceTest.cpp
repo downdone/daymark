@@ -9,9 +9,42 @@
 #include <QElapsedTimer>
 #include <QtTest>
 using namespace daymark;
+class EventTestClock:public IClock {public:QDateTime now=QDateTime(QDate(2026,3,7),QTime(14,0),QTimeZone::UTC);QDate localToday()const override{return now.date();}QDateTime nowUtc()const override{return now;}};
 class EventServiceTest:public QObject {
     Q_OBJECT
 private slots:
+    void seriesDatesAndDurableEventReminders() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("series.sqlite"))).ok());EventTestClock clock;EventRepository repo(db.connection());EventService service(repo,clock);
+        CalendarEvent e;e.title=QStringLiteral("series");e.startOn=QDate(2028,1,31);e.endOn=e.startOn.addDays(1);e.repeatFrequency=QStringLiteral("MONTHLY");
+        QVERIFY(!EventService::onDate(e,QDate(2028,2,29)));QVERIFY(EventService::onDate(e,QDate(2028,3,31)));
+        e.startOn=QDate(2028,2,29);e.endOn=e.startOn.addDays(1);e.repeatFrequency=QStringLiteral("YEARLY");QVERIFY(!EventService::onDate(e,QDate(2029,2,28)));QVERIFY(EventService::onDate(e,QDate(2032,2,29)));
+        e.allDay=false;e.startOn={};e.endOn={};e.timeZone=QStringLiteral("America/New_York");e.repeatFrequency=QStringLiteral("DAILY");e.startUtc=clock.now;e.endUtc=clock.now.addSecs(3600);e.alertMinutes=0;
+        const auto projected=EventService::occurrences(e,QDate(2026,3,8),QDate(2026,3,8),QTimeZone(e.timeZone.toUtf8()));QVERIFY(!projected.isEmpty());bool wallTime=false;for(const auto& instance:projected)if(instance.startUtc.toTimeZone(QTimeZone(e.timeZone.toUtf8())).date()==QDate(2026,3,8)){QCOMPARE(instance.startUtc.time(),QTime(13,0));wallTime=true;}QVERIFY(wallTime);
+        QVERIFY(service.save(e).ok());e=repo.all().value.first();QCOMPARE(e.repeatFrequency,QStringLiteral("DAILY"));QCOMPARE(e.alertMinutes,0);
+        auto due=service.claimReminders();QVERIFY(due.ok());QCOMPARE(due.value.size(),1);QCOMPARE(service.claimReminders().value.size(),0);
+        EventRepository reopened(db.connection());EventService restarted(reopened,clock);QCOMPARE(restarted.claimReminders().value.size(),0);
+        clock.now=clock.now.addDays(1);QCOMPARE(restarted.claimReminders().value.size(),1);QCOMPARE(restarted.notifications().value.size(),2);
+        DataTransfer transfer(db);const auto output=dir.filePath(QStringLiteral("series.json"));QVERIFY(transfer.exportJson(output).ok());const auto plan=transfer.preview(output,false);QVERIFY(plan.ok());QVERIFY(transfer.apply(plan.value,true).ok());QCOMPARE(restarted.claimReminders().value.size(),0);QCOMPARE(repo.all().value.first().repeatFrequency,QStringLiteral("DAILY"));
+        QVERIFY(service.setDeleted(e.id,e.rowVersion,true).ok());QVERIFY(restarted.claimReminders().value.isEmpty());QVERIFY(restarted.notifications().value.isEmpty());
+        QVERIFY(service.setDeleted(e.id,e.rowVersion+1,false).ok());QVERIFY(restarted.claimReminders().value.isEmpty());
+        e.repeatInterval=0;QVERIFY(!EventService::validate(e).ok());e.repeatInterval=1;e.repeatUntil=QDate(2026,1,1);QVERIFY(!EventService::validate(e).ok());
+    }
+    void schemaThreeUpgradePreservesEvents() {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("legacy.sqlite"));
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());EventTestClock clock;EventRepository repo(db.connection());CalendarEvent e;e.title=QStringLiteral("legacy");e.startOn=QDate(2026,3,7);e.endOn=e.startOn.addDays(1);QVERIFY(EventService(repo,clock).save(e).ok());QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("DROP TABLE event_reminder_history")));for(const auto& column:{"repeat_frequency","repeat_interval","repeat_until","alert_minutes"})QVERIFY(q.exec(QStringLiteral("ALTER TABLE events DROP COLUMN ")+QLatin1String(column)));QVERIFY(q.exec(QStringLiteral("PRAGMA user_version=3")));}
+        SqliteDatabase db;QVERIFY(db.open(path).ok());const auto events=EventRepository(db.connection()).all();QVERIFY(events.ok());QCOMPARE(events.value.size(),1);QCOMPARE(events.value.first().title,QStringLiteral("legacy"));QCOMPARE(events.value.first().repeatFrequency,QStringLiteral("NONE"));QCOMPARE(events.value.first().alertMinutes,-1);QCOMPARE(QDir(dir.filePath(QStringLiteral("backups/migrations"))).entryList({QStringLiteral("*.sqlite")},QDir::Files).size(),1);
+    }
+
+    void allDayLeadEndAndReadOnlyFailure() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("lead.sqlite"))).ok());EventTestClock clock;EventRepository repo(db.connection());EventService service(repo,clock);
+        CalendarEvent e;e.title=QStringLiteral("all day");e.startOn=QDate(2026,3,7);e.endOn=e.startOn.addDays(1);e.repeatFrequency=QStringLiteral("DAILY");e.repeatInterval=2;e.repeatUntil=QDate(2026,3,9);e.alertMinutes=5;QVERIFY(service.save(e).ok());
+        clock.now=QDateTime(e.startOn,QTime(8,54),QTimeZone::systemTimeZone()).toUTC();QVERIFY(service.claimReminders().value.isEmpty());clock.now=clock.now.addSecs(60);
+        QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("PRAGMA query_only=ON")));QVERIFY(!service.claimReminders().ok());QVERIFY(q.exec(QStringLiteral("PRAGMA query_only=OFF")));QCOMPARE(service.claimReminders().value.size(),1);
+        clock.now=clock.now.addDays(2);QCOMPARE(service.claimReminders().value.size(),1);clock.now=clock.now.addDays(2);QVERIFY(service.claimReminders().value.isEmpty());
+        DataTransfer transfer(db);const auto output=dir.filePath(QStringLiteral("all-day.json"));QVERIFY(transfer.exportJson(output).ok());QVERIFY(transfer.preview(output,false).ok());
+        CalendarEvent gap;gap.title=QStringLiteral("DST gap");gap.allDay=false;gap.timeZone=QStringLiteral("America/New_York");gap.startUtc=EventService::localInstant(QStringLiteral("2026-03-07 02:30"),gap.timeZone).value;gap.endUtc=gap.startUtc.addSecs(1800);gap.repeatFrequency=QStringLiteral("DAILY");
+        QVERIFY(!EventService::onDate(gap,QDate(2026,3,8),QTimeZone(gap.timeZone.toUtf8())));QVERIFY(EventService::onDate(gap,QDate(2026,3,9),QTimeZone(gap.timeZone.toUtf8())));
+    }
     void tenThousandEvents() {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("benchmark.sqlite"))).ok());auto connection=db.connection();QVERIFY(connection.transaction());QSqlQuery q(connection);
         for(int i=0;i<10000;i++) {
@@ -55,7 +88,7 @@ private slots:
     }
     void schemaTwoUpgradeBackup() {
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("upgrade.sqlite"));
-        {SqliteDatabase db;QVERIFY(db.open(path).ok());QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("DROP TABLE event_tasks")));QVERIFY(q.exec(QStringLiteral("DROP TABLE events")));QVERIFY(q.exec(QStringLiteral("PRAGMA user_version=2")));}
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("DROP TABLE event_reminder_history")));QVERIFY(q.exec(QStringLiteral("DROP TABLE event_tasks")));QVERIFY(q.exec(QStringLiteral("DROP TABLE events")));QVERIFY(q.exec(QStringLiteral("PRAGMA user_version=2")));}
         QFile blocker(dir.filePath(QStringLiteral("backups")));QVERIFY(blocker.open(QIODevice::WriteOnly));blocker.close();{SqliteDatabase db;QVERIFY(!db.open(path).ok());}QVERIFY(blocker.remove());
         SqliteDatabase db;QVERIFY(db.open(path).ok());QCOMPARE(QDir(dir.filePath(QStringLiteral("backups/migrations"))).entryList({QStringLiteral("*.sqlite")},QDir::Files).size(),1);QVERIFY(EventRepository(db.connection()).all().ok());
     }

@@ -75,3 +75,7 @@ UI-10：saveTaskWithDetails将标题/备注/规划/日期/今日关注与归属/
 UI-10分组投影：TaskListModel增加viewSection角色，refresh按当前视图选择既有分组元信息，QML固定section.property。内容/分组切换通过模型通知更新，避免隐藏/显示编辑面板时动态重设Qt Quick分组属性；不改变QueryService归属或排序。
 
 V-02W：SystemEventFilter将时间/设置/恢复及应用激活合并排队；TaskWorkspace.refreshClock在写入忙碌时保留一次维护请求，operationFinished后补做。backgroundBusy只代表后台维护，表单保持可编辑而写命令仍由busy互斥；维护成功不清除校验错误。SqliteDatabase.checkIntegrity只读检查quick_check与foreign_key_check，失败返回integrityFailed；verifyStorage仅供C++验收工具调用，不向QML暴露数据库接口。窗口规范化只调整可达几何，不主动显示/解除最小化。详见[稳定性设计](windows-stability.md)。
+
+## CAL-04事件系列与提醒
+
+EventService负责规则校验、可见范围实例投影与到期时间计算，EventRepository负责事件及提醒历史的SQL/事务；QML仅配置和展示。TaskWorkspace统一映射规则/实例、异步保存和提醒中心，两个CalendarPanel共用同一工作区。schema004和JSON兼容及UTC/本地日边界见[事件系列设计](event-series.md)与[ADR-014](../ADR/014-event-series.md)。

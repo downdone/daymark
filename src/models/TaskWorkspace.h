@@ -206,6 +206,7 @@ private:
     int m_upcomingDays=30;
     int m_historyDays=0;
     bool m_calendarCompleted=false;
+    QVariantList m_eventNotifications;
     QVariantMap m_preferences{{"compact",false},{"sidebarCollapsed",false},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
 };

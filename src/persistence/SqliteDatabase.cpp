@@ -27,10 +27,17 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
         return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseRead"));
     const int version = query.value(0).toInt();
     query.finish();
-    if (version > 3)
+    if (version > 4)
         return Result<void>::failure(ErrorCode::ValidationError, QStringLiteral("schemaTooNew"));
-    if (version == 3)
+    if (version == 4)
         return {};
+    if(version==3) {
+        initializeSchemaResource();QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/004_event_series.sql"));
+        if(!schema.open(QIODevice::ReadOnly))return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("schemaResource"));
+        if(!db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+        for(const auto& statement:QString::fromUtf8(schema.readAll()).split(';',Qt::SkipEmptyParts))if(!statement.trimmed().isEmpty() && !query.exec(statement)){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
+        if(!query.exec(QStringLiteral("PRAGMA user_version=4")) || !db.commit()){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}return {};
+    }
     if(version==2) {
         initializeSchemaResource();
         QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/003_calendar_events.sql"));
@@ -40,7 +47,7 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
             if(!statement.trimmed().isEmpty() && !query.exec(statement)){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
         }
         if(!query.exec(QStringLiteral("PRAGMA user_version=3")) || !db.commit()){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
-        return {};
+        return initialize(db);
     }
     if(version==1) {
         initializeSchemaResource();
@@ -105,7 +112,7 @@ Result<void> SqliteDatabase::open(const QString& path)
         QSqlQuery version(m_db);
         if(!version.exec(QStringLiteral("PRAGMA user_version")) || !version.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
         const int current=version.value(0).toInt();version.finish();
-        if(current==1 || current==2) {
+        if(current>=1 && current<=3) {
             const auto snapshot=createSnapshot(QFileInfo(path).dir().filePath(QStringLiteral("backups/migrations")));
             if(!snapshot.ok()){m_db.close();return {snapshot.error};}
         }

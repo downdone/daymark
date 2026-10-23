@@ -14,10 +14,11 @@
 #include <cmath>
 namespace daymark {
 namespace {
-const QStringList tables={QStringLiteral("areas"),QStringLiteral("projects"),QStringLiteral("headings"),QStringLiteral("tags"),QStringLiteral("recurrence_templates"),QStringLiteral("tasks"),QStringLiteral("checklist_items"),QStringLiteral("task_tags"),QStringLiteral("task_view_order"),QStringLiteral("events"),QStringLiteral("event_tasks")};
-bool supportedSchema(const QJsonObject& root){const double v=root.value(QStringLiteral("schemaVersion")).toDouble(-1);return v==1 || v==2 || v==3;}
+const QStringList tables={QStringLiteral("areas"),QStringLiteral("projects"),QStringLiteral("headings"),QStringLiteral("tags"),QStringLiteral("recurrence_templates"),QStringLiteral("tasks"),QStringLiteral("checklist_items"),QStringLiteral("task_tags"),QStringLiteral("task_view_order"),QStringLiteral("events"),QStringLiteral("event_tasks"),QStringLiteral("event_reminder_history")};
+bool supportedSchema(const QJsonObject& root){const double v=root.value(QStringLiteral("schemaVersion")).toDouble(-1);return v==1 || v==2 || v==3 || v==4;}
 QJsonObject normalized(QJsonObject root) {
-    if(root.value(QStringLiteral("schemaVersion")).toInt()<3){auto data=root.value(QStringLiteral("tables")).toObject();for(const auto& table:{QStringLiteral("events"),QStringLiteral("event_tasks")})if(!data.contains(table))data.insert(table,QJsonArray{});root.insert(QStringLiteral("tables"),data);}return root;
+    if(root.value(QStringLiteral("schemaVersion")).toInt()<3){auto data=root.value(QStringLiteral("tables")).toObject();for(const auto& table:{QStringLiteral("events"),QStringLiteral("event_tasks")})if(!data.contains(table))data.insert(table,QJsonArray{});root.insert(QStringLiteral("tables"),data);}
+    if(root.value(QStringLiteral("schemaVersion")).toInt()<4){auto data=root.value(QStringLiteral("tables")).toObject();data.insert(QStringLiteral("event_reminder_history"),QJsonArray{});auto rows=data.value(QStringLiteral("events")).toArray();for(int i=0;i<rows.size();++i){auto row=rows[i].toObject();row.insert(QStringLiteral("repeat_frequency"),QStringLiteral("NONE"));row.insert(QStringLiteral("repeat_interval"),1);row.insert(QStringLiteral("repeat_until"),QJsonValue(QJsonValue::Null));row.insert(QStringLiteral("alert_minutes"),-1);rows[i]=row;}data.insert(QStringLiteral("events"),rows);root.insert(QStringLiteral("tables"),data);}return root;
 }
 template<class T> Result<T> invalid(){return Result<T>::failure(ErrorCode::ValidationError,QStringLiteral("importInvalid"));}
 template<class T> Result<T> ioError(){return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("transferFailed"));}
@@ -41,7 +42,7 @@ Result<QJsonObject> DataTransfer::document(QSqlDatabase db)
     QJsonObject portable{{QStringLiteral("sundayFirst"),settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool()},
         {QStringLiteral("themeMode"),qBound(0,settings.value(QStringLiteral("appearance/themeMode"),0).toInt(),2)},
         {QStringLiteral("textScale"),qBound(1.0,settings.value(QStringLiteral("appearance/textScale"),1.0).toDouble(),2.0)}};
-    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),3},
+    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),4},
         {QStringLiteral("createdAtUtc"),QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{QStringLiteral("tables"),data},{QStringLiteral("settings"),portable}}, {}};
 }
 Result<void> DataTransfer::exportJson(const QString& path) const
@@ -119,11 +120,12 @@ Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& in
             if(!value.isObject())return fail();auto row=value.toObject();
             if(root.value(QStringLiteral("schemaVersion")).toInt()==1 && table==QStringLiteral("areas") && !row.contains(QStringLiteral("archived")))row.insert(QStringLiteral("archived"),0);
             auto keys=row.keys();auto expected=columns;keys.sort();expected.sort();if(keys!=expected)return fail();
-            if(table==QStringLiteral("event_tasks") && skippedEvents.contains(row.value(QStringLiteral("event_id")).toString())){++result.skipped;continue;}
+            if((table==QStringLiteral("event_tasks") || table==QStringLiteral("event_reminder_history")) && skippedEvents.contains(row.value(QStringLiteral("event_id")).toString())){++result.skipped;continue;}
             if(table==QStringLiteral("events")) {
                 CalendarEvent e;e.title=row.value(QStringLiteral("title")).toString();e.allDay=row.value(QStringLiteral("all_day")).toInt()==1;
                 e.startOn=QDate::fromString(row.value(QStringLiteral("start_on")).toString(),Qt::ISODate);e.endOn=QDate::fromString(row.value(QStringLiteral("end_on")).toString(),Qt::ISODate);
                 e.startUtc=QDateTime::fromString(row.value(QStringLiteral("start_at_utc")).toString(),Qt::ISODateWithMs);e.endUtc=QDateTime::fromString(row.value(QStringLiteral("end_at_utc")).toString(),Qt::ISODateWithMs);e.timeZone=row.value(QStringLiteral("time_zone")).toString();
+                e.repeatFrequency=row.value(QStringLiteral("repeat_frequency")).toString();e.repeatInterval=row.value(QStringLiteral("repeat_interval")).toInt();e.repeatUntil=QDate::fromString(row.value(QStringLiteral("repeat_until")).toString(),Qt::ISODate);e.alertMinutes=row.value(QStringLiteral("alert_minutes")).toInt();if(!row.value(QStringLiteral("repeat_until")).isNull() && !e.repeatUntil.isValid())return fail();
                 if(!EventService::validate(e).ok())return fail();
             }
             if(table==QStringLiteral("recurrence_templates")) {

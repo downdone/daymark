@@ -1,5 +1,6 @@
 #include "EventService.h"
 #include <QSet>
+#include <algorithm>
 namespace daymark {
 Result<void> EventService::validate(const CalendarEvent& e)
 {
@@ -9,6 +10,10 @@ Result<void> EventService::validate(const CalendarEvent& e)
     if(e.allDay) {
         if(!e.startOn.isValid() || !e.endOn.isValid() || e.endOn<=e.startOn || e.startUtc.isValid() || e.endUtc.isValid() || !e.timeZone.isEmpty())return invalid(QStringLiteral("eventRange"));
     } else if(e.startOn.isValid() || e.endOn.isValid() || !e.startUtc.isValid() || !e.endUtc.isValid() || e.endUtc<=e.startUtc || !QTimeZone(e.timeZone.toUtf8()).isValid())return invalid(QStringLiteral("eventRange"));
+    const QStringList frequencies={"NONE","DAILY","WEEKLY","MONTHLY","YEARLY"};
+    const auto anchor=e.allDay?e.startOn:e.startUtc.toTimeZone(QTimeZone(e.timeZone.toUtf8())).date();
+    const int duration=e.allDay?e.startOn.daysTo(e.endOn):int(e.startUtc.secsTo(e.endUtc)/86400);
+    if(!frequencies.contains(e.repeatFrequency) || e.repeatInterval<1 || e.repeatInterval>365 || !QList<int>{-1,0,5,15,30,60,1440}.contains(e.alertMinutes) || (e.repeatUntil.isValid() && e.repeatUntil<anchor) || (e.repeatFrequency!="NONE" && duration>366))return invalid(QStringLiteral("eventSeriesInvalid"));
     QSet<QString> ids;
     for(const auto& link:e.links) {
         if(link.taskId.isEmpty() || ids.contains(link.taskId) || (link.role!=QStringLiteral("preparation") && link.role!=QStringLiteral("followup")))return invalid(QStringLiteral("eventInvalid"));
@@ -27,12 +32,17 @@ Result<QDateTime> EventService::localInstant(const QString& input,const QString&
 bool EventService::onDate(const CalendarEvent& e,const QDate& date,const QTimeZone& zone)
 {
     if(!date.isValid())return false;
+    if(e.repeatFrequency!=QStringLiteral("NONE"))return !visibleDates(e,date,date,zone).isEmpty();
     if(e.allDay)return e.startOn<=date && date<e.endOn;
     const auto start=date.startOfDay(zone),end=date.addDays(1).startOfDay(zone);
     return start.isValid() && end.isValid() && e.startUtc<end && e.endUtc>start;
 }
 QList<QDate> EventService::visibleDates(const CalendarEvent& e,const QDate& from,const QDate& through,const QTimeZone& zone)
 {
+    if(e.repeatFrequency!=QStringLiteral("NONE")) {
+        QSet<QDate> merged;for(const auto& instance:occurrences(e,from,through,zone))for(const auto& date:visibleDates(instance,from,through,zone))merged.insert(date);
+        auto dates=merged.values();std::sort(dates.begin(),dates.end());return dates;
+    }
     const auto first=e.allDay?e.startOn:e.startUtc.toTimeZone(zone).date();
     const auto last=e.allDay?e.endOn.addDays(-1):e.endUtc.addMSecs(-1).toTimeZone(zone).date();
     QList<QDate> dates;
@@ -40,6 +50,42 @@ QList<QDate> EventService::visibleDates(const CalendarEvent& e,const QDate& from
     const auto end=qMin(last,through);
     for(auto date=qMax(first,from);date<=end;date=date.addDays(1))if(e.allDay || onDate(e,date,zone))dates.append(date);
     return dates;
+}
+QList<CalendarEvent> EventService::occurrences(const CalendarEvent& e,const QDate& from,const QDate& through,const QTimeZone& displayZone)
+{
+    if(!from.isValid() || !through.isValid() || through<from)return {};
+    if(e.repeatFrequency==QStringLiteral("NONE"))return {e};
+    if(!validate(e).ok())return {};
+    const QTimeZone zone=e.allDay?displayZone:QTimeZone(e.timeZone.toUtf8());
+    const auto start=e.startUtc.toTimeZone(zone),end=e.endUtc.toTimeZone(zone);
+    const QDate anchor=e.allDay?e.startOn:start.date();
+    const int duration=anchor.daysTo(e.allDay?e.endOn:end.date());
+    QList<CalendarEvent> result;
+    for(auto date=qMax(anchor,from.addDays(-duration-2));date<=through.addDays(2);date=date.addDays(1)) {
+        if(e.repeatUntil.isValid() && date>e.repeatUntil)break;
+        const auto days=anchor.daysTo(date);const int months=(date.year()-anchor.year())*12+date.month()-anchor.month();
+        bool match=e.repeatFrequency=="DAILY"?days%e.repeatInterval==0:e.repeatFrequency=="WEEKLY"?days%(7*e.repeatInterval)==0:e.repeatFrequency=="MONTHLY"?months%e.repeatInterval==0 && date.day()==anchor.day():(date.year()-anchor.year())%e.repeatInterval==0 && date.month()==anchor.month() && date.day()==anchor.day();
+        if(!match)continue;
+        auto instance=e;instance.repeatFrequency=QStringLiteral("NONE");
+        if(e.allDay){instance.startOn=date;instance.endOn=date.addDays(duration);}
+        else {const QDateTime localStart(date,start.time(),zone,QDateTime::TransitionResolution::Reject),localEnd(date.addDays(duration),end.time(),zone,QDateTime::TransitionResolution::Reject);if(!localStart.isValid() || !localEnd.isValid() || localEnd<=localStart)continue;instance.startUtc=localStart.toUTC();instance.endUtc=localEnd.toUTC();}
+        if(!visibleDates(instance,from,through,displayZone).isEmpty())result.append(instance);
+    }
+    return result;
+}
+Result<QVariantList> EventService::notifications() const
+{return m_repository.notifications();}
+Result<QVariantList> EventService::claimReminders()
+{
+    const auto events=m_repository.all();if(!events.ok())return {{},events.error};
+    const auto now=m_clock.nowUtc().toUTC();QVariantList candidates;
+    for(const auto& e:events.value)if(e.alertMinutes>=0)for(const auto& instance:occurrences(e,now.toLocalTime().date().addDays(-2),now.toLocalTime().date().addDays(2),QTimeZone::systemTimeZone())) {
+        const auto localInstant=instance.allDay?QDateTime(instance.startOn,QTime(9,0),QTimeZone::systemTimeZone(),QDateTime::TransitionResolution::Reject):instance.startUtc;
+        if(!localInstant.isValid())continue;const auto instant=localInstant.toUTC();
+        const auto due=instant.addSecs(-e.alertMinutes*60);if(!due.isValid() || due>now || due<now.addDays(-1))continue;
+        candidates.append(QVariantMap{{"eventId",e.id},{"title",e.title},{"occurrenceAt",instant.toString(Qt::ISODateWithMs)},{"leadMinutes",e.alertMinutes},{"firedAt",now.toString(Qt::ISODateWithMs)}});
+    }
+    return m_repository.claimReminders(candidates);
 }
 Result<void> EventService::save(CalendarEvent e)
 {e.title=e.title.trimmed();const auto valid=validate(e);if(!valid.ok())return valid;return m_repository.save(e,m_clock.nowUtc().toString(Qt::ISODateWithMs));}

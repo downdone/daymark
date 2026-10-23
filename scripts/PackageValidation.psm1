@@ -44,7 +44,7 @@ function Assert-DaymarkPackage([string]$PackageDirectory) {
     $info=Read-PackageJson (Join-Path $root 'BUILD-INFO.json')
     if($manifest.version -notmatch '^\d+\.\d+\.\d+(-rc\.\d+)?$' -or $manifest.version -cne $info.version -or
        $manifest.qt -cne '6.10.2' -or $info.qt -cne '6.10.2' -or $manifest.platform -cne 'windows-x64' -or
-       $info.schemaVersion -ne 3 -or $info.sourceRevision -notmatch '^[a-f0-9]{40}$' -or
+       $info.schemaVersion -ne 4 -or $info.sourceRevision -notmatch '^[a-f0-9]{40}$' -or
        $info.signed -isnot [bool] -or $info.signed -or $manifest.scope -cne 'local verification' -or
        $info.scope -cne 'Windows local release candidate'){throw 'Unsupported or inconsistent package metadata.'}
     $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)

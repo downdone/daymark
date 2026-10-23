@@ -343,6 +343,34 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));
                     if(!calendar || calendar->isVisible() || !mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"))->isVisible() || m_workspace.preferences().value(QStringLiteral("desktopCalendarVisible")).toBool()){fail("calendar hide preserves task widget");return;}
                     m_workspace.setTextScale(1);
+                } else if(phase==165) {
+                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("event"))),Q_ARG(QVariant,QVariant(eventId)));
+                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));
+                    auto* frequency=panel->findChild<QObject*>(QStringLiteral("eventFrequency"));auto* alert=panel->findChild<QObject*>(QStringLiteral("eventAlert"));auto* save=panel->findChild<QObject*>(QStringLiteral("saveEvent"));
+                    if(!frequency || !alert || !save){fail("event series controls");return;}
+                    frequency->setProperty("currentIndex",2);alert->setProperty("currentIndex",2);QMetaObject::invokeMethod(save,"clicked");
+                } else if(phase==166) {
+                    const auto event=m_workspace.calendarEvent(eventId);if(event.value(QStringLiteral("repeatFrequency")).toString()!=QStringLiteral("WEEKLY") || event.value(QStringLiteral("alertMinutes")).toInt()!=5){fail("event series UI roundtrip");return;}
+                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("event"))),Q_ARG(QVariant,QVariant(eventId)));
+                } else if(phase==167 || phase==169) {
+                    // Text-scale changes need rendered layout passes before reading
+                    // nested form geometry, just like the editor viewport checks.
+                    static int renderedSeriesPhase=-1;static int seriesFrames=0;
+                    mainWindow->grabWindow();
+                    if(renderedSeriesPhase!=phase){renderedSeriesPhase=phase;seriesFrames=0;return;}
+                    if(++seriesFrames<3)return;
+                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDialog"));QVariant visible;
+                    if(!QMetaObject::invokeMethod(dialog,"showSeriesForVerification",Q_RETURN_ARG(QVariant,visible)) || !visible.toBool()){fail("series group visible after layout");return;}
+                } else if(phase==168) {
+                    if(!capture(QStringLiteral("event-series"))){fail("series capture");return;}
+                    m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
+
+                } else if(phase==170) {
+                    if(!capture(QStringLiteral("event-series-dark-200"))){fail("large series capture");return;}
+                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDialog"));QMetaObject::invokeMethod(dialog,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setView(QStringLiteral("month"));mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->setProperty("showTasks",false);
+                } else if(phase==171) {
+                    if(!capture(QStringLiteral("calendar-event-bands"))){fail("calendar bands capture");return;}
+                    mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->setProperty("showTasks",true);
                 }
             } else if(phase>=112) {
                 auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
@@ -622,7 +650,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==166) {
+            if(phase==171) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
                 QList<QPointer<QObject>> pending;
@@ -639,7 +667,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<167)return;
+            if(phase<172)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -669,7 +697,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         probe->start();
         // Capturing every surface adds synchronous GPU readbacks; keep the
         // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=167)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=172)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

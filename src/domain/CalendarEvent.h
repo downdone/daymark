@@ -8,6 +8,9 @@ struct CalendarEvent {
     bool allDay=true;
     QDate startOn,endOn;
     QDateTime startUtc,endUtc;
+    QString repeatFrequency=QStringLiteral("NONE");
+    int repeatInterval=1,alertMinutes=-1;
+    QDate repeatUntil;
     qint64 rowVersion=1;
     QList<EventLink> links;
 };

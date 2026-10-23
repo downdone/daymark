@@ -10,7 +10,7 @@ foreach($relative in $required) {
     New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force | Out-Null
     [IO.File]::WriteAllText($path,'synthetic fixture; not a runnable Qt deployment')
 }
-$info=[ordered]@{version='1.0.0-rc.2';sourceRevision=('a'*40);qt='6.10.2';schemaVersion=3;scope='Windows local release candidate';signed=$false}
+$info=[ordered]@{version='1.0.0-rc.2';sourceRevision=('a'*40);qt='6.10.2';schemaVersion=4;scope='Windows local release candidate';signed=$false}
 $info | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
 $entries=@(Get-ChildItem $root -File -Recurse | ForEach-Object {@{path=[IO.Path]::GetRelativePath($root,$_.FullName).Replace('\','/');size=$_.Length;sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
 $manifest=@{version='1.0.0-rc.2';qt='6.10.2';platform='windows-x64';scope='local verification';files=$entries}

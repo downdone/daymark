@@ -45,7 +45,7 @@ add_library(daymark_core STATIC
 )
 target_include_directories(daymark_core PUBLIC src)
 target_link_libraries(daymark_core PUBLIC Qt6::Core Qt6::Sql)
-qt_add_resources(daymark_core daymark_schema PREFIX "/daymark" FILES src/persistence/migrations/001_init.sql src/persistence/migrations/002_area_archive.sql src/persistence/migrations/003_calendar_events.sql)
+qt_add_resources(daymark_core daymark_schema PREFIX "/daymark" FILES src/persistence/migrations/001_init.sql src/persistence/migrations/002_area_archive.sql src/persistence/migrations/003_calendar_events.sql src/persistence/migrations/004_event_series.sql)
 if(MSVC)
     target_compile_options(daymark_core PUBLIC /utf-8)
 endif()
