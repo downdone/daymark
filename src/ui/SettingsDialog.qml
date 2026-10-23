@@ -102,7 +102,7 @@ Dialog {
                         Label {visible: root.startupController.errorText.length>0;Layout.fillWidth: true;wrapMode: Text.Wrap;color: Theme.danger;text: root.startupController.errorText}
                     }
                     FormGroup {
-                        heading: qsTr("任务提醒")
+                        heading: qsTr("任务与事件提醒")
                         CheckBox {id: systemReminders;objectName: "systemRemindersPreference";Layout.fillWidth: true;text: qsTr("提交系统提醒");checked: root.workspace.preferences.systemReminders;onClicked: root.workspace.setPreference("systemReminders",checked)}
                         Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("应用内触发记录始终保留；系统通知的展示取决于权限。")}
                     }
