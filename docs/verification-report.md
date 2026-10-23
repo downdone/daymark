@@ -1,6 +1,6 @@
 # UI-14 Apple HIG全界面重设计（2026-10-23）
 
-Windows11 x64、Qt6.10.2/MinGW13.1，schema3。按[设计](design/hig-redesign.md)分三切片实施；最终Debug构建/CTest17/17（29.46秒），两项QML lint无警告。最终原生162阶段退出0、双窗口、warnings=false，无未完成创建或DelegateModel取消诊断。此前集成Release17/17（30.01秒）；最终提交的Release与严格部署另记，不把早期结果冒充最终包结果。
+Windows11 x64、Qt6.10.2/MinGW13.1，schema3。按[设计](design/hig-redesign.md)分三切片实施；初次完整Debug构建/CTest17/17（29.46秒），两项QML lint无警告。当次原生162阶段退出0、双窗口、warnings=false，无未完成创建或DelegateModel取消诊断。此前集成Release17/17（30.01秒）；最终提交的Release与严格部署另记，不把早期结果冒充最终包结果。
 
 查看合成截图：主导航/Today、连续文档详情、默认/200%组织与重复、事件、批量、数据、三类设置200%及默认深色、日历月格/议程、小窗/Mini。批量默认收缩到内容尺寸、组织空列表收紧，详情滚动条改为共享轻量样式。选中分段以字重/填充/颜色同时反馈；标题备注直接编辑、日期手输/选择、原子草稿和失败状态继续保留。
 
@@ -22,6 +22,13 @@ Windows11 x64、Qt6.10.2/MinGW13.1，schema3。按[设计](design/hig-redesign.m
 
 最终源码Debug17/17（29.45秒），Release全截图162阶段PASS（退出0/双窗口/warnings=false，无创建/取消诊断）。查看最新选项弹层、短备注焦点/滚轮、浅深/200%和三类设置截图；较早源码的失败证据保留。最后UI改动的两项lint已通过，随后仅C++诊断/截图时限调整。下一段记录严格部署。
 
+## UI-14最终严格部署（源码433ac10）
+
+源码433ac102eb990ac2b4a83ffe4f4f8c0e84199c80，最终Debug17/17（29.45秒），QML应用/样式lint通过；严格打包重新构建Release17/17（31.39秒）。全截图162阶段及普通Release连续3次均PASS。最终SDK隔离原生162阶段退出0/双窗口/warnings=false，日志无未完成创建或DelegateModel取消诊断；33个部署模块审计通过，唯一系统运行库例外仍为System32/D3DCompiler_47，Qt/MinGW/QML来自包内。
+
+报告443bfe63835a469e86395a4117e68740，passed=true，userDataAccessed=false。清单1465文件、EXE版本/Qt6.10.2/schema3元数据、ZIP逐文件SHA/长度、侧车校验全部通过。交付ZIP Daymark-1.0.0-rc.2-windows-x64-local-20261023-205422.zip，44960270字节，SHA256 b236aa2a4aec704b991981c49120393c0f1eff52df6a7c8dc11eb66d58284812。
+
+源码快照Daymark-1.0.0-rc.2-ui14-source-20261023-205346.zip，485548字节，SHA256 104a69a978814e6b934a40c22c9194f122285001c59e4c7d09e9e70137c5efbe，敏感文件扫描0项。保留旧目录/包与用户进程，无远端发布。未重新运行中文/空格解压路径或独立干净机；macOS、真实辅助技术/IME/DPI、多屏/睡眠/8h、复杂10k委托滚动帧率及许可签名仍UNVERIFIED。
 # UI-13视觉系统与月格事项（2026-10-23）
 
 Windows11 x64、Qt6.10.2/MinGW13.1，schema3。最新Debug构建/CTest17/17（28.43秒），应用/样式lint无警告；此前Release17/17（29.82秒），最新探针随严格打包再验。原生152阶段退出0、双窗口、warnings=false，本次日志无unfinished creation诊断。
