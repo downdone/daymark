@@ -4,7 +4,7 @@
 
 最终Debug17/17（36.70秒），应用/样式qmllint无诊断；`python scripts/check-ui-colors.py`直接从token检查浅深及增强四组共260对，普通文字最低4.586、必要边界最低3.074，原始值均达4.5/3目标。禁用/装饰线及任意壁纸不作此承诺。原生191阶段全截图退出0、双窗口、warnings=false且无未完成创建诊断：纯图标＋按钮真实命令提交并清空、图标名称/图文布局、增强对比开关及实色背景/原透明度恢复；此前菜单、草稿、日期、列表与备注滚动检查保留。已查看浅深/增强200%动作、设置解释、任务详情、日历及独立420×480/200%详情底部动作截图。所有自动数据为QTemporaryDir。
 
-中途生成清单未含新IconToolButton导致一次qml_startup FAIL，稳定清单重新configure后修正并全测；移除未使用import后lint干净。严格Release/隔离部署结果在源码提交后记录于PROGRESS。macOS、真实辅助技术/IME/物理DPI及长时平台验收仍UNVERIFIED。
+中途生成清单未含新IconToolButton导致一次qml_startup FAIL，稳定清单重新configure后修正并全测；移除未使用import后lint干净。源码cead7b0冻结后严格Release17/17（39.82秒）及SDK隔离191阶段PASS；双窗口/warnings=false/无未完成创建，32个实际模块来源、1471文件清单、ZIP及SHA侧车全部通过。最终包与SHA见PROGRESS。macOS、真实辅助技术/IME/物理DPI及长时平台验收仍UNVERIFIED。
 
 # CAL-05 系统评估与日程浏览定位（2026-10-24）
 
