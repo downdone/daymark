@@ -2,7 +2,7 @@
 
 ## 当前目标与范围
 
-### UI-19：原行展开、整理与即时反馈（VERIFY：等待严格本地包）
+### UI-19：原行展开、整理与即时反馈（DONE：Windows本地候选范围）
 
 按[设计](design/inline-task-experience.md)先映射HIG及用户四图反馈，再实现原行轻展开/核心图标、字号层级、整理及就近新建、详情动作、完成反馈、菜单响应和侧栏架构。FR-002/006/007/008/014/018，UX-01/04～11/14；单代理，无schema/迁移/外部依赖，不动真实库/旧进程，不推送。
 
@@ -12,7 +12,9 @@
 
 失败与修复：offscreen大字日期焦点越界和首图展开底部裁切，均保留几何断言，改为编辑时关闭ListView自动跟随高亮、渲染稳定后整卡/焦点揭示，手动滚动优先；Theme遗漏pressed转发由lint捕获后修复。直接ctest缺Kit PATH失败后改规范入口。误并行构建/原生探针导致EXE锁定及277ms，串行仍229ms，进一步定位PNG读回阻塞UI计时回调；现渲染信号线程计时/原子传回，采集后截图，未放宽两次呈现100ms门槛。早期0.545ms/25ms含旧UI队列计时，以最终结果为准。
 
-冻结后Release/SDK隔离/清单/ZIP/SHA证据待追加。本轮仍Windows rc.2本地候选；真实键鼠/IME/读屏/物理DPI/多屏/睡眠/8h/独立干净机/macOS与签名许可UNVERIFIED。
+最终源码011d0f2711608d0cd9a9f1e5cafd6427a0279c63冻结后严格Release17/17（49.25秒），SDK隔离235阶段PASS：退出0/双窗口/warnings=false/无未完成创建；包内菜单命令0.5069ms、渲染信号两次呈现上界5ms。33个运行库来源、实际EXE/Qt6.10.2/schema4元数据、1475文件清单、ZIP逐项及SHA侧车PASS，报告b50eb26ebaae48b3b87c35573e7d119a保留于忽略build。包运行探针报告userDataAccessed=false；真实库和旧进程不动，未推送/上传。
+
+本地包`Daymark-1.0.0-rc.2-windows-x64-local-20261024-144610.zip`，45371756字节，SHA256 `ad744f7872b2501e635b73f4fae0f8eafe4d166fea0654b559bafdd08a9f695d`。包内文档对应冻结源码，最终交付证据追加于本轮文档提交。启动新包前先从托盘退出旧版。本轮仍Windows rc.2本地候选；真实键鼠/IME/读屏/物理DPI/多屏/睡眠/8h/独立干净机/macOS与签名许可UNVERIFIED。
 
 ### UI-18：就近编辑与渐进呈现（DONE：Windows技术验证；快速卡形式由UI-19修订）
 
