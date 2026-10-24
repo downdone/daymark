@@ -88,3 +88,5 @@ CAL-05按[评估路线](review-rc2.md)及[浏览定位设计](design/calendar-br
 UI-15按[动作与配色审计](design/actions-and-color.md)交付：共享图文组件/角色token → 全页面按动作风险与可识别度迁移 → 浅深/200%/可访问名称、对比度与原生/部署验证。范围不替代CAL-06功能计划，也不解除平台人工门禁。
 
 UI-16按[任务详情布局](design/task-detail-layout.md)先定义信息架构/行关系/条件显示，再实施Main与TaskDetailsFields纵切；验收互斥归属/分组、移动后的今晚/提醒、宽窄/200%与草稿原子性，不扩大CAL-06范围。
+
+UI-17按[iOS分组设计](design/ios-grouped-details.md)统一圆角/图标/开关/画布和内容组，移除拖放伪按钮，按202阶段与本地部署验收。

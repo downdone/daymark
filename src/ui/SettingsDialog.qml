@@ -53,9 +53,9 @@ Dialog {
                     ComboBox {Layout.fillWidth: true;Accessible.name: qsTr("主题");model: [qsTr("跟随系统"),qsTr("浅色"),qsTr("深色")];currentIndex: root.workspace.themeMode;onActivated: root.workspace.themeMode=currentIndex}
                     Label {text: qsTr("文字大小 · %1%").arg(Math.round(root.workspace.textScale*100))}
                     Slider {Layout.fillWidth: true;Accessible.name: qsTr("文字大小");from: 1;to: 2;stepSize: 0.25;value: root.workspace.textScale;onMoved: root.workspace.textScale=value}
-                    CheckBox {id: contrastPreference;objectName: "highContrastPreference";Layout.fillWidth: true;text: qsTr("增强对比度");checked: root.workspace.preferences.highContrast;onClicked: root.workspace.setPreference("highContrast",checked)}
+                    SettingSwitch {id: contrastPreference;objectName: "highContrastPreference";Layout.fillWidth: true;symbol: "eye";text: qsTr("增强对比度");checked: root.workspace.preferences.highContrast;onClicked: root.workspace.setPreference("highContrast",checked)}
                     Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;visible: root.workspace.preferences.highContrast;text: qsTr("增强文字及边界对比，桌面组件使用实色背景；关闭后恢复原透明度。")}
-                    CheckBox {Layout.fillWidth: true;text: qsTr("紧凑任务列表");checked: root.workspace.preferences.compact;onClicked: root.workspace.setPreference("compact",checked)}
+                    SettingSwitch {Layout.fillWidth: true;symbol: "list";text: qsTr("紧凑任务列表");checked: root.workspace.preferences.compact;onClicked: root.workspace.setPreference("compact",checked)}
                 }
                 ColumnLayout {
                     id: widgetOptions
@@ -69,15 +69,15 @@ Dialog {
                             ActionButton {symbol: root.widgetController.visible ? "eyeOff" : "eye";text: root.widgetController.visible ? qsTr("隐藏组件") : qsTr("显示组件");onClicked: root.widgetController.setVisible(!root.widgetController.visible)}
                             ActionButton {symbol: root.widgetController.mini ? "expand" : "collapse";text: root.widgetController.mini ? qsTr("展开组件") : qsTr("切换迷你条");onClicked: root.widgetController.setMini(!root.widgetController.mini)}
                         }
-                        CheckBox {Layout.fillWidth: true;text: qsTr("使用不透明背景");enabled: !root.workspace.preferences.highContrast;checked: root.workspace.preferences.solidWidget;onClicked: root.workspace.setPreference("solidWidget",checked)}
+                        SettingSwitch {Layout.fillWidth: true;symbol: "window";text: qsTr("使用不透明背景");enabled: !root.workspace.preferences.highContrast;checked: root.workspace.preferences.solidWidget;onClicked: root.workspace.setPreference("solidWidget",checked)}
                         Label {text: qsTr("背景透明度 · %1%").arg(Math.round(root.widgetController.backgroundOpacity*100))}
                         Slider {Layout.fillWidth: true;Accessible.name: qsTr("组件背景透明度");enabled: !root.workspace.preferences.highContrast;from: 0.6;to: 1;value: root.widgetController.backgroundOpacity;onMoved: root.widgetController.setBackgroundOpacity(value)}
                     }
                     FormGroup {
                         heading: qsTr("窗口与交互")
-                        CheckBox {Layout.fillWidth: true;text: qsTr("保持置顶");checked: root.widgetController.alwaysOnTop;onClicked: root.widgetController.setAlwaysOnTop(checked)}
-                        CheckBox {Layout.fillWidth: true;text: qsTr("鼠标穿透");enabled: root.widgetController.trayAvailable;checked: root.widgetController.clickThrough;onClicked: root.widgetController.setClickThrough(checked)}
-                        CheckBox {Layout.fillWidth: true;text: qsTr("锁定拖动");checked: root.widgetController.locked;onClicked: root.widgetController.setLocked(checked)}
+                        SettingSwitch {Layout.fillWidth: true;symbol: "pin";text: qsTr("保持置顶");checked: root.widgetController.alwaysOnTop;onClicked: root.widgetController.setAlwaysOnTop(checked)}
+                        SettingSwitch {Layout.fillWidth: true;symbol: "cursor";text: qsTr("鼠标穿透");enabled: root.widgetController.trayAvailable;checked: root.widgetController.clickThrough;onClicked: root.widgetController.setClickThrough(checked)}
+                        SettingSwitch {Layout.fillWidth: true;symbol: "lock";text: qsTr("锁定拖动");checked: root.widgetController.locked;onClicked: root.widgetController.setLocked(checked)}
                         Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("穿透可从托盘或这里关闭；重启后恢复为可点击。组件显示状态会保留。")}
                         ActionButton {symbol: "reset";text: qsTr("重置组件位置");onClicked: root.widgetController.resetPosition()}
                     }
@@ -85,10 +85,10 @@ Dialog {
                 FormGroup {
                     visible: categories.currentIndex===1
                     heading: qsTr("独立桌面日历")
-                    CheckBox {text: qsTr("显示日历（可与任务小窗并存）");checked: root.workspace.preferences.desktopCalendarVisible;onClicked: {root.calendarVisibilityRequested(checked);checked=Qt.binding(function(){return root.workspace.preferences.desktopCalendarVisible})}}
+                    SettingSwitch {symbol: "calendar";text: qsTr("显示日历（可与任务小窗并存）");checked: root.workspace.preferences.desktopCalendarVisible;onClicked: {root.calendarVisibilityRequested(checked);checked=Qt.binding(function(){return root.workspace.preferences.desktopCalendarVisible})}}
                     Label {text: qsTr("背景透明度 · %1%").arg(root.workspace.preferences.desktopCalendarOpacity)}
                     Slider {Layout.fillWidth: true;Accessible.name: qsTr("日历背景透明度");enabled: !root.workspace.preferences.highContrast;from: 50;to: 100;stepSize: 5;value: root.workspace.preferences.desktopCalendarOpacity;onMoved: root.workspace.setPreference("desktopCalendarOpacity",Math.round(value))}
-                    CheckBox {text: qsTr("日历保持置顶");checked: root.workspace.preferences.desktopCalendarTopmost;onClicked: root.workspace.setPreference("desktopCalendarTopmost",checked)}
+                    SettingSwitch {symbol: "pin";text: qsTr("日历保持置顶");checked: root.workspace.preferences.desktopCalendarTopmost;onClicked: root.workspace.setPreference("desktopCalendarTopmost",checked)}
                 }
 
                 ColumnLayout {
@@ -98,14 +98,14 @@ Dialog {
                     spacing: 16
                     FormGroup {
                         heading: qsTr("启动与关闭")
-                        CheckBox {Layout.fillWidth: true;text: qsTr("开机启动（当前用户）");enabled: root.startupController.supported;checked: root.startupController.enabled;onClicked: root.startupController.setEnabled(checked)}
-                        CheckBox {Layout.fillWidth: true;text: qsTr("关闭主窗口到托盘");enabled: root.widgetController.trayAvailable;checked: root.widgetController.closeToTray;onClicked: root.widgetController.setCloseToTray(checked)}
+                        SettingSwitch {Layout.fillWidth: true;symbol: "window";text: qsTr("开机启动（当前用户）");enabled: root.startupController.supported;checked: root.startupController.enabled;onClicked: root.startupController.setEnabled(checked)}
+                        SettingSwitch {Layout.fillWidth: true;symbol: "collapse";text: qsTr("关闭主窗口到托盘");enabled: root.widgetController.trayAvailable;checked: root.widgetController.closeToTray;onClicked: root.widgetController.setCloseToTray(checked)}
                         Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("开机启动使用当前程序路径，移动程序后需重新开启。")}
                         Label {visible: root.startupController.errorText.length>0;Layout.fillWidth: true;wrapMode: Text.Wrap;color: Theme.danger;text: root.startupController.errorText}
                     }
                     FormGroup {
                         heading: qsTr("任务与事件提醒")
-                        CheckBox {id: systemReminders;objectName: "systemRemindersPreference";Layout.fillWidth: true;text: qsTr("提交系统提醒");checked: root.workspace.preferences.systemReminders;onClicked: root.workspace.setPreference("systemReminders",checked)}
+                        SettingSwitch {id: systemReminders;objectName: "systemRemindersPreference";Layout.fillWidth: true;symbol: "bell";text: qsTr("提交系统提醒");checked: root.workspace.preferences.systemReminders;onClicked: root.workspace.setPreference("systemReminders",checked)}
                         Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("应用内触发记录始终保留；系统通知的展示取决于权限。")}
                     }
                     FormGroup {

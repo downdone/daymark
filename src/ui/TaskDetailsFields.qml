@@ -11,7 +11,7 @@ ColumnLayout {
     property var areas: []
     property var headings: []
     property var tags: []
-    readonly property bool twoColumns: width>=440*Theme.scale
+    readonly property bool twoColumns: width-24>=440*Theme.scale
     property bool infoExpanded: false
     readonly property var destinations: [{kind:"",id:"",title:qsTr("无归属")}].concat(projects.map(item=>({kind:"project",id:item.id,title:qsTr("项目 · %1").arg(item.title)}))).concat(areas.map(item=>({kind:"area",id:item.id,title:qsTr("领域 · %1").arg(item.title)})))
     readonly property var selectedDestination: destinations[destinationChoice.currentIndex] || destinations[0]
@@ -69,7 +69,7 @@ ColumnLayout {
     }
     ListModel {id: checklist}
     DetailSection {
-        heading: qsTr("归属与标签")
+        heading: qsTr("归属与标签");symbol: "project"
         GridLayout {
             objectName: "editorAssignmentGrid"
             Layout.fillWidth: true
@@ -125,7 +125,7 @@ ColumnLayout {
         }
     }
     DetailSection {
-        heading: qsTr("检查清单");summary: checklist.count>0 ? qsTr("%1项").arg(checklist.count) : ""
+        heading: qsTr("检查清单");symbol: "list";summary: checklist.count>0 ? qsTr("%1项").arg(checklist.count) : ""
     Repeater {
         model: checklist
         RowLayout {
@@ -148,7 +148,7 @@ ColumnLayout {
     }
     }
     DetailSection {
-        heading: qsTr("关联事件");visible: root.relatedEvents.length>0
+        heading: qsTr("关联事件");symbol: "calendar";visible: root.relatedEvents.length>0
     Repeater {
         model: root.relatedEvents
         ItemDelegate {

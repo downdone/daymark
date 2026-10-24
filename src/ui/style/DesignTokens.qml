@@ -37,8 +37,8 @@ QtObject {
     readonly property int heading: Math.round(18*scale)
     readonly property int title: Math.round(24*scale)
     readonly property int controlHeight: Math.max(32,body+(compact ? 14 : 18))
-    readonly property int radius: 6
-    readonly property int rowRadius: 8
+    readonly property int radius: 8
+    readonly property int rowRadius: 10
     readonly property int panelRadius: 12
     readonly property int gap: 8
     readonly property int fieldGap: compact ? 8 : 10

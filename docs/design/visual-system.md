@@ -38,3 +38,5 @@ Debug/Release构建和CTest、应用/样式lint；原生合成数据验证默认
 遵守[项目原则P-13](../principles.md)：Purpose/Simplicity落实为月格直接读事项、正文优先；Familiarity落实为系统字体与Windows窗口/键盘习惯；Flexibility落实为宽窄/200%重排而不隐藏事项；Agency/Responsibility保留草稿、原子保存及错误恢复；Craft落实为层次/完整状态/实际截图，Delight体现为安静且可预测的反馈。形状与数值为Daymark实现选择，来源及边界见[官方调研](ui-research.md)。
 
 UI-16任务详情更新：[信息架构与行布局](task-detail-layout.md)以连续文档和细分隔组织区段，取代该页面的等权灰卡片；默认正文上限720×文字比例，同行/条件分组和只读信息显式展开按UI-16执行，其他表单继续使用FormGroup。
+
+UI-17修订：常规控件圆角8、选中行10、任务内容组16，开关为胶囊；任务详情采用灰画布/白内容组（深色对应），组内保持UI-16同行关系，见[iOS分组设计](ios-grouped-details.md)。

@@ -71,3 +71,5 @@ Apple HIG为项目UI/UX强制依据，见[原则P-13](principles.md)；完整视
 全界面按钮文字/图文/纯图标决策及新浅深色彩体系见[UI-15](design/actions-and-color.md)。
 
 任务详情的行关系、单个互斥归属选择与条件分组见[UI-16布局](design/task-detail-layout.md)。
+
+参考iOS的圆角分组、滑动开关与拖放伪按钮处置见[UI-17](design/ios-grouped-details.md)。

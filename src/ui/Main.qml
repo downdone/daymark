@@ -47,8 +47,7 @@ ApplicationWindow {
     property bool batchMode: false
     property bool searchExpanded: false
     property bool filtersExpanded: false
-    property bool taskDragging: false
-    property string selectedTag: ""
+        property string selectedTag: ""
     property string selectedProject: ""
     property Item editorFocusTarget: null
     property bool editorManualScroll: false
@@ -459,23 +458,6 @@ ApplicationWindow {
                 ActionButton {symbol: "batch";visible: mainWindow.batchMode;text: qsTr("批量修改（%1）").arg(mainWindow.batchSelection.length);enabled: mainWindow.batchSelection.length>0;onClicked: {batchDialog.selection=mainWindow.batchSelection;batchDialog.open()}}
                 ComboBox {visible: mainWindow.taskWorkspace.view==="logbook";model: [qsTr("全部历史"),qsTr("近7天"),qsTr("近30天")];onActivated: mainWindow.taskWorkspace.historyDays=[0,7,30][currentIndex]}
             }
-            RowLayout {
-                visible: mainWindow.taskWorkspace.view === "today" && mainWindow.taskDragging
-                Repeater {
-                    model: [qsTr("拖入今天"),qsTr("拖入今晚")]
-                    Label {
-                        id: eveningDrop
-                        required property string modelData
-                        required property int index
-                        text: modelData
-                        padding: 6
-                        font.pixelSize: Theme.captionSize
-                        color: Theme.accent
-                        background: Rectangle {color: Theme.hover;radius: 5}
-                        DropArea {anchors.fill: parent;onDropped: function(drop){const source=drop.source as TaskRow;if(source){mainWindow.setTaskEvening(source.taskId,eveningDrop.index===1);drop.acceptProposedAction()}}}
-                    }
-                }
-            }
                 }
             }
             CalendarPanel {
@@ -520,7 +502,6 @@ ApplicationWindow {
                     canMoveDown: index<taskList.count-1
                     onMenuRequested: {canMoveUp=mainWindow.taskWorkspace.canMoveTask(taskId,-1);canMoveDown=mainWindow.taskWorkspace.canMoveTask(taskId,1)}
                     onEveningRequested: function(value){mainWindow.setTaskEvening(taskId,value)}
-                    onDragStateChanged: function(active){mainWindow.taskDragging=active}
                     selectedForBatch: mainWindow.batchSelection.some(item=>item.taskId===taskId)
                     onSelectionRequested: mainWindow.toggleBatch(taskId,rowVersion)
                     onEditRequested: {taskList.currentIndex=index;mainWindow.openEditor(taskId)}
@@ -573,7 +554,7 @@ ApplicationWindow {
         onWidthChanged: if(visible)Qt.callLater(function(){mainWindow.ensureEditorFocus(mainWindow.activeFocusItem)})
         onHeightChanged: if(visible)Qt.callLater(function(){mainWindow.ensureEditorFocus(mainWindow.activeFocusItem)})
         background: Rectangle {
-            color: Theme.content
+            color: Theme.sidebar
             Rectangle {visible: mainWindow.detailDocked;width: 1;height: parent.height;color: Theme.separator}
         }
         contentItem: ColumnLayout {
@@ -619,6 +600,13 @@ ApplicationWindow {
             width: editorScroll.width-12
             spacing: Theme.fieldGap
             enabled: !mainWindow.taskWorkspace.busy || mainWindow.taskWorkspace.backgroundBusy
+            Control {
+                Layout.fillWidth: true
+                padding: 12
+                implicitHeight: implicitContentHeight+topPadding+bottomPadding
+                background: Rectangle {radius: 16;color: Theme.dark ? Theme.grouped : Theme.content}
+                contentItem: ColumnLayout {
+                    spacing: 4
             TextField {
                 id: editTitle;objectName: "editTaskTitle";Layout.fillWidth: true
                 placeholderText: qsTr("任务标题");Accessible.name: qsTr("任务标题")
@@ -637,12 +625,14 @@ ApplicationWindow {
                 onCursorPositionChanged: {mainWindow.editorManualScroll=false;Qt.callLater(mainWindow.ensureNotesCursor)}
                 onCursorRectangleChanged: Qt.callLater(mainWindow.ensureNotesCursor)
             }
+                }
+            }
             DetailSection {
-                heading: qsTr("安排")
+                heading: qsTr("安排");symbol: "calendar"
                 GridLayout {
                     objectName: "editorPlanningGrid"
                     Layout.fillWidth: true
-                    columns: editorFields.width>=560*Theme.scale ? 2 : 1
+                    columns: editorFields.width-24>=560*Theme.scale ? 2 : 1
                     columnSpacing: 16;rowSpacing: 8
                     RowLayout {
                         Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 8
@@ -651,13 +641,13 @@ ApplicationWindow {
                     }
                     Flow {
                         Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
-                        CheckBox {id: focusToday;objectName: "editorTodayFocus";text: qsTr("关注今天");Accessible.name: qsTr("持续关注今天");onCheckedChanged: mainWindow.markDirty();onClicked: {if(!checked){if(mainWindow.taskWorkspace.todayAfterRemovingFocus(mainWindow.editId))removeToday.open();else evening.checked=false}}}
-                        CheckBox {id: evening;objectName: "editorEvening";text: qsTr("安排今晚");Accessible.name: qsTr("激活并关注今天，安排到今晚分组");onClicked: {if(checked){focusToday.checked=true;planning.currentIndex=1}mainWindow.markDirty()}}
+                        SettingSwitch {id: focusToday;symbol: "today";objectName: "editorTodayFocus";text: qsTr("今天");Accessible.name: qsTr("持续关注今天");onCheckedChanged: mainWindow.markDirty();onClicked: {if(!checked){if(mainWindow.taskWorkspace.todayAfterRemovingFocus(mainWindow.editId))removeToday.open();else evening.checked=false}}}
+                        SettingSwitch {id: evening;symbol: "moon";objectName: "editorEvening";text: qsTr("今晚");Accessible.name: qsTr("激活并关注今天，安排到今晚分组");onClicked: {if(checked){focusToday.checked=true;planning.currentIndex=1}mainWindow.markDirty()}}
                     }
                 }
                 GridLayout {
                     objectName: "editorDatesGrid"
-                    columns: editorFields.width>=440*Theme.scale ? 2 : 1
+                    columns: editorFields.width-24>=440*Theme.scale ? 2 : 1
                     Layout.fillWidth: true
                     columnSpacing: 16;rowSpacing: 8
                     ColumnLayout {
@@ -673,7 +663,7 @@ ApplicationWindow {
                 }
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: editorFields.width>=440*Theme.scale ? 2 : 1
+                    columns: editorFields.width-24>=440*Theme.scale ? 2 : 1
                     columnSpacing: 12;rowSpacing: 4
                     Label {text: qsTr("提醒 · 本地时间");font.pixelSize: Theme.captionSize;color: Theme.secondary}
                     TextField {id: reminder;objectName: "editorReminder";Layout.fillWidth: true;placeholderText: "yyyy-MM-dd HH:mm";Accessible.name: qsTr("本地时间提醒，留空清除");onTextChanged: mainWindow.markDirty()}

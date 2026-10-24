@@ -18,6 +18,10 @@ Canvas {
         if(name==="inbox") {line([[4,4],[20,4],[22,17],[22,20],[2,20],[2,17]],true);line([[3,14],[8,14],[10,17],[14,17],[16,14],[21,14]],false)}
         else if(name==="today") {circle(12,12,4);for(let i=0;i<8;i++){const a=i*Math.PI/4;line([[12+7*Math.cos(a),12+7*Math.sin(a)],[12+10*Math.cos(a),12+10*Math.sin(a)]],false)}}
         else if(name==="calendar" || name==="upcoming") {p.strokeRect(3,5,18,16);line([[3,10],[21,10]],false);line([[8,3],[8,7]],false);line([[16,3],[16,7]],false);if(name==="upcoming")line([[10,13],[14,13],[14,17]],false)}
+        else if(name==="cursor")line([[4,3],[4,20],[9,15],[13,22],[17,20],[13,13],[21,13]],true)
+        else if(name==="lock") {p.strokeRect(5,10,14,11);p.beginPath();p.arc(12,10,5,Math.PI,0);p.stroke();line([[12,14],[12,17]],false)}
+        else if(name==="bell") {line([[4,17],[6,14],[6,9]],false);p.beginPath();p.arc(12,9,6,Math.PI,0);p.stroke();line([[18,9],[18,14],[20,17],[4,17]],false);p.beginPath();p.arc(12,19,2,0,Math.PI);p.stroke()}
+        else if(name==="moon") {p.beginPath();p.moveTo(16,3);p.bezierCurveTo(4,0,0,17,11,21);p.bezierCurveTo(16,23,22,19,22,14);p.bezierCurveTo(12,19,7,8,16,3);p.closePath();p.stroke()}
         else if(name==="someday") {p.beginPath();p.arc(12,12,9,Math.PI*0.15,Math.PI*1.65);p.stroke();line([[16,3],[19,3],[19,6]],false)}
         else if(name==="logbook" || name==="check")line([[5,12],[10,17],[20,6]],false)
         else if(name==="area") {p.strokeRect(3,3,7,7);p.strokeRect(14,3,7,7);p.strokeRect(3,14,7,7);p.strokeRect(14,14,7,7)}
