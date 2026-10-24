@@ -5,6 +5,7 @@ import QtQuick.Layouts
 
 Dialog {
     id: root
+    background: Rectangle {color: Theme.sidebar;radius: 16;border.color: Theme.separator}
     objectName: "batchTaskDialog"
     required property TaskWorkspace workspace
     property var selection: []

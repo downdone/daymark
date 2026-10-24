@@ -90,3 +90,5 @@ UI-15按[动作与配色审计](design/actions-and-color.md)交付：共享图�
 UI-16按[任务详情布局](design/task-detail-layout.md)先定义信息架构/行关系/条件显示，再实施Main与TaskDetailsFields纵切；验收互斥归属/分组、移动后的今晚/提醒、宽窄/200%与草稿原子性，不扩大CAL-06范围。
 
 UI-17按[iOS分组设计](design/ios-grouped-details.md)统一圆角/图标/开关/画布和内容组，移除拖放伪按钮，按202阶段与本地部署验收。
+
+UI-18按[就近编辑设计](design/direct-editing.md)推进共享日期/时间、快速编辑与全页直接选择，保留原子草稿和平台门禁。

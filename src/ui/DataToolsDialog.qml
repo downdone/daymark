@@ -6,6 +6,7 @@ import QtQuick.Dialogs as NativeDialogs
 
 Dialog {
     id: root
+    background: Rectangle {color: Theme.sidebar;radius: 16;border.color: Theme.separator}
     required property TaskWorkspace workspace
     width: Math.min(550,parent.width-40)
     height: Math.min(600,parent.height-32)

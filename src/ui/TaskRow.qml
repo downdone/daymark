@@ -38,6 +38,7 @@ ItemDelegate {
     signal selectionRequested()
     signal completeRequested()
     signal editRequested()
+    signal quickEditRequested()
     signal moveRequested(int direction)
     signal dropRequested(string source)
     signal activateRequested()
@@ -52,7 +53,7 @@ ItemDelegate {
     DropArea {anchors.fill: parent;onDropped: function(drop){const source=drop.source as TaskRow;if(source){root.dropRequested(source.taskId);drop.acceptProposedAction()}}}
     implicitHeight: Math.max(Theme.compact ? 38 : 44,contentItem.implicitHeight+(Theme.compact ? 6 : 10))
     Accessible.name: title + (isDone ? qsTr("，已结束") : qsTr("，未完成"))
-    onClicked: selectionMode ? selectionRequested() : editRequested()
+    onClicked: selectionMode ? selectionRequested() : quickEditRequested()
     contentItem: RowLayout {
         spacing: 8
         CheckBox {visible: root.selectionMode;checked: root.selectedForBatch;Accessible.name: qsTr("选择任务：")+root.title;onClicked: root.selectionRequested()}

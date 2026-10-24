@@ -21,6 +21,7 @@ Canvas {
         else if(name==="cursor")line([[4,3],[4,20],[9,15],[13,22],[17,20],[13,13],[21,13]],true)
         else if(name==="lock") {p.strokeRect(5,10,14,11);p.beginPath();p.arc(12,10,5,Math.PI,0);p.stroke();line([[12,14],[12,17]],false)}
         else if(name==="bell") {line([[4,17],[6,14],[6,9]],false);p.beginPath();p.arc(12,9,6,Math.PI,0);p.stroke();line([[18,9],[18,14],[20,17],[4,17]],false);p.beginPath();p.arc(12,19,2,0,Math.PI);p.stroke()}
+        else if(name==="clock") {circle(12,12,9);line([[12,6],[12,12],[17,15]],false)}
         else if(name==="moon") {p.beginPath();p.moveTo(16,3);p.bezierCurveTo(4,0,0,17,11,21);p.bezierCurveTo(16,23,22,19,22,14);p.bezierCurveTo(12,19,7,8,16,3);p.closePath();p.stroke()}
         else if(name==="someday") {p.beginPath();p.arc(12,12,9,Math.PI*0.15,Math.PI*1.65);p.stroke();line([[16,3],[19,3],[19,6]],false)}
         else if(name==="logbook" || name==="check")line([[5,12],[10,17],[20,6]],false)

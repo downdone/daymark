@@ -5,6 +5,7 @@ import QtQuick.Layouts
 
 Dialog {
     id: root
+    background: Rectangle {color: Theme.sidebar;radius: 16;border.color: Theme.separator}
     objectName: "recurrenceDialog"
     required property TaskWorkspace workspace
     property var selected: ({})
@@ -104,7 +105,7 @@ Dialog {
                     Label { visible: frequency.currentIndex===3; text: qsTr("月") }
                     SpinBox { id: yearMonth;Accessible.name: qsTr("月份"); visible: frequency.currentIndex===3; from: 1; to: 12; onValueModified: root.dirty=true }
                 }
-                CheckBox { id: active; text: qsTr("启用规则"); onClicked: root.dirty=true }
+                SettingSwitch { id: active;symbol: "reload"; text: qsTr("启用规则"); onClicked: root.dirty=true }
                 Label { text: qsTr("固定规则补全最近30日至未来30日；无效月日跳过。编辑只更新明天起未手改的实例，周期类型需另建规则。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }
                 }
                 FormGroup {
@@ -121,7 +122,7 @@ Dialog {
         Button { text: qsTr("返回"); enabled: !root.workspace.busy; onClicked: root.safely(function(){root.close()}) }
         Button { text: qsTr("保存规则"); enabled: !root.workspace.busy; highlighted: true; onClicked: root.save() }
     }
-    Dialog {id: discard;objectName: "recurrenceDiscard";parent: Overlay.overlay;anchors.centerIn: parent;width: Math.min(440,parent.width-32);modal: true;title: qsTr("放弃未保存的规则修改？");standardButtons: Dialog.Ok|Dialog.Cancel;onRejected: root.pendingAction=null;onAccepted: {root.dirty=false;const action=root.pendingAction;root.pendingAction=null;if(action)action()}}
+    DiscardChangesDialog {id: discard;objectName: "recurrenceDiscard";parent: Overlay.overlay;anchors.centerIn: parent;width: Math.min(440,parent.width-32);modal: true;title: qsTr("放弃未保存的规则修改？");onRejected: root.pendingAction=null;onAccepted: {root.dirty=false;const action=root.pendingAction;root.pendingAction=null;if(action)action()}}
     Dialog { id: stopConfirm; modal: true; title: qsTr("停止产生新实例？"); standardButtons: Dialog.Ok|Dialog.Cancel; onAccepted: root.workspace.stopRecurrence(root.selected.id,root.selected.rowVersion,removeFuture.checked) }
     Connections { target: root.workspace; function onOperationFinished(operation,success){if(operation==="recurrence" && success){root.dirty=false;root.load({})}} }
 }

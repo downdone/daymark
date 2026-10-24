@@ -39,6 +39,8 @@ T.ComboBox {
         required property var model
         width: control.width
         text: control.textRole ? model[control.textRole] : model.modelData
+        checkable: true
+        checked: control.currentIndex===index
         highlighted: control.highlightedIndex===index
     }
     popup: T.Popup {

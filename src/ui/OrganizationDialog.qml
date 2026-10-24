@@ -5,6 +5,7 @@ import QtQuick.Layouts
 
 Dialog {
     id: root
+    background: Rectangle {color: Theme.sidebar;radius: 16;border.color: Theme.separator}
     required property TaskWorkspace workspace
     property var selected: ({})
     property bool dirty: false
@@ -95,7 +96,7 @@ Dialog {
             ComboBox { id: kind;Accessible.name: qsTr("组织项类型"); model: root.names; enabled: !root.selected.id; onActivated: root.resetForm() }
             Label {text: qsTr("名称");font.pixelSize: Theme.captionSize;color: Theme.secondary}
             TextField { id: itemTitle;Accessible.name: qsTr("组织名称"); Layout.fillWidth: true; placeholderText: qsTr("名称"); onTextEdited: root.dirty=true }
-            CheckBox {id: archived;Layout.fillWidth: true;visible: kind.currentIndex===0;text: qsTr("归档领域（隐藏活动任务，可取消归档恢复）");onClicked: root.dirty=true}
+            SettingSwitch {id: archived;symbol: "inbox";Layout.fillWidth: true;visible: kind.currentIndex===0;text: qsTr("归档领域（隐藏活动任务，可取消归档恢复）");onClicked: root.dirty=true}
             ComboBox { id: colorChoice;Accessible.name: qsTr("颜色"); visible: kind.currentIndex===0 || kind.currentIndex===3; model: [qsTr("中性"),qsTr("蓝"),qsTr("绿"),qsTr("橙"),qsTr("紫")]; onActivated: root.dirty=true }
             TextField { id: description;Accessible.name: qsTr("项目描述"); visible: kind.currentIndex===1; Layout.fillWidth: true; placeholderText: qsTr("项目描述"); onTextEdited: root.dirty=true }
             DateField { id: projectStart;workspace: root.workspace;dateLabel: qsTr("项目开始日期"); visible: kind.currentIndex===1; Layout.fillWidth: true; placeholderText: qsTr("项目开始 yyyy-MM-dd，可空"); onTextEdited: root.dirty=true;onDateChosen: root.dirty=true }
@@ -135,7 +136,7 @@ Dialog {
         Button {text: qsTr("返回");enabled: !root.workspace.busy;onClicked: root.safely(function(){root.close()})}
         Button {text: qsTr("保存");highlighted: true;enabled: !root.workspace.busy;onClicked: {if(root.selected.id && kind.currentIndex===1 && status.currentIndex>0)confirmComplete.open();else root.save()}}
     }
-    Dialog {id: discard;parent: Overlay.overlay;anchors.centerIn: parent;width: Math.min(440,parent.width-32);modal: true;title: qsTr("放弃未保存的组织修改？");standardButtons: Dialog.Ok|Dialog.Cancel;onRejected: root.pendingAction=null;onAccepted: {root.dirty=false;const action=root.pendingAction;root.pendingAction=null;if(action)action()}}
+    DiscardChangesDialog {id: discard;parent: Overlay.overlay;anchors.centerIn: parent;width: Math.min(440,parent.width-32);modal: true;title: qsTr("放弃未保存的组织修改？");onRejected: root.pendingAction=null;onAccepted: {root.dirty=false;const action=root.pendingAction;root.pendingAction=null;if(action)action()}}
     Dialog {
         id: confirmDelete
         parent: Overlay.overlay

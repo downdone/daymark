@@ -169,6 +169,96 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
+            } else if(phase>=202) {
+                auto* quick=mainWindow->findChild<QObject*>(QStringLiteral("taskQuickEditor"));
+                auto* reminder=mainWindow->findChild<QObject*>(QStringLiteral("editorReminder"));
+                auto* guard=mainWindow->findChild<QObject*>(QStringLiteral("unsavedChangesDialog"));
+                auto* event=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDialog"));
+                auto find=[&](const char* name){return mainWindow->findChild<QObject*>(QString::fromLatin1(name));};
+                auto click=[&](const char* name){auto* item=find(name);return item && QMetaObject::invokeMethod(item,"clicked");};
+                auto capture=[&](const QString& name){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+name+QStringLiteral(".png"));};
+                if(!quick || !reminder || !event){fail("direct editing controls");return;}
+                if(phase==202) {QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));}
+                else if(phase==203) {
+                    if(!quick->property("visible").toBool() || editor->property("visible").toBool()){fail("quick entry separate from full editor");return;}
+                    auto* title=quick->findChild<QObject*>(QStringLiteral("quickEditorTitle"));title->setProperty("text",QStringLiteral("快速编辑草稿"));QMetaObject::invokeMethod(title,"textEdited");
+                    QMetaObject::invokeMethod(quick,"notesEdited",Q_ARG(QString,QStringLiteral("保持同一份备注草稿")));
+                    QMetaObject::invokeMethod(quick->findChild<QObject*>(QStringLiteral("quickEditorStart")),"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(1))));
+                    QMetaObject::invokeMethod(quick,"closeRequested");
+                } else if(phase==204) {
+                    if(!guard->property("visible").toBool() || !mainWindow->property("draftDirty").toBool()){fail("quick dirty close guard");return;}
+                    click("cancelLeave");QVariant layout;
+                    if(!quick->property("visible").toBool() || !QMetaObject::invokeMethod(quick,"verifyLayout",Q_RETURN_ARG(QVariant,layout)) || layout.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("quick-editor"))){qCritical()<<"Quick layout"<<layout<<quick->property("visible");fail("quick cancel preserves usable card");return;}
+                    click("quickEditorDetails");
+                } else if(phase==205) {
+                    if(quick->property("visible").toBool() || !editor->property("visible").toBool() || editTitle->property("text").toString()!=QStringLiteral("快速编辑草稿") || find("editTaskNotes")->property("text").toString()!=QStringLiteral("保持同一份备注草稿") || startDate->property("text").toString()!=m_workspace.dateOffset(1) || m_workspace.task(secondId).value(QStringLiteral("title")).toString()==QStringLiteral("快速编辑草稿")){fail("quick to full preserves one unsaved draft");return;}
+                    QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(QString())));
+                    auto* toggle=find("startDateEnabled");QMetaObject::invokeMethod(toggle,"toggle");QMetaObject::invokeMethod(toggle,"clicked");
+                } else if(phase==206) {
+                    if(!startDate->property("inlineExpanded").toBool() || startDate->property("text").toString()!=m_workspace.dateOffset(0) || !find("editDeadlineDate")->property("text").toString().isEmpty() || !capture(QStringLiteral("inline-date"))){fail("date switch expands inline without changing deadline");return;}
+                    QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(2))));
+                    QMetaObject::invokeMethod(reminder,"openPicker");
+                } else if(phase==207) {
+                    if(!reminder->property("pickerVisible").toBool() || startDate->property("pickerVisible").toBool()){fail("reminder direct picker");return;}
+                    find("reminderPickerDate")->setProperty("text",m_workspace.dateOffset(3));
+                    auto* time=find("reminderPickerTime");QMetaObject::invokeMethod(time,"chooseTime",Q_ARG(QVariant,QVariant(14)),Q_ARG(QVariant,QVariant(35)));
+                    click("applyReminder");
+                    if(reminder->property("text").toString()!=m_workspace.dateOffset(3)+QStringLiteral(" 14:35")){fail("reminder date time draft");return;}
+                    click("returnFromEditor");
+                } else if(phase==208) {
+                    if(!guard->property("visible").toBool()){fail("full guard after quick transfer");return;}click("discardDraft");
+                } else if(phase==209) {
+                    const auto stored=m_workspace.task(secondId);
+                    if(editor->property("visible").toBool() || stored.value(QStringLiteral("title")).toString()==QStringLiteral("快速编辑草稿") || !stored.value(QStringLiteral("startOn")).toString().isEmpty() || !stored.value(QStringLiteral("remindAtUtc")).toString().isEmpty()){fail("discard whole quick and full draft zero mutation");return;}
+                    QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));
+                } else if(phase==210) {
+                    auto* title=quick->findChild<QObject*>(QStringLiteral("quickEditorTitle"));title->setProperty("text",QStringLiteral("快速编辑已保存"));QMetaObject::invokeMethod(title,"textEdited");click("saveQuickEditor");
+                } else if(phase==211) {
+                    if(quick->property("visible").toBool() || editor->property("visible").toBool() || m_workspace.task(secondId).value(QStringLiteral("title")).toString()!=QStringLiteral("快速编辑已保存")){fail("quick atomic save");return;}
+                    QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));reminder->setProperty("text",QStringLiteral("invalid"));QMetaObject::invokeMethod(reminder,"openPicker");
+                } else if(phase==212) {
+                    QMetaObject::invokeMethod(reminder,"closePicker");
+                    if(reminder->property("text").toString()!=QStringLiteral("invalid")){fail("cancel picker preserves manual invalid input");return;}
+                    mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");
+                    auto* panel=find("calendarPanel");QMetaObject::invokeMethod(panel,"openEvent",Q_ARG(QVariant,QVariant(eventId)));
+                } else if(phase==213) {
+                    if(!event->property("visible").toBool()){fail("event direct time entry");return;}
+                    auto* allDay=event->findChild<QObject*>(QStringLiteral("eventAllDay"));if(allDay->property("checked").toBool()){QMetaObject::invokeMethod(allDay,"toggle");QMetaObject::invokeMethod(allDay,"clicked");}
+                    auto* time=event->findChild<QObject*>(QStringLiteral("eventStartTime"));QMetaObject::invokeMethod(time,"chooseTime",Q_ARG(QVariant,QVariant(11)),Q_ARG(QVariant,QVariant(7)));
+                    if(time->property("text").toString()!=QStringLiteral("11:07") || !event->property("dirty").toBool()){fail("event time selection updates draft");return;}
+                    QMetaObject::invokeMethod(time,"openPicker");
+                } else if(phase==214) {
+                    auto* time=event->findChild<QObject*>(QStringLiteral("eventStartTime"));
+                    if(!time->property("pickerVisible").toBool() || !capture(QStringLiteral("event-time-picker"))){fail("event picker capture");return;}
+                    time->findChild<QObject*>(QStringLiteral("pickerHour"))->setProperty("value",16);QMetaObject::invokeMethod(time,"closePicker");
+                    if(time->property("text").toString()!=QStringLiteral("11:07")){fail("cancel time picker zero draft mutation");return;}
+                    time->setProperty("text",QStringLiteral("25:90"));QMetaObject::invokeMethod(time,"openPicker");QMetaObject::invokeMethod(time,"closePicker");
+                    if(time->property("text").toString()!=QStringLiteral("25:90")){fail("picker preserves invalid manual time");return;}
+                    QMetaObject::invokeMethod(event->findChild<QObject*>(QStringLiteral("returnFromEvent")),"clicked");
+                } else if(phase==215) {
+                    auto* discard=event->findChild<QObject*>(QStringLiteral("eventDiscard"));if(!discard->property("visible").toBool() || !capture(QStringLiteral("discard-changes"))){fail("explicit event discard confirmation");return;}
+                    QMetaObject::invokeMethod(discard,"reject");if(!event->property("dirty").toBool() || !event->property("visible").toBool()){fail("continue event editing retains draft");return;}
+                    QMetaObject::invokeMethod(event->findChild<QObject*>(QStringLiteral("returnFromEvent")),"clicked");QMetaObject::invokeMethod(discard,"accept");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);
+                    QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));
+                } else if(phase==216) {
+                    static int frames=0;mainWindow->grabWindow();if(++frames<3)return;QVariant layout;
+                    if(!QMetaObject::invokeMethod(quick,"verifyLayout",Q_RETURN_ARG(QVariant,layout)) || layout.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("quick-editor-dark-200"))){fail("quick 200 percent fixed actions");return;}
+                    QMetaObject::invokeMethod(quick,"closeRequested");
+                } else if(phase==217) {
+                    if(quick->property("visible").toBool() || event->property("visible").toBool() || mainWindow->property("draftDirty").toBool()){fail("clean quick close");return;}
+                    m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
+                    QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(0))));QMetaObject::invokeMethod(startDate,"openShortcuts");
+                } else if(phase==218) {
+                    auto* today=startDate->findChild<QObject*>(QStringLiteral("dateShortcutToday"));auto* tomorrow=startDate->findChild<QObject*>(QStringLiteral("dateShortcutTomorrow"));
+                    if(!today || !today->property("checked").toBool() || !tomorrow || tomorrow->property("checked").toBool() || !capture(QStringLiteral("date-shortcuts"))){fail("date menu indicates current selection");return;}
+                    auto* menu=startDate->findChild<QObject*>(QStringLiteral("dateShortcuts"));auto* menuContent=qvariant_cast<QQuickItem*>(menu->property("contentItem"));
+                    if(!menu->property("visible").toBool() || !menuContent || !menuContent->window() || (!screenshotPath.isEmpty() && !menuContent->window()->grabWindow().save(screenshotPath+QStringLiteral(".date-shortcut-menu.png")))){fail("native date menu surface");return;}
+                    QMetaObject::invokeMethod(tomorrow,"triggered");
+                    if(startDate->property("text").toString()!=m_workspace.dateOffset(1) || startDate->property("pickerVisible").toBool() || !find("editDeadlineDate")->property("text").toString().isEmpty()){fail("shortcut changes only requested draft field");return;}
+                    auto* toggle=find("startDateEnabled");if(!toggle->property("checked").toBool()){fail("date switch follows selected value");return;}QMetaObject::invokeMethod(toggle,"toggle");QMetaObject::invokeMethod(toggle,"clicked");
+                    if(!startDate->property("text").toString().isEmpty() || startDate->property("pickerVisible").toBool()){fail("date switch off clears and collapses");return;}
+                    mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");
+                }
             } else if(phase>=191) {
                 auto* fields=mainWindow->findChild<QObject*>(QStringLiteral("taskDetailsFields"));
                 auto* reminder=mainWindow->findChild<QObject*>(QStringLiteral("editorReminder"));
@@ -785,7 +875,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==201) {
+            if(phase==218) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
                 QList<QPointer<QObject>> pending;
@@ -802,7 +892,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<202)return;
+            if(phase<219)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -832,7 +922,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         probe->start();
         // Capturing every surface adds synchronous GPU readbacks; keep the
         // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=202)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=219)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

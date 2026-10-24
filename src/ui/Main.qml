@@ -52,7 +52,8 @@ ApplicationWindow {
     property Item editorFocusTarget: null
     property bool editorManualScroll: false
     property string editorFocusLayoutKey: ""
-    readonly property bool toolModalOpen: organization.visible || recurrence.visible || windowSettings.visible || dataTools.visible || notifications.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen
+    readonly property bool editingActive: editor.visible || quickEditor.visible
+    readonly property bool toolModalOpen: quickEditor.visible || organization.visible || recurrence.visible || windowSettings.visible || dataTools.visible || notifications.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen
     property var batchSelection: []
     function toggleBatch(id,version) {
         const next=batchSelection.slice()
@@ -68,12 +69,25 @@ ApplicationWindow {
     function markDirty() { if (!fillingDraft) draftDirty = true }
     function openEditor(taskId) {
         editorManualScroll=false
-        if (editor.visible && editId === taskId) { editTitle.forceActiveFocus();return }
+        if (editingActive && editId === taskId) {quickEditor.close();editor.open();editTitle.forceActiveFocus();return}
         navigateSafely(function(){loadEditor(taskId)})
+    }
+    function openQuickEditor(taskId) {
+        if(editingActive && editId===taskId){if(quickEditor.visible)quickEditor.focusTitle();else editTitle.forceActiveFocus();return}
+        navigateSafely(function(){
+            loadEditor(taskId)
+            if(editId!==taskId || !editor.visible)return
+            editor.visible=false
+            const row=taskList.currentItem as TaskRow
+            quickEditor.anchorItem=row && row.taskId===taskId ? row : null
+            quickEditor.open()
+        })
     }
     function loadEditor(taskId) {
         const item = taskWorkspace.task(taskId)
         if (!item.taskId || !taskWorkspace.ready || taskWorkspace.busy) return
+        quickEditor.close()
+        startDate.closePicker();deadline.closePicker();reminder.closePicker()
         fillingDraft = true
         editId = item.taskId
         editVersion = item.rowVersion
@@ -97,7 +111,7 @@ ApplicationWindow {
     }
     function navigateSafely(action) {
         if (taskWorkspace.busy) return
-        if (editor.visible && draftDirty) {
+        if (editingActive && draftDirty) {
             pendingAction = action
             leaveDialog.open()
         } else action()
@@ -110,15 +124,16 @@ ApplicationWindow {
                                      startDate.text, deadline.text, focusToday.checked,patch)
     }
     function verifyTaskDetailLayout(sideBySide) {
-        const start=startDate.mapToItem(editorFields,0,0)
-        const end=deadline.mapToItem(editorFields,0,0)
+        const start=startDateGroup.mapToItem(editorFields,0,0)
+        const end=deadlineGroup.mapToItem(editorFields,0,0)
         if(sideBySide) {
-            if(Math.abs(start.y-end.y)>1 || start.x+startDate.width>end.x-8)return "dates are not distinct aligned columns"
+            if(Math.abs(start.y-end.y)>1 || start.x+startDateGroup.width>end.x-8)return "dates are not distinct aligned columns"
             const state=planning.mapToItem(editorFields,0,0)
             const today=focusToday.mapToItem(editorFields,0,0)
             if(Math.abs(state.y-today.y)>4)return "planning and attention are not aligned"
-        } else if(start.y+startDate.height>end.y-4)return "narrow dates overlap"
+        } else if(start.y+startDateGroup.height>end.y-4)return "narrow dates overlap"
         for(const field of [planning,startDate,deadline,reminder]) {
+            if(!field.visible)continue
             const at=field.mapToItem(editorFields,0,0)
             if(at.x<0 || at.x+field.width>editorFields.width+1)return "field clipped horizontally"
         }
@@ -255,7 +270,7 @@ ApplicationWindow {
     Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+5" : "Ctrl+5";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("month")}
     Shortcut {sequences: [StandardKey.Preferences];enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.openTool("settings")}
     Shortcut { sequences: [StandardKey.Find];enabled: !mainWindow.toolModalOpen;onActivated: { if (!editor.visible || mainWindow.detailDocked) {mainWindow.searchExpanded=true;Qt.callLater(function(){mainWindow.focusHeader(search)})} } }
-    Shortcut { sequence: "Escape";enabled: editor.visible && !leaveDialog.visible && !datePicker.visible && !startDate.pickerVisible && !deadline.pickerVisible && !removeToday.visible;onActivated: mainWindow.navigateSafely(function(){editor.close();taskList.forceActiveFocus()}) }
+    Shortcut { sequence: "Escape";enabled: editor.visible && !leaveDialog.visible && !datePicker.visible && !startDate.pickerVisible && !deadline.pickerVisible && !reminder.pickerVisible && !planning.popup.visible && !removeToday.visible;onActivated: mainWindow.navigateSafely(function(){editor.close();taskList.forceActiveFocus()}) }
 
     RowLayout {
         anchors.fill: parent
@@ -505,6 +520,7 @@ ApplicationWindow {
                     selectedForBatch: mainWindow.batchSelection.some(item=>item.taskId===taskId)
                     onSelectionRequested: mainWindow.toggleBatch(taskId,rowVersion)
                     onEditRequested: {taskList.currentIndex=index;mainWindow.openEditor(taskId)}
+                    onQuickEditRequested: {taskList.currentIndex=index;mainWindow.openQuickEditor(taskId)}
                     onCompleteRequested: mainWindow.changeTaskState(taskId,isDone ? "reopen" : "complete")
                     onActivateRequested: {const id=taskId;mainWindow.navigateSafely(function(){const item=mainWindow.taskWorkspace.task(id);editor.close();mainWindow.taskWorkspace.saveTask(id,item.rowVersion,item.title,item.notes,"ACTIVE","",item.deadlineOn,false)})}
                     onMoveRequested: function(direction) {const id=taskId;mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.moveTask(id,direction)})}
@@ -532,7 +548,7 @@ ApplicationWindow {
                 ActionButton {symbol: "plus";visible: mainWindow.taskWorkspace.view === "upcoming";text: qsTr("未来%1天 · 再显示30天").arg(mainWindow.taskWorkspace.upcomingDays);onClicked: mainWindow.taskWorkspace.loadMoreUpcoming()}
                 ActionButton {symbol: "undo"; visible: mainWindow.taskWorkspace.canUndo; text: qsTr("撤销删除"); enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.taskWorkspace.undoDelete() }
                 ActionButton {symbol: "undo";visible: mainWindow.taskWorkspace.canUndoEvent;text: qsTr("撤销删除事件");enabled: !mainWindow.taskWorkspace.busy;onClicked: mainWindow.taskWorkspace.undoEventDelete()}
-                Label { text: editor.visible && mainWindow.draftDirty ? qsTr("详情有未保存修改") : mainWindow.taskWorkspace.busy ? qsTr("正在保存…") : mainWindow.taskWorkspace.ready ? qsTr("已保存在本机") : qsTr("数据未就绪"); color: Theme.secondary }
+                Label { text: mainWindow.editingActive && mainWindow.draftDirty ? qsTr("详情有未保存修改") : mainWindow.taskWorkspace.busy ? qsTr("正在保存…") : mainWindow.taskWorkspace.ready ? qsTr("已保存在本机") : qsTr("数据未就绪"); color: Theme.secondary }
             }
         }
     }
@@ -550,7 +566,7 @@ ApplicationWindow {
         height: mainWindow.height
         padding: 0
         function open() {visible=true}
-        function close() {startDate.closePicker();deadline.closePicker();visible=false}
+        function close() {startDate.closePicker();deadline.closePicker();reminder.closePicker();quickEditor.close();visible=false}
         onWidthChanged: if(visible)Qt.callLater(function(){mainWindow.ensureEditorFocus(mainWindow.activeFocusItem)})
         onHeightChanged: if(visible)Qt.callLater(function(){mainWindow.ensureEditorFocus(mainWindow.activeFocusItem)})
         background: Rectangle {
@@ -651,14 +667,18 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     columnSpacing: 16;rowSpacing: 8
                     ColumnLayout {
+                        id: startDateGroup
                         Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
-                        Label {text: qsTr("计划开始");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-                        DateField {id: startDate;objectName: "editStartDate";workspace: mainWindow.taskWorkspace;dateLabel: qsTr("计划开始");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                        SettingSwitch {objectName: "startDateEnabled";symbol: "calendar";text: qsTr("计划开始");Layout.fillWidth: true;checked: startDate.text.length>0;onClicked: {if(checked){startDate.text=mainWindow.taskWorkspace.dateOffset(0);startDate.openPicker()}else startDate.chooseDate("")}}
+                        DateField {id: startDate;onCalendarFocusRequested: startDateCalendar.focusSelectedDay();inlineMode: true;onInlineExpandedChanged: if(inlineExpanded)deadline.closePicker();objectName: "editStartDate";visible: text.length>0 || inlineExpanded;workspace: mainWindow.taskWorkspace;dateLabel: qsTr("计划开始");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                        CalendarPicker {id: startDateCalendar;onDismissRequested: {startDate.closePicker();startDate.forceActiveFocus()} Layout.fillWidth: true;visible: startDate.inlineExpanded;workspace: mainWindow.taskWorkspace;month: startDate.month;selectedDate: startDate.text;onDateSelected: function(value){startDate.chooseDate(value)};onMoveMonth: function(offset){startDate.month=mainWindow.taskWorkspace.datePicker(startDate.month.anchor,offset)}}
                     }
                     ColumnLayout {
+                        id: deadlineGroup
                         Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
-                        Label {text: qsTr("截止日期");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-                        DateField {id: deadline;objectName: "editDeadlineDate";workspace: mainWindow.taskWorkspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                        SettingSwitch {objectName: "deadlineEnabled";symbol: "calendar";text: qsTr("截止日期");Layout.fillWidth: true;checked: deadline.text.length>0;onClicked: {if(checked){deadline.text=mainWindow.taskWorkspace.dateOffset(0);deadline.openPicker()}else deadline.chooseDate("")}}
+                        DateField {id: deadline;onCalendarFocusRequested: deadlineCalendar.focusSelectedDay();inlineMode: true;onInlineExpandedChanged: if(inlineExpanded)startDate.closePicker();objectName: "editDeadlineDate";visible: text.length>0 || inlineExpanded;workspace: mainWindow.taskWorkspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                        CalendarPicker {id: deadlineCalendar;onDismissRequested: {deadline.closePicker();deadline.forceActiveFocus()} Layout.fillWidth: true;visible: deadline.inlineExpanded;workspace: mainWindow.taskWorkspace;month: deadline.month;selectedDate: deadline.text;onDateSelected: function(value){deadline.chooseDate(value)};onMoveMonth: function(offset){deadline.month=mainWindow.taskWorkspace.datePicker(deadline.month.anchor,offset)}}
                     }
                 }
                 GridLayout {
@@ -666,7 +686,7 @@ ApplicationWindow {
                     columns: editorFields.width-24>=440*Theme.scale ? 2 : 1
                     columnSpacing: 12;rowSpacing: 4
                     Label {text: qsTr("提醒 · 本地时间");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-                    TextField {id: reminder;objectName: "editorReminder";Layout.fillWidth: true;placeholderText: "yyyy-MM-dd HH:mm";Accessible.name: qsTr("本地时间提醒，留空清除");onTextChanged: mainWindow.markDirty()}
+                    ReminderField {id: reminder;workspace: mainWindow.taskWorkspace;objectName: "editorReminder";Layout.fillWidth: true;placeholderText: "yyyy-MM-dd HH:mm";Accessible.name: qsTr("本地时间提醒，留空清除");onTextChanged: mainWindow.markDirty()}
                 }
                 Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: planning.currentIndex===2 ? qsTr("日期已暂停；仅在应用运行时检查提醒，留空清除。") : qsTr("仅在应用运行时检查提醒，留空清除。")}
             }
@@ -704,6 +724,22 @@ ApplicationWindow {
         }
     }
 
+    TaskQuickEditor {
+        id: quickEditor
+        parent: Overlay.overlay
+        workspace: mainWindow.taskWorkspace
+        guardActive: leaveDialog.visible
+        dirty: mainWindow.draftDirty
+        titleText: editTitle.text;notesText: editNotes.text;startOn: startDate.text;deadlineOn: deadline.text
+        onTitleEdited: function(value){editTitle.text=value}
+        onNotesEdited: function(value){editNotes.text=value}
+        onStartEdited: function(value){startDate.text=value}
+        onDeadlineEdited: function(value){deadline.text=value}
+        onDetailsRequested: {close();editor.open();editTitle.forceActiveFocus()}
+        onCloseRequested: if(!leaveDialog.visible)mainWindow.navigateSafely(function(){editor.close();taskList.forceActiveFocus()})
+        onSaveRequested: {mainWindow.pendingAction=null;mainWindow.saveEditor()}
+    }
+
     Dialog {
         id: leaveDialog
         objectName: "unsavedChangesDialog"
@@ -712,12 +748,16 @@ ApplicationWindow {
         title: qsTr("有未保存的修改")
         modal: true
         closePolicy: Popup.NoAutoClose
-        Label { text: qsTr("保存修改后继续，或明确放弃此次编辑。") }
-        footer: DialogButtonBox {
-            Button { objectName: "cancelLeave"; text: qsTr("取消离开"); onClicked: { mainWindow.pendingAction = null; mainWindow.forceQuit=false;leaveDialog.close() } }
+        width: Math.min(560,parent.width-32)
+        Label {width: leaveDialog.availableWidth;wrapMode: Text.Wrap;text: qsTr("保存修改后继续，或明确放弃此次编辑。")}
+        Shortcut {sequence: "Escape";enabled: leaveDialog.visible;onActivated: {mainWindow.pendingAction=null;mainWindow.forceQuit=false;leaveDialog.close()}}
+        footer: Flow {
+            padding: 16;spacing: 8
+            Button { objectName: "cancelLeave"; text: qsTr("继续编辑"); onClicked: { mainWindow.pendingAction = null; mainWindow.forceQuit=false;leaveDialog.close() } }
             Button {
                 objectName: "discardDraft"
                 text: qsTr("放弃修改")
+                palette.buttonText: Theme.danger
                 onClicked: {
                     mainWindow.draftDirty = false
                     const action = mainWindow.pendingAction
@@ -830,7 +870,7 @@ ApplicationWindow {
         if(calendarPanel.protectClose(function(){mainWindow.close()})){close.accepted=false;return}
         if (recurrence.visible && recurrence.dirty) {close.accepted=false;recurrence.safely(function(){recurrence.close();mainWindow.close()});return}
         if (organization.visible && organization.dirty) {close.accepted=false;organization.safely(function(){organization.close();mainWindow.close()});return}
-        if (editor.visible && draftDirty) {
+        if (editingActive && draftDirty) {
             close.accepted = false
             navigateSafely(function() { mainWindow.close() })
         } else if (!forceQuit && widgetController.trayAvailable && widgetController.closeToTray) {

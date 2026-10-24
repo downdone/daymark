@@ -4,6 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 Dialog {
     id: root
+    background: Rectangle {color: Theme.sidebar;radius: 16;border.color: Theme.separator}
     objectName: "settingsDialog"
     signal calendarVisibilityRequested(bool visible)
     required property TaskWorkspace workspace

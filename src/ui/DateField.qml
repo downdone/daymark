@@ -1,40 +1,46 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 
 TextField {
     id: field
     required property TaskWorkspace workspace
     property string dateLabel: qsTr("日期")
-    readonly property bool pickerVisible: picker.visible
+    property bool allowClear: true
+    property bool inlineMode: false
+    property bool inlineExpanded: false
+    readonly property bool pickerVisible: shortcuts.visible || (inlineMode ? inlineExpanded : picker.visible)
     property var month: ({title: "", days: []})
     readonly property var hostWindow: Window.window
     property point anchorPosition: Qt.point(0,0)
     property string placement: "below"
     signal dateChosen()
+    signal calendarFocusRequested()
     selectByMouse: true
     placeholderText: qsTr("未设置")
     Accessible.name: dateLabel
     rightPadding: calendarButton.width+8
     function openPicker() {
+        shortcuts.close()
+        month=workspace.datePicker(text,0)
+        if(inlineMode){inlineExpanded=true;forceActiveFocus();return}
         anchorPosition=mapToItem(null,0,0)
         const popupWidth=picker.width
         if(anchorPosition.x>=popupWidth+8)placement="left"
         else if(hostWindow && hostWindow.width-anchorPosition.x-width>=popupWidth+8)placement="right"
         else placement=hostWindow && hostWindow.height-anchorPosition.y-height<anchorPosition.y ? "above" : "below"
-        month=workspace.datePicker(text,0)
         picker.open()
         forceActiveFocus()
     }
-    function chooseDate(value) {text=value;dateChosen();picker.close();forceActiveFocus()}
-    function closePicker() {picker.close()}
-    onVisibleChanged: if(!visible)picker.close()
-    Keys.onEscapePressed: function(event) {if(picker.visible)picker.close();else event.accepted=false}
-    Keys.onReturnPressed: function(event) {if(picker.visible)picker.close();else event.accepted=false}
+    function chooseDate(value) {text=value;dateChosen();closePicker();forceActiveFocus()}
+    function openShortcuts(){if(inlineMode)inlineExpanded=false;picker.close();shortcuts.open()}
+    function closePicker() {picker.close();shortcuts.close();inlineExpanded=false}
+    onVisibleChanged: if(!visible)closePicker()
+    Keys.onEscapePressed: function(event) {if(pickerVisible)closePicker();else event.accepted=false}
+    Keys.onReturnPressed: function(event) {if(pickerVisible)closePicker();else event.accepted=false}
     Keys.onPressed: function(event) {
         if(event.key===Qt.Key_Down && (event.modifiers & Qt.AltModifier)) {openPicker();event.accepted=true}
-        else if(event.key===Qt.Key_Down && picker.visible) {const day=dayButtons.itemAt(0);if(day)day.forceActiveFocus();event.accepted=true}
+        else if(event.key===Qt.Key_Down && pickerVisible){if(inlineMode)calendarFocusRequested();else calendar.focusSelectedDay();event.accepted=true}
     }
     TapHandler {onTapped: field.openPicker()}
     IconToolButton {
@@ -45,7 +51,19 @@ TextField {
         height: field.height-4
         Accessible.name: qsTr("选择%1").arg(field.dateLabel)
         contentItem: AppIcon {name: "calendar"}
-        onClicked: field.pickerVisible ? field.closePicker() : field.openPicker()
+        onClicked: shortcuts.visible ? shortcuts.close() : field.openShortcuts()
+        Menu {
+            id: shortcuts
+            objectName: "dateShortcuts"
+            x: parent.width-width;y: parent.height
+            MenuItem {visible: field.allowClear;text: qsTr("无日期");checkable: true;checked: !field.text;onTriggered: field.chooseDate("")}
+            MenuSeparator {visible: field.allowClear}
+            MenuItem {objectName: "dateShortcutToday";text: qsTr("今天");checkable: true;checked: field.text===field.workspace.dateOffset(0);onTriggered: field.chooseDate(field.workspace.dateOffset(0))}
+            MenuItem {objectName: "dateShortcutTomorrow";text: qsTr("明天");checkable: true;checked: field.text===field.workspace.dateOffset(1);onTriggered: field.chooseDate(field.workspace.dateOffset(1))}
+            MenuItem {text: qsTr("一周后");checkable: true;checked: field.text===field.workspace.dateOffset(7);onTriggered: field.chooseDate(field.workspace.dateOffset(7))}
+            MenuSeparator {}
+            MenuItem {text: qsTr("自定义日期…");onTriggered: field.openPicker()}
+        }
     }
     Popup {
         id: picker
@@ -59,65 +77,20 @@ TextField {
         modal: false
         focus: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle {color: Theme.content;border.color: Theme.separator;radius: 8}
+        background: Rectangle {color: Theme.content;border.color: Theme.separator;radius: 16}
         contentItem: ScrollView {
             clip: true
             implicitHeight: calendar.implicitHeight
-            ColumnLayout {
+            CalendarPicker {
                 id: calendar
                 width: picker.availableWidth
-                spacing: 4
-                RowLayout {
-                    Layout.fillWidth: true
-                    IconToolButton {contentItem: AppIcon {name: "left"} Accessible.name: qsTr("上月");onClicked: field.month=field.workspace.datePicker(field.month.anchor,-1)}
-                    Label {Layout.fillWidth: true;text: field.month.title;horizontalAlignment: Text.AlignHCenter}
-                    IconToolButton {contentItem: AppIcon {name: "right"} Accessible.name: qsTr("下月");onClicked: field.month=field.workspace.datePicker(field.month.anchor,1)}
-                }
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 7
-                    uniformCellWidths: true
-                    columnSpacing: 2
-                    rowSpacing: 2
-                    Repeater {
-                        model: field.workspace.sundayFirst ? [qsTr("日"),qsTr("一"),qsTr("二"),qsTr("三"),qsTr("四"),qsTr("五"),qsTr("六")] : [qsTr("一"),qsTr("二"),qsTr("三"),qsTr("四"),qsTr("五"),qsTr("六"),qsTr("日")]
-                        Label {required property string modelData;text: modelData;font.pixelSize: Theme.captionSize;color: Theme.secondary;Layout.fillWidth: true;horizontalAlignment: Text.AlignHCenter}
-                    }
-                    Repeater {
-                        id: dayButtons
-                        model: field.month.days
-                        Button {
-                            required property var modelData
-                            required property int index
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 28
-                            implicitWidth: 32
-                            padding: 4
-                            horizontalPadding: 0
-                            implicitHeight: Math.max(32,contentItem.implicitHeight+8)
-                            text: modelData.day
-                            flat: field.text!==modelData.date
-                            highlighted: field.text===modelData.date
-                            font.weight: modelData.today ? Font.DemiBold : Font.Normal
-                            palette.buttonText: modelData.today ? Theme.accent : Theme.text
-                            Accessible.name: modelData.date+(modelData.today ? qsTr("，今天") : "")+(highlighted ? qsTr("，已选择") : "")
-                            onClicked: field.chooseDate(modelData.date)
-                            function focusOffset(offset) {const next=dayButtons.itemAt(Math.max(0,Math.min(dayButtons.count-1,index+offset)));if(next)next.forceActiveFocus()}
-                            Keys.onLeftPressed: focusOffset(-1)
-                            Keys.onRightPressed: focusOffset(1)
-                            Keys.onUpPressed: focusOffset(-7)
-                            Keys.onDownPressed: focusOffset(7)
-                        }
-                    }
-                }
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 4
-                    Button {text: qsTr("今天");flat: true;onClicked: field.chooseDate(field.workspace.dateOffset(0))}
-                    Button {text: qsTr("明天");flat: true;onClicked: field.chooseDate(field.workspace.dateOffset(1))}
-                    Button {text: qsTr("清除");flat: true;onClicked: field.chooseDate("")}
-                }
-                Label {Layout.fillWidth: true;text: qsTr("可直接输入 yyyy-MM-dd，Enter 收起日历");font.pixelSize: Theme.captionSize;color: Theme.secondary;wrapMode: Text.Wrap}
+                workspace: field.workspace
+                month: field.month
+                selectedDate: field.text
+                allowClear: field.allowClear
+                onDateSelected: function(value){field.chooseDate(value)}
+                onDismissRequested: {field.closePicker();field.forceActiveFocus()}
+                onMoveMonth: function(offset){field.month=field.workspace.datePicker(field.month.anchor,offset)}
             }
         }
     }
