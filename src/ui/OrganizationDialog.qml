@@ -14,7 +14,7 @@ Dialog {
     readonly property var kinds: ["area", "project", "heading", "tag"]
     readonly property var names: [qsTr("领域"), qsTr("项目"), qsTr("分组"), qsTr("标签")]
     property var parents: []
-    title: qsTr("组织管理")
+    title: qsTr("项目、领域与标签")
     width: Math.min(780, parent.width - 40)
     height: Math.min(580, parent.height - 40)
     modal: true

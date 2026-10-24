@@ -366,16 +366,16 @@ QVariantList TaskWorkspace::catalogOf(const QString& kind,const QString& parent)
         && (parent.isNull() || parent.isEmpty() || item.value(QStringLiteral("parentId")).toString()==parent))output.append(value);}
     return output;
 }
-bool TaskWorkspace::runCatalog(std::function<Result<void>(TaskWorker&)> command,const QString& operation)
+bool TaskWorkspace::runCatalog(std::function<Result<void>(TaskWorker&)> command,const QString& operation,std::function<void()> completed)
 {
     if(!m_ready || !begin(operation!=QStringLiteral("maintenance")))return false;
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
-    QMetaObject::invokeMethod(worker,[self,worker,operation,command=std::move(command)]{
+    QMetaObject::invokeMethod(worker,[self,worker,operation,command=std::move(command),completed=std::move(completed)]{
         const auto result=command(*worker);
         const auto generated=result.ok() && operation!=QStringLiteral("batch") && operation!=QStringLiteral("integrity")?worker->recurrenceService->generate():Result<int>{{},result.error};
         const auto tasks=worker->repository->all();const auto catalog=worker->catalog->all();const auto rules=worker->recurrence->all();
         const auto events=EventRepository(worker->database.connection()).all();
-        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,generated,operation]{
+        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,generated,operation,completed]{
             if(!self)return;
             self->m_busy=false;if(operation!=QStringLiteral("maintenance") || !result.ok())self->m_error=result.error;
             if(tasks.ok())self->m_cache=tasks.value;else self->m_error=tasks.error;
@@ -383,7 +383,7 @@ bool TaskWorkspace::runCatalog(std::function<Result<void>(TaskWorker&)> command,
             if(rules.ok())self->m_rules=rules.value;else self->m_error=rules.error;
             if(events.ok())self->m_events=events.value;else self->m_error=events.error;
             if(!generated.ok())self->m_error=generated.error;
-            self->refresh();emit self->stateChanged();emit self->operationFinished(operation,result.ok() && tasks.ok() && catalog.ok() && rules.ok() && events.ok() && generated.ok());
+            self->refresh();emit self->stateChanged();const bool success=result.ok() && tasks.ok() && catalog.ok() && rules.ok() && events.ok() && generated.ok();if(success && completed)completed();emit self->operationFinished(operation,success);
             if(operation==QStringLiteral("batch") && result.ok())self->maintain();
         },Qt::QueuedConnection);
     },Qt::QueuedConnection);return true;
@@ -398,7 +398,8 @@ bool TaskWorkspace::saveCatalog(const QVariantMap& value)
     item.archived=value.value(QStringLiteral("archived"),false).toBool();
     if(!value.value(QStringLiteral("startOn")).toString().trimmed().isEmpty())item.startOn=QDate::fromString(value.value(QStringLiteral("startOn")).toString().trimmed(),Qt::ISODate);
     if(!value.value(QStringLiteral("deadlineOn")).toString().trimmed().isEmpty())item.deadlineOn=QDate::fromString(value.value(QStringLiteral("deadlineOn")).toString().trimmed(),Qt::ISODate);
-    return runCatalog([item](TaskWorker& w){const auto result=w.catalogService->save(item);return Result<void>{result.error};});
+    auto saved=std::make_shared<CatalogItem>();
+    return runCatalog([item,saved](TaskWorker& w){const auto result=w.catalogService->save(item);if(result.ok())*saved=result.value;return Result<void>{result.error};},QStringLiteral("catalog"),[this,saved]{emit catalogSaved(saved->id,saved->kind);});
 }
 bool TaskWorkspace::deleteCatalog(const QString& kind,const QString& id,qint64 version)
 {return runCatalog([kind,id,version](TaskWorker& w){return w.catalogService->remove(kind,id,version);});}
@@ -697,10 +698,12 @@ void TaskWorkspace::setThemeMode(int mode)
     if(settings.status()!=QSettings::NoError){m_error={ErrorCode::PersistenceError,QStringLiteral("settingsWrite")};emit stateChanged();return;}
     m_themeMode=mode;emit stateChanged();
 }
+int TaskWorkspace::taskIndex(const QString& id) const
+{const auto& tasks=m_tasks.items();for(int index=0;index<tasks.size();++index)if(tasks[index].id==id)return index;return -1;}
 bool TaskWorkspace::canMoveTask(const QString& id,int direction) const
 {
-    if(!m_ready || m_busy || !m_search.isEmpty() || !m_tagFilter.isEmpty() || !m_projectFilter.isEmpty() || m_view==QStringLiteral("upcoming") || m_view==QStringLiteral("logbook") || (direction!=-1 && direction!=1))return false;
-    const auto tasks=QueryService::select(m_cache,m_view,m_today);
+    if(!m_ready || m_busy || m_includeCompleted || !m_search.isEmpty() || !m_tagFilter.isEmpty() || !m_projectFilter.isEmpty() || m_view==QStringLiteral("upcoming") || m_view==QStringLiteral("logbook") || (direction!=-1 && direction!=1))return false;
+    const auto& tasks=m_tasks.items();
     int index=-1;for(int i=0;i<tasks.size();++i)if(tasks[i].id==id){index=i;break;}
     if(index<0 || index+direction<0 || index+direction>=tasks.size())return false;
     if(m_view==QStringLiteral("today") && tasks[index].evening!=tasks[index+direction].evening)return false;

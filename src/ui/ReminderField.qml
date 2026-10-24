@@ -6,6 +6,7 @@ import QtQuick.Layouts
 TextField {
     id: field
     required property TaskWorkspace workspace
+    property bool iconOnly: false
     readonly property bool pickerVisible: picker.visible || date.pickerVisible || time.pickerVisible
     readonly property var hostWindow: Window.window
     signal reminderChosen()
@@ -25,7 +26,7 @@ TextField {
     IconToolButton {
         id: bell
         anchors.right: parent.right;anchors.verticalCenter: parent.verticalCenter
-        width: Math.max(32,Theme.bodySize+16);height: field.height-4
+        width: field.iconOnly ? field.width : Math.max(32,Theme.bodySize+16);height: field.iconOnly ? field.height : field.height-4
         contentItem: AppIcon {name: "bell"}
         Accessible.name: qsTr("选择提醒日期和时间")
         onClicked: picker.visible ? field.closePicker() : field.openPicker()

@@ -5,7 +5,9 @@ import QtQuick.Controls
 TextField {
     id: field
     required property TaskWorkspace workspace
+    property string symbol: "calendar"
     property string dateLabel: qsTr("日期")
+    property bool iconOnly: false
     property bool allowClear: true
     property bool inlineMode: false
     property bool inlineExpanded: false
@@ -47,10 +49,10 @@ TextField {
         id: calendarButton
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        width: Math.max(32,Theme.bodySize+16)
-        height: field.height-4
+        width: field.iconOnly ? field.width : Math.max(32,Theme.bodySize+16)
+        height: field.iconOnly ? field.height : field.height-4
         Accessible.name: qsTr("选择%1").arg(field.dateLabel)
-        contentItem: AppIcon {name: "calendar"}
+        contentItem: AppIcon {name: field.symbol}
         onClicked: shortcuts.visible ? shortcuts.close() : field.openShortcuts()
         Menu {
             id: shortcuts

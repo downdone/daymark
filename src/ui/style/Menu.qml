@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Templates as T
 T.Menu {
     id: control
-    popupType: T.Popup.Window
+    popupType: T.Popup.Item
     margins: 6
     implicitWidth: {
         let widest=180*DesignTokens.scale
@@ -13,7 +13,7 @@ T.Menu {
         return widest
     }
     width: implicitWidth
-    implicitHeight: implicitContentHeight+topPadding+bottomPadding
+    implicitHeight: Math.min(480,implicitContentHeight+topPadding+bottomPadding)
     padding: 6
     font.pixelSize: DesignTokens.body
     delegate: MenuItem {}

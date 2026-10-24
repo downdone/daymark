@@ -29,7 +29,7 @@ T.Switch {
         y: (control.height-height)/2
         implicitWidth: control.trackWidth;implicitHeight: control.trackHeight
         radius: height/2
-        color: !control.enabled ? Theme.separator : control.checked ? Theme.success : DS.DesignTokens.outline
+        color: !control.enabled ? Theme.separator : control.checked ? Theme.toggleOn : DS.DesignTokens.outline
         border.width: control.visualFocus ? 2 : 0;border.color: Theme.accent
         Rectangle {
             width: parent.height-6;height: width;radius: width/2

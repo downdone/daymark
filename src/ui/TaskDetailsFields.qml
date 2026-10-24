@@ -13,10 +13,12 @@ ColumnLayout {
     property var tags: []
     readonly property bool twoColumns: width-24>=440*Theme.scale
     property bool infoExpanded: false
-    readonly property var destinations: [{kind:"",id:"",title:qsTr("无归属")}].concat(projects.map(item=>({kind:"project",id:item.id,title:qsTr("项目 · %1").arg(item.title)}))).concat(areas.map(item=>({kind:"area",id:item.id,title:qsTr("领域 · %1").arg(item.title)})))
+    readonly property var destinations: [{kind:"",id:"",title:qsTr("不分类")}].concat(projects.map(item=>({kind:"project",id:item.id,title:qsTr("项目 · %1").arg(item.title)}))).concat(areas.map(item=>({kind:"area",id:item.id,title:qsTr("领域 · %1").arg(item.title)})))
     readonly property var selectedDestination: destinations[destinationChoice.currentIndex] || destinations[0]
     property var tagIds: []
     property var relatedEvents: []
+    property int lastDestinationIndex: 0
+    signal createCatalogRequested(string kind)
     signal draftChanged()
     signal openEvent(string eventId)
     signal focusRequested(Item item)
@@ -28,12 +30,31 @@ ColumnLayout {
         tagIds=item.tagIds.slice()
         infoExpanded=false
         destinationChoice.currentIndex=Math.max(0,destinations.findIndex(value=>item.projectId ? value.kind==="project" && value.id===item.projectId : item.areaId ? value.kind==="area" && value.id===item.areaId : value.kind===""))
+        lastDestinationIndex=destinationChoice.currentIndex
         loadHeadings()
         headingChoice.currentIndex=headings.findIndex(value=>value.id===item.headingId)+1
         checklist.clear()
         for(const entry of item.checklist)checklist.append({itemId:entry.id,itemTitle:entry.title,itemDone:entry.done})
         newItem.clear()
     }
+    function refreshCatalog() {
+        const previous=selectedDestination
+        const heading=headingChoice.currentIndex>0 ? headings[headingChoice.currentIndex-1].id : ""
+        projects=workspace.catalogOf("project");areas=workspace.catalogOf("area");tags=workspace.catalogOf("tag")
+        destinationChoice.currentIndex=Math.max(0,destinations.findIndex(item=>item.kind===previous.kind && item.id===previous.id))
+        lastDestinationIndex=destinationChoice.currentIndex
+        loadHeadings();headingChoice.currentIndex=headings.findIndex(item=>item.id===heading)+1
+    }
+    function applyCreated(kind,id) {
+        refreshCatalog()
+        if(kind==="tag")toggleTag(id,true);else selectDestination(kind,id,"")
+    }
+    function toggleTag(id,value) {
+        const next=tagIds.slice();const at=next.indexOf(id)
+        if(value && at<0)next.push(id);else if(!value && at>=0)next.splice(at,1)
+        tagIds=next;draftChanged()
+    }
+    function selectDestinationForVerification(kind,id,headingId){return selectDestination(kind,id,headingId)}
     function loadHeadings() {
         headings=selectedDestination.kind==="project" ? workspace.catalogOf("heading",selectedDestination.id) : []
         headingChoice.currentIndex=0
@@ -51,7 +72,7 @@ ColumnLayout {
             headingId:headingChoice.currentIndex>0 ? headings[headingChoice.currentIndex-1].id : "",
             tagIds:tagIds,checklist:items}
     }
-    function selectDestinationForVerification(kind,id,headingId) {
+    function selectDestination(kind,id,headingId) {
         const index=destinations.findIndex(item=>item.kind===kind && item.id===id)
         if(index<0)return false
         destinationChoice.currentIndex=index;destinationChoice.activated(index)
@@ -69,7 +90,8 @@ ColumnLayout {
     }
     ListModel {id: checklist}
     DetailSection {
-        heading: qsTr("归属与标签");symbol: "project"
+        heading: qsTr("整理");symbol: "project"
+        Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("项目管理多步骤目标，领域管理长期职责；标签便于跨项目查找。都可不选。")}
         GridLayout {
             objectName: "editorAssignmentGrid"
             Layout.fillWidth: true
@@ -78,13 +100,13 @@ ColumnLayout {
             rowSpacing: 8
             ColumnLayout {
                 Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
-                Label {text: qsTr("项目或领域");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                Label {text: qsTr("放入项目或领域");font.pixelSize: Theme.captionSize;color: Theme.secondary}
                 ComboBox {
                     id: destinationChoice;objectName: "editorDestination"
                     Layout.fillWidth: true
                     Accessible.name: qsTr("任务归属，项目或领域只能选择一个")
-                    model: root.destinations.map(item=>item.title)
-                    onActivated: {root.loadHeadings();root.draftChanged()}
+                    model: root.destinations.map(item=>item.title).concat([qsTr("新建项目…"),qsTr("新建领域…")])
+                    onActivated: {if(currentIndex>=root.destinations.length){const kind=currentIndex===root.destinations.length ? "project" : "area";currentIndex=root.lastDestinationIndex;root.createCatalogRequested(kind)}else{root.lastDestinationIndex=currentIndex;root.loadHeadings();root.draftChanged()}}
                 }
             }
             ColumnLayout {
@@ -106,7 +128,7 @@ ColumnLayout {
             Label {text: qsTr("标签");Layout.alignment: Qt.AlignTop;Layout.topMargin: 7;font.pixelSize: Theme.captionSize;color: Theme.secondary}
             Flow {
                 id: tagFlow;Layout.fillWidth: true;spacing: 6
-                Label {visible: root.tags.length===0;text: qsTr("暂无标签");topPadding: 7;bottomPadding: 7;color: Theme.secondary;font.pixelSize: Theme.captionSize}
+                Label {visible: root.tags.length===0;text: qsTr("按地点或场景分类");topPadding: 7;bottomPadding: 7;color: Theme.secondary;font.pixelSize: Theme.captionSize}
                 Repeater {
                     model: root.tags
                     CheckBox {
@@ -115,12 +137,11 @@ ColumnLayout {
                         text: modelData.title
                         checked: root.tagIds.indexOf(modelData.id)>=0
                         onClicked: {
-                            const next=root.tagIds.slice();const at=next.indexOf(modelData.id)
-                            if(checked && at<0)next.push(modelData.id);else if(!checked && at>=0)next.splice(at,1)
-                            root.tagIds=next;root.draftChanged()
+                            root.toggleTag(modelData.id,checked)
                         }
                     }
                 }
+                ActionButton {objectName: "newTagHere";symbol: "plus";text: qsTr("新建标签");onClicked: root.createCatalogRequested("tag")}
             }
         }
     }

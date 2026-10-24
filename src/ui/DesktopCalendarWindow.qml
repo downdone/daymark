@@ -51,6 +51,7 @@ ApplicationWindow {
             WidgetAction {symbol: "pin";description: qsTr("日历置顶");checked: calendar.workspace.preferences.desktopCalendarTopmost;onClicked: calendar.workspace.setPreference("desktopCalendarTopmost",!checked)}
             WidgetAction {symbol: "settings";description: qsTr("日历透明度与位置");onClicked: options.open()
                 Menu {
+                        popupType: Popup.Window
                     id: options
                     MenuItem {text: qsTr("背景透明度 %1%").arg(calendar.workspace.preferences.desktopCalendarOpacity);enabled: false}
                     MenuItem {text: qsTr("100% · 实色");onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",100)}

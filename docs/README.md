@@ -75,3 +75,5 @@ Apple HIG为项目UI/UX强制依据，见[原则P-13](principles.md)；完整视
 参考iOS的圆角分组、滑动开关与拖放伪按钮处置见[UI-17](design/ios-grouped-details.md)。
 
 UI-18按[就近编辑设计](design/direct-editing.md)推进共享日期/时间、快速编辑与全页直接选择，保留原子草稿和平台门禁。
+
+UI-19按[原行编辑及即时反馈](design/inline-task-experience.md)修订快速卡形式、整理与创建、详情动作、列表/完成反馈和菜单响应。

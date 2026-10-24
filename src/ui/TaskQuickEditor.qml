@@ -1,102 +1,134 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
-
-Popup {
+Control {
     id: root
     objectName: "taskQuickEditor"
     required property TaskWorkspace workspace
-    property Item anchorItem: null
     property bool dirty: false
     property bool guardActive: false
     property string titleText: ""
     property string notesText: ""
     property string startOn: ""
     property string deadlineOn: ""
+    property string reminderText: ""
+    property var destinations: []
+    property var tags: []
+    property var tagIds: []
+    property string destinationId: ""
+    readonly property bool multilineNotes: notesText.indexOf("\n")>=0
+    readonly property var hostWindow: Window.window
+    readonly property bool pickerVisible: quickStart.pickerVisible || quickEnd.pickerVisible || reminder.pickerVisible || tagPicker.visible || destinationPicker.visible
     signal titleEdited(string value)
     signal notesEdited(string value)
     signal startEdited(string value)
     signal deadlineEdited(string value)
+    signal reminderEdited(string value)
+    signal destinationEdited(string kind,string id)
+    signal tagEdited(string id,bool checked)
+    signal createCatalogRequested(string kind)
     signal detailsRequested()
     signal closeRequested()
     signal saveRequested()
-    width: Math.min(560*Theme.scale,parent.width-32)
-    height: Math.min(contentItem.implicitHeight+padding*2,parent.height-32)
-    x: anchorItem ? Math.max(16,Math.min(parent.width-width-16,anchorItem.mapToItem(parent,0,0).x)) : Math.max(16,(parent.width-width)/2)
-    y: anchorItem ? Math.max(16,Math.min(parent.height-height-16,anchorItem.mapToItem(parent,0,0).y)) : Math.max(16,Math.min(96,(parent.height-height)/2))
-    padding: 16;margins: 16;focus: true;modal: false
-    closePolicy: Popup.NoAutoClose
-    background: Rectangle {color: Theme.content;radius: 16;border.color: Theme.separator}
-    function verifyLayout() {
-        const at=footer.mapToItem(root.contentItem,0,0)
-        return body.height>=40 && at.y+footer.height<=root.availableHeight+1 && root.width<=root.parent.width-16 ? "PASS" : "quick editor clipped: body="+body.height+", footer="+at.y+"/"+footer.height+", available="+root.availableHeight+", width="+root.width+"/"+root.parent.width
-    }
-    property bool manualScroll: false
-    function reveal(item,cursor) {
-        if(manualScroll || !item)return
-        const y=item.mapToItem(body.contentItem,0,cursor ? quickNotes.cursorRectangle.y : 0).y
-        const bottom=y+(cursor ? quickNotes.cursorRectangle.height : Math.min(item.height,body.height/2))+8
-        if(y<body.contentY)body.contentY=y
-        else if(bottom>body.contentY+body.height)body.contentY=bottom-body.height
-    }
-    function focusTitle(){quickTitle.forceActiveFocus()}
-    onOpened: {manualScroll=false;body.contentY=0;focusTitle()}
-    onClosed: {quickStart.closePicker();quickEnd.closePicker()}
-    Shortcut {sequence: "Escape";enabled: root.visible && !root.guardActive && !quickStart.pickerVisible && !quickEnd.pickerVisible;onActivated: root.closeRequested()}
+    signal completeRequested()
+    signal focusRequested(Item item)
+    property bool editing: false
+    visible: editing
+    padding: 10
+    implicitHeight: implicitContentHeight+topPadding+bottomPadding
+    function open(){editing=true;Qt.callLater(focusTitle)}
+    function close(){quickStart.closePicker();quickEnd.closePicker();reminder.closePicker();tagPicker.close();destinationPicker.close();editing=false}
+    function focusTitle(){quickTitle.forceActiveFocus();focusRequested(quickTitle)}
+    function verifyLayout(){return width>0 && height<=170*Theme.scale && quickTitle.font.pixelSize===Theme.bodySize && quickNotes.font.pixelSize===Theme.captionSize ? "PASS" : "inline row size or typography"}
+    Shortcut {sequence: "Escape";enabled: root.visible && !root.guardActive && !root.pickerVisible;onActivated: root.closeRequested()}
+    Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+Return" : "Ctrl+Return";enabled: root.visible && !root.guardActive && !root.pickerVisible;onActivated: root.saveRequested()}
     contentItem: ColumnLayout {
-        spacing: 8
+        spacing: 2
+        enabled: !root.workspace.busy || root.workspace.backgroundBusy
         RowLayout {
-            id: header
-            Layout.fillWidth: true
-            Label {text: qsTr("快速编辑");font.weight: Font.DemiBold;Layout.fillWidth: true}
-            Label {visible: root.dirty;text: qsTr("未保存");color: Theme.secondary;font.pixelSize: Theme.captionSize}
-            IconToolButton {contentItem: AppIcon {name: "close"} Accessible.name: qsTr("关闭快速编辑");enabled: !root.workspace.busy;onClicked: root.closeRequested()}
-        }
-        Flickable {
-            id: body
-            DS.ScrollPhysics {target: body}
-            objectName: "quickEditorScroll"
-            Layout.fillWidth: true;Layout.fillHeight: true;Layout.minimumHeight: 40
-            implicitHeight: fields.implicitHeight
-            onMovementStarted: root.manualScroll=true
-            WheelHandler {target: null;blocking: false;onWheel: function(event){root.manualScroll=true;event.accepted=false}}
-            contentWidth: width;contentHeight: fields.implicitHeight
-            clip: true;boundsBehavior: Flickable.StopAtBounds;flickableDirection: Flickable.VerticalFlick
-            ScrollBar.vertical: ScrollBar {policy: ScrollBar.AsNeeded}
-            ColumnLayout {
-                id: fields
-                width: body.width-12;spacing: 8
-                enabled: !root.workspace.busy || root.workspace.backgroundBusy
-                TextField {id: quickTitle;objectName: "quickEditorTitle";Layout.fillWidth: true;font.pixelSize: Theme.taskTitleSize;font.weight: Font.DemiBold;Accessible.name: qsTr("任务标题");onTextEdited: {root.manualScroll=false;root.titleEdited(text)} onActiveFocusChanged: if(activeFocus){root.manualScroll=false;root.reveal(quickTitle,false)}}
-                Binding {target: quickTitle;property: "text";value: root.titleText}
-                TextArea {id: quickNotes;objectName: "quickEditorNotes";Layout.fillWidth: true;implicitHeight: Math.max(40,contentHeight+topPadding+bottomPadding);wrapMode: TextEdit.Wrap;placeholderText: qsTr("添加备注…");Accessible.name: qsTr("备注");onTextChanged: if(activeFocus){root.manualScroll=false;root.notesEdited(text)} onCursorPositionChanged: {root.manualScroll=false;Qt.callLater(function(){if(quickNotes.activeFocus)root.reveal(quickNotes,true)})} onActiveFocusChanged: if(activeFocus){root.manualScroll=false;root.reveal(quickNotes,true)}}
-                Binding {target: quickNotes;property: "text";value: root.notesText}
-                GridLayout {
-                    Layout.fillWidth: true;columns: fields.width>=440*Theme.scale ? 2 : 1;columnSpacing: 12
-                    ColumnLayout {
-                        Layout.fillWidth: true;Layout.preferredWidth: 1
-                        Label {text: qsTr("计划开始");color: Theme.secondary;font.pixelSize: Theme.captionSize}
-                        DateField {id: quickStart;onActiveFocusChanged: if(activeFocus){root.manualScroll=false;root.reveal(quickStart,false)} objectName: "quickEditorStart";workspace: root.workspace;dateLabel: qsTr("计划开始");Layout.fillWidth: true;onTextEdited: root.startEdited(text);onDateChosen: root.startEdited(text)}
-                        Binding {target: quickStart;property: "text";value: root.startOn}
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true;Layout.preferredWidth: 1
-                        Label {text: qsTr("截止日期");color: Theme.secondary;font.pixelSize: Theme.captionSize}
-                        DateField {id: quickEnd;onActiveFocusChanged: if(activeFocus){root.manualScroll=false;root.reveal(quickEnd,false)} objectName: "quickEditorDeadline";workspace: root.workspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true;onTextEdited: root.deadlineEdited(text);onDateChosen: root.deadlineEdited(text)}
-                        Binding {target: quickEnd;property: "text";value: root.deadlineOn}
-                    }
-                }
-                Label {Layout.fillWidth: true;visible: text.length>0;text: root.workspace.errorText;color: Theme.danger;wrapMode: Text.Wrap}
-            }
-        }
-        Flow {
-            id: footer
             Layout.fillWidth: true;spacing: 8
-            ActionButton {objectName: "quickEditorDetails";symbol: "expand";text: qsTr("完整详情");enabled: !root.workspace.busy;onClicked: root.detailsRequested()}
-            Button {text: qsTr("关闭");enabled: !root.workspace.busy;onClicked: root.closeRequested()}
-            Button {objectName: "saveQuickEditor";text: qsTr("保存");highlighted: true;enabled: !root.workspace.busy;onClicked: root.saveRequested()}
+            IconToolButton {objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {anchors.centerIn: parent;width: Theme.iconSize;height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.5}} onClicked: root.completeRequested()}
+            TextField {
+                id: quickTitle;objectName: "quickEditorTitle"
+                Layout.fillWidth: true
+                font.pixelSize: Theme.bodySize;font.weight: Font.Normal
+                leftPadding: 0;rightPadding: 0;background: Item {}
+                Accessible.name: qsTr("任务标题")
+                onTextEdited: root.titleEdited(text)
+                onAccepted: root.saveRequested()
+                onActiveFocusChanged: if(activeFocus)root.focusRequested(quickTitle)
+            }
+            Binding {target: quickTitle;property: "text";value: root.titleText}
+            IconToolButton {objectName: "quickEditorDetails";contentItem: AppIcon {name: "info"} Accessible.name: qsTr("完整任务详情");onClicked: root.detailsRequested()}
+            IconToolButton {objectName: "saveQuickEditor";contentItem: AppIcon {name: root.dirty ? "check" : "up";ink: root.dirty ? Theme.accent : Theme.secondary} Accessible.name: root.dirty ? qsTr("保存并收起，Ctrl+Enter") : qsTr("收起任务，Esc");onClicked: root.dirty ? root.saveRequested() : root.closeRequested()}
         }
+        TextField {
+            id: quickNotes;objectName: "quickEditorNotes"
+            Layout.fillWidth: true;Layout.leftMargin: 40
+            font.pixelSize: Theme.captionSize;color: Theme.secondary
+            implicitHeight: Math.max(24,contentHeight+4)
+            padding: 2;leftPadding: 0;readOnly: root.multilineNotes
+            placeholderText: qsTr("添加备注…")
+            Accessible.name: root.multilineNotes ? qsTr("多行备注摘要，点击在详情编辑") : qsTr("一行备注")
+            background: Item {}
+            onTextEdited: root.notesEdited(text)
+            onAccepted: root.saveRequested()
+            onActiveFocusChanged: if(activeFocus)root.focusRequested(quickNotes)
+            TapHandler {enabled: root.multilineNotes;onTapped: root.detailsRequested()}
+        }
+        Binding {target: quickNotes;property: "text";value: root.multilineNotes ? root.notesText.split("\n")[0]+"…" : root.notesText}
+        Flow {
+            Layout.fillWidth: true;Layout.leftMargin: 40;spacing: 6
+            DateField {
+                id: quickStart;objectName: "quickEditorStart"
+                workspace: root.workspace;iconOnly: true;dateLabel: qsTr("计划开始：%1").arg(text || qsTr("未设置"))
+                width: Math.max(36,Theme.iconSize+16);height: width;implicitWidth: width
+                readOnly: true;activeFocusOnTab: false;color: "transparent";leftPadding: 0;placeholderText: ""
+                background: Rectangle {radius: height/2;border.width: quickStart.activeFocus ? 2 : 0;border.color: Theme.accent;color: quickStart.text ? Theme.selected : Theme.sidebar}
+                onDateChosen: root.startEdited(text)
+                onActiveFocusChanged: if(activeFocus)root.focusRequested(quickStart)
+            }
+            Binding {target: quickStart;property: "text";value: root.startOn}
+            DateField {
+                id: quickEnd;objectName: "quickEditorDeadline"
+                workspace: root.workspace;iconOnly: true;dateLabel: qsTr("截止日期：%1").arg(text || qsTr("未设置"));symbol: "flag"
+                width: Math.max(36,Theme.iconSize+16);height: width;implicitWidth: width
+                readOnly: true;activeFocusOnTab: false;color: "transparent";leftPadding: 0;placeholderText: ""
+                background: Rectangle {radius: height/2;border.width: quickEnd.activeFocus ? 2 : 0;border.color: Theme.accent;color: quickEnd.text ? Theme.selected : Theme.sidebar}
+                onDateChosen: root.deadlineEdited(text)
+                onActiveFocusChanged: if(activeFocus)root.focusRequested(quickEnd)
+            }
+            Binding {target: quickEnd;property: "text";value: root.deadlineOn}
+            IconToolButton {
+                id: tagButton
+                width: quickStart.width;height: width
+                background: Rectangle {radius: height/2;color: tagButton.down ? Theme.pressed : tagButton.hovered ? Theme.hover : root.tagIds.length>0 ? Theme.selected : Theme.sidebar;border.width: tagButton.visualFocus ? 2 : 0;border.color: Theme.accent}
+                contentItem: AppIcon {name: "tag";ink: root.tagIds.length>0 ? Theme.accent : Theme.secondary}
+                Accessible.name: qsTr("选择标签，已选%1个").arg(root.tagIds.length)
+                onClicked: tagPicker.open()
+                CatalogPicker {id: tagPicker;heading: qsTr("标签");options: root.tags;multiple: true;selectedIds: root.tagIds;heightLimit: root.hostWindow ? root.hostWindow.height-32 : 440;y: tagButton.height+4;onSelected: function(kind,id,checked){root.tagEdited(id,checked)};onCreateRequested: function(kind){root.createCatalogRequested(kind)}}
+            }
+            IconToolButton {
+                id: destinationButton
+                width: quickStart.width;height: width
+                background: Rectangle {radius: height/2;color: destinationButton.down ? Theme.pressed : destinationButton.hovered ? Theme.hover : root.destinationId ? Theme.selected : Theme.sidebar;border.width: destinationButton.visualFocus ? 2 : 0;border.color: Theme.accent}
+                contentItem: AppIcon {name: "project";ink: root.destinationId ? Theme.accent : Theme.secondary}
+                Accessible.name: qsTr("选择项目或领域")
+                onClicked: destinationPicker.open()
+                CatalogPicker {id: destinationPicker;heading: qsTr("放入项目或领域");options: root.destinations;selectedIds: [root.destinationId];heightLimit: root.hostWindow ? root.hostWindow.height-32 : 440;y: destinationButton.height+4;onSelected: function(kind,id,checked){root.destinationEdited(kind,id)};onCreateRequested: function(kind){root.createCatalogRequested(kind)}}
+            }
+            ReminderField {
+                id: reminder;objectName: "quickEditorReminder";workspace: root.workspace;iconOnly: true
+                width: Math.max(36,Theme.iconSize+16);height: width;implicitWidth: width
+                readOnly: true;activeFocusOnTab: false;color: "transparent";leftPadding: 0;placeholderText: ""
+                background: Rectangle {radius: height/2;border.width: reminder.activeFocus ? 2 : 0;border.color: Theme.accent;color: reminder.text ? Theme.selected : Theme.sidebar}
+                onReminderChosen: root.reminderEdited(text)
+                onActiveFocusChanged: if(activeFocus)root.focusRequested(reminder)
+            }
+            Binding {target: reminder;property: "text";value: root.reminderText}
+            Label {text: [root.startOn ? qsTr("开始 %1").arg(root.startOn.slice(5)) : "",root.deadlineOn ? qsTr("截止 %1").arg(root.deadlineOn.slice(5)) : ""].filter(item=>item.length>0).join(" · ");visible: text.length>0;topPadding: 8;color: Theme.secondary;font.pixelSize: Theme.captionSize}
+        }
+        Label {Layout.fillWidth: true;Layout.leftMargin: 40;visible: text.length>0;text: root.workspace.errorText;color: Theme.danger;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize}
     }
 }

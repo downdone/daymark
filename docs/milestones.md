@@ -92,3 +92,5 @@ UI-16按[任务详情布局](design/task-detail-layout.md)先定义信息架构/
 UI-17按[iOS分组设计](design/ios-grouped-details.md)统一圆角/图标/开关/画布和内容组，移除拖放伪按钮，按202阶段与本地部署验收。
 
 UI-18按[就近编辑设计](design/direct-editing.md)推进共享日期/时间、快速编辑与全页直接选择，保留原子草稿和平台门禁。
+
+UI-19按[原行编辑及即时反馈](design/inline-task-experience.md)修订快速卡形式、整理与创建、详情动作、列表/完成反馈和菜单响应。

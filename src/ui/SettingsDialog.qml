@@ -6,6 +6,7 @@ Dialog {
     id: root
     background: Rectangle {color: Theme.sidebar;radius: 16;border.color: Theme.separator}
     objectName: "settingsDialog"
+    signal quitRequested()
     signal calendarVisibilityRequested(bool visible)
     required property TaskWorkspace workspace
     required property WidgetViewModel widgetController
@@ -52,6 +53,7 @@ Dialog {
                     detail: qsTr("使用系统字体，文字放大时布局会随之调整。")
                     Label {text: qsTr("主题");font.pixelSize: Theme.captionSize;color: Theme.secondary}
                     ComboBox {Layout.fillWidth: true;Accessible.name: qsTr("主题");model: [qsTr("跟随系统"),qsTr("浅色"),qsTr("深色")];currentIndex: root.workspace.themeMode;onActivated: root.workspace.themeMode=currentIndex}
+                    SettingSwitch {objectName: "reduceMotionPreference";Layout.fillWidth: true;symbol: "eye";text: qsTr("减少动态效果");checked: root.workspace.preferences.reduceMotion;onClicked: root.workspace.setPreference("reduceMotion",checked)}
                     Label {text: qsTr("文字大小 · %1%").arg(Math.round(root.workspace.textScale*100))}
                     Slider {Layout.fillWidth: true;Accessible.name: qsTr("文字大小");from: 1;to: 2;stepSize: 0.25;value: root.workspace.textScale;onMoved: root.workspace.textScale=value}
                     SettingSwitch {id: contrastPreference;objectName: "highContrastPreference";Layout.fillWidth: true;symbol: "eye";text: qsTr("增强对比度");checked: root.workspace.preferences.highContrast;onClicked: root.workspace.setPreference("highContrast",checked)}
@@ -114,6 +116,7 @@ Dialog {
                         detail: qsTr("启动时检查，保留最近7份一致性快照。")
                         ComboBox {Layout.fillWidth: true;Accessible.name: qsTr("自动备份周期");model: [qsTr("每天"),qsTr("每7天"),qsTr("每30天")];currentIndex: [1,7,30].indexOf(root.workspace.preferences.backupDays);onActivated: root.workspace.setPreference("backupDays",[1,7,30][currentIndex])}
                     }
+                    ActionButton {symbol: "close";text: qsTr("退出 Daymark");onClicked: root.quitRequested()}
                     Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: root.widgetController.trayAvailable ? qsTr("托盘可打开主窗口、恢复穿透或彻底退出。") : qsTr("系统托盘不可用；关闭主窗口将退出，穿透已禁用。")}
                 }
             }

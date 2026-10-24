@@ -89,6 +89,7 @@ Window {
                     description: qsTr("组件菜单")
                     onClicked: widgetMenu.open()
                     Menu {
+                        popupType: Popup.Window
                         id: widgetMenu
                         objectName: "widgetMenu"
                         x: parent.width-width

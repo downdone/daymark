@@ -6,13 +6,15 @@ Canvas {
     property color ink: Theme.secondary
     implicitWidth: Theme.iconSize
     implicitHeight: Theme.iconSize
+    readonly property real drawingSize: Math.min(width,height,Theme.iconSize)
+    onDrawingSizeChanged: requestPaint()
     onNameChanged: requestPaint()
     onInkChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
     onPaint: {
         const p=getContext("2d")
-        p.reset();p.scale(width/24,height/24);p.strokeStyle=ink;p.fillStyle=ink;p.lineWidth=1.7;p.lineCap="round";p.lineJoin="round"
+        p.reset();p.translate((width-drawingSize)/2,(height-drawingSize)/2);p.scale(drawingSize/24,drawingSize/24);p.strokeStyle=ink;p.fillStyle=ink;p.lineWidth=1.6;p.lineCap="round";p.lineJoin="round"
         function line(points,closed) {p.beginPath();p.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)p.lineTo(points[i][0],points[i][1]);if(closed)p.closePath();p.stroke()}
         function circle(x,y,r) {p.beginPath();p.arc(x,y,r,0,Math.PI*2);p.stroke()}
         if(name==="inbox") {line([[4,4],[20,4],[22,17],[22,20],[2,20],[2,17]],true);line([[3,14],[8,14],[10,17],[14,17],[16,14],[21,14]],false)}
@@ -27,7 +29,9 @@ Canvas {
         else if(name==="logbook" || name==="check")line([[5,12],[10,17],[20,6]],false)
         else if(name==="area") {p.strokeRect(3,3,7,7);p.strokeRect(14,3,7,7);p.strokeRect(3,14,7,7);p.strokeRect(14,14,7,7)}
         else if(name==="project")line([[3,7],[3,20],[21,20],[21,6],[12,6],[10,3],[3,3]],true)
-        else if(name==="tag") {line([[3,3],[12,3],[22,13],[13,22],[3,12]],true);circle(8,8,1.5)}
+        else if(name==="tag") {line([[9,3],[6,21]],false);line([[18,3],[15,21]],false);line([[4,9],[21,9]],false);line([[3,15],[20,15]],false)}
+        else if(name==="info") {circle(12,12,9);line([[12,10],[12,17]],false);circle(12,6.5,0.5)}
+        else if(name==="flag") {line([[5,22],[5,3],[12,3],[14,5],[21,5],[21,15],[14,15],[12,13],[5,13]],false)}
         else if(name==="more") {for(let i=0;i<3;i++){p.beginPath();p.arc(5+i*7,12,1.5,0,Math.PI*2);p.fill()}}
         else if(name==="left")line([[15,5],[8,12],[15,19]],false)
         else if(name==="right")line([[9,5],[16,12],[9,19]],false)

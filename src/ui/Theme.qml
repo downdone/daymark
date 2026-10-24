@@ -29,6 +29,8 @@ QtObject {
     readonly property color calendarToday: DS.DesignTokens.calendarToday
     readonly property color calendarTodayText: DS.DesignTokens.calendarTodayText
     readonly property color danger: DS.DesignTokens.danger
+    readonly property color toggleOn: DS.DesignTokens.toggleOn
+    readonly property color pressed: DS.DesignTokens.pressed
     readonly property color success: DS.DesignTokens.success
     readonly property color separator: DS.DesignTokens.border
     readonly property string fontFamily: DS.DesignTokens.fontFamily

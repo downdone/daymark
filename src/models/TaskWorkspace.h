@@ -23,6 +23,7 @@ public:
     QVariant data(const QModelIndex& index,int role) const override;
     QHash<int,QByteArray> roleNames() const override;
     void replace(const QList<Task>& tasks,const QDate& today,int groupRole=0);
+    const QList<Task>& items() const {return m_tasks;}
     static QVariantMap taskMap(const Task& task);
 signals:
     void countChanged();
@@ -115,6 +116,7 @@ public:
     Q_INVOKABLE bool previewImport(const QString& path,bool snapshot=false);
     Q_INVOKABLE bool applyImport(bool replace);
     Q_INVOKABLE bool moveTask(const QString& id,int direction);
+    Q_INVOKABLE int taskIndex(const QString& id) const;
     Q_INVOKABLE bool canMoveTask(const QString& id,int direction) const;
     Q_INVOKABLE bool dropTask(const QString& source,const QString& target);
     int themeMode() const {return m_themeMode;}
@@ -166,6 +168,7 @@ public:
     Q_INVOKABLE bool saveDetails(const QString& id,qint64 version,const QVariantMap& details);
 signals:
     void stateChanged();
+    void catalogSaved(const QString& id,const QString& kind);
     void operationFinished(const QString& operation,bool success);
     void reminderReady(const QString& title,const QString& message);
 private:
@@ -175,7 +178,7 @@ private:
     void refresh();
     bool runTask(const QString& operation,std::function<Result<Task>(TaskWorker&)> command);
     void finishTask(const QString& operation,const Result<Task>& result);
-    bool runCatalog(std::function<Result<void>(TaskWorker&)> command,const QString& operation=QStringLiteral("catalog"));
+    bool runCatalog(std::function<Result<void>(TaskWorker&)> command,const QString& operation=QStringLiteral("catalog"),std::function<void()> completed={});
     bool runTransfer(const QString& operation,std::function<Result<QString>(TaskWorker&)> command);
     QThread m_thread;
     TaskWorker* m_worker=nullptr;
@@ -208,7 +211,7 @@ private:
     int m_historyDays=0;
     bool m_calendarCompleted=false;
     QVariantList m_eventNotifications;
-    QVariantMap m_preferences{{"highContrast",false},{"compact",false},{"sidebarCollapsed",false},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
+    QVariantMap m_preferences{{"reduceMotion",false},{"highContrast",false},{"compact",false},{"sidebarCollapsed",false},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
 };
 

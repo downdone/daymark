@@ -10,6 +10,7 @@
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <QDir>
 #include <QStandardPaths>
 #include <QKeyEvent>
@@ -17,6 +18,7 @@
 #include <QSet>
 #include <QPointer>
 #include <QIcon>
+#include <atomic>
 
 namespace daymark {
 
@@ -79,7 +81,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto* probe=new QTimer(&m_engine);
         auto smokePhase=std::make_shared<int>(0);
         probe->setInterval(100);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,soakSeconds,soakReport,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,soakSeconds,soakReport,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<bool>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1)]() mutable {
             *smokePhase=phase;
             if(m_workspace.busy())return;
             auto fail=[probe](const char* stage){qCritical()<<"Basic UI smoke failed at"<<stage;probe->stop();QCoreApplication::exit(2);};
@@ -174,13 +176,16 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 auto* reminder=mainWindow->findChild<QObject*>(QStringLiteral("editorReminder"));
                 auto* guard=mainWindow->findChild<QObject*>(QStringLiteral("unsavedChangesDialog"));
                 auto* event=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDialog"));
+                auto* fields=mainWindow->findChild<QObject*>(QStringLiteral("taskDetailsFields"));
+                auto* creator=mainWindow->findChild<QObject*>(QStringLiteral("catalogCreateDialog"));
+                auto findRow=[&](const QString& id){std::function<QQuickItem*(QQuickItem*)> scan=[&](QQuickItem* item)->QQuickItem*{if(item->objectName()==QStringLiteral("taskRow-")+id)return item;for(auto* child:item->childItems())if(auto* found=scan(child))return found;return nullptr;};return scan(mainWindow->contentItem());};
                 auto find=[&](const char* name){return mainWindow->findChild<QObject*>(QString::fromLatin1(name));};
                 auto click=[&](const char* name){auto* item=find(name);return item && QMetaObject::invokeMethod(item,"clicked");};
                 auto capture=[&](const QString& name){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+name+QStringLiteral(".png"));};
                 if(!quick || !reminder || !event){fail("direct editing controls");return;}
                 if(phase==202) {QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));}
                 else if(phase==203) {
-                    if(!quick->property("visible").toBool() || editor->property("visible").toBool()){fail("quick entry separate from full editor");return;}
+                    if(!quick->property("visible").toBool() || editor->property("visible").toBool()){qCritical()<<"Inline entry"<<quick->property("visible")<<editor->property("visible")<<mainWindow->property("inlineAttachAttempts")<<m_workspace.taskIndex(secondId);fail("quick entry separate from full editor");return;}
                     auto* title=quick->findChild<QObject*>(QStringLiteral("quickEditorTitle"));title->setProperty("text",QStringLiteral("快速编辑草稿"));QMetaObject::invokeMethod(title,"textEdited");
                     QMetaObject::invokeMethod(quick,"notesEdited",Q_ARG(QString,QStringLiteral("保持同一份备注草稿")));
                     QMetaObject::invokeMethod(quick->findChild<QObject*>(QStringLiteral("quickEditorStart")),"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(1))));
@@ -268,12 +273,61 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto* field=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorStart"));field->forceActiveFocus();
                 } else if(phase==221) {
                     static int frames=0;mainWindow->grabWindow();if(++frames<3)return;
-                    auto* field=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorStart"));auto* scroll=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorScroll"));const auto y=field->mapToItem(scroll,QPointF(0,0)).y();
-                    if((QGuiApplication::platformName()!=QStringLiteral("offscreen") && !field->hasActiveFocus()) || y< -1 || y+field->height()>scroll->height()+1 || !capture(QStringLiteral("quick-long-notes-focus"))){qCritical()<<"Quick date focus"<<y<<field->height()<<scroll->height();fail("quick long notes keyboard reveals date");return;}
+                    auto* field=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorStart"));auto* scroll=mainWindow->findChild<QQuickItem*>(QStringLiteral("taskList"));const auto y=field->mapToItem(scroll,QPointF(0,0)).y();
+                    if((QGuiApplication::platformName()!=QStringLiteral("offscreen") && !field->hasActiveFocus()) || y< -1 || y+field->height()>scroll->height()+1 || !capture(QStringLiteral("quick-long-notes-focus"))){capture(QStringLiteral("inline-focus-diagnostic"));qCritical()<<"Quick date focus"<<y<<field->height()<<scroll->height()<<scroll->property("contentY")<<scroll->property("contentHeight")<<mainWindow->property("quickFocusTarget");fail("inline summary keyboard reveals date in task list");return;}
+                    auto* preview=quick->findChild<QObject*>(QStringLiteral("quickEditorNotes"));
+                    if(!preview->property("readOnly").toBool() || preview->property("text").toString().contains(QLatin1Char('\n')) || find("editTaskNotes")->property("text").toString().count(QLatin1Char('\n'))!=60){fail("multiline summary retains complete draft");return;}
                     QMetaObject::invokeMethod(quick,"closeRequested");if(!guard->property("visible").toBool()){fail("quick long notes dirty guard");return;}click("discardDraft");
                 } else if(phase==222) {
                     if(quick->property("visible").toBool() || mainWindow->property("draftDirty").toBool() || m_workspace.task(secondId).value(QStringLiteral("notes")).toString()!=quickOriginalNotes){fail("quick long notes discard preserves stored notes");return;}
                     m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
+                } else if(phase==223) {
+                    QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));QMetaObject::invokeMethod(creator,"showFor",Q_ARG(QVariant,QVariant(QStringLiteral("tag"))));
+                    find("newCatalogName")->setProperty("text",QStringLiteral("就近标签验收"));click("createCatalogHere");
+                } else if(phase==224) {
+                    for(const auto& value:m_workspace.catalogOf(QStringLiteral("tag"))){const auto item=value.toMap();if(item.value("title").toString()==QStringLiteral("就近标签验收"))quickTagId=item.value("id").toString();}
+                    if(quickTagId.isEmpty() || creator->property("visible").toBool() || !fields->property("tagIds").toStringList().contains(quickTagId) || m_workspace.task(secondId).value("tagIds").toStringList().contains(quickTagId)){fail("create tag selects draft without writing task");return;}
+                    if(!capture(QStringLiteral("organize-with-created-tag"))){fail("organization header capture");return;}click("returnFromEditor");click("discardDraft");
+                } else if(phase==225) {
+                    if(m_workspace.task(secondId).value("tagIds").toStringList().contains(quickTagId) || m_workspace.catalogOf(QStringLiteral("tag")).isEmpty()){fail("task discard keeps explicitly created library tag");return;}
+                    QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));
+                } else if(phase==226) {
+                    auto* row=findRow(secondId);auto* visual=qobject_cast<QQuickItem*>(quick);bool descendant=false;for(auto* parent=visual->parentItem();parent;parent=parent->parentItem())if(parent==row)descendant=true;
+                    auto* list=mainWindow->findChild<QQuickItem*>(QStringLiteral("taskList"));const auto cardY=visual->mapToItem(list,QPointF()).y();
+                    if(!row || !row->property("expanded").toBool() || !descendant || visual->height()>180 || cardY< -1 || cardY+visual->height()>list->height()+1 || !capture(QStringLiteral("inline-original-row"))){fail("quick editing is hosted and fully visible inside original row");return;}
+                    QMetaObject::invokeMethod(creator,"showFor",Q_ARG(QVariant,QVariant(QStringLiteral("project"))));find("newCatalogName")->setProperty("text",QStringLiteral("就近项目验收"));click("createCatalogHere");
+                } else if(phase==227) {
+                    for(const auto& value:m_workspace.catalogOf(QStringLiteral("project"))){const auto item=value.toMap();if(item.value("title").toString()==QStringLiteral("就近项目验收"))quickProjectId=item.value("id").toString();}
+                    if(quickProjectId.isEmpty() || fields->property("selectedDestination").toMap().value("id").toString()!=quickProjectId || !quick->property("visible").toBool() || m_workspace.task(secondId).value("projectId").toString()==quickProjectId){fail("create project keeps inline task draft and canonical selection");return;}
+                    QMetaObject::invokeMethod(quick,"tagEdited",Q_ARG(QString,quickTagId),Q_ARG(bool,true));click("saveQuickEditor");
+                } else if(phase==228) {
+                    const auto task=m_workspace.task(secondId);if(quick->property("visible").toBool() || task.value("projectId").toString()!=quickProjectId || !task.value("tagIds").toStringList().contains(quickTagId)){fail("inline organization atomic save");return;}
+                    auto* row=findRow(secondId);if(!row){fail("menu target row");return;}
+                    if(QGuiApplication::platformName()!=QStringLiteral("offscreen")){
+                        auto started=std::make_shared<QElapsedTimer>();auto frames=std::make_shared<int>(0);auto connection=std::make_shared<QMetaObject::Connection>();started->start();
+                        // Timestamp presentation on the emitting render thread; a
+                        // queued UI callback can be delayed by screenshot readback.
+                        *connection=QObject::connect(mainWindow,&QQuickWindow::frameSwapped,&m_engine,[mainWindow,started,frames,connection,menuFrameMs]{if(++*frames<2){QMetaObject::invokeMethod(mainWindow,&QQuickWindow::update,Qt::QueuedConnection);return;}menuFrameMs->store(started->elapsed());QObject::disconnect(*connection);},Qt::DirectConnection);
+                    }
+                    QElapsedTimer command;command.start();QMetaObject::invokeMethod(row,"openVerificationMenu");qInfo()<<"Main menu open command ms:"<<command.nsecsElapsed()/1000000.0;mainWindow->update();
+                } else if(phase==229) {
+                    if(QGuiApplication::platformName()!=QStringLiteral("offscreen")){const auto elapsed=menuFrameMs->load();if(elapsed<0)return;qInfo()<<"Main menu two-presentation upper bound ms:"<<elapsed;if(elapsed>100){fail("menu presentation exceeded 100 ms");return;}}
+                    auto* row=findRow(secondId);if(!row || !capture(QStringLiteral("same-window-task-menu"))){fail("menu scene capture");return;}
+                    QMetaObject::invokeMethod(row,"closeVerificationMenu");completionRow=row;*completionSeen=false;
+                    auto connection=std::make_shared<QMetaObject::Connection>();*connection=QObject::connect(&m_workspace,&TaskWorkspace::operationFinished,probe,[this,probe,mainWindow,screenshotPath,connection,completionRow,completionSeen](const QString& operation,bool success){if(operation!=QStringLiteral("complete"))return;QObject::disconnect(*connection);if(!success)return;QTimer::singleShot(40,probe,[mainWindow,screenshotPath,completionRow,completionSeen]{if(completionRow && completionRow->property("removingAfterCompletion").toBool() && completionRow->opacity()>0){*completionSeen=true;if(!screenshotPath.isEmpty())mainWindow->grabWindow().save(screenshotPath+QStringLiteral(".completion-feedback.png"));}});});
+                    QMetaObject::invokeMethod(row,"completeRequested");
+                } else if(phase==230) {
+                    if(m_workspace.task(secondId).value("taskStatus").toString()!=QStringLiteral("COMPLETED")){fail("complete commits before removal feedback");return;}
+                } else if(phase==231) {
+                    if(!*completionSeen){fail("completed row retains brief check feedback");return;}
+                    m_workspace.setPreference(QStringLiteral("reduceMotion"),true);const auto task=m_workspace.task(secondId);m_workspace.changeState(secondId,task.value("rowVersion").toLongLong(),QStringLiteral("reopen"));
+                } else if(phase==232) {
+                    QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));QMetaObject::invokeMethod(quick,"closeRequested");
+                } else if(phase==233) {
+                    auto* row=findRow(secondId);if(!row || !row->property("reduceMotion").toBool()){fail("reduced motion reaches task row");return;}completionRow=row;QMetaObject::invokeMethod(row,"completeRequested");
+                } else if(phase==234) {
+                    if(m_workspace.task(secondId).value("taskStatus").toString()!=QStringLiteral("COMPLETED") || (completionRow && completionRow->property("removingAfterCompletion").toBool())){fail("reduced motion removes without transition");return;}
+                    m_workspace.setPreference(QStringLiteral("reduceMotion"),false);
                 }
             } else if(phase>=191) {
                 auto* fields=mainWindow->findChild<QObject*>(QStringLiteral("taskDetailsFields"));
@@ -891,7 +945,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==222) {
+            if(phase==234) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
                 QList<QPointer<QObject>> pending;
@@ -908,7 +962,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<223)return;
+            if(phase<235)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -938,7 +992,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         probe->start();
         // Capturing every surface adds synchronous GPU readbacks; keep the
         // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=223)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=235)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

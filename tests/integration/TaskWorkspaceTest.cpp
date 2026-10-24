@@ -4,11 +4,35 @@
 #include <QAbstractItemModelTester>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <QSqlQuery>
+#include <QElapsedTimer>
 
 using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void menuAvailabilityReusesTenThousandVisibleTasks() {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("menu-benchmark.sqlite"));
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());auto connection=db.connection();QVERIFY(connection.transaction());QSqlQuery query(connection);query.prepare(QStringLiteral("INSERT INTO tasks(id,title,planning_state,sort_order,created_at_utc,updated_at_utc) VALUES(?,?,'INBOX',?,?,?)"));const auto now=QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+        for(int i=0;i<10000;++i){query.bindValue(0,QStringLiteral("menu-%1").arg(i));query.bindValue(1,QStringLiteral("menu item"));query.bindValue(2,i);query.bindValue(3,now);query.bindValue(4,now);QVERIFY(query.exec());}QVERIFY(connection.commit());}
+        TaskWorkspace w;w.start(path);QTRY_VERIFY_WITH_TIMEOUT(!w.busy(),10000);QVERIFY(w.ready());QCOMPARE(w.tasks()->rowCount(),10000);
+        const auto id=w.tasks()->data(w.tasks()->index(9999),TaskListModel::Id).toString();QElapsedTimer timer;timer.start();
+        for(int i=0;i<50;++i){QVERIFY(w.canMoveTask(id,-1));QVERIFY(!w.canMoveTask(id,1));}
+        const auto micros=timer.nsecsElapsed()/1000.0;qInfo()<<"10k menu availability, 50 open pairs, mean us:"<<micros/50.0;QVERIFY2(micros<500000,"Repeated menu availability exceeded 10 ms per pair");
+    }
+    void catalogCreationReturnsIdentityAndKeepsTaskUnchanged() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("create.sqlite")));QTRY_VERIFY(!w.busy());QVERIFY(w.ready());
+        QVERIFY(w.createTask(QStringLiteral("draft owner")));QTRY_VERIFY(!w.busy());const auto id=w.tasks()->data(w.tasks()->index(0),TaskListModel::Id).toString();const auto before=w.task(id);
+        QSignalSpy saved(&w,&TaskWorkspace::catalogSaved);QVERIFY(w.saveCatalog({{"kind",QStringLiteral("tag")},{"title",QStringLiteral("here")}}));QTRY_VERIFY(!w.busy());
+        QCOMPARE(saved.size(),1);const auto tag=w.catalogOf(QStringLiteral("tag")).first().toMap();QCOMPARE(saved.first().at(0).toString(),tag.value("id").toString());QCOMPARE(saved.first().at(1).toString(),QStringLiteral("tag"));QCOMPARE(w.task(id),before);
+        QVERIFY(w.saveCatalog({{"kind",QStringLiteral("tag")},{"title",QStringLiteral("here")}}));QTRY_VERIFY(!w.busy());QVERIFY(!w.errorText().isEmpty());QCOMPARE(saved.size(),1);QCOMPARE(w.task(id),before);
+    }
+    void reducedMotionPreferenceIsExplicitAndPersistent() {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("motion.sqlite"));
+        {TaskWorkspace w;w.start(path);QTRY_VERIFY(!w.busy());QVERIFY(!w.preferences().value("reduceMotion").toBool());QVERIFY(!w.setPreference(QStringLiteral("reduceMotion"),QStringLiteral("yes")));QVERIFY(w.setPreference(QStringLiteral("reduceMotion"),true));}
+        TaskWorkspace w;w.start(path);QTRY_VERIFY(!w.busy());QVERIFY(w.preferences().value("reduceMotion").toBool());
+    }
+
     void highContrastPreferencePersistsAndRejectsInvalidValue() {
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("appearance.sqlite"));
         {TaskWorkspace w;w.start(path);QTRY_VERIFY(!w.busy());QVERIFY(!w.preferences().value("highContrast").toBool());QVERIFY(!w.setPreference(QStringLiteral("highContrast"),QStringLiteral("yes")));QVERIFY(w.setPreference(QStringLiteral("highContrast"),true));}
@@ -181,7 +205,8 @@ private slots:
         for(const auto& title:{QStringLiteral("a"),QStringLiteral("b"),QStringLiteral("c")}){QVERIFY(w.createTask(title));QTRY_VERIFY(!w.busy());}
         const auto id=[&](int i){return w.tasks()->data(w.tasks()->index(i),TaskListModel::Id).toString();};
         const auto first=id(0),last=id(2);
-        QVERIFY(!w.canMoveTask(first,-1));QVERIFY(!w.canMoveTask(last,1));QVERIFY(w.canMoveTask(first,1));
+        QVERIFY(!w.canMoveTask(first,-1));QVERIFY(!w.canMoveTask(last,1));QVERIFY(w.canMoveTask(first,1));QCOMPARE(w.taskIndex(first),0);QCOMPARE(w.taskIndex(QStringLiteral("missing")),-1);
+        w.setIncludeCompleted(true);QVERIFY(!w.canMoveTask(first,1));w.setIncludeCompleted(false);
         w.setSearch(QStringLiteral("a"));QVERIFY(!w.canMoveTask(first,1));QVERIFY(!w.moveTask(first,1));w.setSearch(QString());
         w.setTagFilter(QStringLiteral("missing"));QVERIFY(!w.canMoveTask(first,1));w.setTagFilter(QString());
         w.setProjectFilter(QStringLiteral("missing"));QVERIFY(!w.canMoveTask(first,1));w.setProjectFilter(QString());

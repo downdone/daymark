@@ -9,7 +9,7 @@ Rectangle {
     border.width: focused ? 2 : 0
     border.color: DesignTokens.accent
     Rectangle {
-        visible: !surface.focused
+        visible: !surface.focused && surface.hovered
         x: surface.radius
         width: Math.max(0,parent.width-2*x)
         height: 1
