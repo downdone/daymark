@@ -11,28 +11,31 @@ ColumnLayout {
     property var areas: []
     property var headings: []
     property var tags: []
+    readonly property bool twoColumns: width>=440*Theme.scale
+    property bool infoExpanded: false
+    readonly property var destinations: [{kind:"",id:"",title:qsTr("无归属")}].concat(projects.map(item=>({kind:"project",id:item.id,title:qsTr("项目 · %1").arg(item.title)}))).concat(areas.map(item=>({kind:"area",id:item.id,title:qsTr("领域 · %1").arg(item.title)})))
+    readonly property var selectedDestination: destinations[destinationChoice.currentIndex] || destinations[0]
     property var tagIds: []
     property var relatedEvents: []
     signal draftChanged()
     signal openEvent(string eventId)
     signal focusRequested(Item item)
-    spacing: Theme.fieldGap
+    spacing: 16
     function loadTask(item) {
         taskData=item
         projects=workspace.catalogOf("project");areas=workspace.catalogOf("area");tags=workspace.catalogOf("tag")
         relatedEvents=workspace.eventsForTask(item.taskId)
         tagIds=item.tagIds.slice()
-        projectChoice.currentIndex=projects.findIndex(value=>value.id===item.projectId)+1
-        areaChoice.currentIndex=areas.findIndex(value=>value.id===item.areaId)+1
+        infoExpanded=false
+        destinationChoice.currentIndex=Math.max(0,destinations.findIndex(value=>item.projectId ? value.kind==="project" && value.id===item.projectId : item.areaId ? value.kind==="area" && value.id===item.areaId : value.kind===""))
         loadHeadings()
         headingChoice.currentIndex=headings.findIndex(value=>value.id===item.headingId)+1
         checklist.clear()
         for(const entry of item.checklist)checklist.append({itemId:entry.id,itemTitle:entry.title,itemDone:entry.done})
-        newItem.clear();evening.checked=item.evening
-        reminder.text=workspace.localReminder(item.remindAtUtc)
+        newItem.clear()
     }
     function loadHeadings() {
-        headings=projectChoice.currentIndex>0 ? workspace.catalogOf("heading",projects[projectChoice.currentIndex-1].id) : []
+        headings=selectedDestination.kind==="project" ? workspace.catalogOf("heading",selectedDestination.id) : []
         headingChoice.currentIndex=0
     }
     function detailsPatch() {
@@ -43,10 +46,21 @@ ColumnLayout {
         }
         // Unsubmitted checklist text belongs to the same draft and is included on Save.
         if(newItem.text.trim())items.push({id:"",title:newItem.text.trim(),done:false})
-        return {projectId:projectChoice.currentIndex>0 ? projects[projectChoice.currentIndex-1].id : "",
-            areaId:areaChoice.currentIndex>0 ? areas[areaChoice.currentIndex-1].id : "",
+        return {projectId:selectedDestination.kind==="project" ? selectedDestination.id : "",
+            areaId:selectedDestination.kind==="area" ? selectedDestination.id : "",
             headingId:headingChoice.currentIndex>0 ? headings[headingChoice.currentIndex-1].id : "",
-            tagIds:tagIds,checklist:items,evening:evening.checked,remindAtLocal:reminder.text}
+            tagIds:tagIds,checklist:items}
+    }
+    function selectDestinationForVerification(kind,id,headingId) {
+        const index=destinations.findIndex(item=>item.kind===kind && item.id===id)
+        if(index<0)return false
+        destinationChoice.currentIndex=index;destinationChoice.activated(index)
+        if(headingId) {
+            const at=headings.findIndex(item=>item.id===headingId)
+            if(at<0)return false
+            headingChoice.currentIndex=at+1;headingChoice.activated(at+1)
+        }
+        return true
     }
     function addChecklistItem() {
         if(!newItem.text.trim())return
@@ -54,59 +68,64 @@ ColumnLayout {
         newItem.clear();root.draftChanged();newItem.forceActiveFocus()
     }
     ListModel {id: checklist}
-    FormGroup {
-        compact: true;heading: qsTr("归属")
-    Label {text: qsTr("项目");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-    ComboBox {
-        id: projectChoice
-        objectName: "editorProject"
-        Layout.fillWidth: true
-        Accessible.name: qsTr("任务项目")
-        model: [qsTr("无项目")].concat(root.projects.map(item=>item.title))
-        onActivated: {if(currentIndex>0)areaChoice.currentIndex=0;root.loadHeadings();root.draftChanged()}
-    }
-    Label {text: qsTr("直接领域");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-    ComboBox {
-        id: areaChoice
-        Layout.fillWidth: true
-        Accessible.name: qsTr("任务直接领域，与项目互斥")
-        model: [qsTr("无直接领域")].concat(root.areas.map(item=>item.title))
-        onActivated: {if(currentIndex>0){projectChoice.currentIndex=0;root.loadHeadings()}root.draftChanged()}
-    }
-    Label {text: qsTr("项目分组");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-    ComboBox {
-        id: headingChoice
-        Layout.fillWidth: true
-        Accessible.name: qsTr("任务项目分组")
-        enabled: root.headings.length>0
-        model: [qsTr("无分组")].concat(root.headings.map(item=>item.title))
-        onActivated: root.draftChanged()
-    }
-    }
-    FormGroup {
-        compact: true;heading: qsTr("标签")
-    Label {visible: root.tags.length===0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("暂无标签，可在侧栏更多菜单的组织管理中创建。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-    Flow {
-        Layout.fillWidth: true
-        spacing: 6
-        Repeater {
-            model: root.tags
-            CheckBox {
-                required property var modelData
-                text: modelData.title
-                checked: root.tagIds.indexOf(modelData.id)>=0
-                onClicked: {
-                    const next=root.tagIds.slice();const at=next.indexOf(modelData.id)
-                    if(checked && at<0)next.push(modelData.id);else if(!checked && at>=0)next.splice(at,1)
-                    root.tagIds=next;root.draftChanged()
+    DetailSection {
+        heading: qsTr("归属与标签")
+        GridLayout {
+            objectName: "editorAssignmentGrid"
+            Layout.fillWidth: true
+            columns: root.twoColumns ? 2 : 1
+            columnSpacing: 16
+            rowSpacing: 8
+            ColumnLayout {
+                Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
+                Label {text: qsTr("项目或领域");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                ComboBox {
+                    id: destinationChoice;objectName: "editorDestination"
+                    Layout.fillWidth: true
+                    Accessible.name: qsTr("任务归属，项目或领域只能选择一个")
+                    model: root.destinations.map(item=>item.title)
+                    onActivated: {root.loadHeadings();root.draftChanged()}
+                }
+            }
+            ColumnLayout {
+                objectName: "editorHeadingRow"
+                visible: root.selectedDestination.kind==="project" && root.headings.length>0
+                Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
+                Label {text: qsTr("项目分组");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                ComboBox {
+                    id: headingChoice;objectName: "editorHeading"
+                    Layout.fillWidth: true
+                    Accessible.name: qsTr("任务项目分组")
+                    model: [qsTr("无分组")].concat(root.headings.map(item=>item.title))
+                    onActivated: root.draftChanged()
+                }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true;spacing: 12
+            Label {text: qsTr("标签");Layout.alignment: Qt.AlignTop;Layout.topMargin: 7;font.pixelSize: Theme.captionSize;color: Theme.secondary}
+            Flow {
+                id: tagFlow;Layout.fillWidth: true;spacing: 6
+                Label {visible: root.tags.length===0;text: qsTr("暂无标签");topPadding: 7;bottomPadding: 7;color: Theme.secondary;font.pixelSize: Theme.captionSize}
+                Repeater {
+                    model: root.tags
+                    CheckBox {
+                        required property var modelData
+                        width: Math.min(implicitWidth,tagFlow.width)
+                        text: modelData.title
+                        checked: root.tagIds.indexOf(modelData.id)>=0
+                        onClicked: {
+                            const next=root.tagIds.slice();const at=next.indexOf(modelData.id)
+                            if(checked && at<0)next.push(modelData.id);else if(!checked && at>=0)next.splice(at,1)
+                            root.tagIds=next;root.draftChanged()
+                        }
+                    }
                 }
             }
         }
     }
-    }
-    FormGroup {
-        compact: true;heading: qsTr("检查清单")
-    Label {visible: checklist.count===0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("把任务拆成可勾选的小步骤。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+    DetailSection {
+        heading: qsTr("检查清单");summary: checklist.count>0 ? qsTr("%1项").arg(checklist.count) : ""
     Repeater {
         model: checklist
         RowLayout {
@@ -128,16 +147,8 @@ ColumnLayout {
         IconToolButton {contentItem: AppIcon {name: "plus"} Accessible.name: qsTr("添加清单项");enabled: newItem.text.trim().length>0;onClicked: root.addChecklistItem()}
     }
     }
-    FormGroup {
-        compact: true;heading: qsTr("提醒与执行")
-    CheckBox {id: evening;text: qsTr("安排到今晚");onClicked: root.draftChanged()}
-    Label {text: qsTr("提醒 · 本地时间");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-    TextField {id: reminder;objectName: "editorReminder";Layout.fillWidth: true;placeholderText: "yyyy-MM-dd HH:mm";Accessible.name: qsTr("本地时间提醒，留空清除");onTextEdited: root.draftChanged()}
-    Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("留空清除。程序运行时检查提醒，系统展示取决于通知权限。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-    }
-    FormGroup {
-        compact: true;heading: qsTr("关联事件")
-    Label {visible: root.relatedEvents.length===0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("暂无关联事件，可在日历事件中关联此任务。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+    DetailSection {
+        heading: qsTr("关联事件");visible: root.relatedEvents.length>0
     Repeater {
         model: root.relatedEvents
         ItemDelegate {
@@ -148,8 +159,13 @@ ColumnLayout {
         }
     }
     }
-    FormGroup {
-        compact: true;heading: qsTr("任务信息")
+    ActionButton {
+        objectName: "taskInfoToggle";symbol: root.infoExpanded ? "up" : "down";text: qsTr("任务信息")
+        checkable: true;checked: root.infoExpanded
+        onClicked: root.infoExpanded=checked
+    }
+    ColumnLayout {
+        objectName: "taskInfoContent";visible: root.infoExpanded;Layout.fillWidth: true;spacing: 4
     Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("创建 %1\n修改 %2").arg(root.workspace.localReminder(root.taskData.createdAtUtc || "")).arg(root.workspace.localReminder(root.taskData.updatedAtUtc || ""));font.pixelSize: Theme.captionSize;color: Theme.secondary}
     Label {visible: !!root.taskData.completedAtUtc;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("完成 %1").arg(root.workspace.localReminder(root.taskData.completedAtUtc || ""));font.pixelSize: Theme.captionSize;color: Theme.secondary}
     }

@@ -85,6 +85,8 @@ ApplicationWindow {
         startDate.text = item.startOn
         deadline.text = item.deadlineOn
         focusToday.checked = item.todayFocus
+        evening.checked=item.evening
+        reminder.text=taskWorkspace.localReminder(item.remindAtUtc)
         extraFields.loadTask(item)
         fillingDraft = false
         draftDirty = false
@@ -102,9 +104,27 @@ ApplicationWindow {
         } else action()
     }
     function saveEditor() {
+        const patch=extraFields.detailsPatch()
+        patch.evening=evening.checked;patch.remindAtLocal=reminder.text
         return taskWorkspace.saveTaskWithDetails(editId, editVersion, editTitle.text, editNotes.text,
                                      ["INBOX", "ACTIVE", "SOMEDAY"][planning.currentIndex],
-                                     startDate.text, deadline.text, focusToday.checked,extraFields.detailsPatch())
+                                     startDate.text, deadline.text, focusToday.checked,patch)
+    }
+    function verifyTaskDetailLayout(sideBySide) {
+        const start=startDate.mapToItem(editorFields,0,0)
+        const end=deadline.mapToItem(editorFields,0,0)
+        if(sideBySide) {
+            if(Math.abs(start.y-end.y)>1 || start.x+startDate.width>end.x-8)return "dates are not distinct aligned columns"
+            const state=planning.mapToItem(editorFields,0,0)
+            const today=focusToday.mapToItem(editorFields,0,0)
+            if(Math.abs(state.y-today.y)>4)return "planning and attention are not aligned"
+        } else if(start.y+startDate.height>end.y-4)return "narrow dates overlap"
+        for(const field of [planning,startDate,deadline,reminder]) {
+            const at=field.mapToItem(editorFields,0,0)
+            if(at.x<0 || at.x+field.width>editorFields.width+1)return "field clipped horizontally"
+        }
+        if(!editNotes.text && Theme.scale===1 && editNotes.height>44)return "empty notes reserve too much space"
+        return "PASS"
     }
     function ensureEditorFocus(item) {
         if(!editor.visible || !item || editorManualScroll)return
@@ -541,7 +561,7 @@ ApplicationWindow {
         objectName: "taskEditor"
         visible: false
         z: 1
-        readonly property real bodyWidth: Math.min(width-32,680*Theme.scale)
+        readonly property real bodyWidth: Math.min(width-32,720*Theme.scale)
         readonly property real bodyInset: (width-bodyWidth)/2
         x: mainWindow.detailDocked ? mainWindow.width-width : mainWindow.sidebarWidth
         y: 0
@@ -609,7 +629,7 @@ ApplicationWindow {
             }
             TextArea {
                 id: editNotes;objectName: "editTaskNotes";Layout.fillWidth: true
-                implicitHeight: Math.max(64,Theme.bodySize*3,contentHeight+topPadding+bottomPadding)
+                implicitHeight: Math.max(40,contentHeight+topPadding+bottomPadding)
                 leftPadding: 0;rightPadding: 0
                 placeholderText: qsTr("添加备注…");Accessible.name: qsTr("备注");wrapMode: TextEdit.Wrap
                 background: Rectangle {color: "transparent";Rectangle {anchors.bottom: parent.bottom;width: parent.width;height: 2;visible: editNotes.activeFocus;color: Theme.accent}}
@@ -617,26 +637,48 @@ ApplicationWindow {
                 onCursorPositionChanged: {mainWindow.editorManualScroll=false;Qt.callLater(mainWindow.ensureNotesCursor)}
                 onCursorRectangleChanged: Qt.callLater(mainWindow.ensureNotesCursor)
             }
-            FormGroup {
-                compact: true;heading: qsTr("安排")
-                ComboBox { id: planning;objectName: "editorPlanning";Layout.fillWidth: true;Accessible.name: qsTr("任务规划状态");model: [qsTr("收集箱"), qsTr("已激活"), qsTr("以后再说")]; onCurrentIndexChanged: mainWindow.markDirty() }
-                CheckBox { id: focusToday; text: qsTr("持续关注今天"); onCheckedChanged: mainWindow.markDirty();onClicked: if(!checked && mainWindow.taskWorkspace.todayAfterRemovingFocus(mainWindow.editId))removeToday.open() }
-            GridLayout {
-                columns: editorFields.width>=480*Theme.scale ? 2 : 1
-                Layout.fillWidth: true
-                columnSpacing: 12
-                ColumnLayout {
+            DetailSection {
+                heading: qsTr("安排")
+                GridLayout {
+                    objectName: "editorPlanningGrid"
                     Layout.fillWidth: true
-                    Label {text: qsTr("计划开始");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-                    DateField {id: startDate;objectName: "editStartDate";workspace: mainWindow.taskWorkspace;dateLabel: qsTr("计划开始");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                    columns: editorFields.width>=560*Theme.scale ? 2 : 1
+                    columnSpacing: 16;rowSpacing: 8
+                    RowLayout {
+                        Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 8
+                        Label {text: qsTr("状态");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                        ComboBox {id: planning;objectName: "editorPlanning";Layout.fillWidth: true;Accessible.name: qsTr("任务规划状态");model: [qsTr("收集箱"),qsTr("已激活"),qsTr("以后再说")];onCurrentIndexChanged: mainWindow.markDirty()}
+                    }
+                    Flow {
+                        Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
+                        CheckBox {id: focusToday;objectName: "editorTodayFocus";text: qsTr("关注今天");Accessible.name: qsTr("持续关注今天");onCheckedChanged: mainWindow.markDirty();onClicked: {if(!checked){if(mainWindow.taskWorkspace.todayAfterRemovingFocus(mainWindow.editId))removeToday.open();else evening.checked=false}}}
+                        CheckBox {id: evening;objectName: "editorEvening";text: qsTr("安排今晚");Accessible.name: qsTr("激活并关注今天，安排到今晚分组");onClicked: {if(checked){focusToday.checked=true;planning.currentIndex=1}mainWindow.markDirty()}}
+                    }
                 }
-                ColumnLayout {
+                GridLayout {
+                    objectName: "editorDatesGrid"
+                    columns: editorFields.width>=440*Theme.scale ? 2 : 1
                     Layout.fillWidth: true
-                    Label {text: qsTr("截止日期");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-                    DateField {id: deadline;workspace: mainWindow.taskWorkspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                    columnSpacing: 16;rowSpacing: 8
+                    ColumnLayout {
+                        Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
+                        Label {text: qsTr("计划开始");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                        DateField {id: startDate;objectName: "editStartDate";workspace: mainWindow.taskWorkspace;dateLabel: qsTr("计划开始");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
+                        Label {text: qsTr("截止日期");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                        DateField {id: deadline;objectName: "editDeadlineDate";workspace: mainWindow.taskWorkspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true;onTextChanged: mainWindow.markDirty()}
+                    }
                 }
-            }
-            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: planning.currentIndex===2 ? qsTr("以后再说：保留日期，暂停执行。") : qsTr("安排日期或关注今天会激活任务。"); font.pixelSize: Theme.captionSize; color: Theme.secondary }
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: editorFields.width>=440*Theme.scale ? 2 : 1
+                    columnSpacing: 12;rowSpacing: 4
+                    Label {text: qsTr("提醒 · 本地时间");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                    TextField {id: reminder;objectName: "editorReminder";Layout.fillWidth: true;placeholderText: "yyyy-MM-dd HH:mm";Accessible.name: qsTr("本地时间提醒，留空清除");onTextChanged: mainWindow.markDirty()}
+                }
+                Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: planning.currentIndex===2 ? qsTr("日期已暂停；仅在应用运行时检查提醒，留空清除。") : qsTr("仅在应用运行时检查提醒，留空清除。")}
             }
             TaskDetailsFields {
                 id: extraFields
@@ -744,6 +786,7 @@ ApplicationWindow {
     DatePickerDialog {id: datePicker;parent: Overlay.overlay;anchors.centerIn: parent;workspace: mainWindow.taskWorkspace;onDateSelected: function(date,field){if(field==="start")startDate.text=date;else deadline.text=date}}
     Dialog {
         id: removeToday
+        objectName: "removeTodayDialog"
         parent: Overlay.overlay
         anchors.centerIn: parent
         width: Math.min(500,mainWindow.width-40)
@@ -755,8 +798,8 @@ ApplicationWindow {
         footer: ActionBar {
             gap: 8
             Button {text: qsTr("保留");onClicked: {focusToday.checked=mainWindow.taskWorkspace.task(mainWindow.editId).todayFocus;removeToday.close()}}
-            Button {text: qsTr("重新安排…");onClicked: {removeToday.close();datePicker.showFor(startDate.text,"start")}}
-            Button {text: qsTr("以后再说");onClicked: {planning.currentIndex=2;removeToday.close()}}
+            Button {text: qsTr("重新安排…");onClicked: {evening.checked=false;removeToday.close();datePicker.showFor(startDate.text,"start")}}
+            Button {text: qsTr("以后再说");onClicked: {evening.checked=false;planning.currentIndex=2;removeToday.close()}}
         }
     }
     Dialog {

@@ -79,7 +79,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto* probe=new QTimer(&m_engine);
         auto smokePhase=std::make_shared<int>(0);
         probe->setInterval(100);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,soakSeconds,soakReport,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,soakSeconds,soakReport,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString()]() mutable {
             *smokePhase=phase;
             if(m_workspace.busy())return;
             auto fail=[probe](const char* stage){qCritical()<<"Basic UI smoke failed at"<<stage;probe->stop();QCoreApplication::exit(2);};
@@ -169,6 +169,44 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
+            } else if(phase>=191) {
+                auto* fields=mainWindow->findChild<QObject*>(QStringLiteral("taskDetailsFields"));
+                auto* reminder=mainWindow->findChild<QObject*>(QStringLiteral("editorReminder"));
+                auto* save=mainWindow->findChild<QObject*>(QStringLiteral("saveTaskEditor"));
+                auto catalogId=[&](const QString& kind){for(const auto& value:m_workspace.catalogOf(kind))if(value.toMap().value(QStringLiteral("title")).toString().startsWith(QStringLiteral("布局验收")))return value.toMap().value(QStringLiteral("id")).toString();return QString();};
+                auto capture=[&](const QString& name){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+name+QStringLiteral(".png"));};
+                auto open=[&]{return QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));};
+                auto select=[&](const QString& kind,const QString& id,const QString& heading){QVariant result;return QMetaObject::invokeMethod(fields,"selectDestinationForVerification",Q_RETURN_ARG(QVariant,result),Q_ARG(QVariant,QVariant(kind)),Q_ARG(QVariant,QVariant(id)),Q_ARG(QVariant,QVariant(heading))) && result.toBool();};
+                auto layout=[&](bool wide){QVariant result;const bool called=QMetaObject::invokeMethod(mainWindow,"verifyTaskDetailLayout",Q_RETURN_ARG(QVariant,result),Q_ARG(QVariant,QVariant(wide)));if(!called || result.toString()!=QStringLiteral("PASS"))qWarning()<<"Detail layout:"<<result;return called && result.toString()==QStringLiteral("PASS");};
+                if(phase==191) {if(!m_workspace.saveCatalog({{"kind",QStringLiteral("project")},{"title",QStringLiteral("布局验收项目")},{"planningState",QStringLiteral("ACTIVE")},{"status",QStringLiteral("OPEN")}})){fail("detail project setup");return;}}
+                else if(phase==192) {detailProjectId=catalogId(QStringLiteral("project"));if(detailProjectId.isEmpty() || !m_workspace.saveCatalog({{"kind",QStringLiteral("heading")},{"title",QStringLiteral("布局验收分组")},{"parentId",detailProjectId}})){fail("detail heading setup");return;}}
+                else if(phase==193) {detailHeadingId=catalogId(QStringLiteral("heading"));if(detailHeadingId.isEmpty() || !m_workspace.saveCatalog({{"kind",QStringLiteral("area")},{"title",QStringLiteral("布局验收领域")}})){fail("detail area setup");return;}}
+                else if(phase==194) {detailAreaId=catalogId(QStringLiteral("area"));m_workspace.setView(QStringLiteral("month"));mainWindow->resize(1120,900);if(detailAreaId.isEmpty() || !open()){fail("detail full page setup");return;}}
+                else if(phase==195) {
+                    mainWindow->grabWindow();if(!layout(true) || fields->property("infoExpanded").toBool() || !capture(QStringLiteral("detail-layout-page")) || !select(QStringLiteral("project"),detailProjectId,detailHeadingId)){fail("detail aligned page and project selection");return;}
+                    auto* evening=mainWindow->findChild<QObject*>(QStringLiteral("editorEvening"));QMetaObject::invokeMethod(evening,"toggle");QMetaObject::invokeMethod(evening,"clicked");reminder->setProperty("text",m_workspace.localReminder(QDateTime::currentDateTimeUtc().addSecs(3600).toString(Qt::ISODateWithMs)));QMetaObject::invokeMethod(save,"clicked");
+                } else if(phase==196) {
+                    const auto task=m_workspace.task(secondId);if(editor->property("visible").toBool() || task.value(QStringLiteral("projectId")).toString()!=detailProjectId || task.value(QStringLiteral("headingId")).toString()!=detailHeadingId || !task.value(QStringLiteral("areaId")).toString().isEmpty() || !task.value(QStringLiteral("evening")).toBool() || !task.value(QStringLiteral("todayFocus")).toBool() || task.value(QStringLiteral("remindAtUtc")).toString().isEmpty() || !open()){qCritical()<<"Detail saved fields"<<editor->property("visible")<<task.value(QStringLiteral("projectId"))<<task.value(QStringLiteral("areaId"))<<task.value(QStringLiteral("headingId"))<<task.value(QStringLiteral("evening"))<<task.value(QStringLiteral("remindAtUtc"))<<m_workspace.errorText();fail("detail atomic project and moved scheduling fields");return;}
+                } else if(phase==197) {
+                    if(!fields->findChild<QObject*>(QStringLiteral("editorHeadingRow"))->property("visible").toBool() || fields->findChild<QObject*>(QStringLiteral("editorHeading"))->property("currentIndex").toInt()!=1 || !capture(QStringLiteral("detail-layout-project"))){fail("detail existing assignment restored");return;}
+                    auto* info=fields->findChild<QObject*>(QStringLiteral("taskInfoToggle"));QMetaObject::invokeMethod(info,"toggle");QMetaObject::invokeMethod(info,"clicked");m_workspace.setThemeMode(2);m_workspace.setTextScale(2);mainWindow->resize(880,580);
+                } else if(phase==198) {
+                    static int detailFrames=0;mainWindow->grabWindow();if(++detailFrames<3)return;
+                    if(!layout(false) || !fields->property("infoExpanded").toBool() || !capture(QStringLiteral("detail-layout-dark-200")) || !select(QStringLiteral("area"),detailAreaId,QString())){fail("detail responsive draft and area selection");return;}
+                    reminder->setProperty("text",QStringLiteral("invalid"));QMetaObject::invokeMethod(save,"clicked");
+                } else if(phase==199) {
+                    if(!editor->property("visible").toBool() || m_workspace.errorText().isEmpty() || m_workspace.task(secondId).value(QStringLiteral("projectId")).toString()!=detailProjectId || fields->findChild<QObject*>(QStringLiteral("editorHeadingRow"))->property("visible").toBool()){fail("detail failed area draft preserves stored project");return;}
+                    reminder->setProperty("text",QString());QMetaObject::invokeMethod(save,"clicked");
+                } else if(phase==200) {
+                    const auto task=m_workspace.task(secondId);if(editor->property("visible").toBool() || task.value(QStringLiteral("areaId")).toString()!=detailAreaId || !task.value(QStringLiteral("projectId")).toString().isEmpty() || !task.value(QStringLiteral("headingId")).toString().isEmpty() || !task.value(QStringLiteral("remindAtUtc")).toString().isEmpty() || !task.value(QStringLiteral("evening")).toBool()){fail("detail atomic mutually exclusive area commit");return;}
+                    m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_workspace.setView(QStringLiteral("today"));mainWindow->resize(1120,720);open();
+                } else if(phase==201) {
+                    static int dockFrames=0;mainWindow->grabWindow();if(++dockFrames<3)return;
+                    if(!mainWindow->property("detailDocked").toBool() || !layout(false) || !capture(QStringLiteral("detail-layout-docked"))){fail("detail narrow docked layout");return;}
+                    auto* focus=mainWindow->findChild<QObject*>(QStringLiteral("editorTodayFocus"));QMetaObject::invokeMethod(focus,"toggle");QMetaObject::invokeMethod(focus,"clicked");
+                    if(mainWindow->findChild<QObject*>(QStringLiteral("removeTodayDialog"))->property("visible").toBool() || mainWindow->findChild<QObject*>(QStringLiteral("editorEvening"))->property("checked").toBool()){fail("removing focus uses date-only C++ decision and clears tonight draft");return;}
+                    mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");
+                }
             } else if(phase>=180) {
                 auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
                 auto* gallery=mainWindow->findChild<QObject*>(QStringLiteral("styleGallery"));
@@ -747,7 +785,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==190) {
+            if(phase==201) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
                 QList<QPointer<QObject>> pending;
@@ -764,7 +802,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<191)return;
+            if(phase<202)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -794,7 +832,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         probe->start();
         // Capturing every surface adds synchronous GPU readbacks; keep the
         // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=191)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=202)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

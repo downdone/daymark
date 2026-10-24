@@ -69,3 +69,5 @@ Apple HIG为项目UI/UX强制依据，见[原则P-13](principles.md)；完整视
 当前版本系统评估和后续路线见[评估](review-rc2.md)，CAL-05契约见[日程浏览定位](design/calendar-browsing.md)。
 
 全界面按钮文字/图文/纯图标决策及新浅深色彩体系见[UI-15](design/actions-and-color.md)。
+
+任务详情的行关系、单个互斥归属选择与条件分组见[UI-16布局](design/task-detail-layout.md)。

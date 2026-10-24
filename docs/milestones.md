@@ -86,3 +86,5 @@ CAL-04按[事件系列设计](design/event-series.md)扩展FR-021：领域规则
 CAL-05按[评估路线](review-rc2.md)及[浏览定位设计](design/calendar-browsing.md)依次交付查询排序/定位键、只读预览、直接日期跳转和本地验证。其后CAL-06、REL-01、CAL-07、ENG-01、REL-02分别解决查找密度、真实平台验收、循环例外、维护性及正式发布；不混淆设备依赖和可本地实现项。
 
 UI-15按[动作与配色审计](design/actions-and-color.md)交付：共享图文组件/角色token → 全页面按动作风险与可识别度迁移 → 浅深/200%/可访问名称、对比度与原生/部署验证。范围不替代CAL-06功能计划，也不解除平台人工门禁。
+
+UI-16按[任务详情布局](design/task-detail-layout.md)先定义信息架构/行关系/条件显示，再实施Main与TaskDetailsFields纵切；验收互斥归属/分组、移动后的今晚/提醒、宽窄/200%与草稿原子性，不扩大CAL-06范围。
