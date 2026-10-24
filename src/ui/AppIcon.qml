@@ -32,6 +32,7 @@ Canvas {
         else if(name==="tag") {line([[9,3],[6,21]],false);line([[18,3],[15,21]],false);line([[4,9],[21,9]],false);line([[3,15],[20,15]],false)}
         else if(name==="info") {circle(12,12,9);line([[12,10],[12,17]],false);circle(12,6.5,0.5)}
         else if(name==="flag") {line([[5,22],[5,3],[12,3],[14,5],[21,5],[21,15],[14,15],[12,13],[5,13]],false)}
+        else if(name==="grip") {line([[5,8],[19,8]],false);line([[5,12],[19,12]],false);line([[5,16],[19,16]],false)}
         else if(name==="more") {for(let i=0;i<3;i++){p.beginPath();p.arc(5+i*7,12,1.5,0,Math.PI*2);p.fill()}}
         else if(name==="left")line([[15,5],[8,12],[15,19]],false)
         else if(name==="right")line([[9,5],[16,12],[9,19]],false)

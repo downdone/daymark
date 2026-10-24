@@ -31,7 +31,7 @@ for increased in (False, True):
         backgrounds = ('surface', 'sidebar', 'grouped', 'hover', 'pressed', 'selected', 'fieldFill')
         for foreground in ('text', 'secondary', 'accent', 'danger', 'success', 'categoryOrange', 'categoryPurple'):
             checks.extend((f'{foreground}/{background}', contrast(values[foreground], values[background]), 4.5) for background in backgrounds)
-        checks.extend((f'{foreground}/{background}', contrast(values[foreground], values[background]), 4.5) for foreground, background in (('accentText', 'accent'), ('calendarTodayText', 'calendarToday')))
+        checks.extend((f'{foreground}/{background}', contrast(values[foreground], values[background]), 4.5) for foreground, background in (('accentText', 'accent'), ('calendarTodayText', 'calendarToday'), ('primaryInk', 'primaryFill'), ('scheduleInk', 'scheduleFill')))
         checks.extend((f'toggleOn/{background}', contrast(values['toggleOn'], values[background]), 3) for background in backgrounds)
         for foreground in ('outline', 'fieldLine'):
             checks.extend((f'{foreground}/{background}', contrast(values[foreground], values[background]), 3) for background in backgrounds)

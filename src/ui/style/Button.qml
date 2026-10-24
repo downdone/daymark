@@ -20,14 +20,14 @@ T.Button {
     contentItem: Text {
         text: control.labelText
         font: control.font
-        color: !control.enabled ? DesignTokens.disabledText : control.highlighted ? DesignTokens.accentText : control.palette.buttonText
+        color: !control.enabled ? DesignTokens.disabledText : control.highlighted ? DesignTokens.primaryInk : control.palette.buttonText
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
     }
     background: Rectangle {
-        radius: DesignTokens.radius
-        color: !control.enabled ? DesignTokens.sidebar : control.highlighted ? (control.down ? Qt.darker(DesignTokens.accent,1.12) : DesignTokens.accent) : control.down ? DesignTokens.pressed : control.hovered ? DesignTokens.hover : control.flat ? "transparent" : DesignTokens.fieldFill
+        radius: control.highlighted ? height/2 : DesignTokens.radius
+        color: !control.enabled ? DesignTokens.sidebar : control.highlighted ? (control.down ? Qt.darker(DesignTokens.primaryFill,1.05) : DesignTokens.primaryFill) : control.down ? DesignTokens.pressed : control.hovered ? DesignTokens.hover : control.flat ? "transparent" : DesignTokens.fieldFill
         border.width: control.visualFocus ? 2 : 0
         border.color: DesignTokens.accent
     }

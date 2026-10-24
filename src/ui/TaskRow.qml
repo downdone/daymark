@@ -35,6 +35,12 @@ ItemDelegate {
     property bool selectedForBatch: false
     property bool canMoveUp: true
     property bool canMoveDown: true
+    property bool canReorder: false
+    property bool heldPress: false
+    property bool dragArmed: false
+    property bool dragging: false
+    property real dragOriginX: 0
+    property real dragOriginY: 0
     property bool canActivate: false
     property bool expanded: false
     property Item inlineEditor: null
@@ -68,12 +74,32 @@ ItemDelegate {
     signal eveningRequested(bool value)
     signal dragStateChanged(bool active)
     signal menuRequested()
-    Drag.active: drag.active
-    Drag.source: root
-    Drag.hotSpot.x: width/2+drag.centroid.position.x-drag.centroid.pressPosition.x
-    Drag.hotSpot.y: height/2+drag.centroid.position.y-drag.centroid.pressPosition.y
-    DragHandler {id: drag;enabled: !root.expanded;target: null;onActiveChanged: {if(!active)root.Drag.drop();root.dragStateChanged(active)}}
-    DropArea {anchors.fill: parent;onDropped: function(drop){const source=drop.source as TaskRow;if(source){root.dropRequested(source.taskId);drop.acceptProposedAction()}}}
+    function armDrag(x,y){dragOriginX=x;dragOriginY=y;dragArmed=true;dragProxy.x=0;dragProxy.y=0;forceActiveFocus()}
+    function updateDrag(x,y){if(!dragArmed)return;const dx=x-dragOriginX,dy=y-dragOriginY;if(!dragging && Math.abs(dx)+Math.abs(dy)>2)dragging=true;if(dragging){dragProxy.x=dx;dragProxy.y=dy}}
+    function finishDrag(drop){if(dragging){if(drop)dragProxy.Drag.drop();else dragProxy.Drag.cancel()}dragging=false;dragArmed=false;dragProxy.x=0;dragProxy.y=0}
+    function dragPointIn(item){return dragProxy.mapToItem(item,dragOriginX,dragOriginY)}
+    function compensateScroll(delta){dragProxy.y+=delta}
+    onDraggingChanged: dragStateChanged(dragging)
+    z: dragging ? 100 : 0
+    Keys.onEscapePressed: function(event){if(dragging || dragArmed)finishDrag(false);else event.accepted=false}
+    MouseArea {
+        id: holdArea;objectName: "taskHoldDrag";anchors.fill: parent;enabled: root.canReorder && !root.expanded && !root.selectionMode
+        pressAndHoldInterval: 350;preventStealing: root.dragArmed;cursorShape: root.dragArmed ? Qt.ClosedHandCursor : Qt.ArrowCursor
+        onPressed: root.heldPress=false
+        onPressAndHold: function(mouse){root.heldPress=true;root.armDrag(mouse.x,mouse.y)}
+        onClicked: if(!root.heldPress)root.quickEditRequested()
+        onReleased: root.finishDrag(true)
+        onCanceled: root.finishDrag(false)
+        onPositionChanged: function(mouse){if(pressed && root.dragArmed){const point=mapToItem(root,mouse.x,mouse.y);root.updateDrag(point.x,point.y)}}
+    }
+    Item {
+        id: dragProxy;z: 20;width: root.width;height: root.height
+        Drag.active: root.dragging;Drag.source: root;Drag.hotSpot.x: root.dragOriginX;Drag.hotSpot.y: root.dragOriginY
+        Rectangle {anchors.fill: parent;visible: root.dragging;color: Theme.content;radius: 12;border.color: Theme.accent;opacity: 0.95
+            Text {anchors.fill: parent;anchors.margins: 12;text: root.title;font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize;color: Theme.text;elide: Text.ElideRight;verticalAlignment: Text.AlignVCenter}
+        }
+    }
+    DropArea {id: dropZone;anchors.fill: parent;enabled: root.canReorder;onDropped: function(drop){const source=drop.source as TaskRow;if(source && source!==root){root.dropRequested(source.taskId);drop.acceptProposedAction()}}}
     padding: expanded ? 0 : 6
     horizontalPadding: expanded ? 0 : 10
     implicitHeight: Math.max(Theme.compact ? 38 : 48,contentItem.implicitHeight+topPadding+bottomPadding)
@@ -118,6 +144,21 @@ ItemDelegate {
                 Label {visible: root.taskStatus==="CANCELLED";text: qsTr("已取消");color: Theme.secondary;font.pixelSize: Theme.captionSize}
             }
         }
+        Item {
+            opacity: root.canReorder && (root.hovered || root.activeFocus || root.dragArmed) ? 1 : 0
+            Accessible.ignored: !root.canReorder
+            Layout.preferredWidth: 28;Layout.preferredHeight: 32
+            Accessible.name: qsTr("拖动排序；也可长按任务，Ctrl加上下箭头移动")
+            AppIcon {anchors.centerIn: parent;name: "grip"}
+            MouseArea {
+                id: handleArea;anchors.fill: parent;enabled: root.canReorder;cursorShape: root.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                preventStealing: true
+                onPressed: function(mouse){const point=mapToItem(root,mouse.x,mouse.y);root.armDrag(point.x,point.y)}
+                onPositionChanged: function(mouse){if(pressed && root.dragArmed){const point=mapToItem(root,mouse.x,mouse.y);root.updateDrag(point.x,point.y)}}
+                onReleased: root.finishDrag(true)
+                onCanceled: root.finishDrag(false)
+            }
+        }
         IconToolButton {
             contentItem: AppIcon {name: "more"}
             Accessible.name: qsTr("任务操作：")+root.title
@@ -130,17 +171,18 @@ ItemDelegate {
                 MenuItem { text: qsTr("编辑详情…"); onTriggered: root.editRequested() }
                 MenuItem {text: root.evening ? qsTr("安排到今天") : qsTr("安排到今晚");visible: root.inToday && !root.isDone;onTriggered: root.eveningRequested(!root.evening)}
                 MenuItem {text: qsTr("激活到随时可做");visible: root.canActivate;onTriggered: root.activateRequested()}
-                MenuItem { text: qsTr("上移");enabled: root.canMoveUp; onTriggered: root.moveRequested(-1) }
-                MenuItem { text: qsTr("下移");enabled: root.canMoveDown; onTriggered: root.moveRequested(1) }
+
             }
         }
         }
         Item {id: inlineHost;Layout.fillWidth: true;visible: root.expanded;implicitHeight: root.inlineEditor ? root.inlineEditor.implicitHeight : 0}
     }
     background: Rectangle {
+        opacity: root.dragging ? 0.5 : 1
         radius: root.expanded ? 14 : Theme.rowRadius
         color: root.expanded ? Theme.grouped : root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"
-        border.width: root.activeFocus ? 1 : 0;border.color: Theme.accent
+        border.width: root.activeFocus || root.dragArmed ? 1 : 0;border.color: Theme.accent
+        Rectangle {visible: dropZone.containsDrag && !root.dragging;height: 2;width: parent.width;anchors.top: parent.top;color: Theme.accent}
         Rectangle {visible: !root.expanded && !root.highlighted && !root.hovered;height: 1;x: 50;width: Math.max(0,parent.width-60);anchors.bottom: parent.bottom;color: Theme.separator}
     }
 }

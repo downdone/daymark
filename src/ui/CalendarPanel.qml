@@ -8,6 +8,8 @@ ColumnLayout {
     objectName: "calendarPanel"
     required property TaskWorkspace workspace
     signal desktopRequested()
+    property alias recurringSheet: recurringSchedules
+    property alias previewSheet: eventPreview
     property bool independent: false
     property bool weekMode: false
     property string anchorDate: workspace.dateOffset(0)
@@ -24,8 +26,10 @@ ColumnLayout {
     readonly property var days: independent ? independentDays : workspace.calendarDays
     readonly property var selectedDay: days.find(day=>day.date===selectedDate) || ({date:"",entries:[],events:[]})
     readonly property bool compact: width<800*Theme.scale
-    readonly property int rowMinimum: Math.max(80,Math.ceil(Theme.bodySize*1.5+Theme.captionSize*3+16))
-    readonly property bool modalOpen: eventEditor.visible || eventPreview.visible || jumpDialog.visible || moveDialog.visible || unscheduled.visible
+    readonly property var bands: showEvents ? days.reduce((all,day)=>all.concat((day.bands || []).filter(item=>item.lane<3)),[]) : []
+    readonly property int visibleBandLanes: showEvents ? days.reduce((count,day)=>Math.max(count,day.bandLanes || 0),0) : 0
+    readonly property int rowMinimum: Math.max(80,Math.ceil(Math.max(28,Theme.bodySize*1.65)+visibleBandLanes*(Math.ceil(Theme.captionSize*1.5)+2)+Theme.captionSize*3+16))
+    readonly property bool modalOpen: recurringSchedules.visible || eventEditor.visible || eventPreview.visible || jumpDialog.visible || moveDialog.visible || unscheduled.visible
     property bool showTasks: true
     property bool showEvents: true
     property var moving: ({})
@@ -42,11 +46,13 @@ ColumnLayout {
             if(tile.displayedCount<1 || tile.firstDisplayedTitle.indexOf(tile.items[0].title)<0)return "missing concrete title"
             if(tile.markerBottom>tile.availableHeight+1)return "clipped concrete title"
         }
-        return populated>0 ? "PASS" : "no populated dates"
+        for(let i=0;i<spanBands.count;i++){const bar=spanBands.itemAt(i);if(!bar || bar.width<=0 || bar.y+bar.height>monthGrid.height+1)return "span clipped"}
+        return populated>0 || spanBands.count>0 ? "PASS" : "no populated dates"
     }
     function kindText(kind) {return kind==="both" ? qsTr("计划＋截止") : kind==="deadline" ? qsTr("截止") : qsTr("计划")}
     function offerMove(entry,date) {moving=entry;targetDate.text=date;markerKind.currentIndex=entry.kind==="deadline" ? 1 : 0;moveDialog.open()}
     function openEvent(id) {eventPreview.close();eventEditor.showEvent(id,selectedDate)}
+    function openRecurring(){recurringSchedules.showSchedules()}
     function inspectEvent(id,key) {eventPreview.showEvent(id,key || "")}
     function openDateJump() {jumpDate.text=selectedDate;jumpError.text="";jumpDialog.open();jumpDate.forceActiveFocus()}
     function jumpToDate(value) {
@@ -69,12 +75,12 @@ ColumnLayout {
     component CalendarDay: ItemDelegate {
         id: dayCell
         required property var modelData
-        readonly property var items: panel.entries(modelData)
+        readonly property var items: panel.entries(modelData).filter(item=>!item.multiDay)
         readonly property int markerLineHeight: Math.ceil(Theme.captionSize*1.5)
-        readonly property int entryLimit: Math.max(1,Math.min(panel.isWeek ? 8 : 3,Math.floor((availableHeight-dayNumber.implicitHeight-markerLineHeight-6)/(markerLineHeight+2))))
+        readonly property int entryLimit: Math.max(1,Math.min(panel.isWeek ? 8 : 3,Math.floor((availableHeight-dayNumber.implicitHeight-bandSpace.height-markerLineHeight-6)/(markerLineHeight+2))))
         readonly property int displayedCount: markers.count
         readonly property string firstDisplayedTitle: {if(markers.count<1)return "";const label=markers.itemAt(0) as Label;return label ? label.text : ""}
-        readonly property real markerBottom: dayNumber.height+1+markers.count*(markerLineHeight+1)
+        readonly property real markerBottom: dayNumber.height+bandSpace.height+1+markers.count*(markerLineHeight+1)
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.preferredWidth: 1
@@ -101,6 +107,7 @@ ColumnLayout {
                     Text {anchors.centerIn: parent;text: dayCell.modelData.day;font.pixelSize: Theme.bodySize;font.weight: dayCell.modelData.today || dayCell.highlighted ? Font.DemiBold : Font.Normal;color: dayCell.modelData.today ? Theme.calendarTodayText : dayCell.modelData.inMonth && !dayCell.modelData.weekend ? Theme.text : Theme.secondary}
                 }
             }
+            Item {id: bandSpace;width: parent.width;height: panel.showEvents ? (dayCell.modelData.bandLanes || 0)*(dayCell.markerLineHeight+2) : 0}
             Repeater {
                 id: markers
                 model: dayCell.items.slice(0,dayCell.entryLimit)
@@ -129,8 +136,8 @@ ColumnLayout {
             }
             Label {
                 width: dayCell.availableWidth
-                visible: dayCell.items.length>dayCell.entryLimit
-                text: "+"+(dayCell.items.length-dayCell.entryLimit)
+                visible: dayCell.items.length>dayCell.entryLimit || (panel.showEvents && dayCell.modelData.hiddenBands>0)
+                text: "+"+(Math.max(0,dayCell.items.length-dayCell.entryLimit)+(panel.showEvents ? dayCell.modelData.hiddenBands || 0 : 0))
                 font.pixelSize: Theme.captionSize
                 color: Theme.accent
                 TapHandler {onTapped: {panel.selectedDate=dayCell.modelData.date;panel.showAgenda()}}
@@ -157,10 +164,11 @@ ColumnLayout {
     Flow {
         Layout.fillWidth: true
         spacing: Theme.gap
-        SegmentedPicker {width: 104*Theme.scale;model: [qsTr("月"),qsTr("周")];currentIndex: panel.isWeek ? 1 : 0;onActivated: function(index){if(panel.independent)panel.weekMode=index===1;else panel.workspace.setView(index===1 ? "week" : "month")}}
+        SegmentedPicker {width: 104*Theme.scale;selectionIsExternal: true;model: [qsTr("月"),qsTr("周")];currentIndex: panel.isWeek ? 1 : 0;onActivated: function(index){if(panel.independent)panel.weekMode=index===1;else panel.workspace.setView(index===1 ? "week" : "month")}}
         ActionButton {symbol: "calendar";objectName: "calendarJump";text: qsTr("跳转日期…");onClicked: panel.openDateJump()}
         ActionButton {symbol: "window";visible: !panel.independent;text: qsTr("桌面日历");onClicked: panel.desktopRequested()}
-        ActionButton {symbol: "plus";text: qsTr("新建事件");highlighted: true;enabled: panel.workspace.ready && !panel.workspace.busy;onClicked: panel.openEvent("")}
+        ActionButton {symbol: "plus";text: qsTr("新建日程");highlighted: true;enabled: panel.workspace.ready && !panel.workspace.busy;onClicked: panel.openEvent("")}
+        ActionButton {objectName: "showRecurringSchedules";symbol: "reload";text: qsTr("循环日程");onClicked: panel.openRecurring()}
         WidgetAction {
             objectName: "calendarDisplayAction"
             symbol: "filter"
@@ -169,7 +177,7 @@ ColumnLayout {
             Menu {
                 id: displayMenu
                 MenuItem {text: qsTr("任务计划与截止");checkable: true;checked: panel.showTasks;onTriggered: panel.showTasks=checked}
-                MenuItem {text: qsTr("事件");checkable: true;checked: panel.showEvents;onTriggered: panel.showEvents=checked}
+                MenuItem {text: qsTr("日程");checkable: true;checked: panel.showEvents;onTriggered: panel.showEvents=checked}
                 MenuItem {text: qsTr("已完成任务");checkable: true;checked: panel.workspace.calendarCompleted;onTriggered: panel.workspace.calendarCompleted=checked}
                 MenuSeparator {}
                 MenuItem {text: qsTr("周日为每周首日");checkable: true;checked: panel.workspace.sundayFirst;onTriggered: panel.workspace.sundayFirst=checked}
@@ -177,10 +185,11 @@ ColumnLayout {
         }
         ActionButton {symbol: "inbox";text: qsTr("未排期（%1）").arg(panel.workspace.unscheduledTasks.length);flat: true;onClicked: unscheduled.open()}
         ActionButton {symbol: "list";visible: panel.compact;text: qsTr("当天议程");onClicked: panel.showAgenda()}
-        ActionButton {symbol: "undo";visible: panel.workspace.canUndoEvent;text: qsTr("撤销删除事件");enabled: !panel.workspace.busy;onClicked: panel.workspace.undoEventDelete()}
+        ActionButton {symbol: "undo";visible: panel.workspace.canUndoEvent;text: qsTr("撤销删除日程");enabled: !panel.workspace.busy;onClicked: panel.workspace.undoEventDelete()}
     }
     ScrollView {
         id: body
+    RecurringSchedules {id: recurringSchedules;parent: Overlay.overlay;anchors.centerIn: parent;workspace: panel.workspace;onCreateSchedule: eventEditor.showRecurring(panel.selectedDate);onInspectSchedule: function(id){panel.inspectEvent(id,"")}}
         Layout.fillWidth: true
         Layout.fillHeight: true
         clip: true
@@ -232,16 +241,41 @@ ColumnLayout {
                         Label {required property string modelData;text: modelData;Layout.fillWidth: true;Layout.preferredWidth: 1;horizontalAlignment: Text.AlignHCenter;font.pixelSize: Theme.captionSize;color: Theme.secondary}
                     }
                 }
-                GridLayout {
-                    columns: 7
-                    rowSpacing: 3
-                    columnSpacing: 3
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                Item {
+                    id: monthGrid
+                    objectName: "calendarMonthGrid"
+                    Layout.fillWidth: true;Layout.fillHeight: true;Layout.minimumHeight: implicitHeight
+                    implicitHeight: panel.rowMinimum*(panel.days.length/7)
+                    GridLayout {
+                        anchors.fill: parent;columns: 7;rowSpacing: 0;columnSpacing: 0
+                        Repeater {id: dayCells;model: panel.days;delegate: CalendarDay {}}
+                    }
                     Repeater {
-                        id: dayCells
-                        model: panel.days
-                        delegate: CalendarDay {}
+                        id: spanBands
+                        model: panel.bands
+                        Rectangle {
+                            id: band
+                            objectName: "calendarSpanBand"
+                            required property var modelData
+                            readonly property real cellWidth: monthGrid.width/7
+                            readonly property real rowHeight: monthGrid.height/(panel.days.length/7)
+                            x: modelData.column*cellWidth+(modelData.startsHere ? 4 : 0)
+                            y: modelData.week*rowHeight+4+Math.max(28,Math.ceil(Theme.bodySize*1.65))+1+modelData.lane*(Math.ceil(Theme.captionSize*1.5)+2)
+                            width: modelData.span*cellWidth-(modelData.startsHere ? 4 : 0)-(modelData.endsHere ? 4 : 0)
+                            height: Math.ceil(Theme.captionSize*1.5)
+                            topLeftRadius: modelData.startsHere ? 5 : 0;bottomLeftRadius: topLeftRadius
+                            topRightRadius: modelData.endsHere ? 5 : 0;bottomRightRadius: topRightRadius
+                            color: modelData.allDay ? Theme.scheduleFill : Theme.selected
+                            activeFocusOnTab: true;Accessible.role: Accessible.Button
+                            border.width: activeFocus ? 1 : 0;border.color: Theme.accent
+                            Keys.onReturnPressed: panel.inspectEvent(modelData.eventId,modelData.occurrenceKey)
+                            Keys.onSpacePressed: panel.inspectEvent(modelData.eventId,modelData.occurrenceKey)
+                            Accessible.name: modelData.title+", "+modelData.firstVisibleDate+" — "+modelData.lastVisibleDate
+                            Text {anchors.fill: parent;anchors.leftMargin: 6;anchors.rightMargin: 4;text: (band.modelData.recurring ? "↻ " : "")+band.modelData.title;font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;color: band.modelData.allDay ? Theme.scheduleInk : Theme.accent;verticalAlignment: Text.AlignVCenter;elide: Text.ElideRight}
+                            ToolTip.visible: bandHover.hovered;ToolTip.text: Accessible.name
+                            HoverHandler {id: bandHover}
+                            TapHandler {onTapped: panel.inspectEvent(band.modelData.eventId,band.modelData.occurrenceKey)}
+                        }
                     }
                 }
             }
@@ -256,7 +290,7 @@ ColumnLayout {
                 Layout.preferredHeight: panel.compact ? Math.max(320,Theme.bodySize*14) : -1
                 Label {text: panel.selectedDate+qsTr(" · 当天议程");font.pixelSize: Theme.sectionSize;font.bold: true;Layout.fillWidth: true;wrapMode: Text.Wrap}
                 TextField {id: newTitle;Layout.fillWidth: true;placeholderText: qsTr("当天新任务，Enter 添加");enabled: !!panel.selectedDate && !panel.workspace.busy;onAccepted: panel.workspace.createForDate(text,panel.selectedDate)}
-                Label {text: qsTr("○ 任务 · 计划 / 截止   ▰ 事件");Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                Label {text: qsTr("○ 任务 · 计划 / 截止   ▰ 日程");Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary}
                 ListView {
                 // Avoid background row incubation across model resets on Qt 6.10.2.
                 cacheBuffer: 0
@@ -269,7 +303,7 @@ ColumnLayout {
                     model: panel.entries(panel.selectedDay)
                     spacing: Theme.fieldGap
                     ScrollBar.vertical: ScrollBar {}
-                    Label {anchors.centerIn: parent;width: parent.width;wrapMode: Text.Wrap;horizontalAlignment: Text.AlignHCenter;color: Theme.secondary;visible: agenda.count===0;text: qsTr("这一天没有显示中的任务或事件")}
+                    Label {anchors.centerIn: parent;width: parent.width;wrapMode: Text.Wrap;horizontalAlignment: Text.AlignHCenter;color: Theme.secondary;visible: agenda.count===0;text: qsTr("这一天没有显示中的任务或日程")}
                     delegate: Item {
                         id: agendaRow
                         required property var modelData
@@ -299,7 +333,7 @@ ColumnLayout {
                                 }
                                 WidgetAction {visible: !agendaRow.modelData.eventId;symbol: "calendar";description: qsTr("调整任务日期");enabled: !panel.workspace.busy;onClicked: panel.offerMove(agendaRow.modelData,panel.selectedDate)}
                             }
-                            Label {Layout.fillWidth: true;Layout.leftMargin: 42;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: agendaRow.modelData.eventId ? qsTr("事件 · %1（本机时区）").arg(agendaRow.modelData.timeLabel) : qsTr("任务 · %1").arg(panel.kindText(agendaRow.modelData.kind))}
+                            Label {Layout.fillWidth: true;Layout.leftMargin: 42;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: agendaRow.modelData.eventId ? qsTr("日程 · %1（本机时区）").arg(agendaRow.modelData.timeLabel) : qsTr("任务 · %1").arg(panel.kindText(agendaRow.modelData.kind))}
                             Repeater {
                                 model: agendaRow.modelData.eventId ? agendaRow.modelData.links : []
                                 ItemDelegate {

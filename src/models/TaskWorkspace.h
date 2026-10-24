@@ -46,9 +46,11 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(bool backgroundBusy READ backgroundBusy NOTIFY stateChanged)
     Q_PROPERTY(QString view READ view NOTIFY stateChanged)
     Q_PROPERTY(QString errorText READ errorText NOTIFY stateChanged)
+    Q_PROPERTY(bool validationError READ validationError NOTIFY stateChanged)
     Q_PROPERTY(QString infoText READ infoText NOTIFY stateChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY stateChanged)
     Q_PROPERTY(QVariantList catalog READ catalog NOTIFY stateChanged)
+    Q_PROPERTY(bool taskReorderingAllowed READ taskReorderingAllowed NOTIFY stateChanged)
     Q_PROPERTY(QVariantList calendarDays READ calendarDays NOTIFY stateChanged)
     Q_PROPERTY(QVariantList calendarEvents READ calendarEvents NOTIFY stateChanged)
     Q_PROPERTY(bool canUndoEvent READ canUndoEvent NOTIFY stateChanged)
@@ -80,6 +82,7 @@ public:
     bool backgroundBusy() const { return m_busy && m_backgroundMaintenance; }
     QString view() const { return m_view; }
     QString errorText() const;
+    bool validationError() const {return m_error.code==ErrorCode::ValidationError;}
     QString infoText() const { return m_info; }
     bool canUndo() const { return !m_lastDeleted.isEmpty(); }
     QVariantList catalog() const;
@@ -89,6 +92,7 @@ public:
     Q_INVOKABLE QString shiftCalendar(const QString& anchor,int offset,bool week) const;
     QVariantList calendarEvents() const;
     Q_INVOKABLE QVariantMap calendarEvent(const QString& id) const;
+    Q_INVOKABLE QVariantList recurringEvents() const;
     Q_INVOKABLE QVariantMap calendarEventPreview(const QString& id,const QString& occurrenceKey=QString()) const;
     Q_INVOKABLE QVariantList eventsForTask(const QString& id) const;
     Q_INVOKABLE QVariantList eventTaskChoices(const QString& search) const;
@@ -116,6 +120,7 @@ public:
     Q_INVOKABLE bool previewImport(const QString& path,bool snapshot=false);
     Q_INVOKABLE bool applyImport(bool replace);
     Q_INVOKABLE bool moveTask(const QString& id,int direction);
+    bool taskReorderingAllowed() const;
     Q_INVOKABLE int taskIndex(const QString& id) const;
     Q_INVOKABLE bool canMoveTask(const QString& id,int direction) const;
     Q_INVOKABLE bool dropTask(const QString& source,const QString& target);
@@ -211,7 +216,7 @@ private:
     int m_historyDays=0;
     bool m_calendarCompleted=false;
     QVariantList m_eventNotifications;
-    QVariantMap m_preferences{{"reduceMotion",false},{"highContrast",false},{"compact",false},{"sidebarCollapsed",false},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
+    QVariantMap m_preferences{{"reduceMotion",false},{"highContrast",false},{"compact",false},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
 };
 

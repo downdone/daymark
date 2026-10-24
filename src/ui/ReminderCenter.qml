@@ -38,7 +38,7 @@ Dialog {
                     Label {Layout.fillWidth: true;text: root.workspace.localReminder(record.modelData.firedAt);font.pixelSize: Theme.captionSize;color: Theme.secondary}
                 }
             }
-            EmptyState {anchors.centerIn: parent;width: Math.min(parent.width,400*Theme.scale);visible: reminders.count===0;symbol: "today";heading: qsTr("暂无触发提醒");detail: qsTr("为任务或日历事件设置提醒后，触发记录会显示在这里。")}
+            EmptyState {anchors.centerIn: parent;width: Math.min(parent.width,400*Theme.scale);visible: reminders.count===0;symbol: "today";heading: qsTr("暂无触发提醒");detail: qsTr("为任务或日历日程设置提醒后，触发记录会显示在这里。")}
         }
     }
 }

@@ -13,6 +13,8 @@ ColumnLayout {
     property var tags: []
     readonly property bool twoColumns: width-24>=440*Theme.scale
     property bool infoExpanded: false
+    property Item draggedChecklistRow: null
+    function moveChecklist(from,to){if(from<0 || to<0 || from>=checklist.count || to>=checklist.count || from===to)return;checklist.move(from,to,1);draftChanged()}
     readonly property var destinations: [{kind:"",id:"",title:qsTr("不分类")}].concat(projects.map(item=>({kind:"project",id:item.id,title:qsTr("项目 · %1").arg(item.title)}))).concat(areas.map(item=>({kind:"area",id:item.id,title:qsTr("领域 · %1").arg(item.title)})))
     readonly property var selectedDestination: destinations[destinationChoice.currentIndex] || destinations[0]
     property var tagIds: []
@@ -149,17 +151,18 @@ ColumnLayout {
         heading: qsTr("检查清单");symbol: "list";summary: checklist.count>0 ? qsTr("%1项").arg(checklist.count) : ""
     Repeater {
         model: checklist
-        RowLayout {
+        ChecklistRow {
             id: row
+            objectName: "checklistRow-"+index
             required property int index
             required property string itemTitle
             required property bool itemDone
-            Layout.fillWidth: true
-            spacing: 4
-            CheckBox {checked: row.itemDone;Accessible.name: qsTr("完成清单项：")+row.itemTitle;onClicked: {checklist.setProperty(row.index,"itemDone",checked);root.draftChanged()}}
-            TextField {text: row.itemTitle;Layout.fillWidth: true;Accessible.name: qsTr("清单项标题");onTextEdited: {checklist.setProperty(row.index,"itemTitle",text);root.draftChanged()}}
-            IconToolButton {contentItem: AppIcon {name: "up"} Accessible.name: qsTr("上移清单项");enabled: row.index>0;onClicked: {checklist.move(row.index,row.index-1,1);root.draftChanged()}}
-            IconToolButton {contentItem: AppIcon {name: "trash";ink: Theme.danger} Accessible.name: qsTr("删除清单项");onClicked: {checklist.remove(row.index);root.draftChanged()}}
+            itemIndex: index;itemCount: checklist.count;title: itemTitle;done: itemDone
+            onDraggingChanged: root.draggedChecklistRow=dragging ? row : null
+            onTitleEdited: function(value){checklist.setProperty(index,"itemTitle",value);root.draftChanged()}
+            onDoneEdited: function(value){checklist.setProperty(index,"itemDone",value);root.draftChanged()}
+            onMoveRequested: function(from,to){root.moveChecklist(from,to)}
+            onRemoveRequested: {checklist.remove(index);root.draftChanged()}
         }
     }
     RowLayout {
@@ -169,7 +172,7 @@ ColumnLayout {
     }
     }
     DetailSection {
-        heading: qsTr("关联事件");symbol: "calendar";visible: root.relatedEvents.length>0
+        heading: qsTr("关联日程");symbol: "calendar";visible: root.relatedEvents.length>0
     Repeater {
         model: root.relatedEvents
         ItemDelegate {
@@ -180,14 +183,20 @@ ColumnLayout {
         }
     }
     }
-    ActionButton {
-        objectName: "taskInfoToggle";symbol: root.infoExpanded ? "up" : "down";text: qsTr("任务信息")
-        checkable: true;checked: root.infoExpanded
-        onClicked: root.infoExpanded=checked
-    }
-    ColumnLayout {
-        objectName: "taskInfoContent";visible: root.infoExpanded;Layout.fillWidth: true;spacing: 4
-    Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("创建 %1\n修改 %2").arg(root.workspace.localReminder(root.taskData.createdAtUtc || "")).arg(root.workspace.localReminder(root.taskData.updatedAtUtc || ""));font.pixelSize: Theme.captionSize;color: Theme.secondary}
-    Label {visible: !!root.taskData.completedAtUtc;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("完成 %1").arg(root.workspace.localReminder(root.taskData.completedAtUtc || ""));font.pixelSize: Theme.captionSize;color: Theme.secondary}
+    DetailSection {
+        heading: qsTr("任务记录");symbol: "info"
+        ActionButton {
+            objectName: "taskInfoToggle";symbol: root.infoExpanded ? "up" : "down";text: root.infoExpanded ? qsTr("收起记录") : qsTr("查看创建与修改时间")
+            onClicked: root.infoExpanded=!root.infoExpanded
+        }
+        GridLayout {
+            objectName: "taskInfoContent";visible: root.infoExpanded;Layout.fillWidth: true;columns: 2;columnSpacing: 16;rowSpacing: 6
+            Label {text: qsTr("创建");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: root.workspace.localReminder(root.taskData.createdAtUtc || "");font.pixelSize: Theme.captionSize}
+            Label {text: qsTr("修改");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: root.workspace.localReminder(root.taskData.updatedAtUtc || "");font.pixelSize: Theme.captionSize}
+            Label {visible: !!root.taskData.completedAtUtc;text: qsTr("完成");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+            Label {visible: !!root.taskData.completedAtUtc;Layout.fillWidth: true;wrapMode: Text.Wrap;text: root.workspace.localReminder(root.taskData.completedAtUtc || "");font.pixelSize: Theme.captionSize}
+        }
     }
 }

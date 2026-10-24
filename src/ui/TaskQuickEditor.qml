@@ -40,7 +40,7 @@ Control {
     function open(){editing=true;Qt.callLater(focusTitle)}
     function close(){quickStart.closePicker();quickEnd.closePicker();reminder.closePicker();tagPicker.close();destinationPicker.close();editing=false}
     function focusTitle(){quickTitle.forceActiveFocus();focusRequested(quickTitle)}
-    function verifyLayout(){return width>0 && height<=170*Theme.scale && quickTitle.font.pixelSize===Theme.bodySize && quickNotes.font.pixelSize===Theme.captionSize ? "PASS" : "inline row size or typography"}
+    function verifyLayout(){return width>0 && height<=170*Theme.scale && quickTitle.font.pixelSize===Theme.bodySize && quickNotes.font.pixelSize===Theme.captionSize ? "PASS" : "inline geometry width="+width+" height="+height+" implicit="+implicitHeight+" scale="+Theme.scale+" fonts="+quickTitle.font.pixelSize+","+quickNotes.font.pixelSize}
     Shortcut {sequence: "Escape";enabled: root.visible && !root.guardActive && !root.pickerVisible;onActivated: root.closeRequested()}
     Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+Return" : "Ctrl+Return";enabled: root.visible && !root.guardActive && !root.pickerVisible;onActivated: root.saveRequested()}
     contentItem: ColumnLayout {
@@ -119,7 +119,7 @@ Control {
                 CatalogPicker {id: destinationPicker;heading: qsTr("放入项目或领域");options: root.destinations;selectedIds: [root.destinationId];heightLimit: root.hostWindow ? root.hostWindow.height-32 : 440;y: destinationButton.height+4;onSelected: function(kind,id,checked){root.destinationEdited(kind,id)};onCreateRequested: function(kind){root.createCatalogRequested(kind)}}
             }
             ReminderField {
-                id: reminder;objectName: "quickEditorReminder";workspace: root.workspace;iconOnly: true
+                id: reminder;objectName: "quickEditorReminder";workspace: root.workspace;iconOnly: true;commitTask: true
                 width: Math.max(36,Theme.iconSize+16);height: width;implicitWidth: width
                 readOnly: true;activeFocusOnTab: false;color: "transparent";leftPadding: 0;placeholderText: ""
                 background: Rectangle {radius: height/2;border.width: reminder.activeFocus ? 2 : 0;border.color: Theme.accent;color: reminder.text ? Theme.selected : Theme.sidebar}

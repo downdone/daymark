@@ -446,14 +446,44 @@ QVariantList TaskWorkspace::calendarDaysFor(const QString& anchor,bool week) con
     const auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid())return {};
     const auto days=CalendarService::days(m_cache,date,week,m_sundayFirst,m_calendarCompleted);
     QHash<QDate,QVariantList> eventDays;
+    QVariantList spans;
     const auto zone=QTimeZone::systemTimeZone();
     if(!days.isEmpty())for(const auto& event:m_events) {
         for(const auto& instance:EventService::occurrences(event,days.first().date,days.last().date,zone)) {
             const auto dates=EventService::visibleDates(instance,days.first().date,days.last().date,zone);
-            auto map=eventMap(instance);map.insert(QStringLiteral("recurring"),event.repeatFrequency!=QStringLiteral("NONE"));for(const auto& date:dates)eventDays[date].append(map);
+            auto map=eventMap(instance);map.insert(QStringLiteral("recurring"),event.repeatFrequency!=QStringLiteral("NONE"));
+            const auto first=instance.allDay?instance.startOn:instance.startUtc.toTimeZone(zone).date();
+            const auto last=instance.allDay?instance.endOn.addDays(-1):instance.endUtc.addMSecs(-1).toTimeZone(zone).date();
+            map.insert(QStringLiteral("multiDay"),first<last);map.insert(QStringLiteral("firstVisibleDate"),first.toString(Qt::ISODate));map.insert(QStringLiteral("lastVisibleDate"),last.toString(Qt::ISODate));
+            if(first<last && !dates.isEmpty())spans.append(map);
+            for(const auto& date:dates)eventDays[date].append(map);
         }
     }
-    for(const auto& day:days) {
+    // Allocate week-local lanes in stable start/longest/title/identity order.
+    std::sort(spans.begin(),spans.end(),[](const QVariant& l,const QVariant& r){
+        const auto a=l.toMap(),b=r.toMap();
+        for(const auto& key:{QStringLiteral("firstVisibleDate"),QStringLiteral("lastVisibleDate"),QStringLiteral("title"),QStringLiteral("eventId"),QStringLiteral("occurrenceKey")}) {
+            const auto x=a.value(key).toString(),y=b.value(key).toString();if(x!=y)return key==QStringLiteral("lastVisibleDate")?x>y:x<y;
+        }return false;
+    });
+    QList<QVariantList> bands(days.size()/7);QList<int> laneCounts(days.size()/7,0);QHash<QDate,int> hiddenBands;
+    for(int weekIndex=0;weekIndex<bands.size();++weekIndex) {
+        QList<int> occupied;int hiddenLane=3;
+        const auto first=days[weekIndex*7].date,last=first.addDays(6);
+        for(const auto& value:spans) {
+            auto segment=value.toMap();const auto actualFirst=QDate::fromString(segment.value("firstVisibleDate").toString(),Qt::ISODate),actualLast=QDate::fromString(segment.value("lastVisibleDate").toString(),Qt::ISODate);
+            if(actualFirst>last || actualLast<first)continue;
+            const auto begin=qMax(first,actualFirst),end=qMin(last,actualLast);const int column=first.daysTo(begin),span=begin.daysTo(end)+1;
+            const int mask=((1<<span)-1)<<column;int lane=0;while(lane<occupied.size() && (occupied[lane]&mask))++lane;
+            if(lane>=3)lane=hiddenLane++;else {if(lane==occupied.size())occupied.append(0);occupied[lane]|=mask;}
+            segment.insert("week",weekIndex);segment.insert("column",column);segment.insert("span",span);segment.insert("lane",lane);segment.insert("startsHere",begin==actualFirst);segment.insert("endsHere",end==actualLast);
+            bands[weekIndex].append(segment);
+            if(lane>=3)for(auto date=begin;date<=end;date=date.addDays(1))++hiddenBands[date];
+        }
+        laneCounts[weekIndex]=qMin(3,occupied.size());
+    }
+    for(int dayIndex=0;dayIndex<days.size();++dayIndex) {
+        const auto& day=days[dayIndex];
         QVariantList entries;
         for(const auto& entry:day.entries) {
             auto map=TaskListModel::taskMap(entry.task);map.insert(QStringLiteral("kind"),entry.kind);entries.append(map);
@@ -468,7 +498,8 @@ QVariantList TaskWorkspace::calendarDaysFor(const QString& anchor,bool week) con
             return title!=0?title<0:a.value("eventId").toString()<b.value("eventId").toString();
         });
         result.append(QVariantMap{{"date",day.date.toString(Qt::ISODate)},{"day",day.date.day()},{"inMonth",day.inMonth},
-            {"today",day.date==m_today},{"weekend",day.date.dayOfWeek()>5},{"entries",entries},{"events",events}});
+            {"today",day.date==m_today},{"weekend",day.date.dayOfWeek()>5},{"entries",entries},{"events",events},
+            {"bandLanes",laneCounts[dayIndex/7]},{"hiddenBands",hiddenBands.value(day.date)},{"bands",dayIndex%7==0?bands[dayIndex/7]:QVariantList{}}});
     }
     return result;
 }
@@ -485,6 +516,11 @@ QVariantMap TaskWorkspace::eventMap(const CalendarEvent& e) const
     return {{"occurrenceKey",EventService::occurrenceKey(e)},{"repeatFrequency",e.repeatFrequency},{"repeatInterval",e.repeatInterval},{"repeatUntil",e.repeatUntil.toString(Qt::ISODate)},{"alertMinutes",e.alertMinutes},{"eventId",e.id},{"title",e.title},{"notes",e.notes},{"allDay",e.allDay},{"rowVersion",e.rowVersion},{"zone",e.timeZone},
         {"startDate",e.allDay?e.startOn.toString(Qt::ISODate):start.date().toString(Qt::ISODate)},{"endDate",e.allDay?e.endOn.addDays(-1).toString(Qt::ISODate):end.date().toString(Qt::ISODate)},
         {"startTime",timeInput(start.time())},{"endTime",timeInput(end.time())},{"timeLabel",time},{"links",links}};
+}
+QVariantList TaskWorkspace::recurringEvents() const
+{
+    QVariantList result;for(const auto& e:m_events)if(e.repeatFrequency!=QStringLiteral("NONE"))result.append(calendarEventPreview(e.id));
+    std::sort(result.begin(),result.end(),[](const QVariant& a,const QVariant& b){return a.toMap().value("title").toString().localeAwareCompare(b.toMap().value("title").toString())<0;});return result;
 }
 QVariantList TaskWorkspace::calendarEvents() const{QVariantList result;for(const auto& e:m_events)result.append(eventMap(e));return result;}
 QVariantMap TaskWorkspace::calendarEvent(const QString& id) const{for(const auto& e:m_events)if(e.id==id)return eventMap(e);return {};}
@@ -510,10 +546,22 @@ QVariantMap TaskWorkspace::calendarEventPreview(const QString& id,const QString&
         if(instance.allDay){dateLabel=instance.startOn.toString(Qt::ISODate);if(instance.endOn.addDays(-1)!=instance.startOn)dateLabel+=QStringLiteral(" — ")+instance.endOn.addDays(-1).toString(Qt::ISODate);dateLabel+=tr(" · 全天");}
         else dateLabel=instance.startUtc.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"))+QStringLiteral(" — ")+instance.endUtc.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"))+tr("（本机时区）");
         const auto alert=series.alertMinutes<0?tr("不提醒"):series.alertMinutes==0?tr("开始时提醒"):tr("提前 %1 分钟").arg(series.alertMinutes);
+        QVariantMap timeline;
+        const auto localStart=instance.startUtc.toLocalTime(),localEnd=instance.endUtc.toLocalTime();
+        if(!instance.allDay && localStart.date()==localEnd.date()) {
+            const int startMinute=localStart.time().hour()*60+localStart.time().minute(),endMinute=localEnd.time().hour()*60+localEnd.time().minute();
+            if(endMinute>startMinute) {
+            const int from=qMax(0,(startMinute/60-1)*60),through=qMin(1440,qMax(from+180,(endMinute/60+1)*60));const int range=through-from;
+            QVariantList labels;const int step=qMax(60,((range+239)/240)*60);
+            for(int minute=from;minute<=through;minute+=step)labels.append(QVariantMap{{"label",QStringLiteral("%1:00").arg(minute/60,2,10,QChar('0'))},{"position",double(minute-from)/range}});
+            timeline={{"labels",labels},{"start",double(startMinute-from)/range},{"end",double(endMinute-from)/range}};
+            }
+        }
+        result.insert(QStringLiteral("timeline"),timeline);
         result.insert(QStringLiteral("recurring"),recurring);result.insert(QStringLiteral("ruleLabel"),rule);
         result.insert(QStringLiteral("dateLabel"),dateLabel);result.insert(QStringLiteral("alertLabel"),alert+(series.alertMinutes>=0 && series.allDay?tr(" · 当天09:00为基准"):QString()));
         result.insert(QStringLiteral("contextLabel"),key.isEmpty() && recurring?tr("系列起始安排"):tr("本次安排"));
-        result.insert(QStringLiteral("scopeLabel"),recurring?tr("系列起点 %1 · 编辑将修改整个系列").arg(first.toString(Qt::ISODate)):tr("此事件的日期和提醒"));
+        result.insert(QStringLiteral("scopeLabel"),recurring?tr("系列起点 %1 · 编辑将修改整个系列").arg(first.toString(Qt::ISODate)):tr("此日程的日期和提醒"));
         return result;
     }
     return {};
@@ -700,9 +748,11 @@ void TaskWorkspace::setThemeMode(int mode)
 }
 int TaskWorkspace::taskIndex(const QString& id) const
 {const auto& tasks=m_tasks.items();for(int index=0;index<tasks.size();++index)if(tasks[index].id==id)return index;return -1;}
+bool TaskWorkspace::taskReorderingAllowed() const
+{return m_ready && !m_busy && !m_includeCompleted && m_search.isEmpty() && m_tagFilter.isEmpty() && m_projectFilter.isEmpty() && (m_view==QStringLiteral("today") || m_view.startsWith(QStringLiteral("project:")));}
 bool TaskWorkspace::canMoveTask(const QString& id,int direction) const
 {
-    if(!m_ready || m_busy || m_includeCompleted || !m_search.isEmpty() || !m_tagFilter.isEmpty() || !m_projectFilter.isEmpty() || m_view==QStringLiteral("upcoming") || m_view==QStringLiteral("logbook") || (direction!=-1 && direction!=1))return false;
+    if(!taskReorderingAllowed() || (direction!=-1 && direction!=1))return false;
     const auto& tasks=m_tasks.items();
     int index=-1;for(int i=0;i<tasks.size();++i)if(tasks[i].id==id){index=i;break;}
     if(index<0 || index+direction<0 || index+direction>=tasks.size())return false;
@@ -726,12 +776,12 @@ int TaskWorkspace::completedToday() const
 }
 bool TaskWorkspace::dropTask(const QString& source,const QString& target)
 {
-    if(source==target || !m_search.isEmpty() || (m_view!=QStringLiteral("today") && !m_view.startsWith(QStringLiteral("project:"))))return false;
-    auto tasks=QueryService::select(m_cache,m_view,m_today);int from=-1,to=-1;
+    if(source==target || !taskReorderingAllowed())return false;
+    auto tasks=m_tasks.items();int from=-1,to=-1;
     for(int i=0;i<tasks.size();++i){if(tasks[i].id==source)from=i;if(tasks[i].id==target)to=i;}
     if(from<0 || to<0)return false;
     OrderChange change;change.taskId=source;const bool today=m_view==QStringLiteral("today");
-    if(today)change.evening=tasks[to].evening;else change.headingId=tasks[to].headingId;
+    if(today)change.evening=tasks[to].evening;else if(m_view.startsWith(QStringLiteral("project:")))change.headingId=tasks[to].headingId;
     tasks.move(from,to);
     return runCatalog([tasks,today,change](TaskWorker& w){return w.repository->reorder(tasks,today,w.clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),change);},QStringLiteral("reorder"));
 }

@@ -11,11 +11,32 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void multiDayBandsSplitAndAllocateWithoutOverlap() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("bands.sqlite")));QTRY_VERIFY(!w.busy());
+        for(const auto& title:{QStringLiteral("trip"),QStringLiteral("overlap"),QStringLiteral("third"),QStringLiteral("fourth")}) {
+            QVERIFY(w.saveEvent({{"title",title},{"startDate",QStringLiteral("2026-12-30")},{"endDate",QStringLiteral("2027-01-06")}}));QTRY_VERIFY(!w.busy());QVERIFY(w.errorText().isEmpty());
+        }
+        const auto days=w.calendarDaysFor(QStringLiteral("2027-01-01"),false);QVariantList segments;bool overflow=false;
+        for(const auto& value:days){const auto day=value.toMap();segments.append(day.value("bands").toList());if(day.value("hiddenBands").toInt()>0)overflow=true;QVERIFY(day.value("bandLanes").toInt()<=3);}
+        QCOMPARE(segments.size(),8);QVERIFY(overflow);
+        for(const auto& a:segments){const auto x=a.toMap();QVERIFY(x.value("span").toInt()>0);QVERIFY(x.value("column").toInt()+x.value("span").toInt()<=7);
+            for(const auto& b:segments){const auto y=b.toMap();if(x==y || x.value("week")!=y.value("week"))continue;
+                const int maskX=((1<<x.value("span").toInt())-1)<<x.value("column").toInt(),maskY=((1<<y.value("span").toInt())-1)<<y.value("column").toInt();
+                if(maskX&maskY)QVERIFY(x.value("lane")!=y.value("lane"));
+            }
+        }
+        const auto first=segments.first().toMap();QCOMPARE(first.value("span").toInt(),5);QVERIFY(first.value("startsHere").toBool());QVERIFY(!first.value("endsHere").toBool());
+        w.setSundayFirst(true);const auto sunday=w.calendarDaysFor(QStringLiteral("2027-01-01"),false);QCOMPARE(sunday.first().toMap().value("date").toString(),QStringLiteral("2026-12-27"));
+        QVERIFY(w.saveEvent({{"title",QStringLiteral("midnight")},{"allDay",false},{"startDate",QStringLiteral("2027-01-02")},{"endDate",QStringLiteral("2027-01-03")},{"startTime",QStringLiteral("23:00")},{"endTime",QStringLiteral("00:00")},{"zone",w.systemTimeZone()}}));QTRY_VERIFY(!w.busy());
+        for(const auto& value:w.calendarDaysFor(QStringLiteral("2027-01-02"),true)){const auto day=value.toMap();for(const auto& event:day.value("events").toList())if(event.toMap().value("title")==QStringLiteral("midnight")){QCOMPARE(day.value("date").toString(),QStringLiteral("2027-01-02"));QVERIFY(!event.toMap().value("multiDay").toBool());}}
+        QVERIFY(w.saveEvent({{"title",QStringLiteral("birthday")},{"startDate",QStringLiteral("2026-10-07")},{"endDate",QStringLiteral("2026-10-07")},{"repeatFrequency",QStringLiteral("YEARLY")},{"alertMinutes",1440}}));QTRY_VERIFY(!w.busy());
+        const auto recurring=w.recurringEvents();QCOMPARE(recurring.size(),1);QCOMPARE(recurring.first().toMap().value("title").toString(),QStringLiteral("birthday"));QVERIFY(recurring.first().toMap().value("ruleLabel").toString().contains(QStringLiteral("年")));
+    }
     void menuAvailabilityReusesTenThousandVisibleTasks() {
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("menu-benchmark.sqlite"));
-        {SqliteDatabase db;QVERIFY(db.open(path).ok());auto connection=db.connection();QVERIFY(connection.transaction());QSqlQuery query(connection);query.prepare(QStringLiteral("INSERT INTO tasks(id,title,planning_state,sort_order,created_at_utc,updated_at_utc) VALUES(?,?,'INBOX',?,?,?)"));const auto now=QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());auto connection=db.connection();QVERIFY(connection.transaction());QSqlQuery query(connection);query.prepare(QStringLiteral("INSERT INTO tasks(id,title,planning_state,today_focus,sort_order,created_at_utc,updated_at_utc) VALUES(?,?,'ACTIVE',1,?,?,?)"));const auto now=QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
         for(int i=0;i<10000;++i){query.bindValue(0,QStringLiteral("menu-%1").arg(i));query.bindValue(1,QStringLiteral("menu item"));query.bindValue(2,i);query.bindValue(3,now);query.bindValue(4,now);QVERIFY(query.exec());}QVERIFY(connection.commit());}
-        TaskWorkspace w;w.start(path);QTRY_VERIFY_WITH_TIMEOUT(!w.busy(),10000);QVERIFY(w.ready());QCOMPARE(w.tasks()->rowCount(),10000);
+        TaskWorkspace w;w.start(path);QTRY_VERIFY_WITH_TIMEOUT(!w.busy(),10000);QVERIFY(w.ready());w.setView(QStringLiteral("today"));QCOMPARE(w.tasks()->rowCount(),10000);
         const auto id=w.tasks()->data(w.tasks()->index(9999),TaskListModel::Id).toString();QElapsedTimer timer;timer.start();
         for(int i=0;i<50;++i){QVERIFY(w.canMoveTask(id,-1));QVERIFY(!w.canMoveTask(id,1));}
         const auto micros=timer.nsecsElapsed()/1000.0;qInfo()<<"10k menu availability, 50 open pairs, mean us:"<<micros/50.0;QVERIFY2(micros<500000,"Repeated menu availability exceeded 10 ms per pair");
@@ -26,6 +47,17 @@ private slots:
         QSignalSpy saved(&w,&TaskWorkspace::catalogSaved);QVERIFY(w.saveCatalog({{"kind",QStringLiteral("tag")},{"title",QStringLiteral("here")}}));QTRY_VERIFY(!w.busy());
         QCOMPARE(saved.size(),1);const auto tag=w.catalogOf(QStringLiteral("tag")).first().toMap();QCOMPARE(saved.first().at(0).toString(),tag.value("id").toString());QCOMPARE(saved.first().at(1).toString(),QStringLiteral("tag"));QCOMPARE(w.task(id),before);
         QVERIFY(w.saveCatalog({{"kind",QStringLiteral("tag")},{"title",QStringLiteral("here")}}));QTRY_VERIFY(!w.busy());QVERIFY(!w.errorText().isEmpty());QCOMPARE(saved.size(),1);QCOMPARE(w.task(id),before);
+    }
+    void navigationSectionPreferencesPersistIndependently() {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("navigation.sqlite"));
+        {TaskWorkspace w;w.start(path);QTRY_VERIFY(!w.busy());
+            for(const auto& key:{QStringLiteral("sidebarTasksExpanded"),QStringLiteral("sidebarPlanningExpanded"),QStringLiteral("sidebarLibraryExpanded")})QVERIFY(w.preferences().value(key).toBool());
+            QVERIFY(w.setPreference(QStringLiteral("sidebarTasksExpanded"),false));QVERIFY(w.setPreference(QStringLiteral("sidebarLibraryExpanded"),false));QVERIFY(!w.setPreference(QStringLiteral("sidebarPlanningExpanded"),2));}
+        TaskWorkspace restored;restored.start(path);QTRY_VERIFY(!restored.busy());
+        QVERIFY(!restored.preferences().value("sidebarTasksExpanded").toBool());QVERIFY(restored.preferences().value("sidebarPlanningExpanded").toBool());QVERIFY(!restored.preferences().value("sidebarLibraryExpanded").toBool());
+        QVERIFY(restored.createTask(QStringLiteral("validation")));QTRY_VERIFY(!restored.busy());const auto item=restored.tasks()->items().first();
+        QVERIFY(!restored.saveTaskWithDetails(item.id,item.rowVersion,item.title,QString(),QStringLiteral("ACTIVE"),QString(),QString(),true,{{"remindAtLocal",QStringLiteral("invalid")}}));
+        QVERIFY(restored.validationError());restored.clearError();QVERIFY(!restored.validationError());restored.settingsFailed();QVERIFY(!restored.validationError());QVERIFY(!restored.errorText().isEmpty());
     }
     void reducedMotionPreferenceIsExplicitAndPersistent() {
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("motion.sqlite"));
@@ -48,7 +80,7 @@ private slots:
         QVariantList events;for(const auto& day:w.calendarDaysFor(QStringLiteral("2026-10-23"),false))if(day.toMap().value("date")==QStringLiteral("2026-10-23"))events=day.toMap().value("events").toList();
         QCOMPARE(events.size(),3);QCOMPARE(events[0].toMap().value("title").toString(),QStringLiteral("all day"));QCOMPARE(events[1].toMap().value("title").toString(),QStringLiteral("earlier once"));QCOMPARE(events[2].toMap().value("title").toString(),QStringLiteral("later weekly"));
         const auto id=series.value("eventId").toString(),key=events[2].toMap().value("occurrenceKey").toString();
-        const auto preview=w.calendarEventPreview(id,key);QCOMPARE(preview.value("startDate").toString(),QStringLiteral("2026-10-23"));QVERIFY(preview.value("scopeLabel").toString().contains(QStringLiteral("2026-10-16")));QVERIFY(preview.value("alertLabel").toString().contains(QStringLiteral("15")));
+        const auto preview=w.calendarEventPreview(id,key);const auto timeline=preview.value("timeline").toMap();QVERIFY(timeline.value("start").toDouble()>=0);QVERIFY(timeline.value("end").toDouble()<=1);QVERIFY(timeline.value("start").toDouble()<timeline.value("end").toDouble());QCOMPARE(preview.value("startDate").toString(),QStringLiteral("2026-10-23"));QVERIFY(preview.value("scopeLabel").toString().contains(QStringLiteral("2026-10-16")));QVERIFY(preview.value("alertLabel").toString().contains(QStringLiteral("15")));
         QCOMPARE(w.calendarEvent(id),series);QVERIFY(w.calendarEventPreview(id,QStringLiteral("invalid")).isEmpty());QVERIFY(w.calendarEventPreview(QStringLiteral("missing"),key).isEmpty());
         QCOMPARE(w.calendarEventPreview(id).value("startDate"),series.value("startDate"));
         auto changed=series;changed.insert("startTime",QStringLiteral("18:00"));changed.insert("endTime",QStringLiteral("19:00"));QVERIFY(w.saveEvent(changed));QTRY_VERIFY(!w.busy());QVERIFY(w.calendarEventPreview(id,key).isEmpty());
@@ -217,6 +249,9 @@ private slots:
         QVERIFY(w.dropTask(first,last));QTRY_VERIFY(!w.busy());QVERIFY(w.task(first).value(QStringLiteral("evening")).toBool());
         w.reload();QTRY_VERIFY(!w.busy());QVERIFY(w.task(first).value(QStringLiteral("evening")).toBool());
         w.setView(QStringLiteral("anytime"));QCOMPARE(id(0),first); // Today order is independent of base order.
+        QVERIFY(!w.taskReorderingAllowed());QVERIFY(!w.dropTask(last,first));
+        w.setView(QStringLiteral("today"));QVERIFY(w.taskReorderingAllowed());w.setIncludeCompleted(true);QVERIFY(!w.taskReorderingAllowed());QVERIFY(!w.dropTask(last,first));w.setIncludeCompleted(false);
+        w.setTagFilter(QStringLiteral("missing"));QVERIFY(!w.dropTask(last,first));w.setTagFilter(QString());
     }
 };
 QTEST_GUILESS_MAIN(TaskWorkspaceTest)

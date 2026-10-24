@@ -5,7 +5,7 @@ Button {
     id: control
     required property string symbol
     readonly property real glyphSize: Math.min(24,16*Theme.scale)
-    readonly property color foreground: !enabled ? Theme.disabledText : highlighted ? Theme.accentText : palette.buttonText
+    readonly property color foreground: !enabled ? Theme.disabledText : highlighted ? Theme.primaryInk : palette.buttonText
     flat: true
     Accessible.name: text
     contentItem: Item {

@@ -12,3 +12,11 @@
 *.sqlite*
 *.log
 .DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.p12
+*.bundle
+Thumbs.db

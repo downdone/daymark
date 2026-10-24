@@ -6,7 +6,7 @@ Rectangle {
     property bool enabledField: true
     radius: DesignTokens.radius
     color: !enabledField ? DesignTokens.sidebar : hovered ? DesignTokens.hover : DesignTokens.fieldFill
-    border.width: focused ? 2 : 0
+    border.width: focused ? 1 : 0
     border.color: DesignTokens.accent
     Rectangle {
         visible: !surface.focused && surface.hovered

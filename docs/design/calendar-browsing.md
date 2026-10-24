@@ -24,3 +24,5 @@ calendarEventPreview(eventId,key)只读，重新从缓存验证系列和实例�
 4. Debug/Release CTest、两项lint、原生截图/退出及严格SDK隔离本地包。Qt6.10.2固定，无schema、依赖、账号或真实库操作。
 
 macOS、真实读屏/IME/物理DPI/系统通知/8h仍保留原平台门禁。测试命令：Windows运行scripts/build-windows.ps1、test-windows.ps1；macOS用bash scripts/build-macos.sh与ctest --preset macos-debug，缺设备明确UNVERIFIED。
+
+UI-20修订：实例查看仍为只读查询；详情增加显式删除入口，二次确认后才调用既有软删/CAS命令，循环项明确作用整个系列，失败保留错误。时间区间图及循环日程独立入口见[后续设计](calendar-visual-refresh.md)，其他无写入查看与实例定位契约不变。

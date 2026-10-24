@@ -40,6 +40,12 @@ int main(int argc, char* argv[])
         }
     } else if(parser.isSet(QStringLiteral("soak-report"))) {std::fprintf(stderr,"--soak-report requires --soak-seconds.\n");return 2;}
     const bool verification=parser.isSet(QStringLiteral("smoke-test")) || soakSeconds>0;
+#ifdef Q_OS_WIN
+    // The offscreen plugin has no Windows system-font integration. Use the
+    // installed UI font for synthetic layout tests; native users keep the OS font.
+    if(verification && QGuiApplication::platformName()==QStringLiteral("offscreen"))
+        app.setFont(QFont(QStringLiteral("Segoe UI")));
+#endif
     if(verification) {
         qInstallMessageHandler([](QtMsgType,const QMessageLogContext&,const QString& message){
             const auto utf8=message.toUtf8();

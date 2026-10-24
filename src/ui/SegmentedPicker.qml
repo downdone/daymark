@@ -6,14 +6,17 @@ Control {
     id: picker
     required property var model
     property int currentIndex: 0
+    property bool selectionIsExternal: false
     signal activated(int index)
     Layout.fillWidth: true
     implicitHeight: row.implicitHeight+6
     padding: 3
     background: Rectangle {radius: Theme.rowRadius;color: Theme.hover}
     function select(index) {
-        currentIndex=Math.max(0,Math.min(model.length-1,index))
-        activated(currentIndex)
+        const next=Math.max(0,Math.min(model.length-1,index))
+        if(selectionIsExternal && next===currentIndex)return
+        if(!selectionIsExternal)currentIndex=next
+        activated(next)
     }
     function activateForVerification(index) {
         const button=segments.itemAt(index) as Button
