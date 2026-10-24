@@ -78,13 +78,13 @@ Popup {
                     ColumnLayout {
                         Layout.fillWidth: true;Layout.preferredWidth: 1
                         Label {text: qsTr("计划开始");color: Theme.secondary;font.pixelSize: Theme.captionSize}
-                        DateField {id: quickStart;objectName: "quickEditorStart";workspace: root.workspace;dateLabel: qsTr("计划开始");Layout.fillWidth: true;onTextEdited: root.startEdited(text);onDateChosen: root.startEdited(text)}
+                        DateField {id: quickStart;onActiveFocusChanged: if(activeFocus){root.manualScroll=false;root.reveal(quickStart,false)} objectName: "quickEditorStart";workspace: root.workspace;dateLabel: qsTr("计划开始");Layout.fillWidth: true;onTextEdited: root.startEdited(text);onDateChosen: root.startEdited(text)}
                         Binding {target: quickStart;property: "text";value: root.startOn}
                     }
                     ColumnLayout {
                         Layout.fillWidth: true;Layout.preferredWidth: 1
                         Label {text: qsTr("截止日期");color: Theme.secondary;font.pixelSize: Theme.captionSize}
-                        DateField {id: quickEnd;objectName: "quickEditorDeadline";workspace: root.workspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true;onTextEdited: root.deadlineEdited(text);onDateChosen: root.deadlineEdited(text)}
+                        DateField {id: quickEnd;onActiveFocusChanged: if(activeFocus){root.manualScroll=false;root.reveal(quickEnd,false)} objectName: "quickEditorDeadline";workspace: root.workspace;dateLabel: qsTr("截止日期");Layout.fillWidth: true;onTextEdited: root.deadlineEdited(text);onDateChosen: root.deadlineEdited(text)}
                         Binding {target: quickEnd;property: "text";value: root.deadlineOn}
                     }
                 }

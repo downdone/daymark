@@ -24,6 +24,6 @@ Apple [Pickers](https://developer.apple.com/design/human-interface-guidelines/pi
 
 ## 验收计划
 
-保留202阶段全部草稿/CAS/日期/滚动/归属/200%回归。追加快速编辑→完整保留输入、关闭取消/放弃不写库、实际保存；日期开关展开/选择/清除只改单字段；时分选择及取消/非法输入保留；共享单选当前值勾选。浅深及880×580/200%截图，确认无裁切、固定动作可达。自动库QTemporaryDir。
+保留202阶段全部草稿/CAS/日期/滚动/归属/200%回归。追加快速编辑→完整保留输入、关闭取消/放弃不写库、实际保存；日期开关展开/选择/清除只改单字段；时分选择及取消/非法输入保留；共享单选当前值勾选。浅深及880×580/200%截图，确认无裁切、固定动作可达。追加长备注＋200%后键盘聚焦日期必须带入同一正文视口，固定操作保持可见，放弃不修改原备注；手动滚动不被旧焦点吸回。自动库QTemporaryDir。
 
 Windows执行scripts/build-windows.ps1、test-windows.ps1及两项QML lint；macOS为bash scripts/build-macos.sh与ctest --preset macos-debug。原生Windows、自动输入与真实物理IME/辅助技术、macOS分别记录，未测不称通过。无schema/依赖变化，不操作真实用户库或旧进程，不远端推送。

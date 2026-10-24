@@ -79,7 +79,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto* probe=new QTimer(&m_engine);
         auto smokePhase=std::make_shared<int>(0);
         probe->setInterval(100);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,soakSeconds,soakReport,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,soakSeconds,soakReport,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString()]() mutable {
             *smokePhase=phase;
             if(m_workspace.busy())return;
             auto fail=[probe](const char* stage){qCritical()<<"Basic UI smoke failed at"<<stage;probe->stop();QCoreApplication::exit(2);};
@@ -258,6 +258,22 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto* toggle=find("startDateEnabled");if(!toggle->property("checked").toBool()){fail("date switch follows selected value");return;}QMetaObject::invokeMethod(toggle,"toggle");QMetaObject::invokeMethod(toggle,"clicked");
                     if(!startDate->property("text").toString().isEmpty() || startDate->property("pickerVisible").toBool()){fail("date switch off clears and collapses");return;}
                     mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");
+                } else if(phase==219) {
+                    m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);
+                    QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));quickOriginalNotes=m_workspace.task(secondId).value(QStringLiteral("notes")).toString();
+                    QString longNotes;for(int line=0;line<60;++line)longNotes+=QStringLiteral("长备注键盘导航验收，正文保持一个滚动轴。\n");
+                    QMetaObject::invokeMethod(quick,"notesEdited",Q_ARG(QString,longNotes));
+                } else if(phase==220) {
+                    static int frames=0;mainWindow->grabWindow();if(++frames<3)return;
+                    auto* field=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorStart"));field->forceActiveFocus();
+                } else if(phase==221) {
+                    static int frames=0;mainWindow->grabWindow();if(++frames<3)return;
+                    auto* field=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorStart"));auto* scroll=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorScroll"));const auto y=field->mapToItem(scroll,QPointF(0,0)).y();
+                    if((QGuiApplication::platformName()!=QStringLiteral("offscreen") && !field->hasActiveFocus()) || y< -1 || y+field->height()>scroll->height()+1 || !capture(QStringLiteral("quick-long-notes-focus"))){qCritical()<<"Quick date focus"<<y<<field->height()<<scroll->height();fail("quick long notes keyboard reveals date");return;}
+                    QMetaObject::invokeMethod(quick,"closeRequested");if(!guard->property("visible").toBool()){fail("quick long notes dirty guard");return;}click("discardDraft");
+                } else if(phase==222) {
+                    if(quick->property("visible").toBool() || mainWindow->property("draftDirty").toBool() || m_workspace.task(secondId).value(QStringLiteral("notes")).toString()!=quickOriginalNotes){fail("quick long notes discard preserves stored notes");return;}
+                    m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
                 }
             } else if(phase>=191) {
                 auto* fields=mainWindow->findChild<QObject*>(QStringLiteral("taskDetailsFields"));
@@ -875,7 +891,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==218) {
+            if(phase==222) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
                 QList<QPointer<QObject>> pending;
@@ -892,7 +908,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<219)return;
+            if(phase<223)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -922,7 +938,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         probe->start();
         // Capturing every surface adds synchronous GPU readbacks; keep the
         // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=219)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=223)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }
