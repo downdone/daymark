@@ -169,6 +169,50 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
+            } else if(phase>=180) {
+                auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
+                auto* gallery=mainWindow->findChild<QObject*>(QStringLiteral("styleGallery"));
+                auto* settings=mainWindow->findChild<QObject*>(QStringLiteral("settingsDialog"));
+                auto* contrast=mainWindow->findChild<QObject*>(QStringLiteral("highContrastPreference"));
+                if(!gallery || !settings || !contrast){fail("action and contrast objects");return;}
+                if(phase==180) {
+                    m_workspace.setView(QStringLiteral("today"));m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
+                    mainWindow->findChild<QObject*>(QStringLiteral("newTaskTitle"))->setProperty("text",QStringLiteral("图标添加验证"));
+                } else if(phase==181) {
+                    auto* add=mainWindow->findChild<QQuickItem*>(QStringLiteral("quickAddTask"));
+                    if(!add || !add->isEnabled() || add->width()<32 || add->height()<32 || add->property("symbol").toString()!=QStringLiteral("plus") || !QMetaObject::invokeMethod(add,"clicked")){fail("icon quick add command");return;}
+                } else if(phase==182) {
+                    bool found=false;for(int row=0;row<m_workspace.tasks()->rowCount();++row)if(m_workspace.tasks()->data(m_workspace.tasks()->index(row),TaskListModel::Title).toString()==QStringLiteral("图标添加验证"))found=true;
+                    if(!found || !mainWindow->findChild<QObject*>(QStringLiteral("newTaskTitle"))->property("text").toString().isEmpty()){fail("icon quick add committed and cleared");return;}
+                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("style"))),Q_ARG(QVariant,QVariant(taskId)));
+                } else if(phase==183) {
+                    QVariant result;if(!QMetaObject::invokeMethod(gallery,"verifyActions",Q_RETURN_ARG(QVariant,result)) || result.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("actions-light"))){fail("icon names and action layout");return;}
+                    m_workspace.setThemeMode(2);
+                } else if(phase==184) {
+                    if(!capture(QStringLiteral("actions-dark"))){fail("dark action capture");return;}
+                    m_workspace.setPreference(QStringLiteral("highContrast"),true);
+                } else if(phase==185) {
+                    if(!capture(QStringLiteral("actions-dark-contrast"))){fail("dark contrast capture");return;}
+                    m_workspace.setThemeMode(1);m_workspace.setTextScale(2);mainWindow->resize(880,580);
+                } else if(phase==186) {
+                    if(!capture(QStringLiteral("actions-contrast-200"))){fail("large contrast capture");return;}
+                    m_workspace.setTextScale(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(gallery,"close");
+                    QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("settings"))));
+                    QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(0)));
+                } else if(phase==187) {
+                    auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));auto* background=calendar->findChild<QObject*>(QStringLiteral("desktopCalendarBackground"));
+                    if(!contrast->property("checked").toBool() || !background || background->property("color").value<QColor>().alphaF()<0.999 || m_workspace.preferences().value(QStringLiteral("desktopCalendarOpacity")).toInt()!=70 || !capture(QStringLiteral("settings-contrast"))){fail("contrast solid surface preserves opacity preference");return;}
+                    QMetaObject::invokeMethod(contrast,"toggle");QMetaObject::invokeMethod(contrast,"clicked");
+                } else if(phase==188) {
+                    auto* background=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"))->findChild<QObject*>(QStringLiteral("desktopCalendarBackground"));
+                    if(m_workspace.preferences().value(QStringLiteral("highContrast")).toBool() || contrast->property("checked").toBool() || qAbs(background->property("color").value<QColor>().alphaF()-0.7)>0.01){fail("contrast toggle restores transparency");return;}
+                    QMetaObject::invokeMethod(contrast,"toggle");QMetaObject::invokeMethod(contrast,"clicked");
+                } else if(phase==189) {
+                    if(!m_workspace.preferences().value(QStringLiteral("highContrast")).toBool()){fail("contrast checkbox enables preference");return;}
+                    QMetaObject::invokeMethod(contrast,"toggle");QMetaObject::invokeMethod(contrast,"clicked");QMetaObject::invokeMethod(settings,"close");
+                } else if(phase==190) {
+                    if(m_workspace.preferences().value(QStringLiteral("highContrast")).toBool()){fail("contrast preference restored");return;}
+                }
             } else if(phase>=132) {
                 auto* extra=mainWindow->findChild<QObject*>(QStringLiteral("taskDetailsFields"));
                 auto* newStep=mainWindow->findChild<QQuickItem*>(QStringLiteral("editorNewChecklistItem"));
@@ -703,7 +747,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("today"))),Q_ARG(QVariant,QVariant(taskId)));
                 }
             }
-            if(phase==179) {
+            if(phase==190) {
                 // Complete deferred control properties in the synthetic scene as
                 // well as incubators; controller count alone does not cover them.
                 QList<QPointer<QObject>> pending;
@@ -720,7 +764,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<180)return;
+            if(phase<191)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -750,7 +794,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         probe->start();
         // Capturing every surface adds synchronous GPU readbacks; keep the
         // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=180)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 90000,&m_engine,[smokePhase]{if(*smokePhase>=191)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

@@ -118,14 +118,14 @@ ColumnLayout {
             spacing: 4
             CheckBox {checked: row.itemDone;Accessible.name: qsTr("完成清单项：")+row.itemTitle;onClicked: {checklist.setProperty(row.index,"itemDone",checked);root.draftChanged()}}
             TextField {text: row.itemTitle;Layout.fillWidth: true;Accessible.name: qsTr("清单项标题");onTextEdited: {checklist.setProperty(row.index,"itemTitle",text);root.draftChanged()}}
-            ToolButton {contentItem: AppIcon {name: "up"} Accessible.name: qsTr("上移清单项");enabled: row.index>0;onClicked: {checklist.move(row.index,row.index-1,1);root.draftChanged()}}
-            ToolButton {contentItem: AppIcon {name: "trash";ink: Theme.danger} Accessible.name: qsTr("删除清单项");onClicked: {checklist.remove(row.index);root.draftChanged()}}
+            IconToolButton {contentItem: AppIcon {name: "up"} Accessible.name: qsTr("上移清单项");enabled: row.index>0;onClicked: {checklist.move(row.index,row.index-1,1);root.draftChanged()}}
+            IconToolButton {contentItem: AppIcon {name: "trash";ink: Theme.danger} Accessible.name: qsTr("删除清单项");onClicked: {checklist.remove(row.index);root.draftChanged()}}
         }
     }
     RowLayout {
         Layout.fillWidth: true
         TextField {id: newItem;objectName: "editorNewChecklistItem";Layout.fillWidth: true;placeholderText: qsTr("新增步骤，Enter 添加");Accessible.name: qsTr("新增清单项");onTextEdited: root.draftChanged();onAccepted: root.addChecklistItem();onActiveFocusChanged: if(activeFocus)root.focusRequested(this)}
-        ToolButton {contentItem: AppIcon {name: "plus"} Accessible.name: qsTr("添加清单项");enabled: newItem.text.trim().length>0;onClicked: root.addChecklistItem()}
+        IconToolButton {contentItem: AppIcon {name: "plus"} Accessible.name: qsTr("添加清单项");enabled: newItem.text.trim().length>0;onClicked: root.addChecklistItem()}
     }
     }
     FormGroup {

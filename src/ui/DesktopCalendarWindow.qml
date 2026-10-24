@@ -17,7 +17,8 @@ ApplicationWindow {
     font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize
     palette.windowText: Theme.text;palette.text: Theme.text;palette.buttonText: Theme.text
     background: Rectangle {
-        color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,calendar.workspace.preferences.desktopCalendarOpacity/100)
+        objectName: "desktopCalendarBackground"
+        color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,Theme.highContrast ? 1 : calendar.workspace.preferences.desktopCalendarOpacity/100)
         radius: Theme.panelRadius;border.color: Theme.separator
     }
     onClosing: function(event) {

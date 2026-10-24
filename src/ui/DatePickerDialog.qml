@@ -20,9 +20,9 @@ Dialog {
         ColumnLayout {
             width: root.availableWidth-12
             RowLayout {
-                ToolButton {contentItem: AppIcon {name: "left"} Accessible.name: qsTr("上月"); onClicked: root.month=root.workspace.datePicker(root.month.anchor,-1) }
+                IconToolButton {contentItem: AppIcon {name: "left"} Accessible.name: qsTr("上月"); onClicked: root.month=root.workspace.datePicker(root.month.anchor,-1) }
                 Label { text: root.month.title; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
-                ToolButton {contentItem: AppIcon {name: "right"} Accessible.name: qsTr("下月"); onClicked: root.month=root.workspace.datePicker(root.month.anchor,1) }
+                IconToolButton {contentItem: AppIcon {name: "right"} Accessible.name: qsTr("下月"); onClicked: root.month=root.workspace.datePicker(root.month.anchor,1) }
             }
             GridLayout {
                 columns: 7

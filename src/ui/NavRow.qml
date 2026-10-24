@@ -5,7 +5,7 @@ import QtQuick.Layouts
 ItemDelegate {
     id: root
     property string symbol: ""
-    property color symbolColor: Theme.accent
+    property color symbolColor: selected ? Theme.accent : Theme.secondary
     property bool selected: false
     property int count: -1
     property bool acceptsTaskDrop: false

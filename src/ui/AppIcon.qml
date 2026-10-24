@@ -1,6 +1,7 @@
 import QtQuick
 Canvas {
     id: icon
+    objectName: "daymarkIcon"
     property string name: "circle"
     property color ink: Theme.secondary
     implicitWidth: Theme.iconSize
@@ -26,16 +27,26 @@ Canvas {
         else if(name==="left")line([[15,5],[8,12],[15,19]],false)
         else if(name==="right")line([[9,5],[16,12],[9,19]],false)
         else if(name==="up")line([[5,15],[12,8],[19,15]],false)
-        else if(name==="collapse")line([[5,9],[12,16],[19,9]],false)
+        else if(name==="collapse" || name==="down")line([[5,9],[12,16],[19,9]],false)
         else if(name==="plus") {line([[5,12],[19,12]],false);line([[12,5],[12,19]],false)}
         else if(name==="expand") {line([[5,19],[19,5]],false);line([[9,5],[19,5],[19,15]],false)}
         else if(name==="pin") {line([[8,3],[16,3],[15,10],[19,14],[5,14],[9,10]],true);line([[12,14],[12,22]],false)}
         else if(name==="search") {circle(10.5,10.5,6.5);line([[15.5,15.5],[21,21]],false)}
         else if(name==="filter") {line([[4,6],[20,6]],false);line([[7,12],[17,12]],false);line([[10,18],[14,18]],false)}
-        else if(name==="settings") {circle(12,12,3);for(let i=0;i<8;i++){const a=i*Math.PI/4;line([[12+7*Math.cos(a),12+7*Math.sin(a)],[12+9*Math.cos(a),12+9*Math.sin(a)]],false)}}
+        else if(name==="settings") {p.beginPath();for(let i=0;i<32;i++){const a=i*Math.PI/16;const r=i%4<2?9:7;const x=12+r*Math.cos(a),y=12+r*Math.sin(a);if(i===0)p.moveTo(x,y);else p.lineTo(x,y)}p.closePath();p.stroke();circle(12,12,3)}
         else if(name==="close") {line([[6,6],[18,18]],false);line([[18,6],[6,18]],false)}
         else if(name==="sidebar") {p.strokeRect(3,4,18,16);line([[9,4],[9,20]],false)}
         else if(name==="trash") {line([[4,6],[20,6]],false);line([[9,3],[15,3]],false);line([[6,6],[7,21],[17,21],[18,6]],false);line([[10,10],[10,17]],false);line([[14,10],[14,17]],false)}
+        else if(name==="edit") {line([[4,16],[4,21],[9,20],[21,8],[16,3],[4,16]],false);line([[13,6],[18,11]],false)}
+        else if(name==="reload" || name==="reset") {p.beginPath();p.arc(12,12,8,0.6,5.4);p.stroke();line([[16,3],[18,7],[13,7]],false)}
+        else if(name==="window") {p.strokeRect(3,4,18,16);line([[3,9],[21,9]],false);circle(6,6.5,0.6)}
+        else if(name==="list" || name==="batch") {for(let i=0;i<3;i++){p.strokeRect(3,4+6*i,3,3);line([[10,5.5+6*i],[21,5.5+6*i]],false)}}
+        else if(name==="export") {line([[4,14],[4,21],[20,21],[20,14]],false);line([[12,16],[12,3]],false);line([[7,8],[12,3],[17,8]],false)}
+        else if(name==="import") {line([[4,14],[4,21],[20,21],[20,14]],false);line([[12,3],[12,16]],false);line([[7,11],[12,16],[17,11]],false)}
+        else if(name==="backup") {p.strokeRect(3,3,18,5);line([[5,8],[5,21],[19,21],[19,8]],false);line([[9,12],[15,12]],false)}
+        else if(name==="undo") {line([[8,4],[3,9],[8,14]],false);p.beginPath();p.moveTo(3,9);p.lineTo(13,9);p.bezierCurveTo(23,9,23,21,13,21);p.stroke()}
+        else if(name==="eye" || name==="eyeOff") {p.beginPath();p.moveTo(2,12);p.bezierCurveTo(7,3,17,3,22,12);p.bezierCurveTo(17,21,7,21,2,12);p.stroke();circle(12,12,3);if(name==="eyeOff")line([[3,3],[21,21]],false)}
+        else if(name==="filterClear") {line([[3,5],[21,5]],false);line([[6,11],[15,11]],false);line([[9,17],[11,17]],false);line([[16,15],[21,20]],false);line([[21,15],[16,20]],false)}
         else circle(12,12,8)
     }
 }

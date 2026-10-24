@@ -27,11 +27,12 @@ ApplicationWindow {
     palette.button: Theme.sidebar
     palette.buttonText: Theme.text
     palette.highlight: Theme.accent
-    palette.highlightedText: Theme.dark ? "#191a1d" : Theme.content
+    palette.highlightedText: Theme.accentText
     palette.mid: Theme.separator
     palette.dark: Theme.secondary
     Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "mode"; value: mainWindow.taskWorkspace.themeMode }
     Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "scale"; value: mainWindow.taskWorkspace.textScale }
+    Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "highContrast"; value: mainWindow.taskWorkspace.preferences.highContrast }
     Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "compact"; value: mainWindow.taskWorkspace.preferences.compact }
 
     readonly property var viewCodes: ["inbox", "today", "upcoming", "anytime", "someday", "logbook"]
@@ -330,7 +331,7 @@ ApplicationWindow {
             Layout.rightMargin: mainWindow.detailDocked ? mainWindow.detailWidth+Theme.pagePadding+16 : Theme.pagePadding
             spacing: Theme.fieldGap
             RowLayout {
-                ToolButton {Accessible.name: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? qsTr("显示导航") : qsTr("收起导航");contentItem: AppIcon {name: "sidebar"} onClicked: mainWindow.taskWorkspace.setPreference("sidebarCollapsed",!mainWindow.taskWorkspace.preferences.sidebarCollapsed)}
+                IconToolButton {Accessible.name: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? qsTr("显示导航") : qsTr("收起导航");contentItem: AppIcon {name: "sidebar"} onClicked: mainWindow.taskWorkspace.setPreference("sidebarCollapsed",!mainWindow.taskWorkspace.preferences.sidebarCollapsed)}
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 2
@@ -350,7 +351,7 @@ ApplicationWindow {
                 BusyIndicator { running: mainWindow.taskWorkspace.busy; visible: running; Layout.preferredWidth: 28; Layout.preferredHeight: 28 }
                 WidgetAction {visible: !mainWindow.calendarVisible;symbol: "search";description: mainWindow.searchExpanded ? qsTr("关闭搜索") : qsTr("搜索任务");checked: mainWindow.searchExpanded || search.text.length>0;onClicked: {if(mainWindow.searchExpanded || search.text.length>0){search.clear();mainWindow.searchExpanded=false;taskList.forceActiveFocus()}else{mainWindow.searchExpanded=true;search.forceActiveFocus()}}}
                 WidgetAction {visible: !mainWindow.calendarVisible;symbol: "filter";description: (mainWindow.selectedTag || mainWindow.selectedProject) ? qsTr("清除筛选") : mainWindow.filtersExpanded ? qsTr("收起筛选") : qsTr("筛选任务");checked: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {if(mainWindow.selectedTag || mainWindow.selectedProject){tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("");mainWindow.filtersExpanded=false}else mainWindow.filtersExpanded=!mainWindow.filtersExpanded}}
-                ToolButton {
+                IconToolButton {
                     Accessible.name: qsTr("页面操作")
                     contentItem: AppIcon {name: "more"}
                     onClicked: pageMenu.open()
@@ -393,7 +394,7 @@ ApplicationWindow {
                 visible: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject
                 ComboBox {id: tagFilter;property var tags: mainWindow.taskWorkspace.catalogOf("tag"); Layout.fillWidth: true; model: [qsTr("全部标签")].concat(tags.map(function(t){return t.title})); onActivated: {mainWindow.selectedTag=currentIndex===0 ? "" : tags[currentIndex-1].id;mainWindow.taskWorkspace.setTagFilter(mainWindow.selectedTag)} }
                 ComboBox {id: projectFilter;property var projects: mainWindow.taskWorkspace.catalogOf("project");Layout.fillWidth: true;model: [qsTr("全部项目")].concat(projects.map(item=>item.title));onActivated: {mainWindow.selectedProject=currentIndex===0 ? "" : projects[currentIndex-1].id;mainWindow.taskWorkspace.setProjectFilter(mainWindow.selectedProject)}}
-                ToolButton {text: qsTr("清除");Accessible.name: qsTr("清除标签和项目筛选");enabled: !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("")}}
+                WidgetAction {symbol: "filterClear";description: qsTr("清除标签和项目筛选");enabled: !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("")}}
                 }
             }
             RowLayout {
@@ -405,7 +406,7 @@ ApplicationWindow {
                     text: mainWindow.taskWorkspace.errorText || mainWindow.taskWorkspace.infoText
                     color: mainWindow.taskWorkspace.errorText.length > 0 ? Theme.danger : Theme.success
                 }
-                Button { text: qsTr("关闭提示"); onClicked: mainWindow.taskWorkspace.clearError() }
+                WidgetAction {symbol: "close";description: qsTr("关闭提示"); onClicked: mainWindow.taskWorkspace.clearError() }
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -420,7 +421,7 @@ ApplicationWindow {
                     onAccepted: mainWindow.taskWorkspace.createTask(text)
                     Keys.onEscapePressed: taskList.forceActiveFocus()
                 }
-                Button { text: qsTr("添加");highlighted: true;enabled: !mainWindow.taskWorkspace.busy && newTitle.text.trim().length>0;onClicked: mainWindow.taskWorkspace.createTask(newTitle.text) }
+                WidgetAction {objectName: "quickAddTask";symbol: "plus";description: qsTr("添加任务");enabled: !mainWindow.taskWorkspace.busy && newTitle.text.trim().length>0;onClicked: mainWindow.taskWorkspace.createTask(newTitle.text) }
             }
             Label {
                 visible: !mainWindow.calendarVisible && (mainWindow.taskWorkspace.view==="someday" || mainWindow.taskWorkspace.tasks.count===0)
@@ -435,7 +436,7 @@ ApplicationWindow {
                 spacing: 8
                 visible: !mainWindow.calendarVisible && (mainWindow.batchMode || mainWindow.taskWorkspace.view==="logbook")
                 Button {visible: mainWindow.batchMode;text: qsTr("退出多选");onClicked: {mainWindow.batchMode=false;mainWindow.batchSelection=[]}}
-                Button {visible: mainWindow.batchMode;text: qsTr("批量修改（%1）").arg(mainWindow.batchSelection.length);enabled: mainWindow.batchSelection.length>0;onClicked: {batchDialog.selection=mainWindow.batchSelection;batchDialog.open()}}
+                ActionButton {symbol: "batch";visible: mainWindow.batchMode;text: qsTr("批量修改（%1）").arg(mainWindow.batchSelection.length);enabled: mainWindow.batchSelection.length>0;onClicked: {batchDialog.selection=mainWindow.batchSelection;batchDialog.open()}}
                 ComboBox {visible: mainWindow.taskWorkspace.view==="logbook";model: [qsTr("全部历史"),qsTr("近7天"),qsTr("近30天")];onActivated: mainWindow.taskWorkspace.historyDays=[0,7,30][currentIndex]}
             }
             RowLayout {
@@ -523,13 +524,13 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Label { text: qsTr("临近截止"); color: Theme.danger }
                 ComboBox { id: approaching; Layout.fillWidth: true; model: mainWindow.taskWorkspace.deadlineTasks; textRole: "title"; valueRole: "taskId" }
-                Button { text: qsTr("查看任务"); onClicked: mainWindow.openEditor(approaching.currentValue) }
+                ActionButton {symbol: "expand"; text: qsTr("查看任务"); onClicked: mainWindow.openEditor(approaching.currentValue) }
             }
             RowLayout {
                 Label { text: mainWindow.calendarVisible ? qsTr("任务与事件") : qsTr("%1 项").arg(mainWindow.taskWorkspace.tasks.count); color: Theme.secondary; Layout.fillWidth: true;elide: Text.ElideRight }
-                Button {visible: mainWindow.taskWorkspace.view === "upcoming";text: qsTr("未来%1天 · 再显示30天").arg(mainWindow.taskWorkspace.upcomingDays);onClicked: mainWindow.taskWorkspace.loadMoreUpcoming()}
-                Button { visible: mainWindow.taskWorkspace.canUndo; text: qsTr("撤销删除"); enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.taskWorkspace.undoDelete() }
-                Button {visible: mainWindow.taskWorkspace.canUndoEvent;text: qsTr("撤销删除事件");enabled: !mainWindow.taskWorkspace.busy;onClicked: mainWindow.taskWorkspace.undoEventDelete()}
+                ActionButton {symbol: "plus";visible: mainWindow.taskWorkspace.view === "upcoming";text: qsTr("未来%1天 · 再显示30天").arg(mainWindow.taskWorkspace.upcomingDays);onClicked: mainWindow.taskWorkspace.loadMoreUpcoming()}
+                ActionButton {symbol: "undo"; visible: mainWindow.taskWorkspace.canUndo; text: qsTr("撤销删除"); enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.taskWorkspace.undoDelete() }
+                ActionButton {symbol: "undo";visible: mainWindow.taskWorkspace.canUndoEvent;text: qsTr("撤销删除事件");enabled: !mainWindow.taskWorkspace.busy;onClicked: mainWindow.taskWorkspace.undoEventDelete()}
                 Label { text: editor.visible && mainWindow.draftDirty ? qsTr("详情有未保存修改") : mainWindow.taskWorkspace.busy ? qsTr("正在保存…") : mainWindow.taskWorkspace.ready ? qsTr("已保存在本机") : qsTr("数据未就绪"); color: Theme.secondary }
             }
         }
@@ -655,7 +656,7 @@ ApplicationWindow {
             Layout.preferredWidth: editor.bodyWidth+32
             Layout.alignment: Qt.AlignHCenter
             gap: 8
-            ToolButton {
+            IconToolButton {
                 Accessible.name: qsTr("更多任务操作")
                 contentItem: AppIcon {name: "more"}
                 onClicked: editorMenu.open()

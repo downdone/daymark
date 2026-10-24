@@ -9,6 +9,11 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void highContrastPreferencePersistsAndRejectsInvalidValue() {
+        QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("appearance.sqlite"));
+        {TaskWorkspace w;w.start(path);QTRY_VERIFY(!w.busy());QVERIFY(!w.preferences().value("highContrast").toBool());QVERIFY(!w.setPreference(QStringLiteral("highContrast"),QStringLiteral("yes")));QVERIFY(w.setPreference(QStringLiteral("highContrast"),true));}
+        TaskWorkspace restored;restored.start(path);QTRY_VERIFY(!restored.busy());QVERIFY(restored.preferences().value("highContrast").toBool());
+    }
     void calendarOccurrenceOrderAndReadOnlyPreview() {
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("browse.sqlite")));QTRY_VERIFY(!w.busy());QVERIFY(w.ready());
         QVariantMap event{{"title",QStringLiteral("later weekly")},{"allDay",false},{"startDate",QStringLiteral("2026-10-16")},{"endDate",QStringLiteral("2026-10-16")},{"startTime",QStringLiteral("16:00")},{"endTime",QStringLiteral("17:00")},{"zone",w.systemTimeZone()},{"repeatFrequency",QStringLiteral("WEEKLY")},{"alertMinutes",15}};

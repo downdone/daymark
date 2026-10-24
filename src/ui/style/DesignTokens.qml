@@ -4,25 +4,31 @@ QtObject {
     property int mode: 0
     property real scale: 1
     property bool compact: false
+    property bool highContrast: false
     property SystemPalette systemPalette: SystemPalette {colorGroup: SystemPalette.Active}
     readonly property bool dark: mode===2 || (mode===0 && systemPalette.window.hslLightness<0.5)
-    readonly property color surface: dark ? "#202124" : "#ffffff"
-    readonly property color sidebar: dark ? "#191a1d" : "#f3f4f6"
-    readonly property color grouped: dark ? "#25272d" : "#f7f8fa"
-    readonly property color hover: dark ? "#2b2d32" : "#f1f3f6"
-    readonly property color pressed: dark ? "#373b43" : "#e1e5ec"
-    readonly property color selected: dark ? "#263a5b" : "#e8effc"
-    readonly property color text: dark ? "#f2f3f5" : "#24272d"
-    readonly property color secondary: dark ? "#b3b8c2" : "#626976"
-    readonly property color disabledText: dark ? "#737984" : "#8a909b"
-    readonly property color accent: dark ? "#93b6ff" : "#315db5"
-    readonly property color accentText: dark ? "#191a1d" : "#ffffff"
-    readonly property color danger: dark ? "#ffb4ab" : "#b3261e"
-    readonly property color success: dark ? "#8bd5ad" : "#216b46"
-    readonly property color border: dark ? "#41454e" : "#d8dce3"
-    readonly property color outline: dark ? "#858c99" : "#8b929e"
-    readonly property color fieldFill: dark ? "#292c32" : "#f5f6f8"
-    readonly property color fieldLine: dark ? "#858c99" : "#808a99"
+    readonly property color surface: dark ? "#1c1d20" : "#ffffff"
+    readonly property color sidebar: dark ? "#16171a" : "#f5f5f7"
+    readonly property color grouped: dark ? "#25272c" : "#f5f6f8"
+    readonly property color hover: dark ? "#303238" : "#eceef2"
+    readonly property color pressed: dark ? "#3b3f46" : "#e2e5eb"
+    readonly property color selected: highContrast ? (dark ? "#29466d" : "#d9e8ff") : dark ? "#243c60" : "#e9f1ff"
+    readonly property color text: dark ? "#f5f5f7" : "#1d1d1f"
+    readonly property color secondary: highContrast ? (dark ? "#ced2da" : "#484a50") : dark ? "#b2b7c1" : "#61646b"
+    readonly property color disabledText: dark ? "#6f7580" : "#989ca5"
+    readonly property color accent: highContrast ? (dark ? "#a7ceff" : "#004ca8") : dark ? "#85b7ff" : "#005bc4"
+    readonly property color accentText: dark ? "#102038" : "#ffffff"
+    readonly property color danger: dark ? "#ff9ba2" : "#bd2730"
+    readonly property color success: dark ? "#83d6aa" : "#24734b"
+    readonly property color border: highContrast ? (dark ? "#77808d" : "#9fa5b0") : dark ? "#3d4148" : "#dddfe5"
+    readonly property color outline: highContrast ? (dark ? "#a4afbe" : "#626772") : dark ? "#828b99" : "#7c818b"
+    readonly property color fieldFill: dark ? "#25282e" : "#f3f4f6"
+    readonly property color fieldLine: highContrast ? (dark ? "#a4afbe" : "#626772") : dark ? "#828b99" : "#7c818b"
+    readonly property color calendarToday: dark ? "#f58d96" : "#c9343f"
+    readonly property color calendarTodayText: dark ? "#2d1017" : "#ffffff"
+    readonly property color categoryGreen: dark ? "#83d6aa" : "#24734b"
+    readonly property color categoryOrange: dark ? "#ffc18c" : "#945000"
+    readonly property color categoryPurple: dark ? "#d0b3ff" : "#7042a0"
     readonly property string fontFamily: Application.font.family
     readonly property int taskTitle: Math.round(20*scale)
     readonly property int body: Math.round(14*scale)

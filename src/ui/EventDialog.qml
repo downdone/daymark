@@ -114,7 +114,7 @@ Dialog {
                     RowLayout {
                         Layout.fillWidth: true
                         ComboBox {Layout.fillWidth: true;model: [qsTr("准备任务"),qsTr("跟进任务")];currentIndex: linked.modelData.role==="followup" ? 1 : 0;onActivated: {const next=root.links.slice();next[linked.index]=Object.assign({},next[linked.index],{role:currentIndex===1 ? "followup" : "preparation"});root.links=next;root.dirty=true}}
-                        ToolButton {contentItem: AppIcon {name: "close"} Accessible.name: qsTr("解除关联，保留任务");onClicked: {const next=root.links.slice();next.splice(linked.index,1);root.links=next;root.dirty=true}}
+                        IconToolButton {contentItem: AppIcon {name: "close"} Accessible.name: qsTr("解除关联，保留任务");onClicked: {const next=root.links.slice();next.splice(linked.index,1);root.links=next;root.dirty=true}}
                     }
                 }
             }
@@ -144,8 +144,8 @@ Dialog {
         }
     }
     footer: ActionBar {
-        Button {visible: !!root.eventId;text: qsTr("删除事件…");flat: true;palette.buttonText: Theme.danger;enabled: !root.workspace.busy;onClicked: confirmDelete.open()}
-        Button {visible: !!root.eventId;text: qsTr("重新载入");enabled: !root.workspace.busy;onClicked: root.safely(function(){root.showEvent(root.eventId,"")})}
+        ActionButton {symbol: "trash";visible: !!root.eventId;text: qsTr("删除事件…");flat: true;palette.buttonText: Theme.danger;enabled: !root.workspace.busy;onClicked: confirmDelete.open()}
+        WidgetAction {symbol: "reload";description: qsTr("重新载入事件，放弃修改前会确认");visible: !!root.eventId;enabled: !root.workspace.busy;onClicked: root.safely(function(){root.showEvent(root.eventId,"")})}
         Button {text: qsTr("返回");enabled: !root.workspace.busy;onClicked: root.safely(function(){root.close()})}
         Button {objectName: "saveEvent";text: qsTr("保存事件");highlighted: true;enabled: !root.workspace.busy;onClicked: root.save()}
     }

@@ -97,8 +97,8 @@ ColumnLayout {
             Item {
                 id: dayNumber
                 width: dayCell.availableWidth;implicitHeight: Math.max(28,Math.ceil(Theme.bodySize*1.65));height: implicitHeight
-                Rectangle {width: parent.height;height: width;radius: width/2;color: dayCell.modelData.today ? Theme.danger : "transparent"
-                    Text {anchors.centerIn: parent;text: dayCell.modelData.day;font.pixelSize: Theme.bodySize;font.weight: dayCell.modelData.today || dayCell.highlighted ? Font.DemiBold : Font.Normal;color: dayCell.modelData.today ? (Theme.dark ? "#191a1d" : "white") : dayCell.modelData.inMonth && !dayCell.modelData.weekend ? Theme.text : Theme.secondary}
+                Rectangle {width: parent.height;height: width;radius: width/2;color: dayCell.modelData.today ? Theme.calendarToday : "transparent"
+                    Text {anchors.centerIn: parent;text: dayCell.modelData.day;font.pixelSize: Theme.bodySize;font.weight: dayCell.modelData.today || dayCell.highlighted ? Font.DemiBold : Font.Normal;color: dayCell.modelData.today ? Theme.calendarTodayText : dayCell.modelData.inMonth && !dayCell.modelData.weekend ? Theme.text : Theme.secondary}
                 }
             }
             Repeater {
@@ -149,20 +149,22 @@ ColumnLayout {
     }
     RowLayout {
         Layout.fillWidth: true
-        ToolButton {contentItem: AppIcon {name:"left"} Accessible.name: qsTr("上一页");onClicked: panel.step(-1)}
+        IconToolButton {contentItem: AppIcon {name:"left"} Accessible.name: qsTr("上一页");onClicked: panel.step(-1)}
         Label {text: panel.independent ? panel.workspace.calendarTitleFor(panel.anchorDate,panel.weekMode) : panel.workspace.calendarTitle;font.pixelSize: Theme.titleSize;font.bold: true;Layout.fillWidth: true;elide: Text.ElideRight}
         Button {text: qsTr("今天");flat: true;onClicked: {panel.selectedDate=panel.workspace.dateOffset(0);panel.step(0)}}
-        ToolButton {contentItem: AppIcon {name:"right"} Accessible.name: qsTr("下一页");onClicked: panel.step(1)}
+        IconToolButton {contentItem: AppIcon {name:"right"} Accessible.name: qsTr("下一页");onClicked: panel.step(1)}
     }
     Flow {
         Layout.fillWidth: true
         spacing: Theme.gap
         SegmentedPicker {width: 104*Theme.scale;model: [qsTr("月"),qsTr("周")];currentIndex: panel.isWeek ? 1 : 0;onActivated: function(index){if(panel.independent)panel.weekMode=index===1;else panel.workspace.setView(index===1 ? "week" : "month")}}
-        Button {objectName: "calendarJump";text: qsTr("跳转日期…");onClicked: panel.openDateJump()}
-        Button {visible: !panel.independent;text: qsTr("桌面日历");onClicked: panel.desktopRequested()}
-        Button {text: qsTr("新建事件");highlighted: true;enabled: panel.workspace.ready && !panel.workspace.busy;onClicked: panel.openEvent("")}
-        Button {
-            text: qsTr("显示…")
+        ActionButton {symbol: "calendar";objectName: "calendarJump";text: qsTr("跳转日期…");onClicked: panel.openDateJump()}
+        ActionButton {symbol: "window";visible: !panel.independent;text: qsTr("桌面日历");onClicked: panel.desktopRequested()}
+        ActionButton {symbol: "plus";text: qsTr("新建事件");highlighted: true;enabled: panel.workspace.ready && !panel.workspace.busy;onClicked: panel.openEvent("")}
+        WidgetAction {
+            objectName: "calendarDisplayAction"
+            symbol: "filter"
+            description: qsTr("日历显示选项")
             onClicked: displayMenu.open()
             Menu {
                 id: displayMenu
@@ -173,9 +175,9 @@ ColumnLayout {
                 MenuItem {text: qsTr("周日为每周首日");checkable: true;checked: panel.workspace.sundayFirst;onTriggered: panel.workspace.sundayFirst=checked}
             }
         }
-        Button {text: qsTr("未排期（%1）").arg(panel.workspace.unscheduledTasks.length);flat: true;onClicked: unscheduled.open()}
-        Button {visible: panel.compact;text: qsTr("当天议程");onClicked: panel.showAgenda()}
-        Button {visible: panel.workspace.canUndoEvent;text: qsTr("撤销删除事件");enabled: !panel.workspace.busy;onClicked: panel.workspace.undoEventDelete()}
+        ActionButton {symbol: "inbox";text: qsTr("未排期（%1）").arg(panel.workspace.unscheduledTasks.length);flat: true;onClicked: unscheduled.open()}
+        ActionButton {symbol: "list";visible: panel.compact;text: qsTr("当天议程");onClicked: panel.showAgenda()}
+        ActionButton {symbol: "undo";visible: panel.workspace.canUndoEvent;text: qsTr("撤销删除事件");enabled: !panel.workspace.busy;onClicked: panel.workspace.undoEventDelete()}
     }
     ScrollView {
         id: body
@@ -279,7 +281,7 @@ ColumnLayout {
                             spacing: 4
                             RowLayout {
                                 Layout.fillWidth: true
-                                ToolButton {
+                                IconToolButton {
                                     objectName: "calendarComplete-"+(agendaRow.modelData.taskId || "")
                                     visible: !agendaRow.modelData.eventId
                                     contentItem: AppIcon {name: agendaRow.modelData.taskStatus==="COMPLETED" ? "check" : "circle"}

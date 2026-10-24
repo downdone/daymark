@@ -1,3 +1,11 @@
+# UI-15 动作图标与语义配色（2026-10-24）
+
+设计与逐屏动作矩阵见[UI-15](design/actions-and-color.md)，映射P-13/HIG Buttons/Icons/Color。当前结果见PROGRESS；本轮不引入数据模式或外部资源变化。
+
+最终Debug17/17（36.70秒），应用/样式qmllint无诊断；`python scripts/check-ui-colors.py`直接从token检查浅深及增强四组共260对，普通文字最低4.586、必要边界最低3.074，原始值均达4.5/3目标。禁用/装饰线及任意壁纸不作此承诺。原生191阶段全截图退出0、双窗口、warnings=false且无未完成创建诊断：纯图标＋按钮真实命令提交并清空、图标名称/图文布局、增强对比开关及实色背景/原透明度恢复；此前菜单、草稿、日期、列表与备注滚动检查保留。已查看浅深/增强200%动作、设置解释、任务详情、日历及独立420×480/200%详情底部动作截图。所有自动数据为QTemporaryDir。
+
+中途生成清单未含新IconToolButton导致一次qml_startup FAIL，稳定清单重新configure后修正并全测；移除未使用import后lint干净。严格Release/隔离部署结果在源码提交后记录于PROGRESS。macOS、真实辅助技术/IME/物理DPI及长时平台验收仍UNVERIFIED。
+
 # CAL-05 系统评估与日程浏览定位（2026-10-24）
 
 [系统评估/路线](review-rc2.md)、[FR-022设计](design/calendar-browsing.md)。新增TaskWorkspace临时库用例：旧系列16点与新单次9点按本次时间重排、全天优先；后续实例日期及系列起点/提醒摘要；预览不改rowVersion；无效、改期和删除key不回退错误实例。领域初测Debug17/17（39.07秒），界面/最终Debug17/17（35.18秒）与两项lint通过。无migration或新依赖。

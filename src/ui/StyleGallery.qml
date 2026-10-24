@@ -11,6 +11,10 @@ Dialog {
     height: Math.min(650,parent.height-32)
     standardButtons: Dialog.Close
     function showState(state) {if(state==="menu")sampleMenu.open();else if(state==="choice")choice.popup.open();else if(state==="focus")field.forceActiveFocus()}
+    function verifyActions() {
+        if(iconOnly.Accessible.name!==qsTr("搜索任务") || iconOnly.symbol!=="search" || createAction.symbol!=="plus" || createAction.text.length===0 || createAction.contentItem.implicitWidth<=0)return "action metadata"
+        return "PASS"
+    }
     function dismissPopups(){sampleMenu.close();choice.popup.close()}
     function verifyControls() {
         const options=choice.popup.contentItem as ListView
@@ -41,11 +45,20 @@ Dialog {
                 Button {text: qsTr("轻量操作");flat: true}
                 Button {text: qsTr("删除");palette.buttonText: Theme.danger}
                 Button {text: qsTr("不可用");enabled: false}
-                ToolButton {
+                IconToolButton {
                     Accessible.name: qsTr("更多")
                     contentItem: AppIcon {name: "more"}
                     onClicked: sampleMenu.open()
                 }
+            }
+            Flow {
+                Layout.fillWidth: true;spacing: Theme.gap
+                ActionButton {id: createAction;symbol: "plus";text: qsTr("新建事件");highlighted: true}
+                ActionButton {symbol: "edit";text: qsTr("编辑整个系列…")}
+                ActionButton {symbol: "export";text: qsTr("导出JSON…")}
+                WidgetAction {id: iconOnly;symbol: "search";description: qsTr("搜索任务")}
+                WidgetAction {symbol: "filter";description: qsTr("日历显示选项");checked: true}
+                WidgetAction {symbol: "reload";description: qsTr("重新载入");enabled: false}
             }
             SectionLabel {text: qsTr("输入与选择")}
             TextField {id: field;Layout.fillWidth: true;placeholderText: qsTr("统一输入框、焦点轮廓和占位文字")}

@@ -67,3 +67,5 @@ Apple HIG为项目UI/UX强制依据，见[原则P-13](principles.md)；完整视
 循环事件、事件提醒、schema4升级与iOS参考的月历层级见[CAL-04](design/event-series.md)、[ADR-014](ADR/014-event-series.md)。
 
 当前版本系统评估和后续路线见[评估](review-rc2.md)，CAL-05契约见[日程浏览定位](design/calendar-browsing.md)。
+
+全界面按钮文字/图文/纯图标决策及新浅深色彩体系见[UI-15](design/actions-and-color.md)。

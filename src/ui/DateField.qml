@@ -37,7 +37,7 @@ TextField {
         else if(event.key===Qt.Key_Down && picker.visible) {const day=dayButtons.itemAt(0);if(day)day.forceActiveFocus();event.accepted=true}
     }
     TapHandler {onTapped: field.openPicker()}
-    ToolButton {
+    IconToolButton {
         id: calendarButton
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
@@ -69,9 +69,9 @@ TextField {
                 spacing: 4
                 RowLayout {
                     Layout.fillWidth: true
-                    ToolButton {contentItem: AppIcon {name: "left"} Accessible.name: qsTr("上月");onClicked: field.month=field.workspace.datePicker(field.month.anchor,-1)}
+                    IconToolButton {contentItem: AppIcon {name: "left"} Accessible.name: qsTr("上月");onClicked: field.month=field.workspace.datePicker(field.month.anchor,-1)}
                     Label {Layout.fillWidth: true;text: field.month.title;horizontalAlignment: Text.AlignHCenter}
-                    ToolButton {contentItem: AppIcon {name: "right"} Accessible.name: qsTr("下月");onClicked: field.month=field.workspace.datePicker(field.month.anchor,1)}
+                    IconToolButton {contentItem: AppIcon {name: "right"} Accessible.name: qsTr("下月");onClicked: field.month=field.workspace.datePicker(field.month.anchor,1)}
                 }
                 GridLayout {
                     Layout.fillWidth: true

@@ -56,7 +56,7 @@ Dialog {
             ColumnLayout {
                 id: ruleColumn
                 width: ruleList.availableWidth-12
-                Button { objectName: "newRecurrence";text: qsTr("新建规则"); onClicked: root.safely(function(){root.load({})}) }
+                ActionButton {symbol: "plus"; objectName: "newRecurrence";text: qsTr("新建规则"); onClicked: root.safely(function(){root.load({})}) }
                 Repeater {
                     model: root.workspace.recurrenceRules
                     ItemDelegate {
@@ -111,7 +111,7 @@ Dialog {
                     visible: !!root.selected.id
                     heading: qsTr("停止与清理")
                 CheckBox { id: removeFuture;Layout.fillWidth: true;text: qsTr("停止规则时同时软删未来未完成实例") }
-                Button { text: qsTr("停止并删除规则…"); palette.buttonText: Theme.danger; flat: true; enabled: !!root.selected.id; onClicked: stopConfirm.open() }
+                ActionButton {symbol: "trash"; text: qsTr("停止并删除规则…"); palette.buttonText: Theme.danger; flat: true; enabled: !!root.selected.id; onClicked: stopConfirm.open() }
                 }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: root.workspace.errorText; color: Theme.danger }
             }

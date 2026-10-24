@@ -122,16 +122,16 @@ Dialog {
             Flow {
                 Layout.fillWidth: true
                 spacing: Theme.gap
-                Button {text: qsTr("上移排序");enabled: !!root.selected.id && !root.dirty;onClicked: root.workspace.moveCatalog(root.selected.kind,root.selected.id,root.selected.rowVersion,-1)}
-                Button {text: qsTr("下移排序");enabled: !!root.selected.id && !root.dirty;onClicked: root.workspace.moveCatalog(root.selected.kind,root.selected.id,root.selected.rowVersion,1)}
+                WidgetAction {symbol: "up";description: qsTr("上移排序");enabled: !!root.selected.id && !root.dirty;onClicked: root.workspace.moveCatalog(root.selected.kind,root.selected.id,root.selected.rowVersion,-1)}
+                WidgetAction {symbol: "down";description: qsTr("下移排序");enabled: !!root.selected.id && !root.dirty;onClicked: root.workspace.moveCatalog(root.selected.kind,root.selected.id,root.selected.rowVersion,1)}
             }
             Item { Layout.fillHeight: true }
             }
         }
     }
     footer: ActionBar {
-        Button {text: qsTr("删除…");flat: true;palette.buttonText: Theme.danger;enabled: !!root.selected.id && !root.workspace.busy;onClicked: confirmDelete.open()}
-        Button {text: qsTr("新建");flat: true;enabled: !root.workspace.busy;onClicked: root.safely(function(){root.resetForm()})}
+        ActionButton {symbol: "trash";text: qsTr("删除…");flat: true;palette.buttonText: Theme.danger;enabled: !!root.selected.id && !root.workspace.busy;onClicked: confirmDelete.open()}
+        ActionButton {symbol: "plus";text: qsTr("新建");flat: true;enabled: !root.workspace.busy;onClicked: root.safely(function(){root.resetForm()})}
         Button {text: qsTr("返回");enabled: !root.workspace.busy;onClicked: root.safely(function(){root.close()})}
         Button {text: qsTr("保存");highlighted: true;enabled: !root.workspace.busy;onClicked: {if(root.selected.id && kind.currentIndex===1 && status.currentIndex>0)confirmComplete.open();else root.save()}}
     }

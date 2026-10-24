@@ -79,3 +79,5 @@ UI-14整体验收清单见[全界面设计](hig-redesign.md)：除原UX门禁外
 ## Apple HIG强制评审
 
 遵守[项目原则P-13](../principles.md)。每轮说明适用原则、用户操作链、视觉层级与完整状态，并用本表UX项给出证据或UNVERIFIED。使用HIG不能替代键盘、200%、真实辅助技术及平台实测，也不能将Daymark自主token写成Apple规定。
+
+UI-15补充：逐页按[动作审计](actions-and-color.md)验证纯图标名称/tooltip/焦点/禁用与原命令一致；图文动作在200%和独立420×480保留操作栏。浅深/增强对比度四种token组合以`python scripts/check-ui-colors.py`（macOS通常`python3`）复算普通文字4.5:1和必要边界3:1；禁用及装饰分隔不以此阈值冒充有效控件。透明桌面背景的实际对比取决于壁纸，增强对比度临时使用实色背景且关闭后恢复原偏好，仍需真实平台验收。

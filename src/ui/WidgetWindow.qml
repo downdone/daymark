@@ -44,7 +44,7 @@ Window {
         palette.highlight: Theme.accent
         contentItem: Rectangle {
         radius: Theme.panelRadius
-        color: Qt.rgba(Theme.content.r, Theme.content.g, Theme.content.b, widget.workspace.preferences.solidWidget ? 1 : widget.controller.backgroundOpacity)
+        color: Qt.rgba(Theme.content.r, Theme.content.g, Theme.content.b, widget.workspace.preferences.solidWidget || Theme.highContrast ? 1 : widget.controller.backgroundOpacity)
         border.color: Theme.separator
 
         ColumnLayout {
@@ -138,7 +138,7 @@ Window {
                     required property real rowVersion
                     id: todayRow
                     width: todayList.width
-                    ToolButton {
+                    IconToolButton {
                         Layout.preferredWidth: Math.max(32,Theme.iconSize+12)
                         Layout.preferredHeight: Math.max(32,Theme.iconSize+12)
                         contentItem: Item {

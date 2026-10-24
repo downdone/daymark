@@ -25,9 +25,9 @@ Dialog {
             detail: qsTr("JSON保留全部内容，CSV供表格阅读；快照用于完整恢复。")
         Flow {
             Layout.fillWidth: true;spacing: Theme.gap
-            Button { text: qsTr("导出JSON…"); onClicked: exportJson.open() }
-            Button { text: qsTr("导出CSV…"); onClicked: exportCsv.open() }
-            Button { text: qsTr("创建快照"); onClicked: root.workspace.createBackup() }
+            ActionButton {symbol: "export"; text: qsTr("导出JSON…"); onClicked: exportJson.open() }
+            ActionButton {symbol: "export"; text: qsTr("导出CSV…"); onClicked: exportCsv.open() }
+            ActionButton {symbol: "backup"; text: qsTr("创建快照"); onClicked: root.workspace.createBackup() }
         }
         }
         FormGroup {
@@ -35,8 +35,8 @@ Dialog {
             detail: qsTr("先预览，再选择仅添加或替换。")
         Flow {
             Layout.fillWidth: true;spacing: Theme.gap
-            Button { text: qsTr("预览JSON导入…"); onClicked: importJson.open() }
-            Button { text: qsTr("预览快照恢复…"); onClicked: restoreSnapshot.open() }
+            ActionButton {symbol: "import"; text: qsTr("预览JSON导入…"); onClicked: importJson.open() }
+            ActionButton {symbol: "backup"; text: qsTr("预览快照恢复…"); onClicked: restoreSnapshot.open() }
         }
         Label { text: root.workspace.importSummary; visible: text.length>0; Layout.fillWidth: true; wrapMode: Text.Wrap }
         Flow {

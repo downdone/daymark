@@ -95,3 +95,7 @@ Apple现行Design principles列出Purpose、Agency、Responsibility、Familiarit
 ## 2026-10-23：HIG升级为项目原则
 
 用户指定[中文Getting started](https://developer.apple.com/cn/design/human-interface-guidelines/getting-started)作为项目依据；执行约束见[原则P-13](../principles.md)。中文页正文依赖JavaScript，本轮从Apple同站英文官方Markdown复核[Getting started](https://developer.apple.com/design/human-interface-guidelines/getting-started.md)、[Design principles](https://developer.apple.com/design/human-interface-guidelines/design-principles.md)、[Layout](https://developer.apple.com/design/human-interface-guidelines/layout.md)、[Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility.md)。现行原则仍为上文8项；布局强调信息层次、对齐/分组与窗口/字号适应，可访问性强调可感知、可操作和适应。项目采用原则并验证具体实现，不将自主尺寸、线框形式或Windows材质声称为Apple强制规范。
+
+## UI-15官方依据复核（2026-10-24）
+
+[Apple Buttons](https://developer.apple.com/design/human-interface-guidelines/buttons)强调动作可辨识、合适命中区域及交互状态；[Icons](https://developer.apple.com/design/human-interface-guidelines/icons)强调熟悉含义和统一图形语言；[Color](https://developer.apple.com/design/human-interface-guidelines/color)要求语义一致并适配浅深/增强对比度。动态网页以官方同域.md正文读取。Daymark的按钮三分类、32DIP起命中、原创线性图标与具体配色是本项目的平台设计决定，不能写成Apple规定值，也不作视觉/辅助技术认证。落实见[动作与配色](actions-and-color.md)。

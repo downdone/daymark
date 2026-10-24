@@ -51,6 +51,6 @@ Dialog {
     }
     footer: ActionBar {
         Button {text: qsTr("关闭");onClicked: root.close()}
-        Button {objectName: "editPreviewEvent";enabled: !!root.value.eventId && !root.workspace.busy;text: root.value.recurring?qsTr("编辑整个系列…"):qsTr("编辑事件…");onClicked: {const id=root.eventId;root.close();root.editEvent(id)}}
+        ActionButton {symbol: "edit";objectName: "editPreviewEvent";enabled: !!root.value.eventId && !root.workspace.busy;text: root.value.recurring?qsTr("编辑整个系列…"):qsTr("编辑事件…");onClicked: {const id=root.eventId;root.close();root.editEvent(id)}}
     }
 }
