@@ -10,13 +10,14 @@ Popup {
     property var item: ({})
     property Item trigger: null
     property bool dirty: false
+    property bool renameOnly:false
     property bool saving: false
     readonly property var hostWindow: parent ? parent.Window.window : null
     readonly property var colors: ["neutral","blue","green","orange","purple"]
     readonly property var roots: [{id:"",title:qsTr("一级分类")}].concat(workspace.categoryTree.filter(value=>value.depth===0 && value.id!==item.id))
     signal saved(string id)
     function showFor(value,anchor) {
-        item=value;trigger=anchor;name.text=value.title;description.text=value.description || "";colorChoice.currentIndex=Math.max(0,colors.indexOf(value.colorKey));parentChoice.currentIndex=Math.max(0,roots.findIndex(entry=>entry.id===(value.parentId || "")));dirty=false;workspace.clearError();open()
+        renameOnly=false;item=value;trigger=anchor;name.text=value.title;description.text=value.description || "";colorChoice.currentIndex=Math.max(0,colors.indexOf(value.colorKey));parentChoice.currentIndex=Math.max(0,roots.findIndex(entry=>entry.id===(value.parentId || "")));dirty=false;workspace.clearError();open()
     }
     function requestClose(){if(dirty)discard.open();else close()}
     width: Math.min(400*Theme.scale,hostWindow ? hostWindow.width-32 : 800)
@@ -44,16 +45,16 @@ Popup {
                     TextField {id: name;objectName: "catalogEditName";Layout.fillWidth: true;Accessible.name: qsTr("名称");onTextEdited: root.dirty=true;onAccepted: if(save.enabled)save.clicked()}
                 }
                 FormRow {
-                    visible: root.item.kind!=="tag";label: qsTr("上级");labelWidth: 64*Theme.scale
+                    visible: !root.renameOnly && root.item.kind!=="tag";label: qsTr("上级");labelWidth: 64*Theme.scale
                     ComboBox {id: parentChoice;objectName: "catalogEditParent";Layout.fillWidth: true;enabled: !(root.item.childCount>0);model: root.roots.map(value=>value.title);Accessible.name: qsTr("上级分类");onActivated: root.dirty=true}
                 }
-                Label {visible: root.item.kind!=="tag" && root.item.childCount>0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("含二级分类，移动前需先整理下级。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                Label {visible: !root.renameOnly && root.item.kind!=="tag" && root.item.childCount>0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("含二级分类，移动前需先整理下级。");font.pixelSize: Theme.captionSize;color: Theme.secondary}
                 FormRow {
-                    visible: root.item.kind!=="tag";label: qsTr("说明");labelWidth: 64*Theme.scale
+                    visible: !root.renameOnly && root.item.kind!=="tag";label: qsTr("说明");labelWidth: 64*Theme.scale
                     TextField {id: description;Layout.fillWidth: true;placeholderText: qsTr("可选");Accessible.name: qsTr("分类说明");onTextEdited: root.dirty=true}
                 }
                 FormRow {
-                    visible: root.item.kind==="tag";label: qsTr("颜色");labelWidth: 64*Theme.scale
+                    visible: !root.renameOnly && root.item.kind==="tag";label: qsTr("颜色");labelWidth: 64*Theme.scale
                     CatalogColors {id: colorChoice;onActivated: root.dirty=true}
                 }
                 Label {visible: root.workspace.errorText.length>0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: root.workspace.errorText;color: Theme.danger;font.pixelSize: Theme.captionSize}

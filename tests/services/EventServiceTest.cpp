@@ -27,7 +27,9 @@ private slots:
         clock.now=clock.now.addDays(1);QCOMPARE(restarted.claimReminders().value.size(),1);QCOMPARE(restarted.notifications().value.size(),2);
         DataTransfer transfer(db);const auto output=dir.filePath(QStringLiteral("series.json"));QVERIFY(transfer.exportJson(output).ok());const auto plan=transfer.preview(output,false);QVERIFY(plan.ok());QVERIFY(transfer.apply(plan.value,true).ok());QCOMPARE(restarted.claimReminders().value.size(),0);QCOMPARE(repo.all().value.first().repeatFrequency,QStringLiteral("DAILY"));
         e.rowVersion=TaskRepository(db.connection()).find(e.id).value.rowVersion;
-        QVERIFY(service.setDeleted(e.id,e.rowVersion,true).ok());QVERIFY(restarted.claimReminders().value.isEmpty());QCOMPARE(restarted.notifications().value.size(),1);
+        const auto triggered=restarted.notifications().value;QCOMPARE(triggered.size(),2);
+        QVERIFY(service.setDeleted(e.id,e.rowVersion,true).ok());QVERIFY(restarted.claimReminders().value.isEmpty());
+        QCOMPARE(restarted.notifications().value,triggered);QVERIFY(!TaskRepository(db.connection()).find(e.id).value.deletedAtUtc.isEmpty());
         QVERIFY(service.setDeleted(e.id,e.rowVersion+1,false).ok());QVERIFY(restarted.claimReminders().value.isEmpty());
         e.repeatInterval=0;QVERIFY(!EventService::validate(e).ok());e.repeatInterval=1;e.repeatUntil=QDate(2026,1,1);QVERIFY(!EventService::validate(e).ok());
     }

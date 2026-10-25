@@ -24,3 +24,7 @@ ADR-001～006 已记录在 [原始 TDD](../02_TECHNICAL_DESIGN.md)，继续有�
 - [ADR-018：任务父子限制两层](018-two-level-tasks.md)
 
 - [ADR-019：列表与日历统一起止安排](019-shared-task-time.md)
+
+- [ADR-020：上下文任务工作区与就近面板](020-contextual-task-workspace.md)
+
+- [ADR-021：小时轴投影与改期命令](021-calendar-time-commands.md)

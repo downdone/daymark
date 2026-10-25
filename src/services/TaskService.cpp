@@ -37,6 +37,7 @@ bool QueryService::inView(const Task& input, const QString& view, const QDate& d
     const auto t=withUnifiedDates(input);
     if(view==QStringLiteral("trash"))return !t.deletedAtUtc.isEmpty();
     if(!t.deletedAtUtc.isEmpty()) return false;
+    if(view==QStringLiteral("cancelled"))return t.status==QStringLiteral("CANCELLED");
     if(view==QStringLiteral("completed"))return t.status==QStringLiteral("COMPLETED");
     if(view==QStringLiteral("logbook")) return t.status!=QStringLiteral("OPEN");
     if(view==QStringLiteral("repeating"))return t.repeat && t.repeat->active && t.status==QStringLiteral("OPEN") && !t.areaArchived && (t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN")));
@@ -63,7 +64,7 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
     QList<Task> output;
     for(const auto& task:tasks) {
         if(!includeSubtasks && !task.parentTaskId.isEmpty())continue;
-        const bool globalSearch=!search.isEmpty() && view!=QStringLiteral("logbook") && view!=QStringLiteral("completed") && view!=QStringLiteral("trash");
+        const bool globalSearch=!search.isEmpty() && view!=QStringLiteral("logbook") && view!=QStringLiteral("completed") && view!=QStringLiteral("cancelled") && view!=QStringLiteral("trash");
         if(globalSearch) {
             if(!task.deletedAtUtc.isEmpty() || (!includeCompleted && task.status!=QStringLiteral("OPEN"))
                 || (task.status==QStringLiteral("OPEN") && (task.areaArchived || (!task.projectId.isEmpty() && (task.projectDeleted || task.projectStatus!=QStringLiteral("OPEN"))))))continue;
@@ -74,7 +75,7 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
         if(!projectFilter.isEmpty() && task.projectId!=projectFilter && task.projectAreaId!=projectFilter)continue;
         if(search.isEmpty() && upcomingDays>0 && ((view==QStringLiteral("upcoming") && task.startOn && *task.startOn>d.addDays(upcomingDays))
             || (view==QStringLiteral("deadlines") && task.deadlineOn && *task.deadlineOn>d.addDays(upcomingDays))))continue;
-        if(view==QStringLiteral("logbook") && historyDays>0) {
+        if((view==QStringLiteral("logbook") || view==QStringLiteral("cancelled")) && historyDays>0) {
             const auto timestamp=task.completedAtUtc.isEmpty()?task.cancelledAtUtc:task.completedAtUtc;
             const auto date=QDateTime::fromString(timestamp,Qt::ISODateWithMs).toLocalTime().date();
             if(!date.isValid() || date<d.addDays(1-historyDays))continue;
@@ -84,13 +85,18 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
     }
     std::stable_sort(output.begin(),output.end(),[&view,&d](const Task& a,const Task& b) {
         if(view==QStringLiteral("scheduled")){const auto ad=plannedDate(a),bd=plannedDate(b);if(ad!=bd)return ad<bd;}
+        if(view==QStringLiteral("all") && a.categoryOrderPath!=b.categoryOrderPath && (!a.categoryOrderPath.isEmpty() || !b.categoryOrderPath.isEmpty()))return a.categoryOrderPath<b.categoryOrderPath;
         if(view==QStringLiteral("all")){const auto ag=a.areaName+QLatin1Char('/')+a.projectName,bg=b.areaName+QLatin1Char('/')+b.projectName;if(ag!=bg)return ag<bg;}
         if(view==QStringLiteral("today") && todayPeriod(a,d)!=todayPeriod(b,d))return todayPeriod(a,d)<todayPeriod(b,d);
-        if(view==QStringLiteral("logbook") || view==QStringLiteral("completed") || view==QStringLiteral("trash")) {
+        if(view==QStringLiteral("logbook") || view==QStringLiteral("completed") || view==QStringLiteral("cancelled") || view==QStringLiteral("trash")) {
             if(view==QStringLiteral("trash") && a.deletedAtUtc!=b.deletedAtUtc)return a.deletedAtUtc>b.deletedAtUtc;
             const auto at=a.completedAtUtc.isEmpty()?a.cancelledAtUtc:a.completedAtUtc;
             const auto bt=b.completedAtUtc.isEmpty()?b.cancelledAtUtc:b.completedAtUtc;
             if(at!=bt) return at>bt;
+        }
+        if(view==QStringLiteral("scheduled") || view==QStringLiteral("today")) {
+            auto time=[&](const Task& task){if(task.schedule && !task.schedule->allDay && (view==QStringLiteral("scheduled") || task.schedule->startUtc.toLocalTime().date()==d))return task.schedule->startUtc;return QDateTime();};
+            const auto first=time(a),second=time(b);if(first.isValid()!=second.isValid())return !first.isValid();if(first.isValid() && first!=second)return first<second;
         }
         if(a.pinned!=b.pinned)return a.pinned;
         if(view==QStringLiteral("upcoming") && a.startOn!=b.startOn) return a.startOn<b.startOn;
@@ -147,25 +153,47 @@ Result<void> TaskService::validate(Task& t) const
     return {};
 }
 
-Result<Task> TaskService::create(const QString& title, const QString& view)
+Result<Task> TaskService::create(const QString& title, const QString& view,const QDate& date,const std::optional<TaskSchedule>& schedule)
 {
     if(view==QStringLiteral("repeating")){
-        Result<Task> saved;const auto transaction=m_repository.atomically([&]{saved=create(title,QStringLiteral("anytime"));if(!saved.ok())return Result<void>{saved.error};RecurrenceRule rule;rule.weekdays=1<<(m_clock.localToday().dayOfWeek()-1);TaskPatch patch;patch.repeat=FieldPatch<RecurrenceRule>::set(rule);saved=edit(saved.value.id,saved.value.rowVersion,patch);return Result<void>{saved.error};});if(!transaction.ok())return {{},transaction.error};return saved;
+        Result<Task> saved;const auto transaction=m_repository.atomically([&]{saved=create(title,QStringLiteral("anytime"),date,schedule);if(!saved.ok())return Result<void>{saved.error};RecurrenceRule rule;rule.weekdays=1<<(m_clock.localToday().dayOfWeek()-1);TaskPatch patch;patch.repeat=FieldPatch<RecurrenceRule>::set(rule);saved=edit(saved.value.id,saved.value.rowVersion,patch);return Result<void>{saved.error};});if(!transaction.ok())return {{},transaction.error};return saved;
     }
-    Task t; t.id=QUuid::createUuid().toString(QUuid::WithoutBraces); t.title=title;
-    t.notes=QStringLiteral("");
-    t.createdAtUtc=m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs); t.updatedAtUtc=t.createdAtUtc;
-    if(view==QStringLiteral("important")){t.planningState=QStringLiteral("ACTIVE");t.important=true;}
-    else if(view==QStringLiteral("today")) { t.planningState=QStringLiteral("ACTIVE"); t.startOn=m_clock.localToday(); }
-    else if(view==QStringLiteral("anytime")) t.planningState=QStringLiteral("ACTIVE");
-    else if(view==QStringLiteral("someday")) t.planningState=QStringLiteral("SOMEDAY");
-    else if(view==QStringLiteral("upcoming") || view==QStringLiteral("scheduled")) {t.planningState=QStringLiteral("ACTIVE");t.startOn=m_clock.localToday().addDays(1);}
-    else if(view.startsWith(QStringLiteral("project:"))) {t.planningState=QStringLiteral("ACTIVE");t.projectId=view.mid(8);}
-    else if(view.startsWith(QStringLiteral("area:"))) {t.planningState=QStringLiteral("ACTIVE");t.areaId=view.mid(5);}
-    else if(view.startsWith(QStringLiteral("date:"))) {t.planningState=QStringLiteral("ACTIVE");t.startOn=QDate::fromString(view.mid(5),Qt::ISODate);}
+    auto t=draftForScope(view,m_clock.localToday(),date,schedule);
+    t.id=QUuid::createUuid().toString(QUuid::WithoutBraces);t.title=title;t.notes=QStringLiteral("");
+    t.createdAtUtc=t.updatedAtUtc=m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs);
     const auto valid=validate(t);
     if(!valid.ok()) return {Task{},valid.error};
     return m_repository.insert(t);
+}
+
+Task TaskService::draftForScope(const QString& view,const QDate& today,const QDate& date,const std::optional<TaskSchedule>& schedule)
+{
+    Task t;
+    if(view==QStringLiteral("important")){t.planningState=QStringLiteral("ACTIVE");t.important=true;}
+    else if(view==QStringLiteral("today")) { t.planningState=QStringLiteral("ACTIVE"); t.startOn=today; }
+    else if(view==QStringLiteral("anytime")) t.planningState=QStringLiteral("ACTIVE");
+    else if(view==QStringLiteral("someday")) t.planningState=QStringLiteral("SOMEDAY");
+    else if(view==QStringLiteral("upcoming") || view==QStringLiteral("scheduled")) {t.planningState=QStringLiteral("ACTIVE");t.startOn=today.addDays(1);}
+    else if(view.startsWith(QStringLiteral("project:"))) {t.planningState=QStringLiteral("ACTIVE");t.projectId=view.mid(8);}
+    else if(view.startsWith(QStringLiteral("area:"))) {t.planningState=QStringLiteral("ACTIVE");t.areaId=view.mid(5);}
+    else if(view.startsWith(QStringLiteral("date:"))) {t.planningState=QStringLiteral("ACTIVE");t.startOn=QDate::fromString(view.mid(5),Qt::ISODate);}
+    if(view.startsWith(QStringLiteral("tag:"))){t.tagIds={view.mid(4)};t.planningState=QStringLiteral("ACTIVE");}
+    if(date.isValid()){t.startOn=date;t.planningState=QStringLiteral("ACTIVE");}
+    if(schedule){t.schedule=schedule;const auto canonical=QueryService::withUnifiedDates(t);t.startOn=canonical.startOn;t.deadlineOn=canonical.deadlineOn;}
+    return t;
+}
+
+Result<Task> TaskService::createWithDetails(const QString& title,const TaskPatch& patch)
+{
+    Result<Task> saved;
+    const auto transaction=m_repository.atomically([&] {
+        saved=create(title);
+        if(!saved.ok())return Result<void>{saved.error};
+        saved=edit(saved.value.id,saved.value.rowVersion,patch);
+        return Result<void>{saved.error};
+    });
+    if(!transaction.ok())return {{},transaction.error};
+    return saved;
 }
 
 Result<Task> TaskService::createSubtask(const QString& title,const QString& parentId)

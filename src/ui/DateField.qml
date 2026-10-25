@@ -16,6 +16,7 @@ TextField {
     readonly property var hostWindow: Window.window
     property point anchorPosition: Qt.point(0,0)
     property string placement: "below"
+    signal inlinePickerRequested()
     signal dateChosen()
     signal calendarFocusRequested()
     selectByMouse: true
@@ -24,7 +25,7 @@ TextField {
     rightPadding: calendarButton.width+8
     function openPicker() {
         month=workspace.datePicker(text,0)
-        if(inlineMode){inlineExpanded=true;forceActiveFocus();return}
+        if(inlineMode){inlineExpanded=true;inlinePickerRequested();forceActiveFocus();return}
         anchorPosition=mapToItem(null,0,0)
         const popupWidth=picker.width
         const desiredHeight=Math.min(calendar.implicitHeight+picker.padding*2,(hostWindow ? hostWindow.height : 720)-24)
@@ -39,14 +40,14 @@ TextField {
     function chooseDate(value) {text=value;dateChosen();closePicker();forceActiveFocus()}
     function openShortcuts(){openPicker()}
     function closePicker() {picker.close();inlineExpanded=false}
-    onVisibleChanged: if(!visible)closePicker()
+    onVisibleChanged: if(!visible && !inlineExpanded)closePicker()
     Keys.onEscapePressed: function(event) {if(pickerVisible)closePicker();else event.accepted=false}
     Keys.onReturnPressed: function(event) {if(pickerVisible)closePicker();else event.accepted=false}
     Keys.onPressed: function(event) {
         if(event.key===Qt.Key_Down && (event.modifiers & Qt.AltModifier)) {openPicker();event.accepted=true}
         else if(event.key===Qt.Key_Down && pickerVisible){if(inlineMode)calendarFocusRequested();else calendar.focusSelectedDay();event.accepted=true}
     }
-    TapHandler {onTapped: field.openPicker()}
+    TapHandler {enabled:field.readOnly || field.iconOnly;onTapped: field.openPicker()}
     IconToolButton {
         id: calendarButton
         anchors.right: parent.right

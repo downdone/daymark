@@ -47,7 +47,8 @@ Dialog {
         }
         }
         Label { text: root.workspace.errorText || root.workspace.infoText; Layout.fillWidth: true; wrapMode: Text.Wrap; color: root.workspace.errorText ? Theme.danger : Theme.success }
-        Label { text: qsTr("默认每日首次启动自动保留快照（最近7份）。替换/恢复前另建完整快照；损坏导入不修改数据。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }
+        RowLayout {Layout.fillWidth:true;Label {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary;text:root.workspace.backupInfo.lastSuccess ? qsTr("上次备份：%1").arg(root.workspace.backupInfo.lastSuccess) : qsTr("尚无成功备份")} Button{text:qsTr("打开备份位置");onClicked:Qt.openUrlExternally(root.workspace.backupInfo.folderUrl)}}
+        Label { text: qsTr("启动时按每 %1 天检查自动备份，保留最近7份。替换/恢复前另建快照；损坏导入不修改数据。").arg(root.workspace.preferences.backupDays); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }
     }
     }
     footer: DialogButtonBox { Button { text: qsTr("关闭"); enabled: !root.workspace.busy; onClicked: root.close() } }
@@ -64,6 +65,7 @@ Dialog {
         title: qsTr("替换会移除当前全部数据")
         standardButtons: Dialog.Ok|Dialog.Cancel
         contentItem: Label { text: qsTr("当前数据会被预览文件替代。先创建备份，再事务替换。继续？");wrapMode: Text.Wrap }
+        onOpened:{const confirm=standardButton(Dialog.Ok);if(confirm)confirm.text=qsTr("继续核对")}
         onAccepted: replaceSecond.open()
     }
     Dialog {
@@ -75,6 +77,7 @@ Dialog {
         title: qsTr("最后确认替换")
         standardButtons: Dialog.Ok|Dialog.Cancel
         contentItem: Label { text: qsTr("确认使用已验证的预览替换本机数据？备份失败则不执行。");wrapMode: Text.Wrap }
+        onOpened:{const confirm=standardButton(Dialog.Ok);if(confirm)confirm.text=qsTr("备份并替换")}
         onAccepted: root.workspace.applyImport(true)
     }
 }

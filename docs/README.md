@@ -1,16 +1,21 @@
 # 文档导航
 
-UI-33统一起止时间、列表/日历动作与右键按[当前契约](design/shared-task-time-and-actions.md)，覆盖旧双时间定义；保持UI-32两层任务及数据/草稿安全。
+## 当前入口（2026-10-25）
 
-UI-32紧凑导航与两层子任务优先按[设计](design/compact-navigation-and-subtasks.md)，保留UI-30父子联动和UI-31共享窗口契约；验证行点击真正可见详情、保存/草稿返回与旧关系兼容。
+[UX-34系统评估与优化方案](design/system-ux-review-2026-10.md)汇总全界面72项评审、证据与纵向实施顺序；[日历v2](design/calendar-workspace-v2.md)定义同任务的日/周时间安排、月分布和年导航；[就近任务面板](design/contextual-task-inspector.md)定义默认详情及展开方式。FR-034/035及[ADR-020](ADR/020-contextual-task-workspace.md)已由用户接受并实施；具体代码与验收映射见[UX-34实现索引](design/ux34-implementation.md)，实际通过范围以PROGRESS为准。
 
-UI-31全窗口视觉与交互统一按[桌面语言设计](design/macos-desktop-language.md)，与UI-30业务契约共同适用；新增/设置/导航/日历的目标和实际证据分开记录。
+| 当前已接受行为契约 | 入口 |
+|---|---|
+| 统一任务、分类/标签及两种查看方式 | [产品哲学](product-philosophy.md)、[UI-27](design/unified-task-system.md) |
+| 两级分类、拖放/右键及草稿 | [UI-28](design/catalog-and-list-system.md)、[UI-29](design/desktop-task-inspector.md) |
+| 智能范围与父子完成/删除/移动联动 | [UI-30](design/task-list-context.md)、[ADR-017](ADR/017-reminders-views-and-task-trees.md) |
+| 全窗口风格、两层任务及子项直达 | [UI-31](design/macos-desktop-language.md)、[UI-32](design/compact-navigation-and-subtasks.md) |
+| 连续月历、直接时刻新建与图标侧栏 | [UX-35](design/continuous-month-calendar.md) |
+| 完整新增浮窗、原子草稿与桌面密度 | [UX-36](design/calendar-creation-and-density.md) |
+| 上下文日历、共享就近面板与模块边界 | [UX-34实现索引](design/ux34-implementation.md)、[ADR-020](ADR/020-contextual-task-workspace.md)、[ADR-021](ADR/021-calendar-time-commands.md) |
+| 同一起止安排、任务动作与重命名 | [UI-33](design/shared-task-time-and-actions.md)、[ADR-019](ADR/019-shared-task-time.md) |
 
-提醒事项式五视图、父子联动、schema9及就近管理见[设计](design/task-list-context.md)及[ADR-017](ADR/017-reminders-views-and-task-trees.md)，替代下方历史父子独立及旧六/七范围定义。智能列表精确匹配、普通列表树显示、整树事务及分组恢复分别验证；浅深/窄窗/200%、键盘、草稿、失败回滚及真实截图不可省略，目标不等于已通过。
-
-紧凑桌面布局、任务信息分组、子任务展开对齐与分类边缘排序修订见[UI-29](design/desktop-task-inspector.md)。
-
-分类/标签统一创建、层级、归属、右键和拖放操作链，以及子任务浏览、简易退出保存、稳定工具位置见[UI-28](design/catalog-and-list-system.md)。
+实际状态和平台证据只见[PROGRESS](PROGRESS.md)。本页后续历史文档用于追溯，不恢复已取消的领域/项目、双日程或清单概念；当前契约优先，目标提案与交付事实分开。
 
 ## 阅读顺序
 

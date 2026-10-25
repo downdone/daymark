@@ -99,6 +99,7 @@ void SoakRunner::finish(bool passed,const QString& stage)
     const auto bytes=QJsonDocument(report).toJson();
     if(!output.open(QIODevice::WriteOnly) || output.write(bytes)!=bytes.size() || !output.commit())passed=false;
     qInfo()<<"Stability run"<<(passed?"PASS":"FAIL")<<"cycles="<<m_cycles<<"stage="<<stage;
+    if(m_completed)m_completed(passed);
     QCoreApplication::exit(passed?0:2);
 }
 }

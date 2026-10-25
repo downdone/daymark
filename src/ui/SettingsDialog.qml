@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-Dialog {
+ApplicationWindow {
     id: root
     objectName: "settingsDialog"
     signal quitRequested()
@@ -11,11 +11,21 @@ Dialog {
     required property WidgetViewModel widgetController
     required property StartupController startupController
     property alias categoryIndex: categories.currentIndex
-    title: qsTr("设置")
-    width: Math.min(560*Theme.scale,parent.width-32)
-    height: Math.min(480*Theme.scale,parent.height-32)
-    modal: true
-    standardButtons: Dialog.Close
+    title: [qsTr("外观"),qsTr("桌面组件"),qsTr("通用")][categoryIndex]+qsTr(" · Daymark设置")
+    visible:false
+    flags:Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.CustomizeWindowHint
+    color:Theme.grouped
+    font.family:Theme.fontFamily;font.pixelSize:Theme.bodySize
+    palette.window:Theme.content;palette.text:Theme.text;palette.windowText:Theme.text;palette.base:Theme.content;palette.buttonText:Theme.text;palette.highlight:Theme.accent
+    readonly property real availableWidth:width-32
+    readonly property real availableHeight:height-64
+    function open(){x=transientParent ? transientParent.x+(transientParent.width-width)/2 : x;y=transientParent ? transientParent.y+(transientParent.height-height)/2 : y;show();requestActivate()}
+    function close(){hide();if(transientParent)transientParent.requestActivate()}
+    onClosing:function(event){event.accepted=false;root.close()}
+    Shortcut{sequence:"Escape";enabled:root.visible;onActivated:root.close()}
+    footer:ToolBar {implicitHeight:settingsFooterRow.implicitHeight+16;background:Rectangle{color:Theme.grouped} RowLayout{id:settingsFooterRow;anchors.fill:parent;anchors.margins:8;Label{Layout.fillWidth:true;text:root.workspace.errorText ? qsTr("设置未保存，请重试") : qsTr("更改立即保存");font.pixelSize:Theme.captionSize;color:root.workspace.errorText ? Theme.danger : Theme.secondary} Button{text:qsTr("关闭");onClicked:root.close()}}}
+    width: Math.min(560*Theme.scale,transientParent ? transientParent.width-32 : 1000)
+    height: Math.min(460*Theme.scale,transientParent ? transientParent.height-32 : 900)
     function setVerificationCategory(index) {
         categories.currentIndex=index
         const viewport=body.contentItem as Flickable
@@ -29,8 +39,8 @@ Dialog {
         return "PASS"
     }
     function activateVerificationCategory(index) {return categories.activateForVerification(index)}
-    contentItem: ColumnLayout {
-        spacing: 10
+    ColumnLayout {
+        anchors.fill:parent;anchors.margins:16;spacing:10
         SegmentedPicker {
             id: categories
             objectName: "settingsCategories"
@@ -64,9 +74,10 @@ Dialog {
                             Label {text: Math.round(root.workspace.textScale*100)+"%";font.pixelSize: Theme.captionSize;Layout.minimumWidth: 42}
                         }
                     }
-                    SettingSwitch {showSymbol: false;objectName: "reduceMotionPreference";Layout.fillWidth: true;text: qsTr("减少动态效果");checked: root.workspace.preferences.reduceMotion;onClicked: root.workspace.setPreference("reduceMotion",checked)}
-                    SettingSwitch {showSymbol: false;id: contrastPreference;objectName: "highContrastPreference";Layout.fillWidth: true;symbol: "eye";text: qsTr("增强对比度");checked: root.workspace.preferences.highContrast;onClicked: root.workspace.setPreference("highContrast",checked)}
-                    Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;visible: root.workspace.preferences.highContrast;text: qsTr("增强文字及边界对比，桌面组件使用实色背景；关闭后恢复原透明度。")}
+                    SettingSwitch {showSymbol:false;Layout.fillWidth:true;text:qsTr("辅助功能跟随系统");checked:root.workspace.preferences.followSystemAccessibility;onClicked:root.workspace.setPreference("followSystemAccessibility",checked)}
+                    SettingSwitch {showSymbol: false;objectName: "reduceMotionPreference";Layout.fillWidth: true;text: qsTr("减少动态效果");checked:root.workspace.preferences.followSystemAccessibility ? root.workspace.systemAccessibility.reduceMotion : root.workspace.preferences.reduceMotion;onClicked: root.workspace.setPreference("reduceMotion",checked)}
+                    SettingSwitch {showSymbol: false;id: contrastPreference;objectName: "highContrastPreference";Layout.fillWidth: true;symbol: "eye";text: qsTr("增强对比度");checked:Theme.highContrast;onClicked: root.workspace.setPreference("highContrast",checked)}
+                    Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;visible: Theme.highContrast;text: qsTr("增强文字及边界对比，桌面组件使用实色背景；关闭后恢复原透明度。")}
                     SettingSwitch {showSymbol: false;Layout.fillWidth: true;symbol: "list";text: qsTr("紧凑任务列表");checked: root.workspace.preferences.compact;onClicked: root.workspace.setPreference("compact",checked)}
                 }
                 ColumnLayout {
@@ -81,12 +92,12 @@ Dialog {
                             ActionButton {symbol: root.widgetController.visible ? "eyeOff" : "eye";text: root.widgetController.visible ? qsTr("隐藏组件") : qsTr("显示组件");onClicked: root.widgetController.setVisible(!root.widgetController.visible)}
                             ActionButton {symbol: root.widgetController.mini ? "expand" : "collapse";text: root.widgetController.mini ? qsTr("展开组件") : qsTr("切换迷你条");onClicked: root.widgetController.setMini(!root.widgetController.mini)}
                         }
-                        SettingSwitch {showSymbol: false;Layout.fillWidth: true;symbol: "window";text: qsTr("使用不透明背景");enabled: !root.workspace.preferences.highContrast;checked: root.workspace.preferences.solidWidget;onClicked: root.workspace.setPreference("solidWidget",checked)}
+                        SettingSwitch {showSymbol: false;Layout.fillWidth: true;symbol: "window";text: qsTr("使用不透明背景");enabled: !Theme.highContrast;checked: root.workspace.preferences.solidWidget;onClicked: root.workspace.setPreference("solidWidget",checked)}
                         FormRow {
                             label: qsTr("背景透明度")
                             RowLayout {
                                 Layout.fillWidth: true
-                                Slider {Layout.fillWidth: true;Accessible.name: qsTr("组件背景透明度");enabled: !root.workspace.preferences.highContrast;from: 0.6;to: 1;value: root.widgetController.backgroundOpacity;onMoved: root.widgetController.setBackgroundOpacity(value)}
+                                Slider {Layout.fillWidth: true;Accessible.name: qsTr("组件背景透明度");enabled: !Theme.highContrast;from: 0.6;to: 1;value: root.widgetController.backgroundOpacity;onMoved: root.widgetController.setBackgroundOpacity(value)}
                                 Label {text: Math.round(root.widgetController.backgroundOpacity*100)+"%";font.pixelSize: Theme.captionSize;Layout.minimumWidth: 42}
                             }
                         }
@@ -108,7 +119,7 @@ Dialog {
                         label: qsTr("背景透明度")
                         RowLayout {
                             Layout.fillWidth: true
-                            Slider {Layout.fillWidth: true;Accessible.name: qsTr("日历背景透明度");enabled: !root.workspace.preferences.highContrast;from: 50;to: 100;stepSize: 5;value: root.workspace.preferences.desktopCalendarOpacity;onMoved: root.workspace.setPreference("desktopCalendarOpacity",Math.round(value))}
+                            Slider {Layout.fillWidth: true;Accessible.name: qsTr("日历背景透明度");enabled: !Theme.highContrast;from: 50;to: 100;stepSize: 5;value: root.workspace.preferences.desktopCalendarOpacity;onMoved: root.workspace.setPreference("desktopCalendarOpacity",Math.round(value))}
                             Label {text: root.workspace.preferences.desktopCalendarOpacity+"%";font.pixelSize: Theme.captionSize;Layout.minimumWidth: 42}
                         }
                     }

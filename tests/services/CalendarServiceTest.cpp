@@ -6,6 +6,28 @@ using namespace daymark;
 class CalendarServiceTest:public QObject {
     Q_OBJECT
 private slots:
+    void calendarRangeMoveAndEdgeAreAtomic() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("range-move.sqlite")).ok());SystemClock clock;TaskRepository repo(db.connection());TaskService service(repo,clock);
+        auto saved=service.create("range");QVERIFY(saved.ok());TaskPatch dates;dates.startOn=FieldPatch<QDate>::set(QDate(2026,10,24));dates.deadlineOn=FieldPatch<QDate>::set(QDate(2026,11,20));saved=service.edit(saved.value.id,saved.value.rowVersion,dates);QVERIFY(saved.ok());
+        auto moved=CalendarService::moveDate(service,saved.value,saved.value.rowVersion,QDate(2026,10,30),QDate(2026,11,2),"move",QTimeZone::UTC);QVERIFY(moved.ok());QCOMPARE(*moved.value.startOn,QDate(2026,10,27));QCOMPARE(*moved.value.deadlineOn,QDate(2026,11,23));
+        auto edge=CalendarService::moveDate(service,moved.value,moved.value.rowVersion,QDate(2026,11,23),QDate(2026,11,24),"deadline",QTimeZone::UTC);QVERIFY(edge.ok());QCOMPARE(edge.value.startOn,moved.value.startOn);QCOMPARE(*edge.value.deadlineOn,QDate(2026,11,24));
+        const auto before=repo.find(saved.value.id).value;QVERIFY(!CalendarService::moveDate(service,before,before.rowVersion,QDate(2026,11,24),QDate(2026,10,1),"deadline",QTimeZone::UTC).ok());QCOMPARE(repo.find(before.id).value,before);QVERIFY(!CalendarService::moveDate(service,before,saved.value.rowVersion,QDate(2026,11,24),QDate(2026,12,1),"move",QTimeZone::UTC).ok());QCOMPARE(repo.find(before.id).value,before);
+        Task inbox;inbox.id="inbox";inbox.planningState="INBOX";QCOMPARE(CalendarService::unscheduled({inbox}).size(),1);
+        auto captured=service.create("inbox date","inbox");QVERIFY(captured.ok());auto arranged=CalendarService::moveDate(service,captured.value,captured.value.rowVersion,QDate(2026,10,25),QDate(2026,10,25),"move",QTimeZone::UTC);QVERIFY(arranged.ok());QVERIFY(QueryService::effectiveActive(arranged.value));QCOMPARE(CalendarService::entries({arranged.value},QDate(2026,10,25)).size(),1);
+    }
+    void timeBlocksOverlapAndRespectDstAndMidnight() {
+        const QTimeZone zone("America/New_York");QList<Task> tasks;
+        auto add=[&](const QString& id,const QString& start,const QString& end){Task task;task.id=id;task.planningState="ACTIVE";TaskSchedule schedule;schedule.allDay=false;schedule.timeZone="America/New_York";schedule.startUtc=QDateTime::fromString(start,Qt::ISODate).toUTC();schedule.endUtc=QDateTime::fromString(end,Qt::ISODate).toUTC();task.schedule=schedule;tasks.append(task);};
+        add("a","2026-03-08T01:30:00-05:00","2026-03-08T03:30:00-04:00");add("b","2026-03-08T03:00:00-04:00","2026-03-08T04:00:00-04:00");add("c","2026-03-08T04:00:00-04:00","2026-03-09T00:00:00-04:00");
+        auto blocks=CalendarService::timeBlocks(tasks,QDate(2026,3,8),2,zone);QCOMPARE(blocks.size(),3);QCOMPARE(blocks[0].startMinute,90.0);QCOMPARE(blocks[0].endMinute,150.0);QCOMPARE(blocks[0].laneCount,2);QCOMPARE(blocks[1].laneCount,2);QCOMPARE(blocks[2].laneCount,1);QCOMPARE(blocks[2].endMinute,1380.0);
+        tasks.clear();add("fall","2026-11-01T00:00:00-04:00","2026-11-02T00:00:00-05:00");blocks=CalendarService::timeBlocks(tasks,QDate(2026,11,1),2,zone);QCOMPARE(blocks.size(),1);QCOMPARE(blocks[0].endMinute,1500.0);QVERIFY(!blocks[0].continuesAfter);
+    }
+    void timeMoveKeepsIdentityDurationAndRejectsInvalidBoundary() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("time-move.sqlite")).ok());SystemClock clock;TaskRepository repo(db.connection());TaskService service(repo,clock);
+        auto saved=service.create("timed");QVERIFY(saved.ok());TaskSchedule schedule;schedule.allDay=false;schedule.timeZone="Asia/Tokyo";schedule.startUtc=QDateTime::fromString("2026-10-25T03:00:00Z",Qt::ISODate);schedule.endUtc=schedule.startUtc.addSecs(5400);TaskPatch patch;patch.schedule=FieldPatch<TaskSchedule>::set(schedule);saved=service.edit(saved.value.id,saved.value.rowVersion,patch);QVERIFY(saved.ok());
+        auto moved=CalendarService::moveTime(service,saved.value,saved.value.rowVersion,QDate(2026,11,1),90,"move",QTimeZone("America/New_York"));QVERIFY(moved.ok());QCOMPARE(moved.value.id,saved.value.id);QCOMPARE(moved.value.schedule->timeZone,QString("Asia/Tokyo"));QCOMPARE(moved.value.schedule->startUtc.msecsTo(moved.value.schedule->endUtc),5400000LL);QCOMPARE(moved.value.schedule->startUtc,QDateTime::fromString("2026-11-01T05:30:00Z",Qt::ISODate));
+        const auto before=repo.find(saved.value.id).value;QVERIFY(!CalendarService::moveTime(service,before,before.rowVersion,QDate(2026,11,1),30,"end",QTimeZone("America/New_York")).ok());QCOMPARE(repo.find(before.id).value,before);QVERIFY(!CalendarService::moveTime(service,before,saved.value.rowVersion,QDate(2026,11,2),90,"move",QTimeZone::UTC).ok());QCOMPARE(repo.find(before.id).value,before);
+    }
     void taskRangesIncludeInteriorDaysAndKeepEndpointMeaning() {
         Task task;task.id=QStringLiteral("range");task.planningState=QStringLiteral("ACTIVE");task.startOn=QDate(2026,10,24);task.deadlineOn=QDate(2026,11,20);
         const auto ranges=CalendarService::ranges({task},QDate(2026,11,1),QDate(2026,11,30));QCOMPARE(ranges.size(),1);

@@ -20,7 +20,9 @@ public:
 class TaskService final {
 public:
     TaskService(TaskRepository& repository, const IClock& clock, CatalogService* catalog=nullptr) : m_repository(repository), m_clock(clock),m_catalog(catalog) {}
-    Result<Task> create(const QString& title, const QString& view = QStringLiteral("inbox"));
+    Result<Task> create(const QString& title, const QString& view = QStringLiteral("inbox"),const QDate& date={},const std::optional<TaskSchedule>& schedule={});
+    static Task draftForScope(const QString& view,const QDate& today,const QDate& date={},const std::optional<TaskSchedule>& schedule={});
+    Result<Task> createWithDetails(const QString& title,const TaskPatch& patch);
     Result<Task> createSubtask(const QString& title,const QString& parentId);
     Result<Task> edit(const QString& id, qint64 version, const TaskPatch& patch);
     Result<Task> changeState(const QString& id, qint64 version, const QString& action);

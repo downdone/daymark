@@ -8,6 +8,7 @@ Dialog {
     objectName: "batchTaskDialog"
     required property TaskWorkspace workspace
     property var selection: []
+    readonly property int affectedCount:workspace.batchImpact(selection,["complete","project","start","tags"][action.currentIndex])
     property var tags: []
     readonly property var categories: workspace.categoryTree.filter(item=>item.kind==="project")
     signal committed()
@@ -25,7 +26,7 @@ Dialog {
             id: batchFields
             width: root.availableWidth-12
             spacing: Theme.fieldGap
-            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("所有修改一次提交；任何任务冲突或验证失败，整批保留原值。")}
+            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("已选 %1 项，连同关联子任务实际影响 %2 项。一次提交；任何冲突或验证失败，整批保留原值。").arg(root.selection.length).arg(root.affectedCount)}
             FormGroup {
                 heading: qsTr("选择要修改的内容")
             ComboBox {id: action;Accessible.name: qsTr("批量操作");Layout.fillWidth: true;model: [qsTr("完成任务"),qsTr("移动到分类"),qsTr("修改开始日"),qsTr("替换标签")]}
@@ -50,7 +51,7 @@ Dialog {
         Button {
             objectName: "applyBatchSelection"
             highlighted: true
-            text: qsTr("确认应用到 %1 项").arg(root.selection.length)
+            text: qsTr("应用到 %1 项").arg(root.affectedCount)
             enabled: root.selection.length>0 && !root.workspace.busy
             onClicked: root.workspace.batchTasks(root.selection,["complete","project","start","tags"][action.currentIndex],action.currentIndex===1 ? (project.currentIndex>0 ? root.categories[project.currentIndex-1].id : "") : action.currentIndex===2 ? date.text : root.tags.join(","))
         }

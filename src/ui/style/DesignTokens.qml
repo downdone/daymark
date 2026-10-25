@@ -35,19 +35,19 @@ QtObject {
     readonly property color categoryOrange: dark ? "#ffc18c" : "#945000"
     readonly property color categoryPurple: dark ? "#d0b3ff" : "#7042a0"
     readonly property string fontFamily: Application.font.family
-    readonly property int taskTitle: Math.round(18*scale)
-    readonly property int body: Math.round(14*scale)
+    readonly property int taskTitle: Math.round(16*scale)
+    readonly property int body: Math.round(13*scale)
     readonly property int navigation: Math.round(12*scale)
     readonly property int caption: Math.round(12*scale)
     readonly property int section: Math.round(14*scale)
-    readonly property int heading: Math.round(18*scale)
-    readonly property int title: Math.round(24*scale)
+    readonly property int heading: Math.round(16*scale)
+    readonly property int title: Math.round(22*scale)
     readonly property int controlHeight: Math.max(32,body+(compact ? 12 : 16))
     readonly property int radius: 6
     readonly property int rowRadius: 7
     readonly property int panelRadius: 10
     readonly property int gap: 8
-    readonly property int fieldGap: compact ? 8 : 10
-    readonly property int pagePadding: 16
-    readonly property int panelPadding: 16
+    readonly property int fieldGap: compact ? 6 : 8
+    readonly property int pagePadding: 12
+    readonly property int panelPadding: 12
 }

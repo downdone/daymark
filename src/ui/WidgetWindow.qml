@@ -10,6 +10,7 @@ Window {
     required property TaskWorkspace workspace
     signal newTaskRequested()
     signal openMainRequested()
+    signal openTaskRequested(string taskId)
     signal settingsRequested()
     objectName: "widgetWindow"
     width: 340
@@ -109,10 +110,11 @@ Window {
             Label {
                 Layout.fillWidth: true
                 visible: widget.workspace.todayTasks.count === 0
-                text: widget.workspace.ready ? qsTr("今天暂无任务\n在主窗口的“今天”页面添加任务。") : qsTr("正在加载本地任务…")
+                text: widget.workspace.ready ? qsTr("今天暂无任务") : qsTr("正在加载本地任务…")
                 color: Theme.secondary
                 lineHeight: 1.4
             }
+            Button {text:qsTr("添加任务");visible:widget.workspace.ready && todayList.count===0;onClicked:widget.newTaskRequested()}
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
@@ -150,7 +152,7 @@ Window {
                         enabled: widget.workspace.ready && !widget.workspace.busy
                         onClicked: widget.workspace.changeState(todayRow.taskId, todayRow.rowVersion, "complete")
                     }
-                    Label { Layout.fillWidth: true; text: todayRow.title; elide: Text.ElideRight; color: Theme.text }
+                    ToolButton {Layout.fillWidth:true;text:todayRow.title;Accessible.name:qsTr("任务详情：%1").arg(todayRow.title);onClicked:widget.openTaskRequested(todayRow.taskId);contentItem:Label{text:todayRow.title;elide:Text.ElideRight;color:Theme.text}}
                 }
             }
         }

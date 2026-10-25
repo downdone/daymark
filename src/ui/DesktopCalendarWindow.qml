@@ -7,6 +7,10 @@ ApplicationWindow {
     objectName: "desktopCalendarWindow"
     required property TaskWorkspace workspace
     signal openTask(string taskId)
+    signal taskAction(string taskId,string action)
+    signal completeTask(string taskId,real version,string action)
+    signal timeMoveRequested(string taskId,real version,string date,int minute,string edge)
+    signal dateMoveRequested(string taskId,real version,string from,string date,string edge)
     width: 760;height: 720
     minimumWidth: 420;minimumHeight: 480
     visible: workspace.ready && workspace.preferences.desktopCalendarVisible
@@ -71,7 +75,10 @@ ApplicationWindow {
             workspace: calendar.workspace
             independent: true
             onOpenTask: function(taskId){calendar.openTask(taskId)}
-            onCompleteTask: function(taskId,version,action){calendar.workspace.changeState(taskId,version,action)}
+            onTaskAction:function(taskId,action){calendar.taskAction(taskId,action)}
+            onTimeMoveRequested:function(id,version,date,minute,edge){calendar.timeMoveRequested(id,version,date,minute,edge)}
+            onDateMoveRequested:function(id,version,from,date,edge){calendar.dateMoveRequested(id,version,from,date,edge)}
+            onCompleteTask: function(taskId,version,action){calendar.completeTask(taskId,version,action)}
         }
         Label {visible: calendar.workspace.errorText.length>0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: calendar.workspace.errorText;color: Theme.danger}
     }

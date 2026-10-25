@@ -85,7 +85,7 @@ struct Task {
     qint64 replacedRecurrenceVersion=0;
     QDate repeatCutoff;
     bool pinned=false,important=false;
-    int listDepth=0,listChildCount=0;
+    int listDepth=0,listChildCount=0,totalSubtasks=0;
     bool parentDeleted=false;
     QString planningState = QStringLiteral("INBOX");
     QString status = QStringLiteral("OPEN");
@@ -97,7 +97,7 @@ struct Task {
     qint64 rowVersion = 1;
     qint64 sortOrder = 0;
     QString projectId, projectPlanning, projectStatus,areaId,headingId,projectName,projectAreaId,headingTitle;
-    QString areaName;
+    QString areaName,categoryOrderPath;
     bool areaArchived=false;
     qint64 headingOrder=-1;
     QStringList tagIds,tagNames;

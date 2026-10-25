@@ -9,6 +9,9 @@ Page {
     required property TaskWorkspace workspace
     signal openTask(string taskId)
     signal openEvent(string eventId)
+    property string unavailableTitle:""
+    property string unavailableTime:""
+    Dialog {id:recordDetails;parent:Overlay.overlay;anchors.centerIn:parent;width:Math.min(400*Theme.scale,parent.width-32);title:qsTr("提醒触发记录");modal:true;standardButtons:Dialog.Close;contentItem:Label{wrapMode:Text.Wrap;text:root.unavailableTitle+"\n"+root.unavailableTime+"\n"+qsTr("原任务已删除或不再可编辑；此处保留触发记录。")}}
     title: qsTr("提醒记录")
     padding: 0
     background: Rectangle {color: Theme.content}
@@ -30,7 +33,7 @@ Page {
                 id: record
                 required property var modelData
                 width: reminders.width
-                onClicked: {if(modelData.eventId)root.openEvent(modelData.eventId);else root.openTask(modelData.taskId)}
+                onClicked: {const id=modelData.taskId || modelData.eventId;if(root.workspace.task(id).taskId)root.openTask(id);else{root.unavailableTitle=modelData.title;root.unavailableTime=root.workspace.localReminder(modelData.firedAt);recordDetails.open()}}
                 Accessible.name: modelData.title
                 contentItem: ColumnLayout {
                     spacing: 4
@@ -38,7 +41,7 @@ Page {
                     Label {Layout.fillWidth: true;text: root.workspace.localReminder(record.modelData.firedAt);font.pixelSize: Theme.captionSize;color: Theme.secondary}
                 }
             }
-            EmptyState {anchors.centerIn: parent;width: Math.min(parent.width,400*Theme.scale);visible: reminders.count===0;symbol: "today";heading: qsTr("暂无触发提醒");detail: qsTr("为任务或日历日程设置提醒后，触发记录会显示在这里。")}
+            EmptyState {anchors.centerIn: parent;width: Math.min(parent.width,400*Theme.scale);visible: reminders.count===0;symbol: "today";heading: qsTr("暂无触发提醒");detail: qsTr("为任务设置提醒后，触发记录会显示在这里。记录不代表系统通知已送达。")}
         }
     }
 }

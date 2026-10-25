@@ -6,7 +6,10 @@ import QtQuick.Layouts
 TextField {
     id: field
     property string timeLabel: qsTr("时间")
-    readonly property bool pickerVisible: picker.visible
+    property bool inlineMode:false
+    property bool inlineExpanded:false
+    readonly property bool pickerVisible:picker.visible || inlineExpanded
+    signal inlinePickerRequested()
     readonly property var hostWindow: Window.window
     signal timeChosen()
     placeholderText: "HH:mm"
@@ -14,6 +17,7 @@ TextField {
     selectByMouse: true
     rightPadding: clockButton.width+8
     function openPicker() {
+        if(inlineMode){inlineExpanded=true;inlinePickerRequested();return}
         const valid=/^([01]\d|2[0-3]):[0-5]\d$/.test(text)
         hours.value=valid ? Number(text.slice(0,2)) : 9
         minutes.value=valid ? Number(text.slice(3,5)) : 0
@@ -21,14 +25,14 @@ TextField {
     }
     function chooseTime(hour,minute) {
         text=String(hour).padStart(2,"0")+":"+String(minute).padStart(2,"0")
-        timeChosen();picker.close();forceActiveFocus()
+        timeChosen();inlineExpanded=false;picker.close();forceActiveFocus()
     }
-    function closePicker(){picker.close()}
-    onVisibleChanged: if(!visible)closePicker()
+    function closePicker(){inlineExpanded=false;picker.close()}
+    onVisibleChanged: if(!visible && !inlineExpanded)closePicker()
     Keys.onEscapePressed: function(event){if(picker.visible)closePicker();else event.accepted=false}
     Keys.onReturnPressed: function(event){if(picker.visible)closePicker();else event.accepted=false}
     Keys.onPressed: function(event){if(event.key===Qt.Key_Down && (event.modifiers & Qt.AltModifier)){openPicker();event.accepted=true}}
-    TapHandler {onTapped: field.openPicker()}
+    TapHandler {enabled:field.readOnly;onTapped: field.openPicker()}
     IconToolButton {
         id: clockButton
         anchors.right: parent.right;anchors.verticalCenter: parent.verticalCenter
@@ -40,6 +44,7 @@ TextField {
     Popup {
         id: picker
         objectName: "timePickerPopup"
+        onAboutToShow:{const at=field.mapToItem(null,0,0);x=Math.max(8-at.x,Math.min(0,(field.hostWindow ? field.hostWindow.width : 1120)-at.x-width-8));y=Math.max(8-at.y,Math.min(field.height+4,(field.hostWindow ? field.hostWindow.height : 720)-at.y-height-8))}
         x: Math.min(0,field.width-width)
         y: field.height+4
         width: Math.min(Math.max(280,280*Theme.scale),field.hostWindow ? field.hostWindow.width-32 : 560)

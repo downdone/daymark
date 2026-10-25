@@ -15,6 +15,7 @@ public:
     SoakRunner(TaskWorkspace& workspace,WidgetViewModel& widget,QWindow* mainWindow,
                int seconds,QString report,std::function<bool()> warnings,QObject* parent);
     void start();
+    void setCompletionCallback(std::function<void(bool)> callback){m_completed=std::move(callback);}
 private:
     void tick();
     void finish(bool passed,const QString& stage);
@@ -25,6 +26,7 @@ private:
     qint64 m_lastTick=0,m_lastProgress=0,m_maxGap=0;
     QString m_report,m_taskId,m_startedUtc;
     std::function<bool()> m_warnings;
+    std::function<void(bool)> m_completed;
     QElapsedTimer m_elapsed;
     QTimer m_tick;
     bool m_finished=false;

@@ -1,6 +1,9 @@
 #include "TaskWorkspace.h"
+#include "services/ReminderSchedule.h"
 #include <QGuiApplication>
 #include <QStyleHints>
+#include <QAccessibilityHints>
+#include "platform/common/AccessibilityPreferences.h"
 #include "persistence/SqliteDatabase.h"
 #include "persistence/TaskRepository.h"
 #include "services/TaskService.h"
@@ -23,7 +26,7 @@ namespace daymark {
 QHash<int,QByteArray> TaskListModel::roleNames() const
 { return {{Id,"taskId"},{Title,"title"},{Notes,"notes"},{Done,"isDone"},{Status,"taskStatus"},{StartOn,"startOn"},
           {DeadlineOn,"deadlineOn"},{Focus,"todayFocus"},{Version,"rowVersion"},{Overdue,"isOverdue"},
-          {Evening,"evening"},{ProjectName,"projectName"},{TagSummary,"tagSummary"},{Section,"taskSection"},{HeadingTitle,"headingTitle"},{SubtaskPending,"subtaskPending"},{ContextGroup,"contextGroup"},{InToday,"inToday"},{ViewSection,"viewSection"},{ParentTask,"parentTaskId"},{ParentTitle,"parentTitle"},{ChildCount,"visibleChildCount"},{Depth,"taskDepth"},{Pinned,"pinned"},{Important,"important"},{Planning,"planningState"},{ParentDeleted,"parentDeleted"},{PlannedDate,"plannedDate"},{CompletionMonth,"completionMonth"},{DeletedAt,"deletedAt"}}; }
+          {Evening,"evening"},{ProjectName,"projectName"},{TagSummary,"tagSummary"},{Section,"taskSection"},{HeadingTitle,"headingTitle"},{SubtaskPending,"subtaskPending"},{ContextGroup,"contextGroup"},{InToday,"inToday"},{ViewSection,"viewSection"},{ParentTask,"parentTaskId"},{ParentTitle,"parentTitle"},{ChildCount,"visibleChildCount"},{Depth,"taskDepth"},{Pinned,"pinned"},{Important,"important"},{Planning,"planningState"},{ParentDeleted,"parentDeleted"},{PlannedDate,"plannedDate"},{CompletionMonth,"completionMonth"},{DeletedAt,"deletedAt"},{ArrangementSummary,"arrangementSummary"},{SubtaskTotal,"subtaskTotal"}}; }
 QVariant TaskListModel::data(const QModelIndex& index,int role) const
 {
     if(!index.isValid() || index.row()<0 || index.row()>=m_tasks.size()) return {};
@@ -42,7 +45,9 @@ QVariant TaskListModel::data(const QModelIndex& index,int role) const
     case ProjectName:return t.projectName.isEmpty()?t.areaName:t.projectName;
     case ContextGroup:return t.areaName.isEmpty() && t.projectName.isEmpty()?tr("收集箱"):t.areaName+(t.areaName.isEmpty() || t.projectName.isEmpty()?QString():QStringLiteral(" / "))+t.projectName;
     case InToday:return QueryService::inView(t,QStringLiteral("today"),m_today);
-    case TagSummary:return t.tagNames.join(QStringLiteral(" · "));
+    case ArrangementSummary:return CalendarService::timeSummary(t,m_today,QTimeZone::systemTimeZone());
+    case SubtaskTotal:return t.totalSubtasks;
+    case TagSummary:{const auto shown=t.tagNames.mid(0,2).join(QStringLiteral(" · "));return t.tagNames.size()>2?shown+QStringLiteral(" +%1").arg(t.tagNames.size()-2):shown;}
     case Section:return QStringList{tr("全天"),tr("上午"),tr("下午"),tr("今晚")}.value(QueryService::todayPeriod(t,m_today));
     case HeadingTitle:return t.headingTitle.isEmpty()?tr("未分组"):t.headingTitle;
     case SubtaskPending:return t.pendingSubtasks;
@@ -56,7 +61,7 @@ QVariantMap TaskListModel::taskMap(const Task& stored)
     QVariantMap schedule,repeat;auto timeText=[](const QTime& value){return value.toString(value.second() || value.msec()?QStringLiteral("HH:mm:ss.zzz"):QStringLiteral("HH:mm"));};
     if(t.schedule){const auto& s=*t.schedule;const QTimeZone zone(s.timeZone.toUtf8());const auto start=s.startUtc.toTimeZone(zone),end=s.endUtc.toTimeZone(zone);schedule={{"allDay",s.allDay},{"startDate",s.allDay?s.startOn.toString(Qt::ISODate):start.date().toString(Qt::ISODate)},{"endDate",s.allDay?s.endOn.addDays(-1).toString(Qt::ISODate):end.date().toString(Qt::ISODate)},{"startTime",timeText(start.time())},{"endTime",timeText(end.time())},{"zone",s.timeZone},{"alertMinutes",s.alertMinutes}};}
     if(t.repeat){const auto& r=*t.repeat;repeat={{"active",r.active},{"frequency",r.frequency},{"interval",r.interval},{"weekdays",r.weekdays},{"monthDay",r.monthDay},{"yearMonth",r.yearMonth},{"end",r.end.toString(Qt::ISODate)},{"rowVersion",r.rowVersion}};}
-    return {{"storedStartOn",stored.startOn?stored.startOn->toString(Qt::ISODate):QString()},{"storedEndOn",stored.deadlineOn?stored.deadlineOn->toString(Qt::ISODate):QString()},{"timeDatesDiffer",(stored.startOn && stored.startOn!=t.startOn) || (stored.deadlineOn && stored.deadlineOn!=t.deadlineOn)},{"schedule",schedule.isEmpty()?QVariant():QVariant(schedule)},{"repeat",repeat.isEmpty()?QVariant():QVariant(repeat)},{"parentTaskId",t.parentTaskId},{"parentTitle",t.parentTitle},{"parentDeleted",t.parentDeleted},{"pinned",t.pinned},{"important",t.important},{"taskDepth",t.listDepth},{"taskId",t.id},{"title",t.title},{"notes",t.notes},{"planningState",t.planningState},{"taskStatus",t.status},
+    return {{"arrangementSummary",CalendarService::timeSummary(t,QDate::currentDate(),QTimeZone::systemTimeZone())},{"subtaskTotal",t.totalSubtasks},{"storedStartOn",stored.startOn?stored.startOn->toString(Qt::ISODate):QString()},{"storedEndOn",stored.deadlineOn?stored.deadlineOn->toString(Qt::ISODate):QString()},{"timeDatesDiffer",(stored.startOn && stored.startOn!=t.startOn) || (stored.deadlineOn && stored.deadlineOn!=t.deadlineOn)},{"schedule",schedule.isEmpty()?QVariant():QVariant(schedule)},{"repeat",repeat.isEmpty()?QVariant():QVariant(repeat)},{"parentTaskId",t.parentTaskId},{"parentTitle",t.parentTitle},{"parentDeleted",t.parentDeleted},{"pinned",t.pinned},{"important",t.important},{"taskDepth",t.listDepth},{"taskId",t.id},{"title",t.title},{"notes",t.notes},{"planningState",t.planningState},{"taskStatus",t.status},
             {"startOn",t.startOn?t.startOn->toString(Qt::ISODate):QString()},{"deadlineOn",t.deadlineOn?t.deadlineOn->toString(Qt::ISODate):QString()},
             {"todayFocus",t.todayFocus},{"rowVersion",t.rowVersion},
             {"projectId",t.projectId},{"areaId",t.areaId},{"headingId",t.headingId},{"tagIds",t.tagIds},
@@ -178,9 +183,11 @@ void TaskWorkspace::start(const QString& path) {
         const auto stored=settings.value(QStringLiteral("preferences/")+it.key(),it.value());
         if(it.key()==QStringLiteral("backupDays")){const int days=stored.toInt();if(days==1 || days==7 || days==30)it.value()=days;}
         else if(it.key()==QStringLiteral("desktopCalendarOpacity")){const int opacity=stored.toInt();if(opacity>=50 && opacity<=100)it.value()=opacity;}
+        else if(it.key()==QStringLiteral("calendarScale") || it.key()==QStringLiteral("desktopCalendarScale")){if(QStringList{"day","week","month","year"}.contains(stored.toString()))it.value()=stored;}
         else if(stored.metaType().id()==QMetaType::Bool)it.value()=stored;
         else if(stored.toString()==QStringLiteral("true") || stored.toString()==QStringLiteral("false"))it.value()=stored.toBool();
     }
+    m_calendarScale=m_preferences.value(QStringLiteral("calendarScale")).toString();
     reload();
 }
 bool TaskWorkspace::begin(bool clearFeedback)
@@ -200,8 +207,8 @@ void TaskWorkspace::reload()
         if(self) QMetaObject::invokeMethod(self.data(),[self,result,catalogs,rules,events]{
             if(!self)return;
             self->m_busy=false;self->m_ready=result.ok() && catalogs.ok() && rules.ok();self->m_error=result.ok()?(catalogs.ok()?rules.error:catalogs.error):result.error;
-            if(result.ok()) {self->m_cache=result.value;self->refresh();}
             if(catalogs.ok())self->m_catalog=catalogs.value;
+            if(result.ok()) {self->m_cache=result.value;self->refresh();}
             if(rules.ok())self->m_rules=rules.value;
             if(events.ok())self->m_events=events.value;else {self->m_error=events.error;self->m_ready=false;}
             emit self->stateChanged();emit self->operationFinished(QStringLiteral("load"),self->m_ready);
@@ -211,7 +218,9 @@ void TaskWorkspace::reload()
 }
 void TaskWorkspace::refresh()
 {
+    QHash<QString,QString> paths;const auto tree=categoryTree();for(int i=0;i<tree.size();++i)paths.insert(tree[i].toMap().value("id").toString(),QStringLiteral("%1").arg(i+1,8,10,QLatin1Char('0')));for(auto& task:m_cache)task.categoryOrderPath=task.projectId.isEmpty() && task.areaId.isEmpty()?QStringLiteral("00000000"):paths.value(task.projectId.isEmpty()?task.areaId:task.projectId,QStringLiteral("99999999"));
     QSet<QString> deleted;for(const auto& task:m_cache)if(!task.deletedAtUtc.isEmpty())deleted.insert(task.id);for(auto& task:m_cache)task.parentDeleted=deleted.contains(task.parentTaskId);
+    QHash<QString,int> total;for(const auto& task:m_cache)if(!task.parentTaskId.isEmpty() && task.deletedAtUtc.isEmpty())++total[task.parentTaskId];for(auto& task:m_cache)task.totalSubtasks=total.value(task.id);
     QHash<QString,int> pending;for(const auto& task:m_cache)if(!task.parentTaskId.isEmpty() && task.deletedAtUtc.isEmpty() && task.status==QStringLiteral("OPEN"))++pending[task.parentTaskId];for(auto& task:m_cache)task.pendingSubtasks=pending.value(task.id);
     m_events.clear();for(const auto& task:m_cache)if(task.schedule && task.deletedAtUtc.isEmpty())m_events.append(EventService::projection(task));
 
@@ -228,15 +237,24 @@ void TaskWorkspace::setTaskChildrenExpanded(const QString& id,bool expanded)
     refresh();emit stateChanged();
 }
 bool TaskWorkspace::smartView() const
-{return QStringList{QStringLiteral("today"),QStringLiteral("scheduled"),QStringLiteral("important"),QStringLiteral("completed"),QStringLiteral("trash"),QStringLiteral("logbook"),QStringLiteral("upcoming"),QStringLiteral("repeating")}.contains(m_view);}
+{return QStringList{QStringLiteral("today"),QStringLiteral("scheduled"),QStringLiteral("important"),QStringLiteral("completed"),QStringLiteral("cancelled"),QStringLiteral("trash"),QStringLiteral("logbook"),QStringLiteral("upcoming"),QStringLiteral("repeating")}.contains(m_view);}
 QVariantMap TaskWorkspace::viewCounts() const
 {return m_viewCounts;}
 
 void TaskWorkspace::setView(const QString& view)
 {
     if(!view.startsWith(QStringLiteral("project:")) && !view.startsWith(QStringLiteral("area:")) && !view.startsWith(QStringLiteral("tag:"))
-       && !QStringList{QStringLiteral("all"),QStringLiteral("scheduled"),QStringLiteral("completed"),QStringLiteral("trash"),QStringLiteral("inbox"),QStringLiteral("today"),QStringLiteral("upcoming"),QStringLiteral("anytime"),QStringLiteral("someday"),QStringLiteral("important"),QStringLiteral("repeating"),QStringLiteral("logbook"),QStringLiteral("month"),QStringLiteral("week")}.contains(view))return;
-    m_view=view;refresh();emit stateChanged();
+       && !QStringList{QStringLiteral("all"),QStringLiteral("scheduled"),QStringLiteral("completed"),QStringLiteral("cancelled"),QStringLiteral("trash"),QStringLiteral("inbox"),QStringLiteral("today"),QStringLiteral("upcoming"),QStringLiteral("anytime"),QStringLiteral("someday"),QStringLiteral("important"),QStringLiteral("repeating"),QStringLiteral("logbook"),QStringLiteral("month"),QStringLiteral("week"),QStringLiteral("day"),QStringLiteral("year")}.contains(view))return;
+    if(QStringList{"day","week","month","year"}.contains(view) && m_calendarScale!=view){if(!setPreference(QStringLiteral("calendarScale"),view))return;}
+    m_view=view;
+    if(calendarMode())m_calendarScale=view;else m_scope=view;
+    refresh();emit stateChanged();
+}
+void TaskWorkspace::setScope(const QString& scope)
+{
+    const bool calendar=calendarMode();
+    setView(scope);
+    if(calendar && scope!=QStringLiteral("trash") && scope!=QStringLiteral("logbook") && scope!=QStringLiteral("completed") && scope!=QStringLiteral("cancelled"))setView(m_calendarScale);
 }
 void TaskWorkspace::setSearch(const QString& search)
 {
@@ -310,7 +328,7 @@ QVariantList TaskWorkspace::parentTaskChoices(const QString& taskId,const QStrin
 }
 bool TaskWorkspace::createTask(const QString& title)
 {
-    const auto view=m_view;
+    const auto view=calendarMode()?m_scope:m_view;
     return runTask(QStringLiteral("create"),[title,view](TaskWorker& w){return w.service->create(title,view);});
 }
 bool TaskWorkspace::saveTask(const QString& id,qint64 version,const QString& title,const QString& notes,
@@ -319,7 +337,19 @@ bool TaskWorkspace::saveTask(const QString& id,qint64 version,const QString& tit
 bool TaskWorkspace::saveTaskWithDetails(const QString& id,qint64 version,const QString& title,const QString& notes,
                                       const QString& planning,const QString& start,const QString& deadline,bool focus,const QVariantMap& details)
 {
-    TaskPatch patch;patch.title=FieldPatch<QString>::set(title);patch.notes=FieldPatch<QString>::set(notes);
+    TaskPatch patch;
+    if(!prepareTaskPatch(id,title,notes,planning,start,deadline,focus,details,patch))return false;
+    const bool movedToToday=focus && !task(id).value("schedule").isValid() && !start.isEmpty() && QDate::fromString(start,Qt::ISODate)>m_today && planning!=QStringLiteral("SOMEDAY");
+    const bool accepted=runTask(QStringLiteral("save"),[id,version,patch](TaskWorker& w){
+        return w.service->edit(id,version,patch);
+    });
+    if(accepted && movedToToday)m_pendingInfo=tr("已加入今天，计划开始日期已调整为今天。");
+    return accepted;
+}
+bool TaskWorkspace::prepareTaskPatch(const QString& id,const QString& title,const QString& notes,const QString& planning,
+                                    const QString& start,const QString& deadline,bool focus,const QVariantMap& details,TaskPatch& patch)
+{
+    patch.title=FieldPatch<QString>::set(title);patch.notes=FieldPatch<QString>::set(notes);
     patch.planningState=FieldPatch<QString>::set(planning);patch.todayFocus=FieldPatch<bool>::set(focus);
     auto parse=[](const QString& text){
         const auto normalized=text.trimmed();
@@ -330,19 +360,22 @@ bool TaskWorkspace::saveTaskWithDetails(const QString& id,qint64 version,const Q
     };
     patch.startOn=parse(start);patch.deadlineOn=parse(deadline);
     if(!appendDetailsPatch(id,details,patch))return false;
-    const bool movedToToday=focus && !task(id).value("schedule").isValid() && !start.isEmpty() && QDate::fromString(start,Qt::ISODate)>m_today && planning!=QStringLiteral("SOMEDAY");
-    const bool accepted=runTask(QStringLiteral("save"),[id,version,patch](TaskWorker& w){
-        return w.service->edit(id,version,patch);
-    });
-    if(accepted && movedToToday)m_pendingInfo=tr("已加入今天，计划开始日期已调整为今天。");
-    return accepted;
+    return true;
 }
+
+bool TaskWorkspace::createTaskWithDetails(const QString& title,const QString& notes,const QString& start,const QString& end,const QVariantMap& details)
+{
+    TaskPatch patch;
+    if(!prepareTaskPatch({},title,notes,QStringLiteral("ACTIVE"),start,end,false,details,patch))return false;
+    return runTask(QStringLiteral("calendarCreate"),[title,patch](TaskWorker& w){return w.service->createWithDetails(title,patch);});
+}
+
 bool TaskWorkspace::changeState(const QString& id,qint64 version,const QString& action)
 { return runTask(action,[id,version,action](TaskWorker& w){return w.service->changeState(id,version,action);}); }
 bool TaskWorkspace::moveTaskToView(const QString& id,qint64 version,const QString& view,const QString& start)
 {
     const bool accepted=runTask(QStringLiteral("move"),[id,version,view,start](TaskWorker& w){return w.service->moveToView(id,version,view,QDate::fromString(start,Qt::ISODate));});
-    const QHash<QString,QString> names{{QStringLiteral("inbox"),tr("收集箱")},{QStringLiteral("today"),tr("今天")},{QStringLiteral("upcoming"),tr("计划")},{QStringLiteral("scheduled"),tr("计划")},{QStringLiteral("important"),tr("特别关注")},{QStringLiteral("completed"),tr("完成")},{QStringLiteral("logbook"),tr("完成")},{QStringLiteral("anytime"),tr("全部")},{QStringLiteral("someday"),tr("暂停安排")}};
+    const QHash<QString,QString> names{{QStringLiteral("inbox"),tr("收集箱")},{QStringLiteral("today"),tr("今天")},{QStringLiteral("upcoming"),tr("计划")},{QStringLiteral("scheduled"),tr("计划")},{QStringLiteral("important"),tr("特别关注")},{QStringLiteral("completed"),tr("完成")},{QStringLiteral("cancelled"),tr("已取消")},{QStringLiteral("logbook"),tr("完成")},{QStringLiteral("anytime"),tr("全部")},{QStringLiteral("someday"),tr("暂停安排")}};
     if(accepted && names.contains(view))m_pendingInfo=tr("已移到%1。").arg(names.value(view));
     return accepted;
 }
@@ -353,14 +386,38 @@ bool TaskWorkspace::setPreference(const QString& key,const QVariant& value)
     if(!m_preferences.contains(key))return false;
     if(key==QStringLiteral("backupDays")){const int days=value.toInt();if(days!=1 && days!=7 && days!=30)return false;}
     else if(key==QStringLiteral("desktopCalendarOpacity")){bool ok=false;const int opacity=value.toInt(&ok);if(!ok || opacity<50 || opacity>100)return false;}
+    else if(key==QStringLiteral("calendarScale") || key==QStringLiteral("desktopCalendarScale")){if(!QStringList{"day","week","month","year"}.contains(value.toString()))return false;}
     else if(value.metaType().id()!=QMetaType::Bool)return false;
     QSettings settings(QFileInfo(m_path).dir().filePath(QStringLiteral("ui.ini")),QSettings::IniFormat);
-    settings.setValue(QStringLiteral("preferences/")+key,value);settings.sync();
+    settings.setValue(QStringLiteral("preferences/")+key,value);
+    const bool manualAccessibility=key==QStringLiteral("reduceMotion") || key==QStringLiteral("highContrast");
+    if(manualAccessibility)settings.setValue(QStringLiteral("preferences/followSystemAccessibility"),false);
+    settings.sync();
     if(settings.status()!=QSettings::NoError){settingsFailed();return false;}
-    m_preferences[key]=value;if(key==QStringLiteral("listShowSubtasks"))refresh();emit stateChanged();return true;
+    m_preferences[key]=value;if(manualAccessibility)m_preferences[QStringLiteral("followSystemAccessibility")]=false;if(key==QStringLiteral("listShowSubtasks"))refresh();emit stateChanged();return true;
 }
-QVariantList TaskWorkspace::unscheduledTasks()const
-{QVariantList result;for(const auto& task:CalendarService::unscheduled(m_cache))result.append(TaskListModel::taskMap(task));return result;}
+QVariantMap TaskWorkspace::systemAccessibility() const
+{
+    bool contrast=false;const bool available=qobject_cast<QGuiApplication*>(QCoreApplication::instance());
+    if(available)contrast=QGuiApplication::styleHints()->accessibility()->contrastPreference()==Qt::ContrastPreference::HighContrast;
+    const auto motion=systemReducedMotion();return {{"highContrast",contrast},{"reduceMotion",motion.value_or(false)},{"contrastAvailable",available},{"motionAvailable",motion.has_value()}};
+}
+QVariantMap TaskWorkspace::backupInfo() const
+{
+    const QDir directory(QFileInfo(m_path).dir().filePath(QStringLiteral("backups")));const auto files=directory.entryInfoList({QStringLiteral("*.sqlite")},QDir::Files,QDir::Time);
+    return {{"folderUrl",QUrl::fromLocalFile(directory.absolutePath()).toString()},{"lastSuccess",files.isEmpty()?QString():files.first().lastModified().toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"))},{"count",files.size()}};
+}
+QVariantMap TaskWorkspace::catalogImpact(const QString& kind,const QString& id) const
+{
+    int tasks=0,children=0;for(const auto& task:m_cache)if(kind==QStringLiteral("tag")?task.tagIds.contains(id):(task.projectId==id || task.areaId==id))++tasks;
+    for(const auto& item:m_catalog)if(item.parentId==id)++children;return {{"tasks",tasks},{"children",children}};
+}
+int TaskWorkspace::batchImpact(const QVariantList& selection,const QString& action) const
+{
+    QSet<QString> ids;for(const auto& value:selection)ids.insert(value.toMap().value("taskId").toString());
+    if(action==QStringLiteral("complete") || action==QStringLiteral("project")){bool changed=true;while(changed){changed=false;for(const auto& task:m_cache)if(task.deletedAtUtc.isEmpty() && ids.contains(task.parentTaskId) && !ids.contains(task.id)){ids.insert(task.id);changed=true;}}}
+    return ids.size();
+}
 bool TaskWorkspace::batchTasks(const QVariantList& selection,const QString& action,const QString& value)
 {
     QList<QPair<QString,qint64>> items;
@@ -582,152 +639,15 @@ bool TaskWorkspace::appendDetailsPatch(const QString& id,const QVariantMap& deta
     return true;
 }
 
-QVariantList TaskWorkspace::calendarDays() const
-{return calendarDaysFor(m_calendarDate.toString(Qt::ISODate),m_view==QStringLiteral("week"));}
-QVariantList TaskWorkspace::calendarDaysFor(const QString& anchor,bool week) const
+bool TaskWorkspace::moveTaskTime(const QString& id,qint64 version,const QString& date,int minute,const QString& edge)
 {
-    QVariantList result;
-    const auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid())return {};
-    const auto days=CalendarService::days(m_cache,date,week,m_sundayFirst,m_calendarCompleted);
-    QHash<QDate,QVariantList> eventDays;
-    QVariantList spans;
-    if(!days.isEmpty())for(const auto& range:CalendarService::ranges(m_cache,days.first().date,days.last().date,m_calendarCompleted)){
-        auto map=TaskListModel::taskMap(range.task);map.insert(QStringLiteral("sourceType"),QStringLiteral("task"));map.insert(QStringLiteral("multiDay"),true);
-        map.insert(QStringLiteral("firstVisibleDate"),range.start.toString(Qt::ISODate));map.insert(QStringLiteral("lastVisibleDate"),range.end.toString(Qt::ISODate));spans.append(map);
-    }
-    const auto zone=QTimeZone::systemTimeZone();
-    if(!days.isEmpty())for(const auto& event:m_events) {
-        const auto found=m_taskIndex.constFind(event.id);if(found==m_taskIndex.cend())continue;auto visible=found.value();if(visible.status==QStringLiteral("COMPLETED") && m_calendarCompleted)visible.status=QStringLiteral("OPEN");if(!QueryService::effectiveActive(visible))continue;
-        for(const auto& instance:EventService::occurrences(event,days.first().date,days.last().date,zone)) {
-            const auto dates=EventService::visibleDates(instance,days.first().date,days.last().date,zone);
-            auto map=eventMap(instance);map.insert(QStringLiteral("sourceType"),QStringLiteral("event"));map.insert(QStringLiteral("recurring"),event.repeatFrequency!=QStringLiteral("NONE"));
-            const auto first=instance.allDay?instance.startOn:instance.startUtc.toTimeZone(zone).date();
-            const auto last=instance.allDay?instance.endOn.addDays(-1):instance.endUtc.addMSecs(-1).toTimeZone(zone).date();
-            map.insert(QStringLiteral("multiDay"),first<last);map.insert(QStringLiteral("firstVisibleDate"),first.toString(Qt::ISODate));map.insert(QStringLiteral("lastVisibleDate"),last.toString(Qt::ISODate));
-            if(first<last && !dates.isEmpty())spans.append(map);
-            for(const auto& date:dates)eventDays[date].append(map);
-        }
-    }
-    // Allocate week-local lanes in stable start/longest/title/identity order.
-    std::sort(spans.begin(),spans.end(),[](const QVariant& l,const QVariant& r){
-        const auto a=l.toMap(),b=r.toMap();
-        for(const auto& key:{QStringLiteral("firstVisibleDate"),QStringLiteral("lastVisibleDate"),QStringLiteral("title"),QStringLiteral("sourceType"),QStringLiteral("taskId"),QStringLiteral("eventId"),QStringLiteral("occurrenceKey")}) {
-            const auto x=a.value(key).toString(),y=b.value(key).toString();if(x!=y)return key==QStringLiteral("lastVisibleDate")?x>y:x<y;
-        }return false;
-    });
-    QList<QVariantList> bands(days.size()/7);QList<int> laneCounts(days.size()/7,0);QHash<QDate,int> hiddenBands,hiddenTaskBands,hiddenEventBands;
-    for(int weekIndex=0;weekIndex<bands.size();++weekIndex) {
-        QList<int> occupied;int hiddenLane=3;
-        const auto first=days[weekIndex*7].date,last=first.addDays(6);
-        for(const auto& value:spans) {
-            auto segment=value.toMap();const auto actualFirst=QDate::fromString(segment.value("firstVisibleDate").toString(),Qt::ISODate),actualLast=QDate::fromString(segment.value("lastVisibleDate").toString(),Qt::ISODate);
-            if(actualFirst>last || actualLast<first)continue;
-            const auto begin=qMax(first,actualFirst),end=qMin(last,actualLast);const int column=first.daysTo(begin),span=begin.daysTo(end)+1;
-            const int mask=((1<<span)-1)<<column;int lane=0;while(lane<occupied.size() && (occupied[lane]&mask))++lane;
-            if(lane>=3)lane=hiddenLane++;else {if(lane==occupied.size())occupied.append(0);occupied[lane]|=mask;}
-            segment.insert("week",weekIndex);segment.insert("column",column);segment.insert("span",span);segment.insert("lane",lane);segment.insert("startsHere",begin==actualFirst);segment.insert("endsHere",end==actualLast);
-            bands[weekIndex].append(segment);
-            if(lane>=3)for(auto date=begin;date<=end;date=date.addDays(1)){++hiddenBands[date];if(segment.value("sourceType")==QStringLiteral("task"))++hiddenTaskBands[date];else ++hiddenEventBands[date];}
-        }
-        laneCounts[weekIndex]=qMin(3,occupied.size());
-    }
-    QHash<QPair<QString,QString>,QVariantMap> mappedTasks;
-    for(int dayIndex=0;dayIndex<days.size();++dayIndex) {
-        const auto& day=days[dayIndex];
-        QVariantList entries;
-        for(const auto& entry:day.entries) {
-            const QPair<QString,QString> key{entry.task.id,entry.kind};
-            if(!mappedTasks.contains(key)){
-                auto map=TaskListModel::taskMap(entry.task);map.insert(QStringLiteral("kind"),entry.kind);
-                map.insert(QStringLiteral("multiDay"),entry.task.startOn && entry.task.deadlineOn && *entry.task.startOn<*entry.task.deadlineOn);mappedTasks.insert(key,map);
-            }
-            entries.append(mappedTasks.value(key));
-        }
-        auto events=eventDays.value(day.date);
-        std::sort(events.begin(),events.end(),[](const QVariant& left,const QVariant& right){
-            const auto a=left.toMap(),b=right.toMap();
-            if(a.value("allDay").toBool()!=b.value("allDay").toBool())return a.value("allDay").toBool();
-            const auto first=a.value("occurrenceKey").toString(),second=b.value("occurrenceKey").toString();
-            if(first!=second)return first<second;
-            const int title=QString::compare(a.value("title").toString(),b.value("title").toString(),Qt::CaseInsensitive);
-            return title!=0?title<0:a.value("eventId").toString()<b.value("eventId").toString();
-        });
-        result.append(QVariantMap{{"date",day.date.toString(Qt::ISODate)},{"day",day.date.day()},{"inMonth",day.inMonth},
-            {"today",day.date==m_today},{"weekend",day.date.dayOfWeek()>5},{"entries",entries},{"events",events},
-            {"week",dayIndex/7},{"bandLanes",laneCounts[dayIndex/7]},{"hiddenBands",hiddenBands.value(day.date)},
-            {"hiddenTaskBands",hiddenTaskBands.value(day.date)},{"hiddenEventBands",hiddenEventBands.value(day.date)},{"bands",dayIndex%7==0?bands[dayIndex/7]:QVariantList{}}});
-    }
-    return result;
+    if(!m_taskIndex.contains(id))return false;const auto before=m_taskIndex.value(id);const auto target=QDate::fromString(date,Qt::ISODate);const auto zone=QTimeZone::systemTimeZone();
+    return runTask(QStringLiteral("timeMove"),[before,version,target,minute,edge,zone](TaskWorker& w){return CalendarService::moveTime(*w.service,before,version,target,minute,edge,zone);});
 }
-QString TaskWorkspace::systemTimeZone() const{return QString::fromUtf8(QTimeZone::systemTimeZoneId());}
-QVariantMap TaskWorkspace::eventMap(const CalendarEvent& e) const
+bool TaskWorkspace::moveTaskDate(const QString& id,qint64 version,const QString& from,const QString& date,const QString& edge)
 {
-    const QTimeZone zone(e.timeZone.toUtf8());
-    const auto start=e.startUtc.toTimeZone(zone),end=e.endUtc.toTimeZone(zone);
-    const auto localStart=e.startUtc.toLocalTime(),localEnd=e.endUtc.toLocalTime();
-    auto timeInput=[](const QTime& time){return time.toString(time.second()!=0 || time.msec()!=0?QStringLiteral("HH:mm:ss.zzz"):QStringLiteral("HH:mm"));};
-    QVariantList links;
-    for(const auto& link:e.links){auto item=task(link.taskId);if(!item.isEmpty()){item.insert(QStringLiteral("role"),link.role);links.append(item);}}
-    const auto time=e.allDay?tr("全天"):localStart.toString(QStringLiteral("HH:mm"))+QStringLiteral("–")+localEnd.toString(localStart.date()==localEnd.date()?QStringLiteral("HH:mm"):QStringLiteral("M/d HH:mm"));
-    return {{"taskId",e.id},{"taskStatus",task(e.id).value(QStringLiteral("taskStatus"))},{"occurrenceKey",EventService::occurrenceKey(e)},{"repeatFrequency",e.repeatFrequency},{"repeatInterval",e.repeatInterval},{"repeatUntil",e.repeatUntil.toString(Qt::ISODate)},{"alertMinutes",e.alertMinutes},{"eventId",e.id},{"title",e.title},{"notes",e.notes},{"allDay",e.allDay},{"rowVersion",e.rowVersion},{"zone",e.timeZone},
-        {"startDate",e.allDay?e.startOn.toString(Qt::ISODate):start.date().toString(Qt::ISODate)},{"endDate",e.allDay?e.endOn.addDays(-1).toString(Qt::ISODate):end.date().toString(Qt::ISODate)},
-        {"startTime",timeInput(start.time())},{"endTime",timeInput(end.time())},{"timeLabel",time},{"links",links}};
-}
-QVariantList TaskWorkspace::recurringEvents() const
-{
-    QVariantList result;for(const auto& e:m_events)if(e.repeatFrequency!=QStringLiteral("NONE"))result.append(calendarEventPreview(e.id));
-    std::sort(result.begin(),result.end(),[](const QVariant& a,const QVariant& b){return a.toMap().value("title").toString().localeAwareCompare(b.toMap().value("title").toString())<0;});return result;
-}
-QVariantList TaskWorkspace::calendarEvents() const{QVariantList result;for(const auto& e:m_events)result.append(eventMap(e));return result;}
-QVariantMap TaskWorkspace::calendarEvent(const QString& id) const{for(const auto& e:m_events)if(e.id==id)return eventMap(e);return {};}
-QVariantMap TaskWorkspace::calendarEventPreview(const QString& id,const QString& key) const
-{
-    for(const auto& series:m_events)if(series.id==id) {
-        CalendarEvent instance=series;
-        if(!key.isEmpty()) {
-            const auto date=series.allDay?QDate::fromString(key,Qt::ISODate):QDateTime::fromString(key,Qt::ISODateWithMs).toLocalTime().date();
-            if(!date.isValid())return {};
-            bool found=false;
-            for(const auto& candidate:EventService::occurrences(series,date,date,QTimeZone::systemTimeZone()))
-                if(EventService::occurrenceKey(candidate)==key){instance=candidate;found=true;break;}
-            if(!found)return {};
-        }
-        auto result=eventMap(instance);const bool recurring=series.repeatFrequency!=QStringLiteral("NONE");
-        QString rule=tr("不重复");
-        const QStringList frequencies={QStringLiteral("DAILY"),QStringLiteral("WEEKLY"),QStringLiteral("MONTHLY"),QStringLiteral("YEARLY")};
-        const auto index=frequencies.indexOf(series.repeatFrequency);
-        if(index>=0){const QStringList units={tr("天"),tr("周"),tr("月"),tr("年")};rule=tr("每 %1 %2").arg(series.repeatInterval).arg(units[index]);if(series.repeatUntil.isValid())rule+=tr("，至 %1（含当天）").arg(series.repeatUntil.toString(Qt::ISODate));}
-        const auto first=series.allDay?series.startOn:series.startUtc.toTimeZone(QTimeZone(series.timeZone.toUtf8())).date();
-        QString dateLabel;
-        if(instance.allDay){dateLabel=instance.startOn.toString(Qt::ISODate);if(instance.endOn.addDays(-1)!=instance.startOn)dateLabel+=QStringLiteral(" — ")+instance.endOn.addDays(-1).toString(Qt::ISODate);dateLabel+=tr(" · 全天");}
-        else dateLabel=instance.startUtc.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"))+QStringLiteral(" — ")+instance.endUtc.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"))+tr("（本机时区）");
-        const auto alert=series.alertMinutes<0?tr("不提醒"):series.alertMinutes==0?tr("开始时提醒"):tr("提前 %1 分钟").arg(series.alertMinutes);
-        QVariantMap timeline;
-        const auto localStart=instance.startUtc.toLocalTime(),localEnd=instance.endUtc.toLocalTime();
-        if(!instance.allDay && localStart.date()==localEnd.date()) {
-            const int startMinute=localStart.time().hour()*60+localStart.time().minute(),endMinute=localEnd.time().hour()*60+localEnd.time().minute();
-            if(endMinute>startMinute) {
-            const int from=qMax(0,(startMinute/60-1)*60),through=qMin(1440,qMax(from+180,(endMinute/60+1)*60));const int range=through-from;
-            QVariantList labels;const int step=qMax(60,((range+239)/240)*60);
-            for(int minute=from;minute<=through;minute+=step)labels.append(QVariantMap{{"label",QStringLiteral("%1:00").arg(minute/60,2,10,QChar('0'))},{"position",double(minute-from)/range}});
-            timeline={{"labels",labels},{"start",double(startMinute-from)/range},{"end",double(endMinute-from)/range}};
-            }
-        }
-        result.insert(QStringLiteral("timeline"),timeline);
-        result.insert(QStringLiteral("recurring"),recurring);result.insert(QStringLiteral("ruleLabel"),rule);
-        result.insert(QStringLiteral("dateLabel"),dateLabel);result.insert(QStringLiteral("alertLabel"),alert+(series.alertMinutes>=0 && series.allDay?tr(" · 当天09:00为基准"):QString()));
-        result.insert(QStringLiteral("contextLabel"),key.isEmpty() && recurring?tr("系列起始安排"):tr("本次安排"));
-        result.insert(QStringLiteral("scopeLabel"),recurring?tr("循环起点 %1 · 默认编辑本次任务").arg(first.toString(Qt::ISODate)):tr("此任务的日期和提醒"));
-        return result;
-    }
-    return {};
-}
-QVariantList TaskWorkspace::eventsForTask(const QString& id) const {
-    if(task(id).isEmpty())return {};
-    QVariantList result;for(const auto& e:m_events)for(const auto& link:e.links)if(link.taskId==id){auto item=eventMap(e);item.insert(QStringLiteral("role"),link.role);result.append(item);break;}return result;
-}
-QVariantList TaskWorkspace::eventTaskChoices(const QString& search) const {
-    QVariantList result;for(const auto& t:m_cache)if(t.deletedAtUtc.isEmpty() && (search.trimmed().isEmpty() || t.title.contains(search.trimmed(),Qt::CaseInsensitive) || t.notes.contains(search.trimmed(),Qt::CaseInsensitive))){result.append(TaskListModel::taskMap(t));if(result.size()>=200)break;}return result;
+    if(!m_taskIndex.contains(id))return false;const auto before=m_taskIndex.value(id);const auto origin=QDate::fromString(from,Qt::ISODate),target=QDate::fromString(date,Qt::ISODate);const auto zone=QTimeZone::systemTimeZone();
+    return runTask(QStringLiteral("calendarMove"),[before,version,origin,target,edge,zone](TaskWorker& w){return CalendarService::moveDate(*w.service,before,version,origin,target,edge,zone);});
 }
 bool TaskWorkspace::saveEvent(const QVariantMap& value) {
     return runCatalog([value](TaskWorker& w){
@@ -754,27 +674,9 @@ bool TaskWorkspace::undoEventDelete() {
     const auto id=m_eventUndoId;const auto version=m_eventUndoVersion;
     return runCatalog([id,version](TaskWorker& w){EventRepository repo(w.database.connection());return EventService(repo,w.clock).setDeleted(id,version,false);},QStringLiteral("eventRestore"));
 }
-QString TaskWorkspace::calendarTitle() const
-{
-    if(m_view!=QStringLiteral("week"))return m_calendarDate.toString(QStringLiteral("yyyy年M月"));
-    const auto days=CalendarService::days({},m_calendarDate,true,m_sundayFirst);
-    return days.first().date.toString(Qt::ISODate)+QStringLiteral(" — ")+days.last().date.toString(Qt::ISODate);
-}
-QString TaskWorkspace::calendarTitleFor(const QString& anchor,bool week) const
-{
-    const auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid())return {};
-    if(!week)return date.toString(QStringLiteral("yyyy年M月"));
-    const auto days=CalendarService::days({},date,true,m_sundayFirst);
-    return days.first().date.toString(Qt::ISODate)+QStringLiteral(" — ")+days.last().date.toString(Qt::ISODate);
-}
-QString TaskWorkspace::shiftCalendar(const QString& anchor,int offset,bool week) const
-{
-    const auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid())return {};
-    return (offset==0?m_clock.localToday():(week?date.addDays(offset*7):date.addMonths(offset))).toString(Qt::ISODate);
-}
 void TaskWorkspace::stepCalendar(int offset)
 {
-    m_calendarDate=offset==0?m_clock.localToday():(m_view==QStringLiteral("week")?m_calendarDate.addDays(offset*7):m_calendarDate.addMonths(offset));
+    m_calendarDate=QDate::fromString(shiftCalendarScale(calendarDate(),offset,m_view),Qt::ISODate);
     emit stateChanged();
 }
 void TaskWorkspace::setSundayFirst(bool enabled)
@@ -791,21 +693,28 @@ bool TaskWorkspace::requestCalendarRange(const QString& anchor)
     const auto first=QDate(date.year(),date.month(),1).addDays(-7),last=QDate(date.year(),date.month(),1).addMonths(1).addDays(7);
     return runCatalog([first,last](TaskWorker& w){const auto generated=w.recurrenceService->generate(first,last);return Result<void>{generated.error};},QStringLiteral("calendarRange"));
 }
-bool TaskWorkspace::createForDate(const QString& title,const QString& date)
+bool TaskWorkspace::requestCalendarSpan(const QString& from,const QString& through)
 {
-    return runTask(QStringLiteral("calendarCreate"),[title,date](TaskWorker& w){return w.service->create(title,QStringLiteral("date:")+date);});
+    const auto first=QDate::fromString(from,Qt::ISODate),last=QDate::fromString(through,Qt::ISODate);
+    if(!first.isValid() || !last.isValid() || last<first || first.daysTo(last)>70 || !m_ready || m_busy)return false;
+    return runCatalog([first,last](TaskWorker& w){const auto generated=w.recurrenceService->generate(first.addDays(-7),last.addDays(7));return Result<void>{generated.error};},QStringLiteral("calendarRange"));
+}
+bool TaskWorkspace::createForTime(const QString& title,const QString& date,int minute,int duration,bool global)
+{
+    const auto target=QDate::fromString(date,Qt::ISODate);const auto zone=QTimeZone::systemTimeZone();const auto from=target.startOfDay(zone),until=target.addDays(1).startOfDay(zone);
+    if(!target.isValid() || minute<0 || minute>=from.secsTo(until)/60 || duration<1 || duration>7*25*60){m_error={ErrorCode::ValidationError,QStringLiteral("dateInvalid")};emit stateChanged();return false;}
+    TaskSchedule schedule;schedule.allDay=false;schedule.timeZone=QString::fromUtf8(zone.id());schedule.startUtc=from.addSecs(minute*60).toUTC();schedule.endUtc=schedule.startUtc.addSecs(duration*60);const auto scope=global?QStringLiteral("inbox"):m_scope;
+    return runTask(QStringLiteral("calendarCreate"),[title,target,scope,schedule](TaskWorker& w){return w.service->create(title,scope,target,schedule);});
+}
+bool TaskWorkspace::createForDate(const QString& title,const QString& date,bool global)
+{
+    const auto scope=global?QStringLiteral("inbox"):m_scope;const auto target=QDate::fromString(date,Qt::ISODate);
+    if(!target.isValid() || target.toString(Qt::ISODate)!=date){m_error={ErrorCode::ValidationError,QStringLiteral("dateInvalid")};emit stateChanged();return false;}
+    return runTask(QStringLiteral("calendarCreate"),[title,target,scope](TaskWorker& w){return w.service->create(title,scope,target);});
 }
 bool TaskWorkspace::moveCalendar(const QString& id,qint64 version,const QString& kind,const QString& date)
 {
     return runTask(QStringLiteral("calendarMove"),[id,version,kind,date](TaskWorker& w){return CalendarService::move(*w.service,id,version,kind,QDate::fromString(date,Qt::ISODate));});
-}
-QVariantList TaskWorkspace::recurrenceRules() const
-{
-    QVariantList result;
-    for(const auto& r:m_rules)result.append(QVariantMap{{"id",r.id},{"title",r.title},{"notes",r.notes},{"frequency",r.frequency},
-        {"anchor",r.anchor.toString(Qt::ISODate)},{"end",r.end.toString(Qt::ISODate)},{"interval",r.interval},{"weekdays",r.weekdays},
-        {"monthDay",r.monthDay},{"yearMonth",r.yearMonth},{"active",r.active},{"rowVersion",r.rowVersion}});
-    return result;
 }
 bool TaskWorkspace::saveRecurrence(const QVariantMap& value)
 {
@@ -818,11 +727,6 @@ bool TaskWorkspace::saveRecurrence(const QVariantMap& value)
 }
 bool TaskWorkspace::stopRecurrence(const QString& id,qint64 version,bool removeFuture)
 {return runCatalog([id,version,removeFuture](TaskWorker& w){return w.recurrenceService->stop(id,version,removeFuture);},QStringLiteral("recurrence"));}
-QVariantList TaskWorkspace::notifications() const
-{
-    QVariantList result;for(const auto& notification:m_taskNotifications){auto record=notification.toMap();const auto id=record.value(QStringLiteral("taskId")).toString();const auto found=m_taskIndex.constFind(id);if(found!=m_taskIndex.cend() && found->deletedAtUtc.isEmpty()){record.insert(QStringLiteral("title"),found->title);result.append(record);}}
-    std::stable_sort(result.begin(),result.end(),[](const auto& a,const auto& b){return a.toMap().value(QStringLiteral("firedAt")).toString()>b.toMap().value(QStringLiteral("firedAt")).toString();});while(result.size()>50)result.removeLast();return result;
-}
 void TaskWorkspace::setInteractionActive(bool active)
 {
     if(m_interactionActive==active)return;
@@ -847,8 +751,6 @@ void TaskWorkspace::maintain()
         return Result<void>{};
     },QStringLiteral("maintenance"));
 }
-QString TaskWorkspace::localReminder(const QString& utc) const
-{return QDateTime::fromString(utc,Qt::ISODateWithMs).toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"));}
 bool TaskWorkspace::runTransfer(const QString& operation,std::function<Result<QString>(TaskWorker&)> command)
 {
     if(!m_ready || !begin())return false;
@@ -921,6 +823,7 @@ bool TaskWorkspace::canMoveTask(const QString& id,int direction) const
     const auto& tasks=m_tasks.items();
     int index=-1;for(int i=0;i<tasks.size();++i)if(tasks[i].id==id){index=i;break;}
     if(index<0 || index+direction<0 || index+direction>=tasks.size())return false;
+    if(m_view==QStringLiteral("today") && ((tasks[index].schedule && !tasks[index].schedule->allDay) || (tasks[index+direction].schedule && !tasks[index+direction].schedule->allDay)))return false;
     if(tasks[index].pinned!=tasks[index+direction].pinned || tasks[index].parentTaskId!=tasks[index+direction].parentTaskId)return false;
     if(m_view==QStringLiteral("all") && (tasks[index].projectId!=tasks[index+direction].projectId || tasks[index].areaId!=tasks[index+direction].areaId))return false;
     if(m_view==QStringLiteral("today") && QueryService::todayPeriod(tasks[index],m_today)!=QueryService::todayPeriod(tasks[index+direction],m_today))return false;
@@ -942,8 +845,26 @@ int TaskWorkspace::completedToday() const
     for(const auto& task:m_cache)if(task.deletedAtUtc.isEmpty() && task.status==QStringLiteral("COMPLETED") && QDateTime::fromString(task.completedAtUtc,Qt::ISODateWithMs).toLocalTime().date()==m_today)++count;
     return count;
 }
+bool TaskWorkspace::canDropTask(const QString& source,const QString& target) const
+{
+    if(source==target || !taskReorderingAllowed())return false;
+    const auto a=m_taskIndex.constFind(source),b=m_taskIndex.constFind(target);if(a==m_taskIndex.cend() || b==m_taskIndex.cend())return false;
+    if(taskIndex(source)<0 || taskIndex(target)<0 || a->parentTaskId!=b->parentTaskId || a->pinned!=b->pinned)return false;
+    if(m_view==QStringLiteral("all") && (a->projectId!=b->projectId || a->areaId!=b->areaId))return false;
+    if(m_view==QStringLiteral("today")){
+        if((a->schedule && !a->schedule->allDay) || (b->schedule && !b->schedule->allDay))return false;
+        if(QueryService::todayPeriod(*a,m_today)!=QueryService::todayPeriod(*b,m_today)){auto first=*a,second=*b;first.evening=false;second.evening=false;if(QueryService::todayPeriod(first,m_today)!=0 || QueryService::todayPeriod(second,m_today)!=0)return false;}
+    }return true;
+}
+QString TaskWorkspace::dropTaskReason(const QString& source,const QString& target) const
+{
+    if(canDropTask(source,target))return {};
+    if(!taskReorderingAllowed())return tr("当前结果自动排序；可拖到导航栏调整归属或日期。");
+    return tr("只能在相同父任务、分类和置顶分组内排序；具体时段请在日历调整。");
+}
 bool TaskWorkspace::dropTask(const QString& source,const QString& target)
 {
+    if(!canDropTask(source,target))return false;
     if(source==target || !taskReorderingAllowed())return false;
     auto tasks=QueryService::select(m_cache,m_view,m_today,{},false,{},0,0,{}, {},true,!smartView());int from=-1,to=-1;
     for(int i=0;i<tasks.size();++i){if(tasks[i].id==source)from=i;if(tasks[i].id==target)to=i;}
@@ -954,12 +875,6 @@ bool TaskWorkspace::dropTask(const QString& source,const QString& target)
     if(today){if(QueryService::todayPeriod(tasks[from],m_today)!=QueryService::todayPeriod(tasks[to],m_today)){auto sourceTask=tasks[from],targetTask=tasks[to];sourceTask.evening=false;targetTask.evening=false;if(QueryService::todayPeriod(sourceTask,m_today)!=0 || QueryService::todayPeriod(targetTask,m_today)!=0)return false;}change.evening=tasks[to].evening;}else if(m_view.startsWith(QStringLiteral("project:")))change.headingId=tasks[to].headingId;
     tasks.move(from,to);
     return runCatalog([tasks,today,change](TaskWorker& w){return w.repository->reorder(tasks,today,w.clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),change);},QStringLiteral("reorder"));
-}
-QVariantMap TaskWorkspace::datePicker(const QString& anchor,int offset) const
-{
-    auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid())date=m_today;date=QDate(date.year(),date.month(),1).addMonths(qBound(-1,offset,1));
-    QVariantList days;for(const auto& day:CalendarService::days({},date,false,m_sundayFirst))days.append(QVariantMap{{"date",day.date.toString(Qt::ISODate)},{"day",day.date.day()},{"inMonth",day.inMonth},{"today",day.date==m_today}});
-    return {{"anchor",date.toString(Qt::ISODate)},{"title",date.toString(QStringLiteral("yyyy年M月"))},{"days",days}};
 }
 bool TaskWorkspace::todayAfterRemovingFocus(const QString& id) const
 {

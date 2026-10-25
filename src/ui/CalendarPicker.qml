@@ -12,6 +12,9 @@ ColumnLayout {
     signal dateSelected(string value)
     signal moveMonth(int offset)
     signal dismissRequested()
+    property string focusDate:""
+    Timer{id:focusLater;interval:0;onTriggered:{const at=calendar.month.days.findIndex(day=>day.date===calendar.focusDate);const item=dayButtons.itemAt(at);if(item)item.forceActiveFocus()}}
+    onMonthChanged:if(focusDate)focusLater.restart()
     function focusSelectedDay(){
         const index=month.days.findIndex(day=>day.date===selectedDate)
         const day=dayButtons.itemAt(Math.max(0,index));if(day)day.forceActiveFocus()
@@ -53,11 +56,12 @@ ColumnLayout {
                 palette.buttonText: modelData.today ? Theme.accent : Theme.text
                 Accessible.name: modelData.date+(modelData.today ? qsTr("，今天") : "")+(highlighted ? qsTr("，已选择") : "")
                 onClicked: calendar.dateSelected(modelData.date)
-                function focusOffset(offset) {const next=dayButtons.itemAt(Math.max(0,Math.min(dayButtons.count-1,index+offset)));if(next)next.forceActiveFocus()}
+                function focusOffset(offset) {const target=calendar.workspace.shiftDate(modelData.date,offset);calendar.focusDate=target;if(index+offset<0 || index+offset>=dayButtons.count)calendar.moveMonth(offset<0 ? -1 : 1);else focusLater.restart()}
                 Keys.onLeftPressed: focusOffset(-1)
                 Keys.onRightPressed: focusOffset(1)
                 Keys.onUpPressed: focusOffset(-7)
                 Keys.onDownPressed: focusOffset(7)
+                Keys.onPressed:function(event){if(event.key===Qt.Key_PageUp || event.key===Qt.Key_PageDown){calendar.focusDate=calendar.workspace.shiftCalendarScale(modelData.date,event.key===Qt.Key_PageUp ? -1 : 1,"month");calendar.moveMonth(event.key===Qt.Key_PageUp ? -1 : 1);event.accepted=true}}
             }
         }
     }
@@ -68,5 +72,4 @@ ColumnLayout {
         Button {text: qsTr("明天");flat: true;onClicked: calendar.dateSelected(calendar.workspace.dateOffset(1))}
         Button {visible: calendar.allowClear;text: qsTr("清除");flat: true;onClicked: calendar.dateSelected("")}
     }
-    Label {Layout.fillWidth: true;text: qsTr("可直接输入 yyyy-MM-dd，Enter 收起日历");font.pixelSize: Theme.captionSize;color: Theme.secondary;wrapMode: Text.Wrap}
 }

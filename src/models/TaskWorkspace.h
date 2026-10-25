@@ -18,7 +18,7 @@ class TaskListModel : public QAbstractListModel {
     QML_UNCREATABLE("Owned by TaskWorkspace")
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 public:
-    enum Role { Id=Qt::UserRole+1, Title, Notes, Done, Status, StartOn, DeadlineOn, Focus, Version, Overdue, Evening, ProjectName, TagSummary, Section, HeadingTitle, SubtaskPending, ContextGroup, InToday, ViewSection, ParentTask, ParentTitle, Depth, ChildCount, Pinned, Important, Planning, ParentDeleted, PlannedDate, CompletionMonth, DeletedAt };
+    enum Role { Id=Qt::UserRole+1, Title, Notes, Done, Status, StartOn, DeadlineOn, Focus, Version, Overdue, Evening, ProjectName, TagSummary, Section, HeadingTitle, SubtaskPending, ContextGroup, InToday, ViewSection, ParentTask, ParentTitle, Depth, ChildCount, Pinned, Important, Planning, ParentDeleted, PlannedDate, CompletionMonth, DeletedAt, ArrangementSummary, SubtaskTotal };
     using QAbstractListModel::QAbstractListModel;
     int rowCount(const QModelIndex& parent={}) const override { return parent.isValid()?0:m_tasks.size(); }
     QVariant data(const QModelIndex& index,int role) const override;
@@ -49,6 +49,10 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(bool backgroundBusy READ backgroundBusy NOTIFY stateChanged)
     Q_PROPERTY(bool interactionActive READ interactionActive WRITE setInteractionActive NOTIFY interactionActiveChanged)
     Q_PROPERTY(QString view READ view NOTIFY stateChanged)
+    Q_PROPERTY(QString scope READ scope NOTIFY stateChanged)
+    Q_PROPERTY(bool calendarMode READ calendarMode NOTIFY stateChanged)
+    Q_PROPERTY(QString calendarScale READ calendarScale NOTIFY stateChanged)
+    Q_PROPERTY(QString calendarDate READ calendarDate NOTIFY stateChanged)
     Q_PROPERTY(bool smartView READ smartView NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap viewCounts READ viewCounts NOTIFY stateChanged)
     Q_PROPERTY(QString errorText READ errorText NOTIFY stateChanged)
@@ -80,6 +84,8 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(bool calendarCompleted READ calendarCompleted WRITE setCalendarCompleted NOTIFY stateChanged)
     Q_PROPERTY(QVariantList unscheduledTasks READ unscheduledTasks NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap preferences READ preferences NOTIFY stateChanged)
+    Q_PROPERTY(QVariantMap systemAccessibility READ systemAccessibility NOTIFY stateChanged)
+    Q_PROPERTY(QVariantMap backupInfo READ backupInfo NOTIFY stateChanged)
 public:
     explicit TaskWorkspace(QObject* parent=nullptr);
     ~TaskWorkspace() override;
@@ -94,6 +100,11 @@ public:
     bool interactionActive() const {return m_interactionActive;}
     void setInteractionActive(bool active);
     QString view() const { return m_view; }
+    QString scope() const {return m_scope;}
+    bool calendarMode() const {return QStringList{"day","week","month","year"}.contains(m_view);}
+    QString calendarScale() const {return m_calendarScale;}
+    QString calendarDate() const {return m_calendarDate.toString(Qt::ISODate);}
+    Q_INVOKABLE void setScope(const QString& scope);
     bool smartView() const;
     QVariantMap viewCounts() const;
     QString errorText() const;
@@ -104,7 +115,18 @@ public:
     QVariantList navigationCatalog() const;
     QVariantList categoryTree() const;
     QVariantList calendarDays() const;
-    Q_INVOKABLE QVariantList calendarDaysFor(const QString& anchor,bool week) const;
+    Q_INVOKABLE QVariantMap timelineFor(const QString& anchor,bool week,bool scoped=true) const;
+    Q_INVOKABLE QVariantList calendarWeeksFor(const QString& anchor,int before=1,int after=2,bool scoped=true) const;
+    Q_INVOKABLE QVariantList calendarMonthsFor(const QString& anchor) const;
+    Q_INVOKABLE QString shiftCalendarScale(const QString& anchor,int offset,const QString& scale) const;
+    Q_INVOKABLE QString titleForScale(const QString& anchor,const QString& scale) const;
+    Q_INVOKABLE bool moveTaskTime(const QString& id,qint64 version,const QString& date,int minute,const QString& edge);
+    Q_INVOKABLE QString defaultReminderLocal() const;
+    Q_INVOKABLE QString reminderPreview(const QString& local,const QString& frequency,int interval) const;
+    Q_INVOKABLE QString minuteLabel(const QString& date,int minute) const;
+    Q_INVOKABLE bool moveTaskDate(const QString& id,qint64 version,const QString& from,const QString& date,const QString& edge=QStringLiteral("move"));
+    Q_INVOKABLE QVariantList unscheduledFor(bool scoped=true)const;
+    Q_INVOKABLE QVariantList calendarDaysFor(const QString& anchor,bool week,bool scoped=false) const;
     Q_INVOKABLE QString calendarTitleFor(const QString& anchor,bool week) const;
     Q_INVOKABLE QString shiftCalendar(const QString& anchor,int offset,bool week) const;
     QVariantList calendarEvents() const;
@@ -124,9 +146,13 @@ public:
     Q_INVOKABLE void stepCalendar(int offset);
     Q_INVOKABLE QString shiftDate(const QString& date,int days)const{return QDate::fromString(date,Qt::ISODate).addDays(days).toString(Qt::ISODate);}
     Q_INVOKABLE void selectCalendarDate(const QString& date){const auto d=QDate::fromString(date,Qt::ISODate);if(d.isValid()){m_calendarDate=d;emit stateChanged();}}
-    Q_INVOKABLE bool createForDate(const QString& title,const QString& date);
+    Q_INVOKABLE bool createForTime(const QString& title,const QString& date,int minute,int duration=60,bool global=false);
+    Q_INVOKABLE bool createForDate(const QString& title,const QString& date,bool global=false);
+    Q_INVOKABLE QVariantMap calendarDraft(const QString& date,int minute=-1,int duration=60,bool global=false) const;
+    Q_INVOKABLE bool createTaskWithDetails(const QString& title,const QString& notes,const QString& start,const QString& end,const QVariantMap& details);
     Q_INVOKABLE bool moveCalendar(const QString& id,qint64 version,const QString& kind,const QString& date);
     QVariantList recurrenceRules() const;
+    Q_INVOKABLE QString recurrencePreview(const QVariantMap& values) const;
     Q_INVOKABLE bool saveRecurrence(const QVariantMap& rule);
     Q_INVOKABLE bool stopRecurrence(const QString& id,qint64 version,bool removeFuture);
     QVariantList notifications() const;
@@ -142,6 +168,8 @@ public:
     Q_INVOKABLE void setTaskChildrenExpanded(const QString& id,bool expanded);
     Q_INVOKABLE int taskIndex(const QString& id) const;
     Q_INVOKABLE bool canMoveTask(const QString& id,int direction) const;
+    Q_INVOKABLE bool canDropTask(const QString& source,const QString& target) const;
+    Q_INVOKABLE QString dropTaskReason(const QString& source,const QString& target) const;
     Q_INVOKABLE bool dropTask(const QString& source,const QString& target);
     int themeMode() const {return m_themeMode;}
     double textScale() const {return m_textScale;}
@@ -175,6 +203,7 @@ public:
     Q_INVOKABLE QVariantList subtaskChoices(const QString& parentId) const;
     Q_INVOKABLE QVariantList parentTaskChoices(const QString& taskId,const QString& search) const;
     Q_INVOKABLE bool requestCalendarRange(const QString& anchor);
+    Q_INVOKABLE bool requestCalendarSpan(const QString& from,const QString& through);
     Q_INVOKABLE bool createTask(const QString& title);
     Q_INVOKABLE bool saveTask(const QString& id,qint64 version,const QString& title,const QString& notes,
                              const QString& planning,const QString& start,const QString& deadline,bool focus);
@@ -188,6 +217,10 @@ public:
     void setCalendarCompleted(bool value){m_calendarCompleted=value;emit stateChanged();}
     QVariantList unscheduledTasks()const;
     QVariantMap preferences()const{return m_preferences;}
+    QVariantMap systemAccessibility() const;
+    QVariantMap backupInfo() const;
+    Q_INVOKABLE QVariantMap catalogImpact(const QString& kind,const QString& id) const;
+    Q_INVOKABLE int batchImpact(const QVariantList& selection,const QString& action) const;
     Q_INVOKABLE bool setPreference(const QString& key,const QVariant& value);
     Q_INVOKABLE bool undoDelete();
     Q_INVOKABLE bool createBackup();
@@ -215,9 +248,11 @@ private:
     QString m_historyTaskId;
     bool m_historyLoading=false;
     bool appendDetailsPatch(const QString& id,const QVariantMap& details,TaskPatch& patch);
+    bool prepareTaskPatch(const QString& id,const QString& title,const QString& notes,const QString& planning,const QString& start,const QString& deadline,bool focus,const QVariantMap& details,TaskPatch& patch);
     bool begin(bool clearFeedback=true);
     QVariantMap eventMap(const CalendarEvent& event) const;
     void refresh();
+    QList<Task> calendarSelection() const;
     bool runTask(const QString& operation,std::function<Result<Task>(TaskWorker&)> command);
     void finishTask(const QString& operation,const Result<Task>& result);
     bool runCatalog(std::function<Result<void>(TaskWorker&)> command,const QString& operation=QStringLiteral("catalog"),std::function<void()> completed={});
@@ -234,6 +269,7 @@ private:
     QTimer m_eventUndoTimer;
     QList<CatalogItem> m_catalog;
     QList<RecurrenceRule> m_rules;
+    QString m_scope=QStringLiteral("inbox"),m_calendarScale=QStringLiteral("month");
     QString m_path,m_view=QStringLiteral("inbox"),m_search,m_lastDeleted,m_info,m_pendingInfo;
     QString m_importSummary;
     QString m_tagFilter;
@@ -256,7 +292,7 @@ private:
     bool m_calendarCompleted=false;
     QVariantList m_taskNotifications;
     QVariantMap m_viewCounts;
-    QVariantMap m_preferences{{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",false},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
+    QVariantMap m_preferences{{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",false},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
 };
 

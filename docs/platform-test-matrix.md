@@ -1,5 +1,7 @@
 # 平台验证矩阵
 
+UX-34～36：macOS15.8.1/arm64/Qt6.10.2最终Release21/21（105.87秒）、Debug21/21（112.26秒）及两构建lint通过。历史436/共享详情34/连续月历及新增19阶段独立fixture、原45秒末段watchdog均通过；Cocoa三组193 PNG、warnings=false。10秒请求短跑分别11.898/12.087/12.217秒，各1循环/1完整性检查，最大延迟1/51/50ms。覆盖范围保持、共享详情/失败草稿、日周时间/DST/拖动、连续周回收/跨月条、完整原子创建/外部点击保存、紧凑导航与窗口及浅深/200%。详见[验证报告](verification-report.md)及PROGRESS；Windows、物理输入/辅助技术、真实通知/穿透、多屏睡眠/8h及独立部署签名仍UNVERIFIED。
+
 UI-33：macOS15.8.1/arm64/Qt6.10.2 Debug17/17（62.31秒）及Release17/17（59.66秒），两构建QML lint无诊断；Release offscreen/Cocoa各436阶段、164 PNG及10秒请求短跑通过。Cocoa实际11.788秒、1循环/1完整性检查，菜单两呈现8ms。覆盖单一起止/DST/旧日期、普通拖放、右键动作及改名、日历同ID点击、保存回调隔离与200%。日志ui33-completed-*，详见[验证报告](verification-report.md)与PROGRESS。物理输入/IME/VoiceOver、Windows、真实通知/穿透、多屏睡眠/8h及独立部署签名仍UNVERIFIED，短跑不替代长时；本机Qt Kit开发产物。
 
 UI-32：macOS15.8.1/arm64/Qt6.10.2 Debug/Release17/17、两项lint、Cocoa413阶段与158张合成截图通过。覆盖紧凑来源导航、子任务行指针直达可见详情、保存/草稿返回、两层服务约束和旧深层恢复。10秒短跑实际11.883秒PASS；物理输入/IME/VoiceOver、Windows、真实通知/穿透、多屏睡眠/8h及独立部署签名仍UNVERIFIED，详情见[验证报告](verification-report.md)。

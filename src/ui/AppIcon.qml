@@ -7,6 +7,9 @@ Canvas {
     implicitWidth: Theme.iconSize
     implicitHeight: Theme.iconSize
     readonly property real drawingSize: Math.min(width,height,Theme.iconSize)
+    Component.onCompleted: requestPaint()
+    onVisibleChanged: if(visible)requestPaint()
+    onAvailableChanged: if(available)requestPaint()
     onDrawingSizeChanged: requestPaint()
     onNameChanged: requestPaint()
     onInkChanged: requestPaint()

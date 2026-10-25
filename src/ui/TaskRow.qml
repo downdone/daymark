@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
 ItemDelegate {
@@ -17,6 +18,7 @@ ItemDelegate {
         }
         return Math.abs(menu.height-bottom-menu.topPadding-menu.bottomPadding)<1 ? "PASS" : "menu height"
     }
+    required property TaskWorkspace workspace
     required property string taskId
     required property string title
     required property string startOn
@@ -35,6 +37,8 @@ ItemDelegate {
     required property bool isDone
     required property bool isOverdue
     required property real rowVersion
+    required property int subtaskTotal
+    required property string arrangementSummary
     required property int subtaskPending
     required property bool evening
     required property bool inToday
@@ -107,11 +111,11 @@ ItemDelegate {
         MenuItem {text: qsTr("编辑详情…");onTriggered: root.editRequested()}
         MenuItem {objectName: "taskMenuPin-"+root.taskId;text: root.pinned ? qsTr("取消置顶") : qsTr("置顶");onTriggered: root.pinRequested(!root.pinned)}
         MenuItem {objectName: "taskMenuImportant-"+root.taskId;text: root.important ? qsTr("取消特别关注") : qsTr("特别关注");onTriggered: root.importantRequested(!root.important)}
-        MenuItem {objectName: "taskMenuCancelReminder-"+root.taskId;text: qsTr("取消提醒");enabled: root.hasReminder;onTriggered: root.cancelReminderRequested()}
+        MenuItem {objectName: "taskMenuCancelReminder-"+root.taskId;text: qsTr("取消提醒");visible: root.hasReminder;onTriggered: root.cancelReminderRequested()}
         MenuSeparator {}
         MenuItem {text: root.isDone ? qsTr("重新打开") : qsTr("完成任务");onTriggered: root.completeRequested()}
-        MenuItem {text: qsTr("上移");enabled: root.canReorder && root.canMoveUp;onTriggered: root.moveRequested(-1)}
-        MenuItem {text: qsTr("下移");enabled: root.canReorder && root.canMoveDown;onTriggered: root.moveRequested(1)}
+        MenuItem {text: qsTr("上移");visible: root.canReorder && root.canMoveUp;onTriggered: root.moveRequested(-1)}
+        MenuItem {text: qsTr("下移");visible: root.canReorder && root.canMoveDown;onTriggered: root.moveRequested(1)}
         Menu {
             title: qsTr("移到");enabled: !root.isDone
             MenuItem {text: qsTr("收集箱");onTriggered: root.moveToViewRequested("inbox")}
@@ -121,7 +125,7 @@ ItemDelegate {
         MenuItem {text: root.evening ? qsTr("安排到今天") : qsTr("安排到今晚");visible: root.inToday && !root.isDone;onTriggered: root.eveningRequested(!root.evening)}
         MenuItem {text: qsTr("清除日期安排");visible: root.canActivate;onTriggered: root.activateRequested()}
         MenuSeparator {}
-        MenuItem {objectName: "taskMenuDelete-"+root.taskId;text: qsTr("删除任务…");palette.text: Theme.danger;onTriggered: root.deleteRequested()}
+        DS.MenuItem {objectName: "taskMenuDelete-"+root.taskId;text: qsTr("删除任务…");destructive: true;onTriggered: root.deleteRequested()}
     }
     function placeDrag(x,y){const at=mapToItem(dragProxy.parent,x,y);dragProxy.x=at.x-12;dragProxy.y=at.y-dragOriginY}
     function armDrag(x,y){dragOriginX=x;dragOriginY=y;dragArmed=true;dragProxy.parent=dragLayer || root;placeDrag(x,y);forceActiveFocus()}
@@ -133,14 +137,16 @@ ItemDelegate {
     z: dragging ? 100 : 0
     Keys.onEscapePressed: function(event){if(dragging || dragArmed)finishDrag(false);else event.accepted=false}
     Keys.onPressed: function(event){if(!root.deleted && (event.key===Qt.Key_Menu || (event.key===Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier)))){menu.popup();event.accepted=true}}
+    TapHandler {acceptedButtons:Qt.LeftButton;acceptedModifiers:Qt.ControlModifier;enabled:Qt.platform.os==="osx" && root.expanded && !root.deleted;onTapped:function(point){menu.popup(root,point.position.x,point.position.y)}}
     TapHandler {acceptedButtons: Qt.RightButton;enabled: !root.deleted && root.expanded;onTapped: function(point){menu.popup(root,point.position.x,point.position.y)}}
     MouseArea {
         id: holdArea;objectName: "taskHoldDrag";anchors.fill: parent;enabled: !root.expanded && !root.selectionMode && !root.deleted
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         pressAndHoldInterval: 350;preventStealing: root.dragArmed;cursorShape: root.dragArmed ? Qt.ClosedHandCursor : Qt.ArrowCursor
-        onPressed: function(mouse){root.heldPress=false;if(mouse.button===Qt.RightButton){menu.popup(root,mouse.x,mouse.y);return}root.dragOriginX=mouse.x;root.dragOriginY=mouse.y}
+        onPressed: function(mouse){root.heldPress=false;if(mouse.button===Qt.RightButton || (Qt.platform.os==="osx" && (mouse.modifiers & Qt.ControlModifier))){menu.popup(root,mouse.x,mouse.y);return}root.dragOriginX=mouse.x;root.dragOriginY=mouse.y}
         onPressAndHold: function(mouse){if(mouse.button===Qt.LeftButton && root.canDrag){root.heldPress=true;root.armDrag(mouse.x,mouse.y)}}
-        onClicked: function(mouse){if(mouse.button===Qt.LeftButton && !root.heldPress)root.quickEditRequested()}
+        onDoubleClicked: function(mouse){if(mouse.button===Qt.LeftButton)root.editRequested()}
+        onClicked: function(mouse){if(mouse.button===Qt.LeftButton && !(Qt.platform.os==="osx" && (mouse.modifiers & Qt.ControlModifier)) && !root.heldPress)root.quickEditRequested()}
         onReleased: root.finishDrag(true)
         onCanceled: root.finishDrag(false)
         onPositionChanged: function(mouse){
@@ -157,7 +163,15 @@ ItemDelegate {
             Text {anchors.fill: parent;anchors.margins: 12;text: root.title;font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize;color: Theme.text;elide: Text.ElideRight;verticalAlignment: Text.AlignVCenter}
         }
     }
-    DropArea {id: dropZone;anchors.fill: parent;enabled: root.canReorder;onDropped: function(drop){const source=drop.source as TaskRow;if(source && source!==root){root.dropRequested(source.taskId);drop.acceptProposedAction()}}}
+    DropArea {id: dropZone;anchors.fill: parent;enabled: root.canReorder
+        property bool allowed:false
+        readonly property TaskRow sourceTask:drag.source as TaskRow
+        onEntered:function(drag){const source=drag.source as TaskRow;allowed=!!source && root.workspace.canDropTask(source.taskId,root.taskId)}
+        onExited:allowed=false
+        onDropped:function(drop){const source=drop.source as TaskRow;if(source && root.workspace.canDropTask(source.taskId,root.taskId)){root.dropRequested(source.taskId);drop.acceptProposedAction()}allowed=false}
+    }
+    Rectangle {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:2;color:Theme.accent;visible:dropZone.containsDrag && dropZone.allowed}
+    ToolTip {visible:dropZone.containsDrag && !dropZone.allowed && !!dropZone.sourceTask;text:dropZone.sourceTask ? root.workspace.dropTaskReason(dropZone.sourceTask.taskId,root.taskId) : ""}
     padding: 4
     leftPadding: 10+Math.min(8,taskDepth)*20
     rightPadding: 10
@@ -226,10 +240,9 @@ ItemDelegate {
                 Label {visible: root.inToday && root.showTodayMarker;text: qsTr("今天");color: Theme.accent;font.pixelSize: Theme.captionSize}
                 Label {visible: !!root.projectName;text: root.projectName;color: Theme.secondary;font.pixelSize: Theme.captionSize}
                 Label {visible: !!root.tagSummary;text: root.tagSummary;color: Theme.secondary;font.pixelSize: Theme.captionSize}
-                ToolButton {id: childLink;objectName: "taskSubtasksLink-"+root.taskId;visible: root.subtaskPending>0 && !root.deleted;text: qsTr("%1 个子任务").arg(root.subtaskPending);padding: 0;implicitHeight: contentItem.implicitHeight;Accessible.name: qsTr("查看 %1 的子任务").arg(root.title);contentItem: Label {text: childLink.text;font.pixelSize: Theme.captionSize;color: Theme.accent} background: Item {} onClicked: root.subtaskRequested()}
+                ToolButton {id: childLink;objectName: "taskSubtasksLink-"+root.taskId;visible: root.subtaskTotal>0 && !root.deleted;text: qsTr("子任务 %1/%2").arg(root.subtaskTotal-root.subtaskPending).arg(root.subtaskTotal);padding: 0;implicitHeight: contentItem.implicitHeight;Accessible.name: qsTr("查看 %1 的子任务").arg(root.title);contentItem: Label {text: childLink.text;font.pixelSize: Theme.captionSize;color: Theme.accent} background: Item {} onClicked: root.subtaskRequested()}
                 Label {visible: root.completionText.length>0;text: root.completionText;font.pixelSize: Theme.captionSize;color: Theme.secondary}
-                Row {visible: !!root.startOn;spacing: 3;AppIcon {name: "calendar";width: Math.min(24,14*Theme.scale);height: width} Label {text: root.startOn.slice(5);font.pixelSize: Theme.captionSize;color: Theme.secondary}}
-                Row {visible: !!root.deadlineOn;spacing: 3;AppIcon {name: "flag";width: Math.min(24,14*Theme.scale);height: width;ink: root.isOverdue ? Theme.danger : Theme.secondary} Label {text: root.deadlineOn.slice(5);font.pixelSize: Theme.captionSize;color: root.isOverdue ? Theme.danger : Theme.secondary}}
+                Label {visible: !!root.arrangementSummary;text: (root.isOverdue ? qsTr("已逾期 · ") : "")+root.arrangementSummary;font.pixelSize: Theme.captionSize;color: root.isOverdue ? Theme.danger : Theme.secondary}
                 Label {visible: root.taskStatus==="CANCELLED";text: qsTr("已取消");color: Theme.secondary;font.pixelSize: Theme.captionSize}
             }
         }

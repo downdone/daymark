@@ -68,7 +68,7 @@ Control {
             }
             Binding {target: quickTitle;property: "text";value: root.titleText}
             IconToolButton {objectName: "quickEditorDetails";contentItem: AppIcon {name: "info"} Accessible.name: qsTr("完整任务详情");onClicked: root.detailsRequested()}
-            IconToolButton {objectName: "saveQuickEditor";contentItem: AppIcon {name: root.dirty ? "check" : "up";ink: root.dirty ? Theme.accent : Theme.secondary} Accessible.name: root.dirty ? qsTr("保存并收起，Ctrl+Enter") : qsTr("收起任务，Esc");onClicked: root.dirty ? root.saveRequested() : root.closeRequested()}
+            IconToolButton {objectName: "saveQuickEditor";contentItem: AppIcon {name: root.dirty ? "check" : "up";ink: root.dirty ? Theme.accent : Theme.secondary} Accessible.name: root.dirty ? qsTr("保存并收起，%1+Enter").arg(Qt.platform.os==="osx" ? "⌘" : "Ctrl") : qsTr("收起任务，Esc");onClicked: root.dirty ? root.saveRequested() : root.closeRequested()}
         }
         TextField {
             id: quickNotes;objectName: "quickEditorNotes"
@@ -116,7 +116,7 @@ Control {
             Binding {target: quickStart;property: "text";value: root.startOn}
             DateField {
                 id: quickEnd;objectName: "quickEditorDeadline"
-                workspace: root.workspace;iconOnly: false;dateLabel: qsTr("结束日期：%1").arg(text || qsTr("未设置"));symbol: "flag"
+                workspace: root.workspace;iconOnly: false;dateLabel: qsTr("结束日期：%1").arg(text || qsTr("未设置"));symbol: "calendar"
                 width: (text ? 116 : 104)*Theme.scale;height: Math.max(32,Theme.captionSize+14);implicitWidth: width
                 font.pixelSize: Theme.captionSize
                 readOnly: true;activeFocusOnTab: false;color: Theme.secondary;leftPadding: 8;placeholderText: qsTr("结束日期")
@@ -144,7 +144,7 @@ Control {
                 CatalogPicker {id: destinationPicker;heading: qsTr("分类");options: root.destinations;selectedIds: [root.destinationId];heightLimit: root.hostWindow ? root.hostWindow.height-32 : 440;y: destinationButton.height+4;onSelected: function(kind,id,checked){root.destinationEdited(kind,id)};onCreateRequested: function(kind){root.createCatalogRequested(kind)}}
             }
             ReminderField {
-                id: reminder;objectName: "quickEditorReminder";workspace: root.workspace;iconOnly: true;commitTask: true
+                id: reminder;objectName: "quickEditorReminder";workspace: root.workspace;iconOnly: true;commitTask: false
                 width: Math.max(32,Theme.iconSize+12);height: width;implicitWidth: width
                 readOnly: true;activeFocusOnTab: false;color: "transparent";leftPadding: 0;placeholderText: ""
                 background: Rectangle {radius: 6;border.width: reminder.activeFocus ? 1 : 0;border.color: Theme.accent;color: reminder.text ? Theme.selected : Theme.hover}

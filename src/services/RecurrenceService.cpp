@@ -4,6 +4,27 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 namespace daymark {
+QList<QDate> RecurrenceService::nextDates(const RecurrenceRule& rule,const QDate& from,int limit)
+{
+    QList<QDate> result;if(!rule.anchor.isValid() || !from.isValid() || rule.interval<1 || limit<1 || limit>8)return result;
+    const auto begin=qMax(from,rule.anchor);
+    auto add=[&](QDate date){if(date.year()<=9999 && date>=begin && occursOn(rule,date) && result.size()<limit)result.append(date);};
+    if(rule.frequency==QStringLiteral("DAILY")){
+        const qint64 step=qMax<qint64>(0,(rule.anchor.daysTo(begin)+rule.interval-1)/rule.interval);
+        for(int i=0;i<limit;++i)add(rule.anchor.addDays((step+i)*rule.interval));
+    }else if(rule.frequency==QStringLiteral("WEEKLY")){
+        const auto monday=rule.anchor.addDays(1-rule.anchor.dayOfWeek());const qint64 step=monday.daysTo(begin)/(7LL*rule.interval);
+        for(int i=0;i<=limit && result.size()<limit;++i)for(int d=0;d<7;++d)add(monday.addDays((step+i)*7LL*rule.interval+d));
+    }else if(rule.frequency==QStringLiteral("MONTHLY")){
+        const qint64 months=(begin.year()-rule.anchor.year())*12LL+begin.month()-rule.anchor.month(),step=months/rule.interval;
+        const QDate first(rule.anchor.year(),rule.anchor.month(),1);
+        for(int i=0;i<limit*24 && result.size()<limit;++i){const auto month=first.addMonths((step+i)*rule.interval);add(QDate(month.year(),month.month(),rule.monthDay));}
+    }else if(rule.frequency==QStringLiteral("YEARLY")){
+        const qint64 step=(begin.year()-rule.anchor.year())/rule.interval;
+        for(int i=0;i<limit*400 && result.size()<limit;++i)add(QDate(rule.anchor.year()+(step+i)*rule.interval,rule.yearMonth,rule.monthDay));
+    }
+    return result;
+}
 bool RecurrenceService::occursOn(const RecurrenceRule& r,const QDate& d)
 {
     if(!d.isValid() || !r.anchor.isValid() || r.interval<1 || d<r.anchor || (r.end.isValid() && d>r.end))return false;

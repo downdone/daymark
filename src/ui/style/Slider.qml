@@ -10,7 +10,7 @@ T.Slider {
         x: control.leftPadding;y: (control.height-height)/2
         width: control.availableWidth;height: 4
         radius: 2;color: DesignTokens.highContrast ? DesignTokens.outline : DesignTokens.border
-        Rectangle {width: control.position*parent.width;height: parent.height;radius: 2;color: DesignTokens.accent}
+        Rectangle {width: control.position*parent.width;height: parent.height;radius: 2;color: control.enabled ? DesignTokens.accent : DesignTokens.border}
     }
     handle: Rectangle {
         x: control.leftPadding+control.visualPosition*(control.availableWidth-width)

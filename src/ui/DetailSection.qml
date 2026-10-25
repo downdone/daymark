@@ -9,18 +9,18 @@ Control {
     property string symbol: "list"
     default property alias fields: fieldStack.data
     Layout.fillWidth: true
-    padding: 12
-    topPadding: 8
+    padding: 8
+    topPadding: 6
     implicitHeight: implicitContentHeight+topPadding+bottomPadding
     background: Rectangle {radius: Theme.panelRadius;color: Theme.dark ? Theme.grouped : Theme.content}
     contentItem: ColumnLayout {
-        spacing: 8
+        spacing: 6
         RowLayout {
             Layout.fillWidth: true
             Label {text: section.heading;font.pixelSize: Theme.captionSize;font.weight: Font.DemiBold;color: Theme.secondary;Layout.fillWidth: true;wrapMode: Text.Wrap}
             Label {visible: text.length>0;text: section.summary;font.pixelSize: Theme.captionSize;color: Theme.secondary}
         }
         Rectangle {Layout.fillWidth: true;implicitHeight: 1;color: Theme.separator}
-        ColumnLayout {id: fieldStack;Layout.fillWidth: true;spacing: 8}
+        ColumnLayout {id: fieldStack;Layout.fillWidth: true;spacing: 6}
     }
 }

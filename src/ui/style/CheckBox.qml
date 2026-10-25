@@ -15,7 +15,7 @@ T.CheckBox {
         x: control.leftPadding
         y: (control.height-height)/2
         radius: 4
-        color: control.checked || control.checkState===Qt.PartiallyChecked ? DesignTokens.accent : control.hovered ? DesignTokens.hover : DesignTokens.surface
+        color: !control.enabled ? DesignTokens.border : control.checked || control.checkState===Qt.PartiallyChecked ? DesignTokens.accent : control.hovered ? DesignTokens.hover : DesignTokens.surface
         border.color: control.visualFocus ? DesignTokens.accent : DesignTokens.outline
         border.width: control.visualFocus ? 2 : 1
         Text {anchors.centerIn: parent;text: control.checkState===Qt.PartiallyChecked ? "−" : "✓";visible: control.checked || control.checkState===Qt.PartiallyChecked;color: DesignTokens.accentText;font.pixelSize: Math.round(14*DesignTokens.scale);font.bold: true}

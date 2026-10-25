@@ -91,7 +91,7 @@ Result<Task> TaskRepository::find(const QString& id) const
 
 Result<QVariantList> TaskRepository::reminderHistory() const
 {
-    QSqlQuery q(m_db);if(!q.exec(QStringLiteral("SELECT h.task_id,t.title,h.fired_at_utc,h.scheduled_at_utc FROM task_reminder_history h JOIN tasks t ON t.id=h.task_id WHERE t.deleted_at_utc IS NULL ORDER BY h.fired_at_utc DESC,h.rowid DESC LIMIT 50")))return Result<QVariantList>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
+    QSqlQuery q(m_db);if(!q.exec(QStringLiteral("SELECT h.task_id,t.title,h.fired_at_utc,h.scheduled_at_utc FROM task_reminder_history h JOIN tasks t ON t.id=h.task_id ORDER BY h.fired_at_utc DESC,h.rowid DESC LIMIT 50")))return Result<QVariantList>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     QVariantList result;while(q.next())result.append(QVariantMap{{QStringLiteral("taskId"),q.value(0)},{QStringLiteral("title"),q.value(1)},{QStringLiteral("firedAt"),q.value(2)},{QStringLiteral("occurrenceAt"),q.value(3)}});return {result,{}};
 }
 

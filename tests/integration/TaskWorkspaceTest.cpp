@@ -15,6 +15,19 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void calendarKeepsScopeAndIgnoresTreeVisibility() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("calendar-scope.sqlite"));QTRY_VERIFY(!w.busy());
+        QVERIFY(w.saveCatalog({{"kind","project"},{"title","A"}}));QTRY_VERIFY(!w.busy());const auto category=w.categoryTree().first().toMap();
+        w.setView("project:"+category.value("id").toString());QVERIFY(w.createTask("owned"));QTRY_VERIFY(!w.busy());const auto owned=w.tasks()->items().first();
+        QVERIFY(w.saveTask(owned.id,owned.rowVersion,owned.title,"","ACTIVE",w.dateOffset(0),"",false));QTRY_VERIFY(!w.busy());
+        w.setView("inbox");QVERIFY(w.createTask("unclassified"));QTRY_VERIFY(!w.busy());const auto other=w.tasks()->items().first();
+        QVERIFY(w.saveTask(other.id,other.rowVersion,other.title,"","ACTIVE",w.dateOffset(0),"",false));QTRY_VERIFY(!w.busy());
+        w.setView("project:"+category.value("id").toString());w.setView("month");QCOMPARE(w.scope(),"project:"+category.value("id").toString());
+        QSet<QString> ids;for(const auto& value:w.calendarDays())for(const auto& entry:value.toMap().value("entries").toList())ids.insert(entry.toMap().value("taskId").toString());QCOMPARE(ids,QSet<QString>{owned.id});
+        w.setScope("inbox");QCOMPARE(w.view(),QString("month"));QCOMPARE(w.scope(),QString("inbox"));
+        ids.clear();for(const auto& value:w.calendarDays())for(const auto& entry:value.toMap().value("entries").toList())ids.insert(entry.toMap().value("taskId").toString());QCOMPARE(ids,QSet<QString>{other.id});
+        w.setScope("trash");QCOMPARE(w.view(),QString("trash"));
+    }
     void ordinaryListsPersistManualOrderAcrossDateDifferences(){
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("ordinary-order.sqlite"));QTRY_VERIFY(!w.busy());QVERIFY(w.createTask("dated"));QTRY_VERIFY(!w.busy());const auto first=w.tasks()->items().first().id;
         QVERIFY(w.createTask("undated"));QTRY_VERIFY(!w.busy());QString second;for(const auto& task:w.tasks()->items())if(task.title=="undated")second=task.id;QVERIFY(!second.isEmpty());QVERIFY(w.saveTask(first,1,"dated","","ACTIVE",w.dateOffset(2),w.dateOffset(3),false));QTRY_VERIFY(!w.busy());

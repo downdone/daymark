@@ -15,9 +15,10 @@ ItemDelegate {
     property bool suppressCatalogTooltips: false
     signal expansionRequested(bool value)
     signal optionsRequested(real x,real y)
-    ToolTip.visible: showCatalogActions && hovered && !catalogDragging && !suppressCatalogTooltips && detailsText.length>0
+    ToolTip.visible: showCatalogActions && (hovered || activeFocus) && !catalogDragging && !suppressCatalogTooltips && detailsText.length>0
     ToolTip.delay: 600
     ToolTip.text: detailsText
+    TapHandler {acceptedButtons:Qt.LeftButton;acceptedModifiers:Qt.ControlModifier;enabled:Qt.platform.os==="osx" && root.showCatalogActions;onTapped:function(point){root.optionsRequested(point.position.x,point.position.y)}}
     TapHandler {acceptedButtons: Qt.RightButton;enabled: root.showCatalogActions;onTapped: function(point){root.optionsRequested(point.position.x,point.position.y)}}
     Keys.onLeftPressed: function(event){if(hasChildren)expansionRequested(false);else event.accepted=false}
     Keys.onRightPressed: function(event){if(hasChildren)expansionRequested(true);else event.accepted=false}
@@ -76,6 +77,8 @@ ItemDelegate {
             if(root.catalogDropAllowed && source){root.catalogDropped(source.catalogId,source.catalogVersion,root.catalogDropPlacement);drop.acceptProposedAction()}else drop.accepted=false
         }
     }
+    Timer {interval:650;running:dropTarget.containsDrag && root.catalogDropAllowed && root.catalogDropPlacement==="inside" && root.hasChildren && !root.branchExpanded;onTriggered:root.expansionRequested(true)}
+    Accessible.description:root.catalogDropActive && !root.catalogDropAllowed ? qsTr("此位置不能接收分类；最多支持两级，可拖到上下缘排序。") : ""
     topPadding: 0;bottomPadding: 0
     implicitHeight: Math.max(32,contentItem.implicitHeight)
     highlighted: selected

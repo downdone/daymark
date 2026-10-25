@@ -55,3 +55,22 @@ API、数据模式和用户行为变化同步设计、测试及追踪；历史 m
 推送前检查工作树、拟推送的可达历史、提交作者/提交者及标签署名，不上传个人目录、凭据、数据库/备份、日志、SDK或构建产物。Kit路径通过环境注入，`.env`、证书和恢复bundle保持忽略；测试环境读取系统字体，不复制字体资源。使用项目提交身份，避免个人邮箱及本机时区进入公开元数据。
 
 历史清理须先保留忽略目录内的可恢复bundle并验证；远端为空时可以匿名化初始上传的本地历史。已有公共分支的历史不得未经授权强制重写。只推送明确分支，不使用`--all`/`--mirror`或自动跟随本地标签。历史验证报告中的原始源码散列不改写，避免篡改证据。截图/测试通过与原生体验验收分开记录，未验证门禁不能因上传源码而标PASS。
+
+## UX-34模块边界（2026-10-25）
+
+- `TaskWorkspace.cpp`：QML命令编排、异步工作线程与结果同步；不得直接在界面执行SQL。
+- `TaskWorkspaceCalendar.cpp`：范围、日历/时间轴、年导航及循环/提醒的只读适配投影；不写库，不生成全年实例。两文件属于同一适配器，避免复制状态。
+- `CalendarService`：可测试的时段分段、重叠泳道、整段移动和端点调整；`RecurrenceService`负责下一日期计算；`TaskService`负责统一校验、CAS和树操作。
+- `CalendarPanel`：呈现与命令接线；`CalendarTimeline`/`YearCalendar`分别处理小时坐标与年导航；`CalendarCreatePopup`、`CalendarDateMoveDialog`、`UnscheduledTasksPanel`拥有各自局部输入和布局。
+- `TaskDragGesture`：识别手势，仅发预览/释放信号；`TaskDragPayload`：跨面板传递任务身份/版本；均不提交业务。取消无写入，只有释放后调用C++命令。
+- `ListViewportState`：按taskId恢复列表位置，保存搜索前的范围内锚点；不保存查询副本，不在日历空模型时覆盖列表锚点。
+- `TaskEditorSession`：主窗共享编辑身份、版本、草稿状态及待离开动作；`TaskInspectorPicker`：面板内部日期/时间/提醒选择。展开不创建第二份会话。日历导航/改期/拖动统一经过主窗的离开保存门；只允许本会话成功保存后重定位其版本，其他变更仍保持原CAS。新建回调仅由发起面板消费，不清空其他窗口的输入。
+- `ApplicationMenus`/`AccessibilityPreferences`：系统适配；QML只用统一命令和偏好接口。`Ux34SmokeProbe`独立承载新增场景，避免继续向历史436阶段追加分支。
+
+CMake的`DAYMARK_WORKSPACE_SOURCES`由应用和两项工作区集成测试共用。独立桌面日历保持自己的日期/尺度，默认新建进入收集箱，不暗用主窗当前分类。故障注入`DAYMARK_SMOKE_STALL_PHASE`只在隔离smoke分支生效；`qml_watchdog_late`必须到436阶段后被应用自身45秒门禁拒绝，不能用外部超时代替。
+
+UX-35连续月历进一步拆为`CalendarMonthGrid`（共享周/月格绘制与意图信号）、`CalendarMonthStream`（虚拟化周列表、身份/偏移恢复、有限窗口回收）；`TaskWorkspaceCalendar::calendarWeeksFor`复用已有投影生成不重复周，`requestCalendarSpan`仅生成可见日期附近的循环实例。模型未变时不替换列表，尺寸/文字变化按带代次的回调定位，防止旧回调覆盖新视口。`Ux35SmokeProbe`使用独立临时库与`--continuous-calendar-smoke`，不扩展历史436阶段的45秒预算。
+
+验证场景现分为`qml_startup`（历史436阶段）、`contextual_workspace`（共享详情独立fixture）和`continuous_calendar`（连续月历独立fixture）。全部保留应用45秒watchdog，新增两项另设CTest30秒；旧末段注入卡住仍须45秒退出3。避免将新增场景串入旧长链触发Debug预算，而非通过加长预算解决。
+
+UX-36新建草稿通过`TaskService::draftForScope`只读预填同一范围语义；`createWithDetails`用Repository可组合savepoint同时创建并应用属性，回滚覆盖任务、提醒、循环和编辑记录。QML不得先持久化占位任务再补属性。新增浮窗复用`TaskTimingFields`、`TaskDetailsFields`、`ReminderField`与`TaskInspectorPicker`；多实例通过`objectPrefix`区分控件身份，防止自动化或辅助定位操作到另一隐藏面板。正文Flickable负责键盘焦点/备注光标可见性，只有一条滚动轴。
