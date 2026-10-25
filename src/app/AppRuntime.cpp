@@ -20,8 +20,23 @@
 #include <QPointer>
 #include <QIcon>
 #include <atomic>
+#ifdef Q_OS_MACOS
+#include "platform/macos/SmokeActivation.h"
+#endif
 
 namespace daymark {
+namespace {
+void activateSmokeWindow(QQuickWindow* window)
+{
+#ifdef Q_OS_MACOS
+    if(QGuiApplication::platformName()==QStringLiteral("cocoa")) {
+        activateMacSmokeWindow(window);
+        return;
+    }
+#endif
+    window->requestActivate();
+}
+}
 
 bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QString& screenshotPath,int soakSeconds,const QString& soakReport)
 {
@@ -81,8 +96,10 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     if (smokeTest) {
         auto* probe=new QTimer(&m_engine);
         auto smokePhase=std::make_shared<int>(0);
-        probe->setInterval(100);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,soakSeconds,soakReport,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragStepCount=0,dragPosition=QPointF(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<bool>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1)]() mutable {
+        auto inputClock=std::make_shared<QElapsedTimer>();
+        inputClock->start();
+        probe->setInterval(90);
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,smokePhase,inputClock,soakSeconds,soakReport,phase=0,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragPosition=QPointF(),inlineColumns=QVariantMap(),quickOriginalTask=QVariantMap(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<std::atomic<bool>>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1),wheelFrames=std::make_shared<std::atomic<int>>(0),wheelConnection=std::make_shared<QMetaObject::Connection>()]() mutable {
             *smokePhase=phase;
             if(m_workspace.busy())return;
             auto fail=[probe](const char* stage){qCritical()<<"Basic UI smoke failed at"<<stage;probe->stop();QCoreApplication::exit(2);};
@@ -98,7 +115,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 // Start-Process -WindowStyle Hidden suppresses the first Win32 show.
                 // Native focus/layout checks require an exposed rendering surface.
                 if(QGuiApplication::platformName()!=QStringLiteral("offscreen")) {
-                    mainWindow->hide();mainWindow->show();mainWindow->requestActivate();
+                    mainWindow->hide();mainWindow->show();activateSmokeWindow(mainWindow);
                 }
                 if(!screenshotPath.isEmpty())mainWindow->resize(880,580);
                 m_workspace.setView(QStringLiteral("today"));
@@ -119,7 +136,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(!mainWindow->grabWindow().save(screenshotPath+QStringLiteral(".editor.png"))) {fail("editor screenshot");return;}
                     mainWindow->resize(1120,720);
                 }
-                startDate->setProperty("text",QStringLiteral(""));
+                startDate->setProperty("text",m_workspace.dateOffset(0));
                 if(!QMetaObject::invokeMethod(mainWindow,"saveEditor")){fail("retry save");return;}
             } else if(phase==3) {
                 if(editor->property("visible").toBool() || m_workspace.task(taskId).value(QStringLiteral("title")).toString()!=QStringLiteral("梳理今天的重点事项")) {fail("edit commit");return;}
@@ -176,25 +193,25 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 auto* quick=mainWindow->findChild<QObject*>(QStringLiteral("taskQuickEditor"));
                 auto* reminder=mainWindow->findChild<QObject*>(QStringLiteral("editorReminder"));
                 auto* guard=mainWindow->findChild<QObject*>(QStringLiteral("unsavedChangesDialog"));
-                auto* event=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDialog"));
+                auto* event=mainWindow->findChild<QObject*>(QStringLiteral("taskEditor"));
                 auto* fields=mainWindow->findChild<QObject*>(QStringLiteral("taskDetailsFields"));
                 auto* creator=mainWindow->findChild<QObject*>(QStringLiteral("catalogCreateDialog"));
-                auto findRow=[&](const QString& id){std::function<QQuickItem*(QQuickItem*)> scan=[&](QQuickItem* item)->QQuickItem*{if(item->objectName()==QStringLiteral("taskRow-")+id)return item;for(auto* child:item->childItems())if(auto* found=scan(child))return found;return nullptr;};return scan(mainWindow->contentItem());};
-                auto findStep=[&](const QString& name){std::function<QQuickItem*(QQuickItem*)> scan=[&](QQuickItem* item)->QQuickItem*{if(item->objectName()==name)return item;for(auto* child:item->childItems())if(auto* found=scan(child))return found;return nullptr;};return scan(qobject_cast<QQuickItem*>(fields));};
+                auto findRow=[&](const QString& id){QVariant row;if(!QMetaObject::invokeMethod(mainWindow,"taskRowForVerification",Q_RETURN_ARG(QVariant,row),Q_ARG(QVariant,QVariant(id))))return static_cast<QQuickItem*>(nullptr);return qvariant_cast<QQuickItem*>(row);};
                 auto find=[&](const char* name){return mainWindow->findChild<QObject*>(QString::fromLatin1(name));};
                 auto click=[&](const char* name){auto* item=find(name);return item && QMetaObject::invokeMethod(item,"clicked");};
                 auto capture=[&](const QString& name){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+name+QStringLiteral(".png"));};
                 if(!quick || !reminder || !event){fail("direct editing controls");return;}
-                if(phase==202) {QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));}
+                if(phase==202) {
+                    quickOriginalTask=m_workspace.task(secondId);QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));}
                 else if(phase==203) {
                     if(!quick->property("visible").toBool() || editor->property("visible").toBool()){qCritical()<<"Inline entry"<<quick->property("visible")<<editor->property("visible")<<mainWindow->property("inlineAttachAttempts")<<m_workspace.taskIndex(secondId);fail("quick entry separate from full editor");return;}
-                    auto* title=quick->findChild<QObject*>(QStringLiteral("quickEditorTitle"));title->setProperty("text",QStringLiteral("快速编辑草稿"));QMetaObject::invokeMethod(title,"textEdited");
+                    auto* title=quick->findChild<QObject*>(QStringLiteral("quickEditorTitle"));title->setProperty("text",QStringLiteral(""));QMetaObject::invokeMethod(title,"textEdited");
                     QMetaObject::invokeMethod(quick,"notesEdited",Q_ARG(QString,QStringLiteral("保持同一份备注草稿")));
                     QMetaObject::invokeMethod(quick->findChild<QObject*>(QStringLiteral("quickEditorStart")),"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(1))));
                     QMetaObject::invokeMethod(quick,"closeRequested");
                 } else if(phase==204) {
                     static bool cancelled=false;static int polished=0;
-                    if(!cancelled){if(!guard->property("visible").toBool() || !mainWindow->property("draftDirty").toBool()){fail("quick dirty close guard");return;}click("cancelLeave");cancelled=true;return;}
+                    if(!cancelled){if(!quick->property("visible").toBool() || !mainWindow->property("draftDirty").toBool() || m_workspace.errorText().isEmpty() || guard->property("visible").toBool()){fail("failed inline autosave preserves draft without navigating");return;}QMetaObject::invokeMethod(quick,"titleEdited",Q_ARG(QString,QStringLiteral("快速编辑草稿")));cancelled=true;return;}
                     mainWindow->grabWindow();if(++polished<2)return;QVariant layout;
                     if(!quick->property("visible").toBool() || !QMetaObject::invokeMethod(quick,"verifyLayout",Q_RETURN_ARG(QVariant,layout)) || layout.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("quick-editor"))){qCritical()<<"Quick layout"<<layout<<quick->property("visible");capture(QStringLiteral("quick-layout-failure"));fail("quick cancel preserves usable card");return;}
                     click("quickEditorDetails");
@@ -203,7 +220,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(QString())));
                     QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(0))));QMetaObject::invokeMethod(startDate,"openPicker");
                 } else if(phase==206) {
-                    if(!startDate->property("inlineExpanded").toBool() || startDate->property("text").toString()!=m_workspace.dateOffset(0) || !find("editDeadlineDate")->property("text").toString().isEmpty() || !capture(QStringLiteral("inline-date"))){fail("date click expands inline without changing deadline");return;}
+                    if(!startDate->property("pickerVisible").toBool() || startDate->property("inlineExpanded").toBool() || startDate->property("text").toString()!=m_workspace.dateOffset(0) || !find("editDeadlineDate")->property("text").toString().isEmpty() || !capture(QStringLiteral("anchored-date"))){fail("date opens nearby calendar without changing deadline or expanding the form");return;}
                     QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(2))));
                     QMetaObject::invokeMethod(reminder,"openPicker");
                 } else if(phase==207) {
@@ -217,7 +234,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(!guard->property("visible").toBool()){fail("full guard after quick transfer");return;}click("discardDraft");
                 } else if(phase==209) {
                     const auto stored=m_workspace.task(secondId);
-                    if(editor->property("visible").toBool() || stored.value(QStringLiteral("title")).toString()==QStringLiteral("快速编辑草稿") || !stored.value(QStringLiteral("startOn")).toString().isEmpty() || !stored.value(QStringLiteral("remindAtUtc")).toString().isEmpty()){fail("discard whole quick and full draft zero mutation");return;}
+                    if(editor->property("visible").toBool() || stored!=quickOriginalTask){fail("discard whole quick and full draft zero mutation");return;}
                     QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));
                 } else if(phase==210) {
                     auto* title=quick->findChild<QObject*>(QStringLiteral("quickEditorTitle"));title->setProperty("text",QStringLiteral("快速编辑已保存"));QMetaObject::invokeMethod(title,"textEdited");click("saveQuickEditor");
@@ -230,39 +247,24 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");
                     auto* panel=find("calendarPanel");QMetaObject::invokeMethod(panel,"openEvent",Q_ARG(QVariant,QVariant(eventId)));
                 } else if(phase==213) {
-                    if(!event->property("visible").toBool()){fail("event direct time entry");return;}
-                    auto* allDay=event->findChild<QObject*>(QStringLiteral("eventAllDay"));if(allDay->property("checked").toBool()){QMetaObject::invokeMethod(allDay,"toggle");QMetaObject::invokeMethod(allDay,"clicked");}
-                    auto* time=event->findChild<QObject*>(QStringLiteral("eventStartTime"));QMetaObject::invokeMethod(time,"chooseTime",Q_ARG(QVariant,QVariant(11)),Q_ARG(QVariant,QVariant(7)));
-                    if(time->property("text").toString()!=QStringLiteral("11:07") || !event->property("dirty").toBool()){fail("event time selection updates draft");return;}
-                    QMetaObject::invokeMethod(time,"openPicker");
+                    if(!editor->property("visible").toBool()){fail("calendar time uses task details");return;}auto* allDay=find("taskAllDay");if(allDay->property("checked").toBool()){QMetaObject::invokeMethod(allDay,"toggle");QMetaObject::invokeMethod(allDay,"clicked");}auto* time=find("taskTimeStart");QMetaObject::invokeMethod(time,"chooseTime",Q_ARG(QVariant,QVariant(11)),Q_ARG(QVariant,QVariant(7)));if(time->property("text").toString()!=QStringLiteral("11:07") || !mainWindow->property("draftDirty").toBool()){fail("task time selection updates shared draft");return;}QMetaObject::invokeMethod(mainWindow,"revealTimingForVerification");QMetaObject::invokeMethod(time,"openPicker");
                 } else if(phase==214) {
-                    auto* time=event->findChild<QObject*>(QStringLiteral("eventStartTime"));
-                    if(!time->property("pickerVisible").toBool() || !capture(QStringLiteral("event-time-picker"))){fail("event picker capture");return;}
-                    time->findChild<QObject*>(QStringLiteral("pickerHour"))->setProperty("value",16);QMetaObject::invokeMethod(time,"closePicker");
-                    if(time->property("text").toString()!=QStringLiteral("11:07")){fail("cancel time picker zero draft mutation");return;}
-                    time->setProperty("text",QStringLiteral("25:90"));QMetaObject::invokeMethod(time,"openPicker");QMetaObject::invokeMethod(time,"closePicker");
-                    if(time->property("text").toString()!=QStringLiteral("25:90")){fail("picker preserves invalid manual time");return;}
-                    QMetaObject::invokeMethod(event->findChild<QObject*>(QStringLiteral("returnFromEvent")),"clicked");
+                    auto* time=find("taskTimeStart");if(!time->property("pickerVisible").toBool() || !capture(QStringLiteral("task-time-picker"))){fail("task time picker");return;}time->findChild<QObject*>(QStringLiteral("pickerHour"))->setProperty("value",16);QKeyEvent cancelTime(QEvent::KeyPress,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&cancelTime);if(time->property("pickerVisible").toBool() || !editor->property("visible").toBool()){fail("escape closes time picker and retains shared editor");return;}if(time->property("text").toString()!=QStringLiteral("11:07")){fail("cancel time picker zero draft mutation");return;}time->setProperty("text",QStringLiteral("25:90"));QMetaObject::invokeMethod(time,"openPicker");QMetaObject::invokeMethod(time,"closePicker");if(time->property("text").toString()!=QStringLiteral("25:90")){fail("invalid time remains available to correct");return;}click("returnFromEditor");
                 } else if(phase==215) {
-                    auto* discard=event->findChild<QObject*>(QStringLiteral("eventDiscard"));if(!discard->property("visible").toBool() || !capture(QStringLiteral("discard-changes"))){fail("explicit event discard confirmation");return;}
-                    QMetaObject::invokeMethod(discard,"reject");if(!event->property("dirty").toBool() || !event->property("visible").toBool()){fail("continue event editing retains draft");return;}
-                    QMetaObject::invokeMethod(event->findChild<QObject*>(QStringLiteral("returnFromEvent")),"clicked");QMetaObject::invokeMethod(discard,"accept");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);
-                    QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));
+                    if(!guard->property("visible").toBool() || !capture(QStringLiteral("discard-task-time-changes"))){fail("task time draft discard confirmation");return;}click("cancelLeave");if(!mainWindow->property("draftDirty").toBool() || !editor->property("visible").toBool()){fail("cancel retains time draft");return;}click("returnFromEditor");click("discardDraft");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(secondId)));
                 } else if(phase==216) {
                     static int frames=0;mainWindow->grabWindow();if(++frames<3)return;QVariant layout;
-                    if(!QMetaObject::invokeMethod(quick,"verifyLayout",Q_RETURN_ARG(QVariant,layout)) || layout.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("quick-editor-dark-200"))){fail("quick 200 percent fixed actions");return;}
+                    auto* card=qobject_cast<QQuickItem*>(quick);auto* list=qobject_cast<QQuickItem*>(find("taskList"));const auto at=card->mapToItem(list,QPointF());
+                    if(!QMetaObject::invokeMethod(quick,"verifyLayout",Q_RETURN_ARG(QVariant,layout)) || layout.toString()!=QStringLiteral("PASS") || at.y()<0 || at.y()+card->height()>list->height()+1 || !capture(QStringLiteral("quick-editor-dark-200"))){qCritical()<<"Quick viewport"<<layout<<at<<card->size()<<list->size();fail("quick 200 percent editing and actions stay in list viewport");return;}
                     QMetaObject::invokeMethod(quick,"closeRequested");
                 } else if(phase==217) {
                     if(quick->property("visible").toBool() || event->property("visible").toBool() || mainWindow->property("draftDirty").toBool()){fail("clean quick close");return;}
                     m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
                     QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(0))));QMetaObject::invokeMethod(startDate,"openShortcuts");
                 } else if(phase==218) {
-                    auto* today=startDate->findChild<QObject*>(QStringLiteral("dateShortcutToday"));auto* tomorrow=startDate->findChild<QObject*>(QStringLiteral("dateShortcutTomorrow"));
-                    if(!today || !today->property("checked").toBool() || !tomorrow || tomorrow->property("checked").toBool() || !capture(QStringLiteral("date-shortcuts"))){fail("date menu indicates current selection");return;}
-                    auto* menu=startDate->findChild<QObject*>(QStringLiteral("dateShortcuts"));auto* menuContent=qvariant_cast<QQuickItem*>(menu->property("contentItem"));
-                    if(!menu->property("visible").toBool() || !menuContent || !menuContent->window() || (!screenshotPath.isEmpty() && !menuContent->window()->grabWindow().save(screenshotPath+QStringLiteral(".date-shortcut-menu.png")))){fail("native date menu surface");return;}
-                    QMetaObject::invokeMethod(tomorrow,"triggered");
-                    if(startDate->property("text").toString()!=m_workspace.dateOffset(1) || startDate->property("pickerVisible").toBool() || !find("editDeadlineDate")->property("text").toString().isEmpty()){fail("shortcut changes only requested draft field");return;}
+                    if(!startDate->property("pickerVisible").toBool() || startDate->property("text").toString()!=m_workspace.dateOffset(0) || !capture(QStringLiteral("direct-date-calendar"))){fail("calendar icon directly opens selected-date calendar");return;}
+                    QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(1))));
+                    if(startDate->property("text").toString()!=m_workspace.dateOffset(1) || startDate->property("pickerVisible").toBool() || !find("editDeadlineDate")->property("text").toString().isEmpty()){fail("calendar changes only requested draft field");return;}
                     QMetaObject::invokeMethod(startDate,"chooseDate",Q_ARG(QVariant,QVariant(QString())));
                     if(!startDate->property("text").toString().isEmpty() || startDate->property("pickerVisible").toBool()){fail("clearing date collapses without changing deadline");return;}
                     mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");
@@ -273,16 +275,17 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(quick,"notesEdited",Q_ARG(QString,longNotes));
                 } else if(phase==220) {
                     static int frames=0;mainWindow->grabWindow();if(++frames<3)return;
-                    auto* field=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorStart"));field->forceActiveFocus();
+                    auto* field=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorStart"));field->forceActiveFocus();auto* notes=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorNotes"));const auto point=notes->mapToScene(QPointF(notes->width()/2,notes->height()/2));QMouseEvent hover(QEvent::MouseMove,point,mainWindow->mapToGlobal(point),Qt::NoButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&hover);
                 } else if(phase==221) {
                     static int frames=0;mainWindow->grabWindow();if(++frames<3)return;
                     auto* field=quick->findChild<QQuickItem*>(QStringLiteral("quickEditorStart"));auto* scroll=mainWindow->findChild<QQuickItem*>(QStringLiteral("taskList"));const auto y=field->mapToItem(scroll,QPointF(0,0)).y();
                     if((QGuiApplication::platformName()!=QStringLiteral("offscreen") && !field->hasActiveFocus()) || y< -1 || y+field->height()>scroll->height()+1 || !capture(QStringLiteral("quick-long-notes-focus"))){capture(QStringLiteral("inline-focus-diagnostic"));qCritical()<<"Quick date focus"<<y<<field->height()<<scroll->height()<<scroll->property("contentY")<<scroll->property("contentHeight")<<mainWindow->property("quickFocusTarget");fail("inline summary keyboard reveals date in task list");return;}
                     auto* preview=quick->findChild<QObject*>(QStringLiteral("quickEditorNotes"));
                     if(!preview->property("readOnly").toBool() || preview->property("text").toString().contains(QLatin1Char('\n')) || find("editTaskNotes")->property("text").toString().count(QLatin1Char('\n'))!=60){fail("multiline summary retains complete draft");return;}
-                    QMetaObject::invokeMethod(quick,"closeRequested");if(!guard->property("visible").toBool()){fail("quick long notes dirty guard");return;}click("discardDraft");
+                    auto* tooltip=quick->findChild<QObject*>(QStringLiteral("quickNotesTooltip"));if(!tooltip->property("visible").toBool()){static int tooltipFrames=0;if(++tooltipFrames<10)return;fail("actual note hover opens full tooltip");return;}auto* fullText=quick->findChild<QObject*>(QStringLiteral("quickFullNotesText"));if(fullText->property("text").toString()!=find("editTaskNotes")->property("text").toString() || fullText->property("textFormat").toInt()!=int(Qt::PlainText) || tooltip->property("width").toDouble()>mainWindow->width()-31 || tooltip->property("height").toDouble()>mainWindow->height()*0.6 || !capture(QStringLiteral("full-notes-hover-dark-200"))){fail("full plain-text tooltip remains bounded and scrollable");return;}
+                    QMetaObject::invokeMethod(quick,"closeRequested");
                 } else if(phase==222) {
-                    if(quick->property("visible").toBool() || mainWindow->property("draftDirty").toBool() || m_workspace.task(secondId).value(QStringLiteral("notes")).toString()!=quickOriginalNotes){fail("quick long notes discard preserves stored notes");return;}
+                    if(quick->property("visible").toBool() || mainWindow->property("draftDirty").toBool() || m_workspace.task(secondId).value(QStringLiteral("notes")).toString().count(QLatin1Char('\n'))!=60){fail("quick exit saves complete long notes");return;}
                     m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
                 } else if(phase==223) {
                     QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));QMetaObject::invokeMethod(creator,"showFor",Q_ARG(QVariant,QVariant(QStringLiteral("tag"))));
@@ -299,9 +302,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto* row=findRow(secondId);auto* visual=qobject_cast<QQuickItem*>(quick);bool descendant=false;for(auto* parent=visual->parentItem();parent;parent=parent->parentItem())if(parent==row)descendant=true;
                     auto* list=mainWindow->findChild<QQuickItem*>(QStringLiteral("taskList"));const auto cardY=visual->mapToItem(list,QPointF()).y();
                     if(!row || !row->property("expanded").toBool() || !descendant || visual->height()>180 || cardY< -1 || cardY+visual->height()>list->height()+1 || !capture(QStringLiteral("inline-original-row"))){qCritical()<<"Inline geometry"<<row<<descendant<<visual->height()<<cardY<<list->height()<<mainWindow->property("quickManualScroll");capture(QStringLiteral("inline-geometry-failure"));fail("quick editing is hosted and fully visible inside original row");return;}
-                    QMetaObject::invokeMethod(creator,"showFor",Q_ARG(QVariant,QVariant(QStringLiteral("project"))));find("newCatalogName")->setProperty("text",QStringLiteral("就近项目验收"));click("createCatalogHere");
+                    QMetaObject::invokeMethod(creator,"showFor",Q_ARG(QVariant,QVariant(QStringLiteral("project"))));find("newCatalogName")->setProperty("text",QStringLiteral("就近分类验收"));click("createCatalogHere");
                 } else if(phase==227) {
-                    for(const auto& value:m_workspace.catalogOf(QStringLiteral("project"))){const auto item=value.toMap();if(item.value("title").toString()==QStringLiteral("就近项目验收"))quickProjectId=item.value("id").toString();}
+                    for(const auto& value:m_workspace.catalogOf(QStringLiteral("project"))){const auto item=value.toMap();if(item.value("title").toString()==QStringLiteral("就近分类验收"))quickProjectId=item.value("id").toString();}
                     if(quickProjectId.isEmpty() || fields->property("selectedDestination").toMap().value("id").toString()!=quickProjectId || !quick->property("visible").toBool() || m_workspace.task(secondId).value("projectId").toString()==quickProjectId){fail("create project keeps inline task draft and canonical selection");return;}
                     QMetaObject::invokeMethod(quick,"tagEdited",Q_ARG(QString,quickTagId),Q_ARG(bool,true));click("saveQuickEditor");
                 } else if(phase==228) {
@@ -325,8 +328,18 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(QGuiApplication::platformName()!=QStringLiteral("offscreen")){const auto elapsed=menuFrameMs->load();if(elapsed<0)return;qInfo()<<"Main menu two-presentation upper bound ms:"<<elapsed;if(elapsed>100){fail("menu presentation exceeded 100 ms");return;}}
                     auto* row=findRow(secondId);if(!row || !capture(QStringLiteral("same-window-task-menu"))){fail("menu scene capture");return;}
                     QMetaObject::invokeMethod(row,"closeVerificationMenu");completionRow=row;*completionSeen=false;
-                    auto connection=std::make_shared<QMetaObject::Connection>();*connection=QObject::connect(&m_workspace,&TaskWorkspace::operationFinished,probe,[this,probe,mainWindow,screenshotPath,connection,completionRow,completionSeen](const QString& operation,bool success){if(operation!=QStringLiteral("complete"))return;QObject::disconnect(*connection);if(!success)return;QTimer::singleShot(40,probe,[mainWindow,screenshotPath,completionRow,completionSeen]{if(completionRow && completionRow->property("removingAfterCompletion").toBool() && completionRow->opacity()>0){*completionSeen=true;if(!screenshotPath.isEmpty())mainWindow->grabWindow().save(screenshotPath+QStringLiteral(".completion-feedback.png"));}});});
+                    // Observe the actual row prepared by completeRow, then a
+                    // presented animation frame. A 40ms GUI timer can run after
+                    // the whole 190ms transition during synchronous readbacks.
+                    auto tracked=std::make_shared<QPointer<QQuickItem>>(row);
+                    auto candidate=std::make_shared<std::atomic<bool>>(false);
+                    auto animationConnection=std::make_shared<QMetaObject::Connection>();
+                    auto presentationConnection=std::make_shared<QMetaObject::Connection>();
+                    *animationConnection=QObject::connect(mainWindow,&QQuickWindow::afterAnimating,probe,[tracked,candidate]{const auto current=tracked->data();candidate->store(current && current->isVisible() && current->height()>0 && current->opacity()>0 && current->property("removingAfterCompletion").toBool());});
+                    *presentationConnection=QObject::connect(mainWindow,&QQuickWindow::frameSwapped,probe,[probe,mainWindow,screenshotPath,tracked,candidate,completionSeen,animationConnection,presentationConnection]{if(!candidate->load())return;completionSeen->store(true);QObject::disconnect(*presentationConnection);QMetaObject::invokeMethod(probe,[mainWindow,screenshotPath,tracked,animationConnection]{QObject::disconnect(*animationConnection);if(!screenshotPath.isEmpty() && *tracked && (*tracked)->property("removingAfterCompletion").toBool() && (*tracked)->opacity()>0)mainWindow->grabWindow().save(screenshotPath+QStringLiteral(".completion-feedback.png"));},Qt::QueuedConnection);},Qt::DirectConnection);
                     QMetaObject::invokeMethod(row,"completeRequested");
+                    *tracked=qvariant_cast<QQuickItem*>(mainWindow->property("completionRow"));completionRow=*tracked;
+                    if(!completionRow || completionRow->property("taskId").toString()!=secondId || !completionRow->property("completionFeedback").toBool()){fail("completion feedback tracks the prepared live row");return;}
                 } else if(phase==230) {
                     if(m_workspace.task(secondId).value("taskStatus").toString()!=QStringLiteral("COMPLETED")){fail("complete commits before removal feedback");return;}
                 } else if(phase==231) {
@@ -337,7 +350,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 } else if(phase==233) {
                     auto* row=findRow(secondId);if(!row || !row->property("reduceMotion").toBool()){fail("reduced motion reaches task row");return;}completionRow=row;QMetaObject::invokeMethod(row,"completeRequested");
                 } else if(phase==234) {
-                    if(m_workspace.task(secondId).value("taskStatus").toString()!=QStringLiteral("COMPLETED") || (completionRow && completionRow->property("removingAfterCompletion").toBool())){fail("reduced motion removes without transition");return;}
+                    if(m_workspace.task(secondId).value("taskStatus").toString()!=QStringLiteral("COMPLETED") || (completionRow && completionRow->property("removingAfterCompletion").toBool())){qCritical()<<"Completion probe state"<<m_workspace.task(secondId).value("taskStatus")<<(completionRow?completionRow->property("index"):QVariant())<<(completionRow?completionRow->property("removingAfterCompletion"):QVariant())<<m_workspace.taskIndex(secondId);capture(QStringLiteral("reduced-motion-failure"));fail("reduced motion removes without transition");return;}
                     m_workspace.setPreference(QStringLiteral("reduceMotion"),false);
                 } else if(phase==235) {
                     const auto task=m_workspace.task(secondId);m_workspace.changeState(secondId,task.value("rowVersion").toLongLong(),QStringLiteral("reopen"));
@@ -360,23 +373,15 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 } else if(phase==240) {
                     m_workspace.selectCalendarDate(QStringLiteral("2026-10-01"));m_workspace.setView(QStringLiteral("month"));
                 } else if(phase==241) {
-                    auto* panel=find("calendarPanel");QVariant result;QMetaObject::invokeMethod(panel,"verifyDayTitles",Q_RETURN_ARG(QVariant,result));
-                    if(result.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("continuous-span-month"))){fail("continuous week span geometry");return;}QMetaObject::invokeMethod(panel,"openRecurring");
+                    mainWindow->grabWindow();auto* panel=find("calendarPanel");QVariant result;QMetaObject::invokeMethod(panel,"verifyDayTitles",Q_RETURN_ARG(QVariant,result));if(result.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("continuous-span-month"))){qCritical()<<"Calendar span geometry:"<<result;capture(QStringLiteral("continuous-span-failure"));fail("continuous task week span geometry");return;}QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("recurrence"))));
                 } else if(phase==242) {
-                    auto* schedules=qvariant_cast<QObject*>(find("calendarPanel")->property("recurringSheet"));if(!schedules || !schedules->property("visible").toBool() || !capture(QStringLiteral("recurring-schedules"))){qCritical()<<"Recurring schedule surface"<<schedules<<(schedules?schedules->property("visible"):QVariant());fail("recurring schedule entry");return;}
-                    QMetaObject::invokeMethod(schedules,"close");QMetaObject::invokeMethod(event,"showRecurring",Q_ARG(QVariant,QVariant(QStringLiteral("2026-10-07"))));
-                    event->findChild<QObject*>(QStringLiteral("eventTitle"))->setProperty("text",QStringLiteral("每年生日验收"));event->findChild<QObject*>(QStringLiteral("eventFrequency"))->setProperty("currentIndex",4);event->findChild<QObject*>(QStringLiteral("eventAlert"))->setProperty("currentIndex",2);QMetaObject::invokeMethod(event,"save");
+                    if(m_workspace.view()!=QStringLiteral("repeating") || !find("taskList")->property("visible").toBool() || !capture(QStringLiteral("repeating-task-list"))){fail("repeat filter is an ordinary task list");return;}m_workspace.saveEvent({{"title",QStringLiteral("每年生日验收")},{"startDate",QStringLiteral("2026-10-07")},{"endDate",QStringLiteral("2026-10-07")},{"repeatFrequency",QStringLiteral("YEARLY")}});
                 } else if(phase==243) {
-                    for(const auto& value:m_workspace.recurringEvents())if(value.toMap().value("title")==QStringLiteral("每年生日验收"))scheduleId=value.toMap().value("eventId").toString();
-                    QString key;for(const auto& value:m_workspace.calendarDaysFor(QStringLiteral("2027-10-07"),false))for(const auto& item:value.toMap().value("events").toList())if(item.toMap().value("eventId").toString()==scheduleId)key=item.toMap().value("occurrenceKey").toString();
-                    if(scheduleId.isEmpty() || key.isEmpty() || m_workspace.calendarEvent(scheduleId).value("repeatFrequency")!=QStringLiteral("YEARLY")){fail("yearly schedule projects real future instance");return;}
-                    QMetaObject::invokeMethod(find("calendarPanel"),"inspectEvent",Q_ARG(QVariant,QVariant(scheduleId)),Q_ARG(QVariant,QVariant(key)));
+                    for(const auto& value:m_workspace.calendarEvents())if(value.toMap().value("title")==QStringLiteral("每年生日验收"))scheduleId=value.toMap().value("taskId").toString();if(scheduleId.isEmpty() || !m_workspace.requestCalendarRange(QStringLiteral("2027-10-07"))){fail("request actual annual task instances for browsed calendar");return;}
                 } else if(phase==244) {
-                    if(!capture(QStringLiteral("yearly-schedule-preview"))){fail("yearly preview capture");return;}QMetaObject::invokeMethod(qvariant_cast<QObject*>(find("calendarPanel")->property("previewSheet")),"close");
-                    for(const auto& value:m_workspace.calendarEvents())if(!value.toMap().value("allDay").toBool()){const auto item=value.toMap();QMetaObject::invokeMethod(find("calendarPanel"),"inspectEvent",Q_ARG(QVariant,item.value("eventId")),Q_ARG(QVariant,item.value("occurrenceKey")));break;}
+                    QString id;for(const auto& day:m_workspace.calendarDaysFor(QStringLiteral("2027-10-07"),false))if(day.toMap().value("date").toString()==QStringLiteral("2027-10-07"))for(const auto& item:day.toMap().value("events").toList())if(item.toMap().value("title")==QStringLiteral("每年生日验收"))id=item.toMap().value("taskId").toString();if(id.isEmpty() || id==scheduleId){fail("future annual occurrence materialized once with own ID");return;}QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(id)));
                 } else if(phase==245) {
-                    if(!capture(QStringLiteral("timed-schedule-preview"))){fail("timed preview capture");return;}QMetaObject::invokeMethod(qvariant_cast<QObject*>(find("calendarPanel")->property("previewSheet")),"close");
-                    m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));
+                    if(!editor->property("visible").toBool() || !capture(QStringLiteral("annual-instance-shared-task"))){fail("annual task detail capture");return;}QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));
                 } else if(phase==246) {
                     if(!capture(QStringLiteral("ordered-details-dark-200"))){fail("dark ordered details capture");return;}QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setView(QStringLiteral("today"));mainWindow->resize(1120,720);
                 } else if(phase==247) {
@@ -391,7 +396,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     dragPosition=target->mapToScene(QPointF(target->width()*0.45,target->height()/2));const auto intermediate=row->mapToScene(QPointF(row->width()*0.45,row->height()/2+16));QMouseEvent move(QEvent::MouseMove,intermediate,mainWindow->mapToGlobal(intermediate),Qt::NoButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&move);
                 } else if(phase==250) {
                     static bool moved=false;if(!moved){moved=true;QMouseEvent move(QEvent::MouseMove,dragPosition,mainWindow->mapToGlobal(dragPosition),Qt::NoButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&move);return;}
-                    auto* row=findRow(dragSource);if(!row || !row->property("dragging").toBool() || !capture(QStringLiteral("long-press-reorder"))){fail("long press drag lift feedback");return;}
+                    auto* row=findRow(dragSource);if(!row || !row->property("dragging").toBool() || !capture(QStringLiteral("long-press-reorder"))){qCritical()<<"Drag lift state"<<row<<(row?row->property("dragArmed"):QVariant())<<(row?row->property("dragOriginY"):QVariant())<<dragPosition<<mainWindow->property("toolPage")<<find("taskList")->property("visible");if(row){auto* hold=row->findChild<QObject*>(QStringLiteral("taskHoldDrag"));qCritical()<<"Hold area"<<hold<<(hold?hold->property("pressed"):QVariant());}capture(QStringLiteral("drag-lift-failure"));fail("long press drag lift feedback");return;}
                     QMouseEvent release(QEvent::MouseButtonRelease,dragPosition,mainWindow->mapToGlobal(dragPosition),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&release);
                 } else if(phase==251) {
                     if(m_workspace.taskIndex(dragSource)!=1 || mainWindow->property("draftDirty").toBool() || quick->property("editing").toBool()){fail("drag release reorders without opening editor");return;}m_workspace.reload();
@@ -411,55 +416,347 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMouseEvent release(QEvent::MouseButtonRelease,dragPosition,mainWindow->mapToGlobal(dragPosition),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&release);
                     if(m_workspace.busy() || m_workspace.taskIndex(dragSource)!=1 || quick->property("editing").toBool()){fail("cancelled drag release has no write or edit");return;}
                 } else if(phase==257) {
-                    for(const char* name:{"sidebarTasksHeader","sidebarPlanningHeader","sidebarLibraryHeader"})if(!click(name)){fail("collapsible navigation headers");return;}
+                    for(const char* name:{"sidebarTasksHeader","sidebarLibraryHeader","sidebarTagsHeader"})if(!click(name)){fail("collapsible navigation headers");return;}
                 } else if(phase==258) {
-                    if(m_workspace.preferences().value("sidebarTasksExpanded").toBool() || m_workspace.preferences().value("sidebarPlanningExpanded").toBool() || m_workspace.preferences().value("sidebarLibraryExpanded").toBool() || m_workspace.view()!=QStringLiteral("today") || !capture(QStringLiteral("collapsed-navigation"))){fail("independent collapsed sections preserve selection");return;}
+                    if(m_workspace.preferences().value("sidebarTasksExpanded").toBool() || m_workspace.preferences().value("sidebarLibraryExpanded").toBool() || m_workspace.view()!=QStringLiteral("today") || !capture(QStringLiteral("collapsed-navigation"))){fail("independent collapsed sections preserve selection");return;}
                     click("sidebarLibraryHeader");
                 } else if(phase==259) {
                     if(!m_workspace.preferences().value("sidebarLibraryExpanded").toBool() || m_workspace.preferences().value("sidebarTasksExpanded").toBool() || !capture(QStringLiteral("library-navigation"))){fail("library expands independently");return;}
-                    click("sidebarTasksHeader");click("sidebarPlanningHeader");mainWindow->resize(1000,720);QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));
-                    auto* input=fields->findChild<QObject*>(QStringLiteral("editorNewChecklistItem"));
-                    for(const auto& title:{QStringLiteral("拖动步骤 A"),QStringLiteral("拖动步骤 B")}){input->setProperty("text",title);QMetaObject::invokeMethod(fields,"addChecklistItem");}
-                    QVariant patch;QMetaObject::invokeMethod(fields,"detailsPatch",Q_RETURN_ARG(QVariant,patch));const auto items=patch.toMap().value("checklist").toList();dragStepCount=items.size();dragStepFirst=items.first().toMap().value("title").toString();
+                    click("sidebarTasksHeader");mainWindow->resize(1000,720);QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));
+                    QMetaObject::invokeMethod(mainWindow,"selectEditorTab",Q_ARG(QVariant,QVariant(1)));auto* input=find("newSubtaskTitle");input->setProperty("text",QStringLiteral("独立子任务 A"));QMetaObject::invokeMethod(input,"accepted");
                 } else if(phase==260) {
-                    mainWindow->setProperty("editorManualScroll",true);auto* row=findStep(QStringLiteral("checklistRow-0"));auto* scroll=mainWindow->findChild<QQuickItem*>(QStringLiteral("taskEditorScroll"));auto* content=qvariant_cast<QQuickItem*>(scroll->property("contentItem"));
-                    if(!row || !content || dragStepCount<2){qCritical()<<"Checklist setup"<<row<<content<<dragStepCount<<fields;fail("checklist drag setup");return;}scroll->setProperty("contentY",qMax(0.0,qMin(row->mapToItem(content,0,0).y()-16,scroll->property("contentHeight").toDouble()-scroll->height())));
+                    const auto children=m_workspace.subtaskChoices(secondId);if(children.size()!=1 || mainWindow->property("editorTab").toInt()!=1 || mainWindow->property("editId").toString()!=secondId || find("taskEditorScroll")->property("visible").toBool()){fail("subtask tab contains list without invisible competing detail");return;}dragStepFirst=children.first().toMap().value("taskId").toString();mainWindow->grabWindow();QVariant opened;if(!QMetaObject::invokeMethod(find("subtaskList"),"openForVerification",Q_RETURN_ARG(QVariant,opened),Q_ARG(QVariant,QVariant(dragStepFirst))) || !opened.toBool() || mainWindow->property("editId").toString()!=dragStepFirst){fail("actual child row opens own detail");return;}
+                    editTitle->setProperty("text",QStringLiteral("子任务 A 已编辑"));click("saveTaskEditor");
                 } else if(phase==261) {
-                    mainWindow->requestActivate();auto* row=findStep(QStringLiteral("checklistRow-0"));auto* handle=row->findChild<QQuickItem*>(QStringLiteral("checklistDragHandle"));
-                    dragPosition=handle->mapToScene(QPointF(handle->width()/2,handle->height()/2));QMouseEvent press(QEvent::MouseButtonPress,dragPosition,mainWindow->mapToGlobal(dragPosition),Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&press);
-                    auto* target=findStep(QStringLiteral("checklistRow-%1").arg(dragStepCount-1));dragPosition.setY(target->mapToScene(QPointF(0,target->height()/2)).y());QMouseEvent move(QEvent::MouseMove,dragPosition,mainWindow->mapToGlobal(dragPosition),Qt::NoButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&move);
+                    if(!editor->property("visible").toBool() || mainWindow->property("editId").toString()!=secondId || mainWindow->property("editorTab").toInt()!=1 || m_workspace.task(dragStepFirst).value("title").toString()!=QStringLiteral("子任务 A 已编辑")){fail("child saves independently and returns parent list");return;}auto* input=find("newSubtaskTitle");input->setProperty("text",QStringLiteral("独立子任务 B"));QMetaObject::invokeMethod(input,"accepted");
                 } else if(phase==262) {
-                    auto* row=findStep(QStringLiteral("checklistRow-0"));if(!row || !row->property("dragging").toBool() || !capture(QStringLiteral("checklist-drag"))){fail("checklist handle lifts draft row");return;}
-                    QMouseEvent release(QEvent::MouseButtonRelease,dragPosition,mainWindow->mapToGlobal(dragPosition),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&release);
+                    if(m_workspace.subtaskChoices(secondId).size()!=2 || !capture(QStringLiteral("subtask-panel"))){fail("two real subtasks remain under parent");return;}mainWindow->grabWindow();QVariant target;if(!QMetaObject::invokeMethod(find("subtaskList"),"centerForVerification",Q_RETURN_ARG(QVariant,target),Q_ARG(QVariant,QVariant(dragStepFirst))) || target.toMap().isEmpty()){fail("visible child row pointer target");return;}const QPointF at(target.toMap().value("x").toDouble(),target.toMap().value("y").toDouble());QMouseEvent press(QEvent::MouseButtonPress,at,mainWindow->mapToGlobal(at),Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&press);QMouseEvent release(QEvent::MouseButtonRelease,at,mainWindow->mapToGlobal(at),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&release);
                 } else if(phase==263) {
-                    QVariant patch;QMetaObject::invokeMethod(fields,"detailsPatch",Q_RETURN_ARG(QVariant,patch));const auto items=patch.toMap().value("checklist").toList();
-                    if(items.size()!=dragStepCount || items.last().toMap().value("title").toString()!=dragStepFirst || !mainWindow->property("draftDirty").toBool()){fail("checklist drop changes only draft order");return;}
-                    // Escape cancels a second drag and must not open the leave guard.
-                    auto* row=findStep(QStringLiteral("checklistRow-0"));auto* handle=row->findChild<QQuickItem*>(QStringLiteral("checklistDragHandle"));dragPosition=handle->mapToScene(QPointF(handle->width()/2,handle->height()/2));
-                    QMouseEvent press(QEvent::MouseButtonPress,dragPosition,mainWindow->mapToGlobal(dragPosition),Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&press);QKeyEvent escape(QEvent::KeyPress,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&escape);QMouseEvent release(QEvent::MouseButtonRelease,dragPosition,mainWindow->mapToGlobal(dragPosition),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&release);
-                    if(row->property("dragging").toBool() || guard->property("visible").toBool()){fail("checklist escape cancels without leaving draft");return;}
-                    click("saveTaskEditor");
+                    if(mainWindow->property("editorTab").toInt()!=0 || !find("taskEditorScroll")->property("visible").toBool() || find("taskEditorTabs")->property("visible").toBool() || find("newSubtaskTitle")->property("visible").toBool() || !capture(QStringLiteral("leaf-subtask-details"))){fail("child detail visible with no child creation or nested tab");return;}
+                    find("editTaskNotes")->setProperty("text",QStringLiteral("未保存子任务备注"));click("returnToParentSubtasks");
+                    if(!guard->property("visible").toBool()){fail("child return protects current draft");return;}click("cancelLeave");
+                    if(mainWindow->property("editId").toString()!=dragStepFirst || mainWindow->property("editorTab").toInt()!=0 || find("editTaskNotes")->property("text").toString()!=QStringLiteral("未保存子任务备注")){fail("cancel child return retains own visible draft");return;}
+                    click("returnToParentSubtasks");click("discardDraft");
                 } else if(phase==264) {
-                    const auto items=m_workspace.task(secondId).value("checklist").toList();if(editor->property("visible").toBool() || items.size()!=dragStepCount || items.last().toMap().value("title").toString()!=dragStepFirst){fail("checklist reordered draft commits atomically");return;}
-                    QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));auto* info=fields->findChild<QObject*>(QStringLiteral("taskInfoToggle"));QMetaObject::invokeMethod(info,"toggle");QMetaObject::invokeMethod(info,"clicked");
+                    if(mainWindow->property("editId").toString()!=secondId || mainWindow->property("editorTab").toInt()!=1 || m_workspace.task(dragStepFirst).value("notes").toString()==QStringLiteral("未保存子任务备注") || m_workspace.subtaskChoices(secondId).size()!=2){fail("discard child draft returns to intact parent list");return;}QMetaObject::invokeMethod(mainWindow,"selectEditorTab",Q_ARG(QVariant,QVariant(0)));
+                    QMetaObject::invokeMethod(find("taskInfoToggle"),"triggered");
                 } else if(phase==265) {
                     mainWindow->setProperty("editorManualScroll",true);auto* scroll=find("taskEditorScroll");scroll->setProperty("contentY",qMax(0.0,scroll->property("contentHeight").toDouble()-scroll->property("height").toDouble()));
                 } else if(phase==266) {
-                    if(!capture(QStringLiteral("detail-records-actions"))){fail("detail records screenshot");return;}reminder->setProperty("text",QStringLiteral("invalid"));click("saveTaskEditor");
+                    if(!capture(QStringLiteral("detail-records-actions"))){fail("detail records screenshot");return;}QMetaObject::invokeMethod(find("taskEditHistoryDialog"),"close");reminder->setProperty("text",QStringLiteral("invalid"));click("saveTaskEditor");
                 } else if(phase==267) {
                     if(!m_workspace.validationError() || !find("editorSaveError")->property("visible").toBool() || !editor->property("visible").toBool() || !capture(QStringLiteral("scoped-editor-error"))){fail("save validation is visible beside fixed actions");return;}click("returnFromEditor");
                 } else if(phase==268) {
                     if(!guard->property("visible").toBool()){fail("failed save discard guard");return;}click("discardDraft");
                 } else if(phase==269) {
                     if(editor->property("visible").toBool() || !m_workspace.errorText().isEmpty()){fail("discarded validation does not bleed into list");return;}
-                    QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));auto* attention=find("editorAttention");QMetaObject::invokeMethod(attention,"activateForVerification",Q_ARG(QVariant,QVariant(2)));click("returnFromEditor");if(!guard->property("visible").toBool()){fail("attention draft leave guard");return;}click("discardDraft");QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));
-                    const auto stored=m_workspace.task(secondId);const int expectedAttention=!stored.value("todayFocus").toBool()?0:stored.value("evening").toBool()?2:1;
-                    if(attention->property("currentIndex").toInt()!=expectedAttention){fail("attention selection follows reloaded draft after discard");return;}
+                    QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));startDate->setProperty("text",m_workspace.dateOffset(1));click("returnFromEditor");if(!guard->property("visible").toBool()){fail("attention draft leave guard");return;}click("discardDraft");QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));
+                    const auto stored=m_workspace.task(secondId);
+                    if(startDate->property("text")!=stored.value("startOn") || mainWindow->property("draftTodayFocus").toBool()!=stored.value("todayFocus").toBool()){fail("attention selection follows reloaded draft after discard");return;}
                     m_workspace.settingsFailed();QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));QMetaObject::invokeMethod(editor,"close");if(m_workspace.errorText().isEmpty() || m_workspace.validationError()){fail("persistence errors survive editor navigation");return;}m_workspace.clearError();
-                    m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);click("sidebarTasksHeader");click("sidebarPlanningHeader");click("sidebarLibraryHeader");
+                    m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);click("sidebarTasksHeader");click("sidebarLibraryHeader");click("sidebarTagsHeader");
                 } else if(phase==270) {
                     if(!capture(QStringLiteral("collapsed-navigation-dark-200"))){fail("navigation dark large text");return;}
-                    click("sidebarTasksHeader");click("sidebarPlanningHeader");click("sidebarLibraryHeader");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
+                    click("sidebarTasksHeader");click("sidebarLibraryHeader");click("sidebarTagsHeader");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
+
+                } else if(phase==271) {
+                    if(find("sidebarPlanning")){fail("retired planning group remains in sidebar");return;}QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("recurrence"))));
+                } else if(phase>=272 && phase<=308) {
+                    auto verifyPage=[&]{mainWindow->grabWindow();QVariant result;const bool called=QMetaObject::invokeMethod(mainWindow,"verifyWorkspacePage",Q_RETURN_ARG(QVariant,result));if(!called || result.toString()!=QStringLiteral("PASS")){qCritical()<<"Workspace page:"<<result;capture(QStringLiteral("workspace-page-failure"));}return called && result.toString()==QStringLiteral("PASS");};
+                    auto openPage=[&](const QString& name){QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(name)));};
+                    auto* ruleGuard=find("unsavedChangesDialog");
+                    auto* library=find("organizationPage");auto* libraryTitle=find("organizationTitle");auto* libraryGuard=find("organizationDiscard");
+                    if(phase==272) {
+                        if(m_workspace.view()!=QStringLiteral("repeating") || !find("taskList")->property("visible").toBool() || !capture(QStringLiteral("repeating-filter-list"))){fail("loop tasks use normal list and row commands");return;}QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));auto* repeat=find("taskRepeating");QMetaObject::invokeMethod(repeat,"toggle");QMetaObject::invokeMethod(repeat,"clicked");QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));
+                } else if(phase==273) {
+                        if(!ruleGuard->property("visible").toBool() || !mainWindow->property("draftDirty").toBool()){fail("repeat draft guards list navigation");return;}click("cancelLeave");
+                } else if(phase==274) {
+                        if(!editor->property("visible").toBool() || !mainWindow->property("draftDirty").toBool()){fail("repeat task navigation cancellation retains editor");return;}click("showCalendarView");
+                } else if(phase==275) {
+                        if(!ruleGuard->property("visible").toBool()){fail("calendar view switch guards task draft");return;}click("discardDraft");
+                } else if(phase==276) {
+                        if(m_workspace.view()!=QStringLiteral("month") || !find("showCalendarView")->property("checked").toBool() || !capture(QStringLiteral("calendar-view-switch"))){fail("top calendar icon switches selected view");return;}openPage(QStringLiteral("organization"));
+                } else if(phase==277) {
+                        if(!verifyPage() || !capture(QStringLiteral("library-content-page"))){fail("library uses main content");return;}
+                        QMetaObject::invokeMethod(library,"choose",Q_ARG(QVariant,m_workspace.categoryTree().first()));libraryTitle->setProperty("text",QStringLiteral("未保存的分类"));QMetaObject::invokeMethod(libraryTitle,"textEdited");openPage(QStringLiteral("notifications"));
+                    } else if(phase==278) {
+                        if(!libraryGuard->property("visible").toBool()){fail("library page navigation guard");return;}QMetaObject::invokeMethod(libraryGuard,"reject");
+                    } else if(phase==279) {
+                        if(mainWindow->property("toolPage").toString()!=QStringLiteral("organization") || libraryTitle->property("text").toString()!=QStringLiteral("未保存的分类")){fail("library cancel retains draft");return;}openPage(QStringLiteral("notifications"));
+                    } else if(phase==280) {QMetaObject::invokeMethod(libraryGuard,"accept");}
+                    else if(phase==281) {
+                        if(mainWindow->property("toolPage").toString()!=QStringLiteral("notifications") || !verifyPage() || !capture(QStringLiteral("reminder-history-page"))){fail("reminder toolbar opens history page");return;}
+                        for(const auto& item:m_workspace.catalogOf(QStringLiteral("project")))if(item.toMap().value("title").toString()==QStringLiteral("未保存的分类")){fail("discarded library draft was saved");return;}
+                        click("returnFromWorkspacePage");click("sidebarLibraryCreate");
+                    } else if(phase==282) {if(!find("catalogCreateDialog")->property("visible").toBool()){fail("category plus directly opens shared creator");return;}}
+                    else if(phase==283) {
+                        if(!find("catalogCreateDialog")->property("visible").toBool() || find("catalogCreateDialog")->property("selectAfterCreate").toBool()){fail("sidebar creates without task draft selection");return;}
+                        find("newCatalogName")->setProperty("text",QStringLiteral("导航验收分类"));click("createCatalogHere");
+                    } else if(phase==284) {
+                        QString created;for(const auto& item:m_workspace.catalogOf(QStringLiteral("project")))if(item.toMap().value("title").toString()==QStringLiteral("导航验收分类"))created=item.toMap().value("id").toString();
+                        if(created.isEmpty() || m_workspace.view()!=QStringLiteral("project:")+created || !mainWindow->property("toolPage").toString().isEmpty()){fail("created sidebar project is the actual destination");return;}
+                        QMetaObject::invokeMethod(mainWindow,"editCurrentCatalog");
+                    } else if(phase==285) {
+                        if(!find("catalogEditPopup")->property("visible").toBool() || !mainWindow->property("toolPage").toString().isEmpty() || !capture(QStringLiteral("contextual-category-popup"))){fail("category context opens local editor");return;}
+                        m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);
+                    } else if(phase==286) {
+                        auto* popup=find("catalogEditPopup");if(!popup->property("visible").toBool() || popup->property("height").toDouble()>mainWindow->height()-31 || !capture(QStringLiteral("catalog-popup-dark-200"))){fail("catalog popup narrow large text");return;}QMetaObject::invokeMethod(popup,"close");QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));QMetaObject::invokeMethod(mainWindow,"revealTimingForVerification");
+                } else if(phase==287) {
+                        if(!editor->property("visible").toBool() || !capture(QStringLiteral("task-repeat-controls-dark-200"))){fail("repeat controls in shared detail at 200 percent");return;}QMetaObject::invokeMethod(editor,"close");openPage(QStringLiteral("notifications"));
+                } else if(phase==288) {
+                        if(!verifyPage() || !capture(QStringLiteral("reminder-page-dark-200"))){fail("history page large text");return;}m_workspace.setPreference(QStringLiteral("sidebarCollapsed"),true);
+                    } else if(phase==289) {
+                        if(!verifyPage() || !find("toggleSidebar")->property("visible").toBool()){fail("page retains sidebar recovery");return;}click("toggleSidebar");click("returnFromWorkspacePage");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
+                    } else if(phase==290) {
+                        QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));editTitle->setProperty("text",QStringLiteral("页面导航前的任务草稿"));openPage(QStringLiteral("organization"));
+                    } else if(phase==291) {
+                        if(!guard->property("visible").toBool()){fail("task draft protects page navigation");return;}click("cancelLeave");
+                    } else if(phase==292) {
+                        if(!mainWindow->property("toolPage").toString().isEmpty() || editTitle->property("text").toString()!=QStringLiteral("页面导航前的任务草稿")){fail("task navigation cancel keeps context");return;}openPage(QStringLiteral("organization"));click("discardDraft");
+                    } else if(phase==293) {
+                        if(!verifyPage() || m_workspace.task(secondId).value("title").toString()==QStringLiteral("页面导航前的任务草稿")){fail("task discard opens page without saving");return;}click("returnFromWorkspacePage");
+                    } else if(phase==294) {
+                        if(!mainWindow->property("toolPage").toString().isEmpty() || mainWindow->property("toolModalOpen").toBool()){fail("pages return to unobstructed content");return;}
+                        QMetaObject::invokeMethod(mainWindow,"manageCatalog",Q_ARG(QVariant,QVariant(QStringLiteral("tag"))));
+                    } else if(phase==295) {
+                        if(library->property("filterKind").toString()!=QStringLiteral("tag") || !verifyPage() || !capture(QStringLiteral("tag-management-page"))){fail("tags have their own management context");return;}
+                        QMetaObject::invokeMethod(library,"choose",Q_ARG(QVariant,m_workspace.catalogOf(QStringLiteral("tag")).first()));libraryTitle->setProperty("text",QStringLiteral("标签草稿"));QMetaObject::invokeMethod(libraryTitle,"textEdited");
+                        QMetaObject::invokeMethod(find("catalogPageTabs"),"activateForVerification",Q_ARG(QVariant,QVariant(0)));
+                    } else if(phase==296) {
+                        if(!libraryGuard->property("visible").toBool()){fail("concept tabs protect the current draft");return;}QMetaObject::invokeMethod(libraryGuard,"reject");
+                    } else if(phase==297) {
+                        if(library->property("filterKind").toString()!=QStringLiteral("tag") || libraryTitle->property("text").toString()!=QStringLiteral("标签草稿")){fail("cancel concept switch retains type and draft");return;}
+                        QMetaObject::invokeMethod(find("catalogPageTabs"),"activateForVerification",Q_ARG(QVariant,QVariant(0)));QMetaObject::invokeMethod(libraryGuard,"accept");
+                    } else if(phase==298) {
+                        if(library->property("filterKind").toString()!=QStringLiteral("project") || library->property("editing").toBool() || !verifyPage()){fail("discard switches concepts without a blank generic form");return;}
+                        click("returnFromWorkspacePage");click("sidebarTagsCreate");
+                    } else if(phase==299) {
+                        auto* dialog=find("catalogCreateDialog");if(!dialog->property("visible").toBool() || dialog->property("kind").toString()!=QStringLiteral("tag") || dialog->property("selectAfterCreate").toBool()){fail("tag sidebar creates a cross-cutting label");return;}QMetaObject::invokeMethod(dialog,"close");
+                    } else if(phase==300) {
+                        if(!m_workspace.saveCatalog({{"kind",QStringLiteral("area")},{"title",QStringLiteral("工作（示例）")}})){fail("philosophy example area");return;}
+                    } else if(phase==301) {
+                        QString area;for(const auto& value:m_workspace.catalogOf(QStringLiteral("area")))if(value.toMap().value("title").toString()==QStringLiteral("工作（示例）"))area=value.toMap().value("id").toString();
+                        if(area.isEmpty() || !m_workspace.saveCatalog({{"kind",QStringLiteral("project")},{"title",QStringLiteral("发布 Daymark 1.0（示例）")},{"parentId",area}})){fail("project belongs to a responsibility");return;}
+                    } else if(phase==302) {if(!m_workspace.saveCatalog({{"kind",QStringLiteral("tag")},{"title",QStringLiteral("电话（示例）")}})){fail("philosophy cross-cutting tag");return;}}
+                    else if(phase==303) {
+                        m_workspace.setPreference(QStringLiteral("sidebarTasksExpanded"),false);m_workspace.setPreference(QStringLiteral("sidebarPlanningExpanded"),false);m_workspace.setPreference(QStringLiteral("sidebarLibraryExpanded"),true);m_workspace.setPreference(QStringLiteral("sidebarTagsExpanded"),true);
+                    } else if(phase==304) {
+                        bool nested=false;for(const auto& entry:m_workspace.navigationCatalog())if(entry.toMap().value("title").toString()==QStringLiteral("发布 Daymark 1.0（示例）"))nested=entry.toMap().value("depth").toInt()==1;
+                        if(!nested || !capture(QStringLiteral("ownership-and-tags"))){fail("sidebar shows responsibility-result hierarchy separately from labels");return;}
+                        m_workspace.setPreference(QStringLiteral("sidebarTasksExpanded"),true);m_workspace.setPreference(QStringLiteral("sidebarPlanningExpanded"),true);
+                    } else if(phase==305) {
+                        openPage(QStringLiteral("schedules"));
+                    } else if(phase==306) {
+                        if(m_workspace.view()!=QStringLiteral("repeating") || m_workspace.tasks()->rowCount()<1){fail("repeating task filter has actual instances");return;}const auto id=m_workspace.tasks()->data(m_workspace.tasks()->index(0),TaskListModel::Id).toString();QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(id)));if(!editor->property("visible").toBool() || !find("taskRepeating")->property("checked").toBool()){fail("repeat list opens the ordinary task editor");return;}QMetaObject::invokeMethod(editor,"close");
+                } else if(phase==307) {
+                        QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));
+                }
+                    else if(phase==308) {
+                        if(!mainWindow->property("toolPage").toString().isEmpty() || mainWindow->property("toolModalOpen").toBool()){fail("concept pages finish without hidden modals");return;}
+                    }
+
+                } else if(phase>=309 && phase<=332) {
+                    auto* deadline=find("editDeadlineDate");auto* picker=find("taskDatePicker");auto* panel=find("calendarPanel");
+                    auto movePointer=[&](QEvent::Type type,const QPointF& point){QMouseEvent event(type,point,mainWindow->mapToGlobal(point),type==QEvent::MouseMove?Qt::NoButton:Qt::LeftButton,type==QEvent::MouseButtonRelease?Qt::NoButton:Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&event);};
+                    auto startDrag=[&]{auto* list=find("taskList");list->setProperty("currentIndex",m_workspace.taskIndex(dragSource));QMetaObject::invokeMethod(list,"forceLayout");QMetaObject::invokeMethod(list,"positionViewAtIndex",Q_ARG(int,m_workspace.taskIndex(dragSource)),Q_ARG(int,4));mainWindow->grabWindow();auto* row=findRow(dragSource);if(!row || !row->property("canDrag").toBool()){qCritical()<<"Navigation drag row"<<phase<<row<<m_workspace.taskIndex(dragSource)<<m_workspace.view();return false;}row->forceActiveFocus();mainWindow->grabWindow();auto* handle=row->findChild<QQuickItem*>(QStringLiteral("taskDragHandle"));if(!handle)return false;auto* viewport=qobject_cast<QQuickItem*>(list);auto inList=handle->mapToItem(viewport,QPointF(handle->width()/2,handle->height()/2));if(!viewport->contains(inList)){const auto origin=list->property("originY").toDouble(),maximum=origin+qMax(0.0,list->property("contentHeight").toDouble()-viewport->height());list->setProperty("contentY",qBound(origin,list->property("contentY").toDouble()+inList.y()-viewport->height()/2,maximum));mainWindow->grabWindow();inList=handle->mapToItem(viewport,QPointF(handle->width()/2,handle->height()/2));}if(!viewport->contains(inList)){qCritical()<<"Navigation drag clip"<<phase<<inList<<viewport->size()<<list->property("contentY")<<list->property("contentHeight");return false;}dragPosition=handle->mapToScene(QPointF(handle->width()/2,handle->height()/2));movePointer(QEvent::MouseButtonPress,dragPosition);if(!row->property("dragArmed").toBool())qCritical()<<"Navigation drag press"<<row<<row->isVisible()<<row->property("canDrag")<<handle->isVisible()<<handle->mapToScene(QPointF())<<mainWindow->property("editingActive");return row->property("dragArmed").toBool();};
+                    std::function<QQuickItem*(QQuickItem*,const QString&)> visual=[&](QQuickItem* item,const QString& name)->QQuickItem*{if(item->objectName()==name)return item;for(auto* child:item->childItems())if(auto* result=visual(child,name))return result;return nullptr;};
+                    auto targetPoint=[&](const char* name){auto* target=visual(mainWindow->contentItem(),QString::fromLatin1(name));if(!target){fail("navigation destination missing from visual tree");return QPointF();}return target->mapToScene(QPointF(target->width()/2,target->height()/2));};
+                    auto positionTask=[&]{QMetaObject::invokeMethod(mainWindow,"revealTaskForVerification",Q_ARG(QVariant,QVariant(dragSource)));};
+                    if(phase==309){m_workspace.setView(QStringLiteral("inbox"));m_workspace.createTask(QStringLiteral("直接操作与跨天范围"));}
+                    else if(phase==310){dragSource.clear();for(const auto& task:m_workspace.tasks()->items())if(task.title==QStringLiteral("直接操作与跨天范围"))dragSource=task.id;if(dragSource.isEmpty()){fail("direct action task");return;}positionTask();}
+                    else if(phase==311){
+                        auto* row=findRow(dragSource);auto* details=row?row->findChild<QQuickItem*>(QStringLiteral("taskDetails-")+dragSource):nullptr;
+                        if(!details){fail("direct detail button missing");return;}const auto point=details->mapToScene(QPointF(details->width()/2,details->height()/2));movePointer(QEvent::MouseButtonPress,point);movePointer(QEvent::MouseButtonRelease,point);
+                        if(!editor->property("visible").toBool() || quick->property("editing").toBool()){fail("row button directly opens complete details");return;}
+                        startDate->setProperty("text",m_workspace.dateOffset(0));deadline->setProperty("text",m_workspace.dateOffset(5));
+                        if(mainWindow->property("draftPlanningState").toString()!=QStringLiteral("ACTIVE")){fail("dates activate legacy inbox draft");return;}click("saveTaskEditor");
+                    } else if(phase==312){
+                        const auto task=m_workspace.task(dragSource);if(task.value("startOn").toString()!=m_workspace.dateOffset(0) || task.value("deadlineOn").toString()!=m_workspace.dateOffset(5)){fail("date draft persists");return;}
+                        m_workspace.setView(QStringLiteral("all"));positionTask();
+                    } else if(phase==313){if(m_workspace.tasks()->rowCount()<1 || m_workspace.view()!=QStringLiteral("all")){fail("all view keeps dated unclassified task");return;}positionTask();}
+                    else if(phase==314){auto* row=findRow(dragSource);if(!row || !row->property("canReorder").toBool() || !startDrag()){fail("all view task can reorder and drag to smart view");return;}}
+                    else if(phase==315){dragPosition=targetPoint("navigation-today");movePointer(QEvent::MouseMove,dragPosition);}
+                    else if(phase==316){auto* destination=visual(mainWindow->contentItem(),QStringLiteral("navigation-todayDropTarget"));if(!destination || !destination->property("containsDrag").toBool() || !destination->parentItem()->property("taskDropActive").toBool() || !capture(QStringLiteral("task-navigation-drop"))){fail("sidebar highlights actual task drag");return;}movePointer(QEvent::MouseButtonRelease,dragPosition);}
+                    else if(phase==317){const auto task=m_workspace.task(dragSource);if(task.value("planningState")!=QStringLiteral("ACTIVE") || !task.value("todayFocus").toBool()){fail("sidebar today drop commits");return;}m_workspace.setView(QStringLiteral("today"));positionTask();}
+                    else if(phase==318){if(!startDrag()){fail("upcoming drag setup");return;}}
+                    else if(phase==319){dragPosition=targetPoint("navigation-scheduled");movePointer(QEvent::MouseMove,dragPosition);}
+                    else if(phase==320){movePointer(QEvent::MouseButtonRelease,dragPosition);}
+                    else if(phase==321){if(!picker->property("visible").toBool() || picker->property("field")!=QStringLiteral("upcoming")){fail("upcoming drop asks for future date");return;}QMetaObject::invokeMethod(picker,"dateSelected",Q_ARG(QString,m_workspace.dateOffset(2)),Q_ARG(QString,QStringLiteral("upcoming")));QMetaObject::invokeMethod(picker,"close");}
+                    else if(phase==322){const auto task=m_workspace.task(dragSource);if(task.value("startOn").toString()!=m_workspace.dateOffset(2) || task.value("todayFocus").toBool()){fail("upcoming drop commits selected date");return;}QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(dragSource)));startDate->setProperty("text",QStringLiteral("2026-10-24"));deadline->setProperty("text",QStringLiteral("2026-11-20"));click("saveTaskEditor");}
+                    else if(phase==323){if(m_workspace.task(dragSource).value("deadlineOn")!=QStringLiteral("2026-11-20")){fail("range task saved");return;}m_workspace.setView(QStringLiteral("month"));QMetaObject::invokeMethod(panel,"jumpToDate",Q_ARG(QVariant,QVariant(QStringLiteral("2026-10-24"))));}
+                    else if(phase==324 || phase==326 || phase==328){
+                        mainWindow->grabWindow();QMetaObject::invokeMethod(panel,"focusSelected");mainWindow->grabWindow();
+                        std::function<QQuickItem*(QQuickItem*)> scan=[&](QQuickItem* item)->QQuickItem*{if(item->objectName()==QStringLiteral("calendarTaskRange-")+dragSource && item->isVisible())return item;for(auto* child:item->childItems())if(auto* found=scan(child))return found;return nullptr;};auto* band=scan(mainWindow->contentItem());
+                        if(!band || band->width()<=0 || !capture(phase==324?QStringLiteral("task-range-month"):phase==326?QStringLiteral("task-range-dark-200"):QStringLiteral("task-range-without-events"))){fail("task range is rendered and remains visible without events");return;}
+                        if(phase==324)QMetaObject::invokeMethod(band,"inspect");
+                    } else if(phase==325){if(!editor->property("visible").toBool() || mainWindow->property("editId").toString()!=dragSource){fail("range opens the same complete task");return;}QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);}
+                    else if(phase==327){panel->setProperty("showEvents",false);}
+                    else if(phase==329){panel->setProperty("showEvents",true);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(mainWindow,"moveTaskToNavigation",Q_ARG(QVariant,QVariant(dragSource)),Q_ARG(QVariant,m_workspace.task(dragSource).value("rowVersion")),Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));}
+                    else if(phase==330){const auto task=m_workspace.task(dragSource);if(task.value("deadlineOn")!=QStringLiteral("2026-11-20") || task.value("startOn")!=QStringLiteral("2026-10-24") || !task.value("projectId").toString().isEmpty()){fail("inbox move preserves dates and clears classification");return;}m_workspace.setView(QStringLiteral("inbox"));}
+                    else if(phase==331){if(m_workspace.taskIndex(dragSource)<0){fail("dated task belongs to default inbox");return;}m_workspace.setView(QStringLiteral("scheduled"));}
+                    else if(phase==332){if(m_workspace.taskIndex(dragSource)<0){fail("dated inbox task also belongs to plan");return;}m_workspace.setView(QStringLiteral("inbox"));}
+                } else if(phase>=333 && phase<=371) {
+                    auto blankClick=[&]{auto* list=qobject_cast<QQuickItem*>(find("taskList"));mainWindow->grabWindow();const auto at=list->mapToScene(QPointF(list->width()/2,list->height()-8));QMouseEvent press(QEvent::MouseButtonPress,at,mainWindow->mapToGlobal(at),Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);press.setTimestamp(inputClock->elapsed());QCoreApplication::sendEvent(mainWindow,&press);QMouseEvent release(QEvent::MouseButtonRelease,at,mainWindow->mapToGlobal(at),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);release.setTimestamp(inputClock->elapsed()+1);QCoreApplication::sendEvent(mainWindow,&release);};
+                    auto category=[&]{for(const auto& value:m_workspace.categoryTree())if(value.toMap().value("title")==QStringLiteral("二级流程验收"))return value.toMap();return QVariantMap{};};
+                    if(phase==333){mainWindow->resize(1120,800);m_workspace.setSearch(m_workspace.task(dragSource).value("title").toString());}
+                    else if(phase==334){if(m_workspace.tasks()->rowCount()!=1)return;QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(dragSource)));}
+                    else if(phase==335){if(!quick->property("visible").toBool()){fail("blank click setup inline editor");return;}blankClick();}
+                    else if(phase==336){if(quick->property("visible").toBool()){fail("blank click collapses unchanged inline task");return;}QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(dragSource)));}
+                    else if(phase==337){QMetaObject::invokeMethod(quick,"titleEdited",Q_ARG(QString,QStringLiteral("搜索离开自动保存")));blankClick();}
+                    else if(phase==338){if(quick->property("visible").toBool() || editor->property("visible").toBool() || guard->property("visible").toBool() || m_workspace.task(dragSource).value("title")!=QStringLiteral("搜索离开自动保存")){fail("blank autosave exits even when edited title leaves search");return;}m_workspace.setSearch(QStringLiteral("搜索离开自动保存"));if(m_workspace.taskIndex(dragSource)<0)return;QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(dragSource)));}
+                    else if(phase==339){QMetaObject::invokeMethod(quick,"titleEdited",Q_ARG(QString,QString()));blankClick();}
+                    else if(phase==340){if(!quick->property("visible").toBool() || m_workspace.errorText().isEmpty() || m_workspace.task(dragSource).value("title")!=QStringLiteral("搜索离开自动保存")){fail("invalid blank autosave stays in editor and preserves stored task");return;}QMetaObject::invokeMethod(quick,"titleEdited",Q_ARG(QString,m_workspace.task(dragSource).value("title").toString()));mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(quick,"close");m_workspace.clearError();m_workspace.setSearch(QString());QMetaObject::invokeMethod(mainWindow,"createChildCategory",Q_ARG(QVariant,QVariant(detailProjectId)));}
+                    else if(phase==341){if(!creator->property("visible").toBool() || find("newCategoryParent")->property("currentIndex").toInt()<1 || !capture(QStringLiteral("category-create-child"))){fail("child creation carries parent context");return;}find("newCatalogName")->setProperty("text",QStringLiteral("二级流程验收"));click("createCatalogHere");}
+                    else if(phase==342){const auto item=category();if(item.value("parentId").toString()!=detailProjectId || item.value("depth").toInt()!=1){fail("creator writes actual second-level category");return;}QMetaObject::invokeMethod(mainWindow,"manageCatalogItem",Q_ARG(QVariant,QVariant(item)),Q_ARG(QVariant,QVariant(true)));}
+                    else if(phase==343){if(!find("categoryMoveDialog")->property("visible").toBool() || !capture(QStringLiteral("category-move-preview"))){fail("navigation opens category move preview");return;}find("categoryMoveParent")->setProperty("currentIndex",0);click("confirmCategoryMove");}
+                    else if(phase==344){const auto item=category();auto* page=find("organizationPage");if(!item.value("parentId").toString().isEmpty() || page->property("selected").toMap().value("id")!=item.value("id") || find("categoryMoveDialog")->property("visible").toBool()){fail("promotion keeps selected category and closes preview");return;}QMetaObject::invokeMethod(page,"showMove");}
+                    else if(phase==345){auto* page=find("organizationPage");const auto roots=page->property("moveRoots").toList();int target=-1;for(int i=0;i<roots.size();++i)if(roots[i].toMap().value("id")==detailProjectId)target=i+1;if(target<1){fail("demotion parent choices");return;}find("categoryMoveParent")->setProperty("currentIndex",target);click("confirmCategoryMove");}
+                    else if(phase==346){if(category().value("parentId")!=detailProjectId){fail("demotion refreshes hierarchy");return;}QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("project:")+detailProjectId)));}
+                    else if(phase==347){std::function<bool(QQuickItem*)> folders=[&](QQuickItem* item){if(item->objectName().startsWith(QStringLiteral("categoryNav-")) && item->property("symbol").isValid() && item->property("symbol").toString()!=QStringLiteral("folder"))return false;for(auto* child:item->childItems())if(!folders(child))return false;return true;};if(!folders(mainWindow->contentItem())){fail("all category levels share folder icon");return;}auto* toggle=qobject_cast<QQuickItem*>(find("toggleSidebar"));if(!toggle || toggle->mapToScene(QPointF(toggle->width(),0)).x()>mainWindow->property("sidebarWidth").toDouble()+1 || !capture(QStringLiteral("category-navigation-tree"))){fail("navigation owns its toggle");return;}auto* views=qobject_cast<QQuickItem*>(find("contentViewSwitch"));dragPosition=views->mapToScene(QPointF());click("showCalendarView");}
+                    else if(phase==348){auto* views=qobject_cast<QQuickItem*>(find("contentViewSwitch"));if(QLineF(dragPosition,views->mapToScene(QPointF())).length()>1){fail("view icons remain fixed from list to calendar");return;}click("showListView");}
+                    else if(phase==349){auto* views=qobject_cast<QQuickItem*>(find("contentViewSwitch"));if(QLineF(dragPosition,views->mapToScene(QPointF())).length()>1){fail("view icons remain fixed on return");return;}m_workspace.setSearch(QString());m_workspace.setView(QStringLiteral("inbox"));}
+                    else if(phase==350){QMetaObject::invokeMethod(mainWindow,"manageCatalogItem",Q_ARG(QVariant,QVariant(category())),Q_ARG(QVariant,QVariant(false)));m_workspace.setThemeMode(2);m_workspace.setTextScale(2);mainWindow->resize(880,580);}
+                    else if(phase==351){if(!capture(QStringLiteral("category-manager-dark-200"))){fail("large-text category manager");return;}QMetaObject::invokeMethod(mainWindow,"returnToContent");m_workspace.setThemeMode(1);m_workspace.setTextScale(1);mainWindow->resize(1120,720);}
+                    else if(phase==352){
+                        const auto nav=m_workspace.navigationCatalog();int source=-1;for(int i=0;i<nav.size();++i)if(nav[i].toMap().value("id")==category().value("id"))source=i;
+                        int nearest=-1;for(int i=0;i<nav.size();++i){const auto item=nav[i].toMap();if(item.value("kind")!=QStringLiteral("project") || !item.value("parentId").toString().isEmpty() || item.value("id")==detailProjectId)continue;if(nearest<0 || qAbs(i-source)<qAbs(nearest-source))nearest=i;}
+                        if(source<0 || nearest<0){fail("category drag source and adjacent root");return;}dragSource=category().value("id").toString();dragTarget=nav[nearest].toMap().value("id").toString();
+                        std::function<QQuickItem*(QQuickItem*)> scan=[&](QQuickItem* item)->QQuickItem*{if(item->objectName()==QStringLiteral("categoryNav-")+dragSource)return item;for(auto* child:item->childItems())if(auto* found=scan(child))return found;return nullptr;};auto* row=scan(mainWindow->contentItem());auto* scroll=qvariant_cast<QObject*>(find("navigationScroll")->property("contentItem"));auto* flick=qobject_cast<QQuickItem*>(scroll);if(!row || !flick){fail("category drag geometry");return;}const auto y=row->mapToItem(qvariant_cast<QQuickItem*>(scroll->property("contentItem")),QPointF()).y();scroll->setProperty("contentY",qBound(0.0,y-flick->height()/2,qMax(0.0,scroll->property("contentHeight").toDouble()-flick->height())));
+                        mainWindow->grabWindow();const auto at=row->mapToScene(QPointF(row->width()/2,row->height()/2));QMouseEvent rightPress(QEvent::MouseButtonPress,at,mainWindow->mapToGlobal(at),Qt::RightButton,Qt::RightButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&rightPress);QMouseEvent rightRelease(QEvent::MouseButtonRelease,at,mainWindow->mapToGlobal(at),Qt::RightButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&rightRelease);auto* context=find("categoryContextMenu");if(!context->property("visible").toBool() || context->property("x").toDouble()>mainWindow->property("sidebarWidth").toDouble()+1 || mainWindow->property("catalogContextItem").toMap().value("id")!=dragSource){fail("actual category right click opens its own actions");return;}if(!capture(QStringLiteral("category-context-menu"))){fail("category context capture");return;}QMetaObject::invokeMethod(context,"close");
+                    }
+                    else if(phase>=353 && phase<=356){
+                        auto rowFor=[&](const QString& id){std::function<QQuickItem*(QQuickItem*)> scan=[&](QQuickItem* item)->QQuickItem*{if(item->objectName()==QStringLiteral("categoryNav-")+id)return item;for(auto* child:item->childItems())if(auto* found=scan(child))return found;return nullptr;};return scan(mainWindow->contentItem());};mainWindow->grabWindow();auto* row=rowFor(dragSource);auto* target=rowFor(dragTarget);if(!row || !target){fail("category pointer targets");return;}
+                        const auto start=row->mapToScene(QPointF(row->width()/2,row->height()/2)),end=target->mapToScene(QPointF(target->width()/2,target->height()/2));
+                        if(phase==353){dragPosition=start;QMouseEvent press(QEvent::MouseButtonPress,start,mainWindow->mapToGlobal(start),Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);press.setTimestamp(inputClock->elapsed());QCoreApplication::sendEvent(mainWindow,&press);}
+                        else {const auto at=phase==354 ? start+(end-start)*0.5 : end;QMouseEvent move(QEvent::MouseMove,at,mainWindow->mapToGlobal(at),Qt::NoButton,Qt::LeftButton,Qt::NoModifier);move.setTimestamp(inputClock->elapsed());QCoreApplication::sendEvent(mainWindow,&move);if(phase==355 && (!mainWindow->property("catalogDragActive").toBool() || !capture(QStringLiteral("category-drag-preview")))){fail("category pointer drag has preview");return;}if(phase==356){QMouseEvent release(QEvent::MouseButtonRelease,end,mainWindow->mapToGlobal(end),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);release.setTimestamp(inputClock->elapsed()+1);QCoreApplication::sendEvent(mainWindow,&release);}}
+                    }
+                    else if(phase==357){const auto item=category();if(item.value("parentId")!=dragTarget || mainWindow->property("catalogDragActive").toBool()){fail("pointer release reparents category atomically");return;}if(!capture(QStringLiteral("category-drag-result"))){fail("category drag result capture");return;}click("toggleListSubtasks");}
+                    else if(phase==358){if(m_workspace.preferences().value("listShowSubtasks").toBool()){fail("list child visibility quick action");return;}click("toggleListSubtasks");m_workspace.setView(QStringLiteral("anytime"));}
+                    else if(phase==359){
+                        dragStepFirst.clear();for(int i=0;i<m_workspace.tasks()->rowCount();++i)if(m_workspace.tasks()->data(m_workspace.tasks()->index(i),TaskListModel::Depth).toInt()>0){dragStepFirst=m_workspace.tasks()->data(m_workspace.tasks()->index(i),TaskListModel::Id).toString();break;}
+                        const auto index=m_workspace.taskIndex(dragStepFirst);if(index<0){fail("visible child fixture for inline indentation");return;}auto* list=find("taskList");list->setProperty("currentIndex",index);QMetaObject::invokeMethod(list,"positionViewAtIndex",Q_ARG(int,index),Q_ARG(int,4));
+                    }
+                    else if(phase==360){
+                        mainWindow->grabWindow();auto* row=findRow(dragStepFirst);QVariant positions;
+                        if(!row || !QMetaObject::invokeMethod(row,"columnPositions",Q_RETURN_ARG(QVariant,positions)) || positions.toMap().value("depth").toInt()<1 || !capture(QStringLiteral("task-list-hierarchy"))){fail("collapsed child column geometry");return;}inlineColumns=positions.toMap();QMetaObject::invokeMethod(mainWindow,"openQuickEditor",Q_ARG(QVariant,QVariant(dragStepFirst)));
+                    }
+                    else if(phase==361){
+                        mainWindow->grabWindow();auto* row=findRow(dragStepFirst);QVariant positions;
+                        if(!row || !row->property("expanded").toBool() || !QMetaObject::invokeMethod(row,"columnPositions",Q_RETURN_ARG(QVariant,positions))){fail("expanded child column geometry");return;}
+                        const auto after=positions.toMap();if(qAbs(after.value("completion").toDouble()-inlineColumns.value("completion").toDouble())>1 || qAbs(after.value("title").toDouble()-inlineColumns.value("title").toDouble())>1 || !capture(QStringLiteral("child-inline-alignment"))){qCritical()<<"Child columns before/after"<<inlineColumns<<after;fail("inline child preserves completion and title columns");return;}
+                        QMetaObject::invokeMethod(quick,"closeRequested");dragSource=dragTarget;dragTarget=detailProjectId;
+                        // Source now has a child: its centre cannot be dropped
+                        // into another category, but the edges must still sort.
+                        auto* scroll=qvariant_cast<QObject*>(find("navigationScroll")->property("contentItem"));scroll->setProperty("contentY",0);
+                        qint64 sourceVersion=0,targetVersion=0;for(const auto& value:m_workspace.categoryTree()){const auto item=value.toMap();if(item.value("id")==dragSource)sourceVersion=item.value("rowVersion").toLongLong();if(item.value("id")==dragTarget)targetVersion=item.value("rowVersion").toLongLong();}
+                        // Normalize the temporary fixture so the first pointer
+                        // gesture must actually move upward, regardless of UUID order.
+                        if(!sourceVersion || !targetVersion || !m_workspace.dropCategory(dragSource,sourceVersion,dragTarget,targetVersion,QStringLiteral("after"))){fail("category upward movement fixture");return;}
+                    }
+                    else if(phase>=362 && phase<=369){
+                        std::function<QQuickItem*(QQuickItem*,const QString&)> scan=[&](QQuickItem* item,const QString& id)->QQuickItem*{if(item->objectName()==QStringLiteral("categoryNav-")+id)return item;for(auto* child:item->childItems())if(auto* result=scan(child,id))return result;return nullptr;};
+                        mainWindow->grabWindow();auto* row=scan(mainWindow->contentItem(),dragSource);auto* target=scan(mainWindow->contentItem(),dragTarget);if(!row || !target){fail("category reorder pointer targets");return;}
+                        const bool before=phase<=365;const int step=(phase-362)%4;
+                        if(step==0){auto* viewport=qobject_cast<QQuickItem*>(qvariant_cast<QObject*>(find("navigationScroll")->property("contentItem")));if(!viewport){fail("category navigation viewport");return;}const auto minY=qMin(row->mapToItem(viewport,QPointF()).y(),target->mapToItem(viewport,QPointF()).y()),maxY=qMax(row->mapToItem(viewport,QPointF(0,row->height())).y(),target->mapToItem(viewport,QPointF(0,target->height())).y());const auto current=viewport->property("contentY").toDouble();if(minY<40)viewport->setProperty("contentY",qMax(0.0,current+minY-40));else if(maxY>viewport->height()-40)viewport->setProperty("contentY",current+maxY-viewport->height()+40);mainWindow->grabWindow();}
+                        const auto start=row->mapToScene(QPointF(row->width()*0.6,row->height()/2)),centre=target->mapToScene(QPointF(target->width()*0.6,target->height()/2));
+                        auto send=[&](QEvent::Type type,const QPointF& at){QMouseEvent event(type,at,mainWindow->mapToGlobal(at),type==QEvent::MouseMove?Qt::NoButton:Qt::LeftButton,type==QEvent::MouseButtonRelease?Qt::NoButton:Qt::LeftButton,Qt::NoModifier);event.setTimestamp(inputClock->elapsed());QCoreApplication::sendEvent(mainWindow,&event);};
+                        if(step==0){
+                            if(!row->property("hasChildren").toBool()){fail("reorder fixture retains child category");return;}
+                            if(before && start.y()<=centre.y()){fail("upward drag starts below its target");return;}
+                            if(!before){const auto nav=m_workspace.navigationCatalog();int source=-1,destination=-1;for(int i=0;i<nav.size();++i){const auto item=nav[i].toMap();if(item.value("id")==dragSource){source=i;if(!item.value("parentId").toString().isEmpty()){fail("upward edge preserves root level");return;}}if(item.value("id")==dragTarget)destination=i;}if(source<0 || destination<0 || source>=destination){fail("actual upward release persists category order");return;}}
+                            send(QEvent::MouseButtonPress,start);send(QEvent::MouseMove,start+(centre-start)*0.5);
+                        }
+                        else if(step==1)send(QEvent::MouseMove,centre);
+                        else if(step==2){if(!mainWindow->property("catalogDragActive").toBool() || !target->property("catalogDropActive").toBool() || target->property("catalogDropAllowed").toBool()){qCritical()<<"Category drag centre"<<phase<<start<<centre<<row->property("catalogDragging")<<target->property("catalogDropActive")<<target->property("catalogDropAllowed");fail("invalid category centre remains tracked without allowing nesting");return;}dragPosition=target->mapToScene(QPointF(target->width()*0.6,before?2:target->height()-2));send(QEvent::MouseMove,dragPosition);}
+                        else {if(!target->property("catalogDropAllowed").toBool() || target->property("catalogDropPlacement").toString()!=(before?QStringLiteral("before"):QStringLiteral("after")) || !capture(before?QStringLiteral("category-insert-before"):QStringLiteral("category-insert-after"))){fail("same-row edge recovers valid category insertion");return;}send(QEvent::MouseButtonRelease,dragPosition);}
+                    }
+                    else if(phase==370){
+                        const auto nav=m_workspace.navigationCatalog();int source=-1,target=-1;for(int i=0;i<nav.size();++i){const auto item=nav[i].toMap();if(item.value("id")==dragSource){source=i;if(!item.value("parentId").toString().isEmpty()){fail("edge sorting preserves root level");return;}}if(item.value("id")==dragTarget)target=i;}
+                        if(source<0 || target<0 || source<=target || mainWindow->property("catalogDragActive").toBool()){fail("actual downward release persists category order");return;}m_workspace.reload();
+                    }
+                    else if(phase==371){
+                        const auto nav=m_workspace.navigationCatalog();int source=-1,target=-1;for(int i=0;i<nav.size();++i){if(nav[i].toMap().value("id")==dragSource)source=i;if(nav[i].toMap().value("id")==dragTarget)target=i;}if(source<=target || target<0 || !capture(QStringLiteral("category-reordered-compact-navigation"))){fail("pointer category order survives reload");return;}
+                    }
+
+                } else if(phase>=372 && phase<=435) {
+                    auto position=[&]{QMetaObject::invokeMethod(mainWindow,"revealTaskForVerification",Q_ARG(QVariant,QVariant(dragSource)));};
+                    auto verifyForm=[&](QObject* surface){int rows=0;if(!surface || !surface->property("visible").toBool())return false;for(auto* row:surface->findChildren<QQuickItem*>(QStringLiteral("desktopFormRow"))){if(!row->isVisible())continue;QVariant result;if(!QMetaObject::invokeMethod(row,"verifyLayout",Q_RETURN_ARG(QVariant,result)) || result.toString()!=QStringLiteral("PASS")){qCritical()<<"Form row geometry:"<<result;return false;}++rows;}return rows>0;};
+                    if(phase==372){m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("today"))));m_workspace.createTask(QStringLiteral("父子联动验收"));}
+                    else if(phase==373){dragSource.clear();for(const auto& task:m_workspace.tasks()->items())if(task.title==QStringLiteral("父子联动验收"))dragSource=task.id;if(dragSource.isEmpty()){fail("tree UI fixture");return;}QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(dragSource)));QMetaObject::invokeMethod(mainWindow,"selectEditorTab",Q_ARG(QVariant,QVariant(1)));find("newSubtaskTitle")->setProperty("text",QStringLiteral("无独立日期的子任务"));QMetaObject::invokeMethod(find("newSubtaskTitle"),"accepted");}
+                    else if(phase==374){const auto children=m_workspace.subtaskChoices(dragSource);if(children.size()!=1 || mainWindow->property("editorTab").toInt()!=1){fail("real child creation tab");return;}dragStepFirst=children.first().toMap().value("taskId").toString();QMetaObject::invokeMethod(editor,"close");QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("today"))));position();}
+                    else if(phase==375){mainWindow->grabWindow();auto* row=findRow(dragSource);auto* link=row?row->findChild<QQuickItem*>(QStringLiteral("taskSubtasksLink-")+dragSource):nullptr;if(m_workspace.taskIndex(dragStepFirst)>=0 || !link || !link->isVisible() || find("toggleListSubtasks")->property("visible").toBool()){qCritical()<<"Smart child link"<<m_workspace.taskIndex(dragSource)<<m_workspace.taskIndex(dragStepFirst)<<row<<link<<(link ? link->isVisible() : false)<<m_workspace.tasks()->rowCount();fail("smart view keeps exact child membership and visible number link");return;}const auto at=link->mapToScene(QPointF(link->width()/2,link->height()/2));QMouseEvent press(QEvent::MouseButtonPress,at,mainWindow->mapToGlobal(at),Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&press);QMouseEvent release(QEvent::MouseButtonRelease,at,mainWindow->mapToGlobal(at),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&release);}
+                    else if(phase==376){if(!editor->property("visible").toBool() || mainWindow->property("editorTab").toInt()!=1 || mainWindow->property("editorRootId").toString()!=dragSource || !capture(QStringLiteral("smart-subtask-link-panel"))){fail("subtask link opens same parent child panel");return;}QMetaObject::invokeMethod(editor,"close");QMetaObject::invokeMethod(mainWindow,"requestDeleteTask",Q_ARG(QVariant,QVariant(dragSource)));if(!find("deleteParentConfirm")->property("visible").toBool()){fail("parent deletion explains whole subtree");return;}click("cancelDeleteParent");}
+                    else if(phase==377){if(m_workspace.task(dragSource).isEmpty() || m_workspace.task(dragStepFirst).isEmpty()){fail("cancel parent delete changes nothing");return;}QMetaObject::invokeMethod(mainWindow,"requestDeleteTask",Q_ARG(QVariant,QVariant(dragSource)));click("confirmDeleteParent");}
+                    else if(phase==378){if(!m_workspace.task(dragSource).isEmpty() || !m_workspace.task(dragStepFirst).isEmpty()){fail("confirmed parent delete removes entire tree from live cache");return;}m_workspace.setView(QStringLiteral("trash"));position();}
+                    else if(phase==379){mainWindow->grabWindow();auto* row=findRow(dragSource);auto* restore=row?row->findChild<QObject*>(QStringLiteral("taskDetails-")+dragSource):nullptr;if(!restore || !row->property("deleted").toBool() || m_workspace.taskIndex(dragStepFirst)<0 || !capture(QStringLiteral("recently-deleted-tree"))){fail("recently deleted exposes actual tree recovery");return;}QMetaObject::invokeMethod(restore,"clicked");}
+                    else if(phase==380){if(m_workspace.task(dragStepFirst).value("parentTaskId").toString()!=dragSource || m_workspace.task(dragSource).isEmpty()){fail("recently deleted recovery restores whole tree and cache");return;}QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("all"))));m_workspace.setTaskChildrenExpanded(dragSource,true);m_workspace.setPreference(QStringLiteral("listShowSubtasks"),true);position();}
+                    else if(phase==381){const auto child=m_workspace.taskIndex(dragStepFirst);if(child<0 || m_workspace.tasks()->items()[child].listDepth!=1 || !capture(QStringLiteral("all-grouped-category-tree"))){fail("ordinary all view displays child indentation");return;}auto* row=findRow(dragSource);if(!row){fail("parent completion row");return;}QMetaObject::invokeMethod(row,"completeRequested");}
+                    else if(phase==382){if(m_workspace.task(dragSource).value("taskStatus")!=QStringLiteral("COMPLETED") || m_workspace.task(dragStepFirst).value("taskStatus")!=QStringLiteral("COMPLETED")){fail("row completion cascades and refreshes all descendants");return;}QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("completed"))));position();}
+                    else if(phase==383){if(m_workspace.taskIndex(dragStepFirst)<0 || !capture(QStringLiteral("completed-by-month"))){fail("completed view includes finished child");return;}auto* row=findRow(dragSource);if(!row){fail("completed parent row");return;}QMetaObject::invokeMethod(row,"completeRequested");}
+                    else if(phase==384){if(m_workspace.task(dragStepFirst).value("taskStatus")!=QStringLiteral("OPEN")){fail("reopening completed parent restores same-operation child");return;}QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("scheduled"))));position();}
+                    else if(phase==385){if(m_workspace.taskIndex(dragSource)<0 || m_workspace.taskIndex(dragStepFirst)>=0 || !capture(QStringLiteral("scheduled-date-groups"))){fail("plan has its own precise dated membership");return;}const auto item=m_workspace.task(dragSource);m_workspace.saveDetails(dragSource,item.value("rowVersion").toLongLong(),{{"important",true}});}
+                    else if(phase==386){QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("important"))));position();}
+                    else if(phase==387){if(m_workspace.taskIndex(dragSource)<0 || m_workspace.taskIndex(dragStepFirst)>=0 || !capture(QStringLiteral("flagged-view"))){fail("flagged view does not inherit importance to children");return;}std::function<QQuickItem*(QQuickItem*,const QString&)> tile=[&](QQuickItem* item,const QString& name)->QQuickItem*{if(item->objectName()==name)return item;for(auto* child:item->childItems())if(auto* found=tile(child,name))return found;return nullptr;};for(const char* name:{"navigation-today","navigation-scheduled","navigation-all","navigation-important","navigation-completed"})if(!tile(mainWindow->contentItem(),QString::fromLatin1(name))){fail("five smart view navigation tiles");return;}QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("today"))));position();}
+                    else if(phase==388){mainWindow->grabWindow();auto* row=findRow(dragSource);QVariant geometry;if(!row || !QMetaObject::invokeMethod(row,"verifyGeometry",Q_RETURN_ARG(QVariant,geometry)) || geometry.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("today-compact-smart-view"))){qCritical()<<"Task row geometry"<<geometry;fail("compact smart task row metadata geometry");return;}m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("all"))));position();}
+                    else if(phase==389){mainWindow->grabWindow();auto* row=findRow(dragSource);if(!row){position();return;}QVariant geometry;if(!row || !QMetaObject::invokeMethod(row,"verifyGeometry",Q_RETURN_ARG(QVariant,geometry)) || geometry.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("compact-all-dark-200"))){qCritical()<<"Large row geometry:"<<geometry<<row<<m_workspace.taskIndex(dragSource)<<find("taskList")->property("contentY")<<find("taskList")->property("originY");capture(QStringLiteral("compact-tree-geometry-failure"));fail("compact tree large-text row geometry");return;}}
+                    else if(phase==390){m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QVariantMap category;for(const auto& value:m_workspace.categoryTree())if(value.toMap().value("id").toString()==detailProjectId)category=value.toMap();if(category.isEmpty()){fail("local category edit fixture");return;}QMetaObject::invokeMethod(mainWindow,"manageCatalogItem",Q_ARG(QVariant,QVariant(category)),Q_ARG(QVariant,QVariant(false)));}
+                    else if(phase==391){if(!find("catalogEditPopup")->property("visible").toBool()){fail("local category editor visible");return;}find("catalogEditName")->setProperty("text",QString());QMetaObject::invokeMethod(find("catalogEditName"),"textEdited");click("saveCatalogEdit");}
+                    else if(phase==392){if(!find("catalogEditPopup")->property("visible").toBool() || m_workspace.errorText().isEmpty()){fail("category validation failure retains local draft");return;}find("catalogEditName")->setProperty("text",QStringLiteral("就近分类编辑已保存"));QMetaObject::invokeMethod(find("catalogEditName"),"textEdited");click("saveCatalogEdit");}
+                    else if(phase==393){activateSmokeWindow(mainWindow);QVariantMap category;for(const auto& value:m_workspace.categoryTree())if(value.toMap().value("id").toString()==detailProjectId)category=value.toMap();if(find("catalogEditPopup")->property("visible").toBool() || category.value("title").toString()!=QStringLiteral("就近分类编辑已保存")){fail("local category editor persists and closes on success");return;}QMetaObject::invokeMethod(mainWindow,"manageCatalogItem",Q_ARG(QVariant,QVariant(category)),Q_ARG(QVariant,QVariant(false)));}
+                    else if(phase==394){static bool diagnosed=false;if(!diagnosed){diagnosed=true;qInfo()<<"Category keyboard precondition:"<<mainWindow->isActive()<<find("catalogEditPopup")->property("visible")<<find("catalogEditPopup")->property("opened")<<QGuiApplication::focusWindow();}if(QGuiApplication::platformName()!=QStringLiteral("offscreen") && !mainWindow->isActive()){activateSmokeWindow(mainWindow);return;}if(!find("catalogEditPopup")->property("opened").toBool())return;find("catalogEditName")->setProperty("text",QStringLiteral("未保存的就近修改"));QMetaObject::invokeMethod(find("catalogEditName"),"textEdited");QKeyEvent escape(QEvent::KeyPress,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&escape);}
+                    else if(phase==395){if(!find("catalogEditDiscard")->property("visible").toBool() || !find("catalogEditPopup")->property("visible").toBool()){qCritical()<<"Category escape:"<<find("catalogEditPopup")->property("dirty")<<find("catalogEditPopup")->property("visible")<<find("catalogEditPopup")->property("opened")<<find("catalogEditDiscard")->property("visible")<<mainWindow->isActive()<<QGuiApplication::focusWindow();capture(QStringLiteral("category-escape-failure"));fail("escape protects local category draft");return;}QMetaObject::invokeMethod(find("catalogEditDiscard"),"reject");if(find("catalogEditName")->property("text").toString()!=QStringLiteral("未保存的就近修改")){fail("continue local edit preserves input");return;}QMetaObject::invokeMethod(find("catalogEditPopup"),"requestClose");QMetaObject::invokeMethod(find("catalogEditDiscard"),"accept");}
+                    else if(phase==396){for(const auto& value:m_workspace.categoryTree())if(value.toMap().value("id").toString()==detailProjectId && value.toMap().value("title").toString()!=QStringLiteral("就近分类编辑已保存")){fail("discard local category edit is zero modification");return;}if(find("catalogEditPopup")->property("visible").toBool()){fail("discard closes local editor");return;}QMetaObject::invokeMethod(find("showArchivedCategories"),"triggered");}
+                    else if(phase==397){if(mainWindow->property("toolPage").toString()!=QStringLiteral("organization") || !find("organizationPage")->property("archivedOnly").toBool() || !capture(QStringLiteral("archived-category-recovery"))){fail("section context retains archived category recovery entry");return;}}
+                    else if(phase==398){m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("all"))));QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("settings"))));QMetaObject::invokeMethod(find("settingsDialog"),"setVerificationCategory",Q_ARG(QVariant,QVariant(0)));}
+                    else if(phase==399){if(!verifyForm(find("settingsDialog")) || !capture(QStringLiteral("desktop-settings-light"))){fail("desktop settings aligned form");return;}QMetaObject::invokeMethod(find("settingsDialog"),"close");QMetaObject::invokeMethod(find("catalogCreateDialog"),"showForLibrary",Q_ARG(QVariant,QVariant(QStringLiteral("project"))));}
+                    else if(phase==400){if(!verifyForm(find("catalogCreateDialog")) || !capture(QStringLiteral("desktop-new-category"))){fail("desktop category creation form");return;}QMetaObject::invokeMethod(find("catalogCreateDialog"),"close");QMetaObject::invokeMethod(find("catalogCreateDialog"),"showForLibrary",Q_ARG(QVariant,QVariant(QStringLiteral("tag"))));}
+                    else if(phase==401){find("newCatalogName")->setProperty("text",QStringLiteral("配色创建验收"));auto* colors=find("newCatalogColors");QVariant activated;if(!colors || !QMetaObject::invokeMethod(colors,"activateForVerification",Q_RETURN_ARG(QVariant,activated),Q_ARG(QVariant,QVariant(3))) || !activated.toBool() || colors->property("currentIndex").toInt()!=3 || !verifyForm(find("catalogCreateDialog")) || !capture(QStringLiteral("desktop-new-tag"))){fail("new tag swatch chooses actual color");return;}click("createCatalogHere");}
+                    else if(phase==402){bool saved=false;for(const auto& value:m_workspace.catalogOf(QStringLiteral("tag"))){const auto tag=value.toMap();if(tag.value("title").toString()==QStringLiteral("配色创建验收") && tag.value("colorKey").toString()==QStringLiteral("orange"))saved=true;}if(!saved || find("catalogCreateDialog")->property("visible").toBool()){fail("new tag color persists");return;}m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);QMetaObject::invokeMethod(find("catalogCreateDialog"),"showForLibrary",Q_ARG(QVariant,QVariant(QStringLiteral("tag"))));}
+                    else if(phase==403){if(!verifyForm(find("catalogCreateDialog")) || !capture(QStringLiteral("desktop-new-tag-dark-200"))){fail("large text creation form remains usable");return;}QMetaObject::invokeMethod(find("catalogCreateDialog"),"close");QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("data"))));}
+                    else if(phase==404){auto* tools=find("dataToolsDialog");auto* footer=tools ? qvariant_cast<QQuickItem*>(tools->property("footer")) : nullptr;if(!tools || !tools->property("visible").toBool() || !footer || !footer->isVisible() || footer->mapToScene(QPointF(0,footer->height())).y()>mainWindow->height()+1 || !capture(QStringLiteral("desktop-data-dark-200"))){fail("data sheet fixed actions remain in window");return;}QMetaObject::invokeMethod(tools,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("month"))));find("calendarPanel")->setProperty("agendaVisible",false);}
+                    else if(phase==405){mainWindow->grabWindow();auto* panel=find("calendarPanel");auto* agenda=panel ? panel->findChild<QQuickItem*>(QStringLiteral("calendarAgenda")) : nullptr;QVariant grid;if(!panel || !agenda || agenda->isVisible() || !QMetaObject::invokeMethod(panel,"verifyGridStart",Q_RETURN_ARG(QVariant,grid)) || grid.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("desktop-month"))){fail("calendar defaults to content grid");return;}QMetaObject::invokeMethod(panel,"showAgenda");}
+                    else if(phase==406){auto* panel=find("calendarPanel");auto* agenda=panel ? panel->findChild<QQuickItem*>(QStringLiteral("calendarAgenda")) : nullptr;if(!agenda || !agenda->isVisible() || agenda->width()<=0 || !capture(QStringLiteral("desktop-agenda"))){qCritical()<<"Agenda discovery:"<<panel<<(panel ? panel->property("agendaVisible") : QVariant())<<agenda<<(agenda ? agenda->isVisible() : false)<<(agenda ? agenda->size() : QSizeF());fail("calendar agenda remains discoverable");return;}}
+                    else if(phase==407){m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));QMetaObject::invokeMethod(mainWindow,"selectEditorTab",Q_ARG(QVariant,QVariant(1)));}
+                    else if(phase==408){mainWindow->grabWindow();const auto children=m_workspace.subtaskChoices(secondId);if(children.isEmpty() || find("taskEditorScroll")->property("visible").toBool() || !capture(QStringLiteral("compact-child-list"))){fail("single child list surface");return;}dragStepFirst=children.first().toMap().value("taskId").toString();QVariant opened;if(!QMetaObject::invokeMethod(find("subtaskList"),"openForVerification",Q_RETURN_ARG(QVariant,opened),Q_ARG(QVariant,QVariant(dragStepFirst))) || !opened.toBool()){fail("compact child row activation");return;}}
+                    else if(phase==409){mainWindow->grabWindow();QVariant layout;if(!QMetaObject::invokeMethod(editor,"verifyLeafDetails",Q_RETURN_ARG(QVariant,layout)) || layout.toString()!=QStringLiteral("PASS") || find("taskEditorTabs")->property("visible").toBool() || !capture(QStringLiteral("compact-child-details"))){qCritical()<<"Leaf details:"<<layout;fail("child detail replaces list and remains visible");return;}m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);}
+                    else if(phase==410){mainWindow->grabWindow();QVariant layout;if(!QMetaObject::invokeMethod(editor,"verifyLeafDetails",Q_RETURN_ARG(QVariant,layout)) || layout.toString()!=QStringLiteral("PASS") || !capture(QStringLiteral("compact-child-details-dark-200"))){qCritical()<<"Large leaf details:"<<layout;fail("large child detail visible without nested child controls");return;}click("returnToParentSubtasks");}
+                    else if(phase==411){if(mainWindow->property("editId").toString()!=secondId || mainWindow->property("editorTab").toInt()!=1 || !find("newSubtaskTitle")->property("visible").toBool() || !capture(QStringLiteral("compact-child-list-dark-200"))){fail("large child return restores parent list and creation");return;}QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("all"))));}
+                    else if(phase==412){if(mainWindow->property("sidebarWidth").toDouble()!=208 || !capture(QStringLiteral("compact-sources-navigation"))){fail("compact source navigation");return;}}
+                    else if(phase>=413){
+                        std::function<QQuickItem*(QQuickItem*,const QString&)> visual=[&](QQuickItem* item,const QString& name)->QQuickItem*{if(item->objectName()==name && item->isVisible())return item;for(auto* child:item->childItems())if(auto* found=visual(child,name))return found;return nullptr;};
+                        auto mouse=[&](QEvent::Type type,const QPointF& at,Qt::MouseButton button,Qt::MouseButtons buttons){QMouseEvent event(type,at,mainWindow->mapToGlobal(at),button,buttons,Qt::NoModifier);event.setTimestamp(inputClock->elapsed());QCoreApplication::sendEvent(mainWindow,&event);};
+                        auto right=[&](QQuickItem* item){if(!item || !item->isVisible())return false;if(item->objectName().startsWith(QStringLiteral("categoryNav-")) || item->objectName().startsWith(QStringLiteral("tagNav-"))){auto* scroll=qvariant_cast<QObject*>(find("navigationScroll")->property("contentItem"));auto* flick=qobject_cast<QQuickItem*>(scroll);if(!flick)return false;const auto y=item->mapToItem(qvariant_cast<QQuickItem*>(scroll->property("contentItem")),QPointF()).y();scroll->setProperty("contentY",qBound(0.0,y-flick->height()/2,qMax(0.0,scroll->property("contentHeight").toDouble()-flick->height())));mainWindow->grabWindow();}const auto at=item->mapToScene(QPointF(item->width()*0.45,item->height()/2));mouse(QEvent::MouseButtonPress,at,Qt::RightButton,Qt::RightButton);mouse(QEvent::MouseButtonRelease,at,Qt::RightButton,Qt::NoButton);return true;};
+                        auto taskAction=[&](const QString& id,const char* prefix){auto* row=findRow(id);auto* menu=row?row->findChild<QObject*>(QStringLiteral("taskContext-")+id):nullptr;auto* action=row?row->findChild<QObject*>(QString::fromLatin1(prefix)+id):nullptr;if(!menu || !menu->property("visible").toBool() || !action || !action->property("enabled").toBool())return false;const auto invoked=QMetaObject::invokeMethod(action,"triggered");QMetaObject::invokeMethod(menu,"close");return invoked;};
+                        auto reopen=[&]{auto* row=findRow(scheduleId);auto* list=qobject_cast<QQuickItem*>(find("taskList"));if(!row || !list || row->mapToScene(QPointF()).y()<list->mapToScene(QPointF()).y() || row->mapToScene(QPointF(0,row->height())).y()>list->mapToScene(QPointF(0,list->height())).y()){QMetaObject::invokeMethod(mainWindow,"revealTaskForVerification",Q_ARG(QVariant,QVariant(scheduleId)));return false;}return right(row);};
+                        auto reveal=[&](const QString& id){QMetaObject::invokeMethod(mainWindow,"revealTaskForVerification",Q_ARG(QVariant,QVariant(id)));};
+                        if(phase==413){probe->setInterval(60);QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));m_workspace.createTask(QStringLiteral("统一时间与操作验收"));}
+                        else if(phase==414){scheduleId.clear();for(const auto& task:m_workspace.tasks()->items())if(task.title==QStringLiteral("统一时间与操作验收"))scheduleId=task.id;if(scheduleId.isEmpty()){fail("shared time fixture identity");return;}QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(scheduleId)));startDate->setProperty("text",m_workspace.dateOffset(2));find("editDeadlineDate")->setProperty("text",m_workspace.dateOffset(2));find("taskAllDay")->setProperty("checked",false);QMetaObject::invokeMethod(find("taskAllDay"),"clicked");find("taskTimeStart")->setProperty("text",QStringLiteral("09:00"));find("taskTimeEnd")->setProperty("text",QStringLiteral("10:00"));reminder->setProperty("text",m_workspace.dateOffset(2)+QStringLiteral(" 08:30"));click("saveTaskEditor");}
+                        else if(phase==415){const auto task=m_workspace.task(scheduleId);const auto timing=task.value("schedule").toMap();if(editor->property("visible").toBool() || task.value("startOn")!=timing.value("startDate") || task.value("deadlineOn")!=timing.value("endDate") || timing.value("allDay").toBool() || task.value("remindAtUtc").toString().isEmpty()){fail("one visible date pair saves the same calendar interval");return;}reveal(scheduleId);}
+                        else if(phase==416){mainWindow->grabWindow();if(!reopen()){fail("actual task right pointer");return;}}
+                        else if(phase==417){auto* row=findRow(scheduleId);auto* menu=row?row->findChild<QObject*>(QStringLiteral("taskContext-")+scheduleId):nullptr;if(!menu || !menu->property("visible").toBool() || quick->property("editing").toBool() || !capture(QStringLiteral("task-direct-context"))){fail("right click opens nearby menu without editing");return;}QMetaObject::invokeMethod(menu,"close");row->forceActiveFocus();QKeyEvent key(QEvent::KeyPress,Qt::Key_F10,Qt::ShiftModifier);QCoreApplication::sendEvent(mainWindow,&key);QKeyEvent keyRelease(QEvent::KeyRelease,Qt::Key_F10,Qt::ShiftModifier);QCoreApplication::sendEvent(mainWindow,&keyRelease);if(!menu->property("visible").toBool() || !taskAction(scheduleId,"taskMenuPin-")){fail("Shift-F10 opens the same task menu and pins");return;}}
+                        else if(phase==418){if(!m_workspace.task(scheduleId).value("pinned").toBool()){fail("context pin persists");return;}if(!reopen())return;if(!taskAction(scheduleId,"taskMenuImportant-")){fail("context important command");return;}}
+                        else if(phase==419){if(!m_workspace.task(scheduleId).value("important").toBool()){fail("context importance persists");return;}if(!reopen())return;if(!taskAction(scheduleId,"taskMenuCancelReminder-")){fail("context cancel reminder command");return;}}
+                        else if(phase==420){const auto task=m_workspace.task(scheduleId);if(!task.value("remindAtUtc").toString().isEmpty() || task.value("reminderRepeat").toString()!=QStringLiteral("NONE") || task.value("schedule").toMap().value("alertMinutes").toInt()!=-1 ){fail("cancel reminder clears repeating and relative reminder");return;}if(!reopen())return;if(!taskAction(scheduleId,"taskMenuPin-")){fail("context unpin command");return;}}
+                        else if(phase==421){if(m_workspace.task(scheduleId).value("pinned").toBool()){fail("context unpin persists");return;}dragSource.clear();dragTarget.clear();const auto tasks=m_workspace.tasks()->items();for(int i=0;i+1<tasks.size();++i)if(tasks[i].parentTaskId.isEmpty() && tasks[i+1].parentTaskId.isEmpty() && !tasks[i].pinned && !tasks[i+1].pinned){dragSource=tasks[i].id;dragTarget=tasks[i+1].id;break;}if(dragSource.isEmpty()){fail("ordinary direct drag pair");return;}reveal(dragSource);reveal(dragTarget);}
+                        else if(phase==422){mainWindow->grabWindow();auto* source=findRow(dragSource);auto* target=findRow(dragTarget);if(!source || !target || !source->property("canReorder").toBool()){fail("ordinary rows accept drag");return;}const auto from=source->mapToScene(QPointF(source->width()*0.45,source->height()/2)),to=target->mapToScene(QPointF(target->width()*0.45,target->height()/2));mouse(QEvent::MouseButtonPress,from,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseMove,from+QPointF(0,m_workspace.dragDistance()+4),Qt::NoButton,Qt::LeftButton);mouse(QEvent::MouseMove,to,Qt::NoButton,Qt::LeftButton);if(!source->property("dragging").toBool() || quick->property("editing").toBool() || !capture(QStringLiteral("ordinary-immediate-drag"))){fail("moving beyond system threshold starts drag without hold");return;}mouse(QEvent::MouseButtonRelease,to,Qt::LeftButton,Qt::NoButton);}
+                        else if(phase==423){if(m_workspace.taskIndex(dragSource)!=m_workspace.taskIndex(dragTarget)+1){fail("actual ordinary pointer drop changes order");return;}m_workspace.reload();}
+                        else if(phase==424){if(m_workspace.taskIndex(dragSource)!=m_workspace.taskIndex(dragTarget)+1){fail("ordinary pointer order reloads");return;}auto* row=visual(mainWindow->contentItem(),QStringLiteral("categoryNav-")+detailProjectId);if(!right(row) || mainWindow->property("catalogContextItem").toMap().value("id").toString()!=detailProjectId){fail("category rename starts from actual right click");return;}quickOriginalTask=mainWindow->property("catalogContextItem").toMap();QMetaObject::invokeMethod(find("renameCatalog"),"triggered");QMetaObject::invokeMethod(find("categoryContextMenu"),"close");}
+                        else if(phase==425){auto* name=find("catalogEditName");if(!find("catalogEditPopup")->property("visible").toBool() || !name->property("activeFocus").toBool() || name->property("selectedText")!=quickOriginalTask.value("title")){fail("rename selects existing category name");return;}name->setProperty("text",QStringLiteral("右键重命名分类"));QMetaObject::invokeMethod(name,"textEdited");click("saveCatalogEdit");}
+                        else if(phase==426){QVariantMap current;for(const auto& value:m_workspace.categoryTree())if(value.toMap().value("id").toString()==detailProjectId)current=value.toMap();if(current.value("title").toString()!=QStringLiteral("右键重命名分类") || current.value("parentId")!=quickOriginalTask.value("parentId") || current.value("description")!=quickOriginalTask.value("description")){fail("category rename preserves hierarchy and metadata");return;}const auto tags=m_workspace.catalogOf("tag");if(tags.isEmpty()){fail("tag rename fixture");return;}dragStepFirst=tags.first().toMap().value("id").toString();auto* row=visual(mainWindow->contentItem(),QStringLiteral("tagNav-")+dragStepFirst);if(!right(row)){fail("tag actual right click");return;}quickOriginalTask=mainWindow->property("catalogContextItem").toMap();QMetaObject::invokeMethod(find("renameCatalog"),"triggered");QMetaObject::invokeMethod(find("categoryContextMenu"),"close");}
+                        else if(phase==427){auto* name=find("catalogEditName");if(mainWindow->property("catalogContextItem").toMap().value("id").toString()!=dragStepFirst || !find("catalogEditPopup")->property("visible").toBool() || !name->property("activeFocus").toBool() || name->property("selectedText")!=quickOriginalTask.value("title") || !capture(QStringLiteral("tag-rename-nearby"))){qCritical()<<"Tag rename"<<mainWindow->property("catalogContextItem")<<dragStepFirst<<find("catalogEditPopup")->property("visible")<<name->property("activeFocus")<<name->property("selectedText")<<quickOriginalTask.value("title");fail("tag rename focused and selected");return;}name->setProperty("text",QStringLiteral("右键重命名标签"));QMetaObject::invokeMethod(name,"textEdited");click("saveCatalogEdit");}
+                        else if(phase==428){QVariantMap current;for(const auto& value:m_workspace.catalogOf("tag"))if(value.toMap().value("id").toString()==dragStepFirst)current=value.toMap();if(current.value("title").toString()!=QStringLiteral("右键重命名标签") || current.value("colorKey")!=quickOriginalTask.value("colorKey")){fail("tag rename preserves color and identity");return;}QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("month"))));auto* panel=find("calendarPanel");panel->setProperty("showTasks",true);panel->setProperty("showEvents",true);panel->setProperty("agendaVisible",false);QMetaObject::invokeMethod(panel,"jumpToDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(2))));}
+                        else if(phase==429){mainWindow->grabWindow();auto* marker=visual(mainWindow->contentItem(),QStringLiteral("calendarTaskMark-")+scheduleId);if(!marker){fail("same timed task is visible in calendar");return;}const auto at=marker->mapToScene(QPointF(marker->width()/2,marker->height()/2));mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);}
+                        else if(phase==430){mainWindow->grabWindow();if(!editor->property("visible").toBool() || mainWindow->property("editId").toString()!=scheduleId || startDate->property("text").toString()!=m_workspace.dateOffset(2) || find("taskAllDay")->property("checked").toBool() || !capture(QStringLiteral("shared-task-time-light"))){fail("calendar click opens same task with single time controls");return;}m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);}
+                        else if(phase==431){mainWindow->grabWindow();QMetaObject::invokeMethod(mainWindow,"revealTimingForVerification");}
+                        else if(phase==432){mainWindow->grabWindow();if(!capture(QStringLiteral("shared-task-time-dark-200"))){fail("shared time large dark capture");return;}QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));reveal(scheduleId);}
+                        else if(phase==433){mainWindow->grabWindow();if(!reopen())return;if(!taskAction(scheduleId,"taskMenuDelete-")){fail("actual task context delete command");return;}}
+                        else if(phase==434){if(!m_workspace.task(scheduleId).isEmpty()){fail("context delete soft deletes same task");return;}QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("trash"))));reveal(scheduleId);}
+                        else if(phase==435){if(m_workspace.taskIndex(scheduleId)<0 || !capture(QStringLiteral("context-delete-recoverable"))){fail("context deletion is recoverable in recently deleted");return;}}
+                    }
+
+
+
+
 
                 }
             } else if(phase>=191) {
@@ -471,33 +768,33 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 auto open=[&]{return QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));};
                 auto select=[&](const QString& kind,const QString& id,const QString& heading){QVariant result;return QMetaObject::invokeMethod(fields,"selectDestinationForVerification",Q_RETURN_ARG(QVariant,result),Q_ARG(QVariant,QVariant(kind)),Q_ARG(QVariant,QVariant(id)),Q_ARG(QVariant,QVariant(heading))) && result.toBool();};
                 auto layout=[&](bool wide){QVariant result;const bool called=QMetaObject::invokeMethod(mainWindow,"verifyTaskDetailLayout",Q_RETURN_ARG(QVariant,result),Q_ARG(QVariant,QVariant(wide)));if(!called || result.toString()!=QStringLiteral("PASS"))qWarning()<<"Detail layout:"<<result;return called && result.toString()==QStringLiteral("PASS");};
-                if(phase==191) {if(!m_workspace.saveCatalog({{"kind",QStringLiteral("project")},{"title",QStringLiteral("布局验收项目")},{"planningState",QStringLiteral("ACTIVE")},{"status",QStringLiteral("OPEN")}})){fail("detail project setup");return;}}
+                if(phase==191) {if(!m_workspace.saveCatalog({{"kind",QStringLiteral("project")},{"title",QStringLiteral("布局验收分类")},{"planningState",QStringLiteral("ACTIVE")},{"status",QStringLiteral("OPEN")}})){fail("detail project setup");return;}}
                 else if(phase==192) {detailProjectId=catalogId(QStringLiteral("project"));if(detailProjectId.isEmpty() || !m_workspace.saveCatalog({{"kind",QStringLiteral("heading")},{"title",QStringLiteral("布局验收分组")},{"parentId",detailProjectId}})){fail("detail heading setup");return;}}
-                else if(phase==193) {detailHeadingId=catalogId(QStringLiteral("heading"));if(detailHeadingId.isEmpty() || !m_workspace.saveCatalog({{"kind",QStringLiteral("area")},{"title",QStringLiteral("布局验收领域")}})){fail("detail area setup");return;}}
+                else if(phase==193) {detailHeadingId=catalogId(QStringLiteral("heading"));if(detailHeadingId.isEmpty() || !m_workspace.saveCatalog({{"kind",QStringLiteral("area")},{"title",QStringLiteral("布局验收一级")}})){fail("detail area setup");return;}}
                 else if(phase==194) {detailAreaId=catalogId(QStringLiteral("area"));m_workspace.setView(QStringLiteral("month"));mainWindow->resize(1120,900);if(detailAreaId.isEmpty() || !open()){fail("detail full page setup");return;}}
                 else if(phase==195) {
                     mainWindow->grabWindow();if(!layout(true) || fields->property("infoExpanded").toBool() || !capture(QStringLiteral("detail-layout-page")) || !select(QStringLiteral("project"),detailProjectId,detailHeadingId)){fail("detail aligned page and project selection");return;}
-                    auto* attention=mainWindow->findChild<QObject*>(QStringLiteral("editorAttention"));QMetaObject::invokeMethod(attention,"activateForVerification",Q_ARG(QVariant,QVariant(2)));reminder->setProperty("text",m_workspace.localReminder(QDateTime::currentDateTimeUtc().addSecs(3600).toString(Qt::ISODateWithMs)));QMetaObject::invokeMethod(save,"clicked");
+                    startDate->setProperty("text",m_workspace.dateOffset(0));reminder->setProperty("text",m_workspace.localReminder(QDateTime::currentDateTimeUtc().addSecs(3600).toString(Qt::ISODateWithMs)));QMetaObject::invokeMethod(save,"clicked");
                 } else if(phase==196) {
-                    const auto task=m_workspace.task(secondId);if(editor->property("visible").toBool() || task.value(QStringLiteral("projectId")).toString()!=detailProjectId || task.value(QStringLiteral("headingId")).toString()!=detailHeadingId || !task.value(QStringLiteral("areaId")).toString().isEmpty() || !task.value(QStringLiteral("evening")).toBool() || !task.value(QStringLiteral("todayFocus")).toBool() || task.value(QStringLiteral("remindAtUtc")).toString().isEmpty() || !open()){qCritical()<<"Detail saved fields"<<editor->property("visible")<<task.value(QStringLiteral("projectId"))<<task.value(QStringLiteral("areaId"))<<task.value(QStringLiteral("headingId"))<<task.value(QStringLiteral("evening"))<<task.value(QStringLiteral("remindAtUtc"))<<m_workspace.errorText();fail("detail atomic project and moved scheduling fields");return;}
+                    const auto task=m_workspace.task(secondId);if(editor->property("visible").toBool() || task.value(QStringLiteral("projectId")).toString()!=detailProjectId || task.value(QStringLiteral("headingId")).toString()!=detailHeadingId || !task.value(QStringLiteral("areaId")).toString().isEmpty() || task.value(QStringLiteral("startOn")).toString()!=m_workspace.dateOffset(0) || task.value(QStringLiteral("remindAtUtc")).toString().isEmpty() || !open()){qCritical()<<"Detail saved fields"<<editor->property("visible")<<task.value(QStringLiteral("projectId"))<<task.value(QStringLiteral("areaId"))<<task.value(QStringLiteral("headingId"))<<task.value(QStringLiteral("evening"))<<task.value(QStringLiteral("remindAtUtc"))<<m_workspace.errorText();fail("detail atomic project and moved scheduling fields");return;}
                 } else if(phase==197) {
                     if(!fields->findChild<QObject*>(QStringLiteral("editorHeadingRow"))->property("visible").toBool() || fields->findChild<QObject*>(QStringLiteral("editorHeading"))->property("currentIndex").toInt()!=1 || !capture(QStringLiteral("detail-layout-project"))){fail("detail existing assignment restored");return;}
-                    auto* info=fields->findChild<QObject*>(QStringLiteral("taskInfoToggle"));QMetaObject::invokeMethod(info,"toggle");QMetaObject::invokeMethod(info,"clicked");m_workspace.setThemeMode(2);m_workspace.setTextScale(2);mainWindow->resize(880,580);
+                    auto* info=mainWindow->findChild<QObject*>(QStringLiteral("taskInfoToggle"));QMetaObject::invokeMethod(info,"triggered");m_workspace.setThemeMode(2);m_workspace.setTextScale(2);mainWindow->resize(880,580);
                 } else if(phase==198) {
                     static int detailFrames=0;mainWindow->grabWindow();if(++detailFrames<3)return;
-                    if(!layout(false) || !fields->property("infoExpanded").toBool() || !capture(QStringLiteral("detail-layout-dark-200")) || !select(QStringLiteral("area"),detailAreaId,QString())){fail("detail responsive draft and area selection");return;}
+                    if(!layout(false) || !fields->property("infoExpanded").toBool() || !capture(QStringLiteral("detail-layout-dark-200"))){fail("detail responsive draft and history popup");return;}QMetaObject::invokeMethod(mainWindow->findChild<QObject*>(QStringLiteral("taskEditHistoryDialog")),"close");if(!select(QStringLiteral("area"),detailAreaId,QString())){fail("legacy category selection");return;}
                     reminder->setProperty("text",QStringLiteral("invalid"));QMetaObject::invokeMethod(save,"clicked");
                 } else if(phase==199) {
                     if(!editor->property("visible").toBool() || m_workspace.errorText().isEmpty() || m_workspace.task(secondId).value(QStringLiteral("projectId")).toString()!=detailProjectId || fields->findChild<QObject*>(QStringLiteral("editorHeadingRow"))->property("visible").toBool()){fail("detail failed area draft preserves stored project");return;}
                     reminder->setProperty("text",QString());QMetaObject::invokeMethod(save,"clicked");
                 } else if(phase==200) {
-                    const auto task=m_workspace.task(secondId);if(editor->property("visible").toBool() || task.value(QStringLiteral("areaId")).toString()!=detailAreaId || !task.value(QStringLiteral("projectId")).toString().isEmpty() || !task.value(QStringLiteral("headingId")).toString().isEmpty() || !task.value(QStringLiteral("remindAtUtc")).toString().isEmpty() || !task.value(QStringLiteral("evening")).toBool()){fail("detail atomic mutually exclusive area commit");return;}
+                    const auto task=m_workspace.task(secondId);if(editor->property("visible").toBool() || task.value(QStringLiteral("areaId")).toString()!=detailAreaId || !task.value(QStringLiteral("projectId")).toString().isEmpty() || !task.value(QStringLiteral("headingId")).toString().isEmpty() || !task.value(QStringLiteral("remindAtUtc")).toString().isEmpty() || task.value(QStringLiteral("startOn")).toString()!=m_workspace.dateOffset(0)){fail("detail atomic mutually exclusive area commit");return;}
                     m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_workspace.setView(QStringLiteral("today"));mainWindow->resize(1120,720);open();
                 } else if(phase==201) {
                     static int dockFrames=0;mainWindow->grabWindow();if(++dockFrames<3)return;
                     if(!mainWindow->property("detailDocked").toBool() || !layout(false) || !capture(QStringLiteral("detail-layout-docked"))){fail("detail narrow docked layout");return;}
-                    auto* attention=mainWindow->findChild<QObject*>(QStringLiteral("editorAttention"));QMetaObject::invokeMethod(attention,"activateForVerification",Q_ARG(QVariant,QVariant(0)));
-                    if(mainWindow->findChild<QObject*>(QStringLiteral("removeTodayDialog"))->property("visible").toBool() || mainWindow->property("draftEvening").toBool()){fail("removing focus uses date-only C++ decision and clears tonight draft");return;}
+                    startDate->setProperty("text",m_workspace.dateOffset(1));
+                    if(startDate->property("text").toString()!=m_workspace.dateOffset(1) || mainWindow->property("draftTodayFocus").toBool() || mainWindow->property("draftEvening").toBool()){fail("removing focus uses date-only C++ decision and clears tonight draft");return;}
                     mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");
                 }
             } else if(phase>=180) {
@@ -546,7 +843,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             } else if(phase>=132) {
                 auto* extra=mainWindow->findChild<QObject*>(QStringLiteral("taskDetailsFields"));
-                auto* newStep=mainWindow->findChild<QQuickItem*>(QStringLiteral("editorNewChecklistItem"));
+                auto* newStep=mainWindow->findChild<QQuickItem*>(phase>=139?QStringLiteral("editorImportant"):QStringLiteral("editTaskNotes"));
                 auto* reminder=mainWindow->findChild<QObject*>(QStringLiteral("editorReminder"));
                 auto* save=mainWindow->findChild<QObject*>(QStringLiteral("saveTaskEditor"));
                 auto* scroll=mainWindow->findChild<QQuickItem*>(QStringLiteral("taskEditorScroll"));
@@ -561,24 +858,24 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 std::function<QQuickItem*(QQuickItem*)> findRow=[&](QQuickItem* item)->QQuickItem*{if(!item)return nullptr;if(item->objectName()==rowName)return item;for(auto* child:item->childItems())if(auto* found=findRow(child))return found;return nullptr;};
                 if(phase==132){m_workspace.setView(QStringLiteral("inbox"));m_workspace.createTask(QStringLiteral("统一编辑原始"));}
                 else if(phase==133){
-                    secondId=m_workspace.tasks()->data(m_workspace.tasks()->index(0),TaskListModel::Id).toString();
+                    secondId.clear();for(const auto& task:m_workspace.tasks()->items())if(task.title==QStringLiteral("统一编辑原始"))secondId=task.id;
                     if(secondId.isEmpty() || !open()){fail("unified editor open");return;}
-                    editTitle->setProperty("text",QStringLiteral("统一编辑完成"));newStep->setProperty("text",QStringLiteral("步骤 A"));QMetaObject::invokeMethod(newStep,"textEdited");
+                    editTitle->setProperty("text",QStringLiteral("统一编辑完成"));newStep->setProperty("text",QStringLiteral("步骤 A"));
                     reminder->setProperty("text",QStringLiteral("invalid"));QMetaObject::invokeMethod(save,"clicked");
                 } else if(phase==134){
                     const auto task=m_workspace.task(secondId);
-                    if(!editor->property("visible").toBool() || m_workspace.errorText().isEmpty() || task.value(QStringLiteral("title")).toString()!=QStringLiteral("统一编辑原始") || !task.value(QStringLiteral("checklist")).toList().isEmpty() || editTitle->property("text").toString()!=QStringLiteral("统一编辑完成")){fail("unified failed save preserves all drafts");return;}
+                    if(!editor->property("visible").toBool() || m_workspace.errorText().isEmpty() || task.value(QStringLiteral("title")).toString()!=QStringLiteral("统一编辑原始") || !task.value(QStringLiteral("notes")).toString().isEmpty() || editTitle->property("text").toString()!=QStringLiteral("统一编辑完成")){fail("unified failed save preserves all drafts");return;}
                     if(!capture(QStringLiteral("unified-error"))){fail("fixed editor error");return;}
                     reminder->setProperty("text",QString());QMetaObject::invokeMethod(save,"clicked");
                 } else if(phase==135){
                     const auto task=m_workspace.task(secondId);
-                    if(editor->property("visible").toBool() || task.value(QStringLiteral("title")).toString()!=QStringLiteral("统一编辑完成") || task.value(QStringLiteral("checklist")).toList().size()!=1 || task.value(QStringLiteral("rowVersion")).toLongLong()!=2){fail("unified atomic UI save");return;}
-                    open();newStep->setProperty("text",QStringLiteral("取消后的草稿"));QMetaObject::invokeMethod(newStep,"textEdited");navigate();
+                    if(editor->property("visible").toBool() || task.value(QStringLiteral("title")).toString()!=QStringLiteral("统一编辑完成") || task.value(QStringLiteral("notes")).toString()!=QStringLiteral("步骤 A") || task.value(QStringLiteral("rowVersion")).toLongLong()!=2){fail("unified atomic UI save");return;}
+                    open();newStep->setProperty("text",QStringLiteral("取消后的草稿"));navigate();
                 } else if(phase==136){if(!click("cancelLeave")){fail("unified cancel navigation");return;}}
-                else if(phase==137){if(!editor->property("visible").toBool() || newStep->property("text").toString()!=QStringLiteral("取消后的草稿")){fail("unified checklist draft retained");return;}navigate();}
+                else if(phase==137){if(!editor->property("visible").toBool() || newStep->property("text").toString()!=QStringLiteral("取消后的草稿")){fail("unified notes draft retained");return;}navigate();}
                 else if(phase==138){if(!click("discardDraft")){fail("unified discard navigation");return;}}
                 else if(phase==139){
-                    if(editor->property("visible").toBool() || m_workspace.task(secondId).value(QStringLiteral("checklist")).toList().size()!=1){fail("unified discard zero mutation");return;}
+                    if(editor->property("visible").toBool() || m_workspace.task(secondId).value(QStringLiteral("notes")).toString()!=QStringLiteral("步骤 A")){fail("unified discard zero mutation");return;}
                     m_workspace.setView(QStringLiteral("inbox"));open();notes->setProperty("text",QStringLiteral("长备注验证，单一滚动轴。\n").repeated(24));QMetaObject::invokeMethod(newStep,"forceActiveFocus");m_workspace.refreshClock();
                 } else if(phase>=140 && phase<=143){
                     // Allow one rendered layout and the focus-follow timer to settle
@@ -600,7 +897,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(phase==140){if(!capture(QStringLiteral("unified-fields"))){fail("unified fields capture");return;}mainWindow->resize(880,580);}
                     else if(phase==141){if(!capture(QStringLiteral("unified-page"))){fail("unified page capture");return;}m_workspace.setTextScale(2);}
                     else if(phase==142){if(!capture(QStringLiteral("unified-page-200"))){fail("large unified page capture");return;}m_workspace.setTextScale(1);mainWindow->resize(1440,900);}
-                    else {if(!capture(QStringLiteral("unified-wide"))){fail("wide unified capture");return;}mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");mainWindow->resize(1120,720);auto* list=mainWindow->findChild<QObject*>(QStringLiteral("taskList"));if(list){QMetaObject::invokeMethod(list,"positionViewAtBeginning");QMetaObject::invokeMethod(list,"forceLayout");}}
+                    else {if(!capture(QStringLiteral("unified-wide"))){fail("wide unified capture");return;}mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");mainWindow->resize(1120,720);auto* list=mainWindow->findChild<QObject*>(QStringLiteral("taskList"));if(list){QMetaObject::invokeMethod(list,"forceLayout");}QMetaObject::invokeMethod(mainWindow,"revealTaskForVerification",Q_ARG(QVariant,QVariant(secondId)));}
                 } else if(phase==144){auto* row=findRow(mainWindow->contentItem());if(!row || !QMetaObject::invokeMethod(row,"openVerificationMenu")){fail("task row menu open");return;}}
                 else if(phase==145){
                     auto* row=findRow(mainWindow->contentItem());QVariant result;
@@ -609,12 +906,18 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     QMetaObject::invokeMethod(row,"closeVerificationMenu");
                 } else if(phase==146)m_workspace.setView(QStringLiteral("today"));
                 else if(phase==147) {
-                    m_workspace.setView(QStringLiteral("inbox"));open();notes->setProperty("text",QStringLiteral("短备注"));
+                    m_workspace.setView(QStringLiteral("inbox"));m_workspace.setSearch(m_workspace.task(secondId).value("title").toString());open();notes->setProperty("text",QStringLiteral("短备注"));
                     QMetaObject::invokeMethod(editTitle,"forceActiveFocus");
                     QMetaObject::invokeMethod(mainWindow,"ensureEditorFocus",Q_ARG(QVariant,QVariant::fromValue(editTitle)));
                 } else if(phase==148 || phase==149) {
+                    // Native wheel motion is animated: a timer callback alone
+                    // doesn't establish that the updated scene was presented.
+                    if(phase==149 && QGuiApplication::platformName()!=QStringLiteral("offscreen") && wheelFrames->load()<2) {
+                        mainWindow->requestUpdate();
+                        return;
+                    }
                     mainWindow->grabWindow();
-                    auto* target=phase==148 ? qobject_cast<QQuickItem*>(notes) : mainWindow->findChild<QQuickItem*>(QStringLiteral("editorPlanning"));
+                    auto* target=phase==148 ? qobject_cast<QQuickItem*>(notes) : mainWindow->findChild<QQuickItem*>(QStringLiteral("editStartDate"));
                     if(!target){fail("wheel target");return;}
                     if(phase==148) {
                         static bool noteFocusPrepared=false;static int noteFocusFrames=0;
@@ -630,17 +933,25 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                             || notes->property("contentHeight").toDouble()>target->height()-20+1){fail("short notes focus must not scroll");return;}
                         if(!capture(QStringLiteral("scroll-short-notes-focus"))){fail("short notes focus capture");return;}
                     } else {
-                        if(flick->property("contentY").toDouble()<=1){qCritical()<<"Wheel geometry"<<flick->property("contentY")<<flick->property("contentHeight")<<flick->property("height")<<qobject_cast<QQuickItem*>(notes)->mapToScene(QPointF(0,0))<<mainWindow->activeFocusItem();fail("notes wheel must scroll outer body");return;}
+                        QObject::disconnect(*wheelConnection);
+                        if(flick->property("contentY").toDouble()<=1){qCritical()<<"Wheel geometry"<<flick->property("contentY")<<flick->property("contentHeight")<<flick->property("height")<<qobject_cast<QQuickItem*>(notes)->mapToScene(QPointF(0,0))<<mainWindow->activeFocusItem()<<mainWindow->property("editorManualScroll");fail("notes wheel must scroll outer body");return;}
                         QMetaObject::invokeMethod(target,"forceActiveFocus");
                         if(target->property("wheelEnabled").toBool() || target->property("currentIndex").toInt()!=0){fail("combo wheel policy");return;}
                     }
                     const auto position=target->mapToScene(QPointF(target->width()/2,target->height()/2));
                     QWheelEvent wheel(position,mainWindow->mapToGlobal(position.toPoint()),QPoint(0,-96),QPoint(0,-120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+                    // Flickable uses event timestamps to calculate wheel velocity.
+                    // Zero timestamps can make successive synthetic events share a time.
+                    wheel.setTimestamp(static_cast<quint64>(inputClock->elapsed()));
+                    if(phase==148 && QGuiApplication::platformName()!=QStringLiteral("offscreen")) {
+                        wheelFrames->store(0);
+                        *wheelConnection=QObject::connect(mainWindow,&QQuickWindow::frameSwapped,probe,[wheelFrames]{wheelFrames->fetch_add(1);},Qt::DirectConnection);
+                    }
                     QCoreApplication::sendEvent(mainWindow,&wheel);
                     qInfo()<<"Synthetic wheel"<<phase<<wheel.isAccepted()<<mainWindow->isActive()<<flick->property("contentY")<<mainWindow->property("editorManualScroll");
                 } else if(phase==150) {
-                    auto* planning=mainWindow->findChild<QObject*>(QStringLiteral("editorPlanning"));
-                    if(!planning || planning->property("currentIndex").toInt()!=0 || flick->property("contentY").toDouble()<=1){fail("wheel preserves choice and manual scroll");return;}
+                    auto* date=mainWindow->findChild<QObject*>(QStringLiteral("editStartDate"));
+                    if(!date || date->property("text").toString()!=m_workspace.task(secondId).value("startOn").toString() || flick->property("contentY").toDouble()<=1){fail("wheel preserves choice and manual scroll");return;}
                     const auto policies=mainWindow->findChildren<QObject*>(QStringLiteral("daymarkScrollPhysics"));
                     int checked=0;
                     for(auto* policy:policies) {
@@ -658,7 +969,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                         if(!viewport || !viewport->inherits("QQuickFlickable") || viewport->property("contentHeight").toDouble()<=0){fail("scroll view retains automatic content sizing");return;}
                     }
                     if(!capture(QStringLiteral("scroll-short-notes"))){fail("short notes wheel capture");return;}
-                    mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");m_workspace.setView(QStringLiteral("today"));
+                    mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(editor,"close");m_workspace.setSearch(QString());m_workspace.setView(QStringLiteral("today"));
                 } else if(phase==151) {
                     m_workspace.setTextScale(2);mainWindow->resize(880,580);
                     QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("settings"))));
@@ -676,30 +987,15 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                         QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("notifications"))));
                     }
                 } else if(phase==155) {
-                    auto* center=mainWindow->findChild<QObject*>(QStringLiteral("reminderCenter"));
-                    if(!center || !center->property("visible").toBool() || !capture(QStringLiteral("hig-reminders"))){fail("reminder center");return;}
-                    QMetaObject::invokeMethod(center,"close");
-                    QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("recurrence"))));
-                    auto* title=mainWindow->findChild<QObject*>(QStringLiteral("recurrenceTitle"));
-                    auto* create=mainWindow->findChild<QObject*>(QStringLiteral("newRecurrence"));
-                    if(!title || !create){fail("rule navigation controls");return;}
-                    title->setProperty("text",QStringLiteral("临时规则草稿"));QMetaObject::invokeMethod(title,"textEdited");QMetaObject::invokeMethod(create,"clicked");
+                    auto* center=mainWindow->findChild<QObject*>(QStringLiteral("reminderPage"));if(!center || !center->property("visible").toBool() || !capture(QStringLiteral("hig-reminders"))){fail("reminder history content page");return;}
+                    QMetaObject::invokeMethod(center,"close");QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(taskId)));
+                    auto* repeating=mainWindow->findChild<QObject*>(QStringLiteral("taskRepeating"));QMetaObject::invokeMethod(repeating,"toggle");QMetaObject::invokeMethod(repeating,"clicked");
+                    QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("notifications"))));
                 } else if(phase>=156 && phase<=158) {
-                    auto* rule=mainWindow->findChild<QObject*>(QStringLiteral("recurrenceDialog"));
-                    auto* title=mainWindow->findChild<QObject*>(QStringLiteral("recurrenceTitle"));
-                    auto* discard=mainWindow->findChild<QObject*>(QStringLiteral("recurrenceDiscard"));
-                    auto* create=mainWindow->findChild<QObject*>(QStringLiteral("newRecurrence"));
-                    if(!rule || !title || !discard || !create){fail("rule draft objects");return;}
-                    if(phase==156) {
-                        if(!discard->property("visible").toBool() || title->property("text").toString()!=QStringLiteral("临时规则草稿")){fail("rule draft navigation guard");return;}
-                        QMetaObject::invokeMethod(discard,"reject");
-                    } else if(phase==157) {
-                        if(!rule->property("dirty").toBool() || !rule->property("visible").toBool() || title->property("text").toString()!=QStringLiteral("临时规则草稿")){fail("rule cancel preserves draft");return;}
-                        QMetaObject::invokeMethod(create,"clicked");QMetaObject::invokeMethod(discard,"accept");
-                    } else {
-                        if(rule->property("dirty").toBool() || !rule->property("visible").toBool() || !title->property("text").toString().isEmpty()){fail("rule discard continues requested navigation");return;}
-                        QMetaObject::invokeMethod(rule,"close");m_workspace.setView(QStringLiteral("today"));
-                    }
+                    auto* guard=mainWindow->findChild<QObject*>(QStringLiteral("unsavedChangesDialog"));
+                    if(phase==156){if(!guard->property("visible").toBool() || !mainWindow->property("draftDirty").toBool()){fail("repeat task draft guards page navigation");return;}QMetaObject::invokeMethod(mainWindow->findChild<QObject*>(QStringLiteral("cancelLeave")),"clicked");}
+                    else if(phase==157){if(!editor->property("visible").toBool() || !mainWindow->findChild<QObject*>(QStringLiteral("taskRepeating"))->property("checked").toBool()){fail("cancel retains task repeat draft");return;}QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("notifications"))));QMetaObject::invokeMethod(mainWindow->findChild<QObject*>(QStringLiteral("discardDraft")),"clicked");}
+                    else {if(editor->property("visible").toBool() || mainWindow->property("toolPage").toString()!=QStringLiteral("notifications") || m_workspace.task(taskId).value("repeat").toMap().value("active").toBool()){fail("discarded repeat never writes a template");return;}QMetaObject::invokeMethod(mainWindow,"returnToContent");m_workspace.setView(QStringLiteral("today"));}
                 } else if(phase==159) {
                     m_workspace.setThemeMode(2);
                     QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("settings"))));
@@ -727,54 +1023,31 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(!calendar || calendar->isVisible() || !mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"))->isVisible() || m_workspace.preferences().value(QStringLiteral("desktopCalendarVisible")).toBool()){fail("calendar hide preserves task widget");return;}
                     m_workspace.setTextScale(1);
                 } else if(phase==165) {
-                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("event"))),Q_ARG(QVariant,QVariant(eventId)));
-                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));
-                    auto* frequency=panel->findChild<QObject*>(QStringLiteral("eventFrequency"));auto* alert=panel->findChild<QObject*>(QStringLiteral("eventAlert"));auto* save=panel->findChild<QObject*>(QStringLiteral("saveEvent"));
-                    if(!frequency || !alert || !save){fail("event series controls");return;}
-                    frequency->setProperty("currentIndex",2);alert->setProperty("currentIndex",2);QMetaObject::invokeMethod(save,"clicked");
+                    QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(eventId)));
+                    auto* repeat=mainWindow->findChild<QObject*>(QStringLiteral("taskRepeating"));QMetaObject::invokeMethod(repeat,"toggle");QMetaObject::invokeMethod(repeat,"clicked");auto* frequency=mainWindow->findChild<QObject*>(QStringLiteral("taskRepeatFrequency"));frequency->setProperty("currentIndex",1);QMetaObject::invokeMethod(frequency,"activated",Q_ARG(int,1));QMetaObject::invokeMethod(mainWindow,"saveEditor");
                 } else if(phase==166) {
-                    const auto event=m_workspace.calendarEvent(eventId);if(event.value(QStringLiteral("repeatFrequency")).toString()!=QStringLiteral("WEEKLY") || event.value(QStringLiteral("alertMinutes")).toInt()!=5){fail("event series UI roundtrip");return;}
-                    QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(QStringLiteral("event"))),Q_ARG(QVariant,QVariant(eventId)));
+                    if(m_workspace.task(eventId).value("repeat").toMap().value("frequency").toString()!=QStringLiteral("WEEKLY")){fail("task repeat shares calendar entity");return;}QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(eventId)));
                 } else if(phase==167 || phase==169) {
-                    // Text-scale changes need rendered layout passes before reading
-                    // nested form geometry, just like the editor viewport checks.
-                    static int renderedSeriesPhase=-1;static int seriesFrames=0;
-                    mainWindow->grabWindow();
-                    if(renderedSeriesPhase!=phase){renderedSeriesPhase=phase;seriesFrames=0;return;}
-                    if(++seriesFrames<3)return;
-                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDialog"));QVariant visible;
-                    if(!QMetaObject::invokeMethod(dialog,"showSeriesForVerification",Q_RETURN_ARG(QVariant,visible)) || !visible.toBool()){fail("series group visible after layout");return;}
+                    static int renderedPhase=-1,frames=0;mainWindow->grabWindow();if(renderedPhase!=phase){renderedPhase=phase;frames=0;return;}if(++frames<3)return;QVariant visible;if(!QMetaObject::invokeMethod(mainWindow,"revealTimingForVerification",Q_RETURN_ARG(QVariant,visible)) || !visible.toBool()){fail("shared timing fields laid out at both scales");return;}
                 } else if(phase==168) {
                     if(!capture(QStringLiteral("event-series"))){fail("series capture");return;}
                     m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
 
                 } else if(phase==170) {
-                    if(!capture(QStringLiteral("event-series-dark-200"))){fail("large series capture");return;}
-                    auto* dialog=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDialog"));QMetaObject::invokeMethod(dialog,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setView(QStringLiteral("month"));mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->setProperty("showTasks",false);
+                    if(!capture(QStringLiteral("task-time-repeat-dark-200"))){fail("large task timing capture");return;}QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setView(QStringLiteral("month"));
                 } else if(phase==171) {
                     if(!capture(QStringLiteral("calendar-event-bands"))){fail("calendar bands capture");return;}
                     mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->setProperty("showTasks",true);
                 } else if(phase==172) {
-                    const auto date=QDate::fromString(m_workspace.calendarEvent(eventId).value(QStringLiteral("startDate")).toString(),Qt::ISODate).addDays(7).toString(Qt::ISODate);
-                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));QVariant jumped;
-                    QMetaObject::invokeMethod(panel,"jumpToDate",Q_RETURN_ARG(QVariant,jumped),Q_ARG(QVariant,QVariant(date)));
-                    QString key;for(const auto& day:m_workspace.calendarDaysFor(date,false))if(day.toMap().value(QStringLiteral("date")).toString()==date)for(const auto& event:day.toMap().value(QStringLiteral("events")).toList())if(event.toMap().value(QStringLiteral("eventId")).toString()==eventId)key=event.toMap().value(QStringLiteral("occurrenceKey")).toString();
-                    if(!jumped.toBool() || key.isEmpty() || !QMetaObject::invokeMethod(panel,"inspectEvent",Q_ARG(QVariant,QVariant(eventId)),Q_ARG(QVariant,QVariant(key)))){fail("browse later occurrence");return;}
+                    const auto original=m_workspace.task(eventId);const auto rule=original.value("recurrenceId").toString();const auto date=QDate::fromString(original.value("startOn").toString(),Qt::ISODate).addDays(7).toString(Qt::ISODate);auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));QVariant jumped;QMetaObject::invokeMethod(panel,"jumpToDate",Q_RETURN_ARG(QVariant,jumped),Q_ARG(QVariant,QVariant(date)));
+                    QString id;for(const auto& day:m_workspace.calendarDaysFor(date,false))if(day.toMap().value("date").toString()==date)for(const auto& item:day.toMap().value("events").toList()){const auto row=item.toMap();if(m_workspace.task(row.value("taskId").toString()).value("recurrenceId").toString()==rule)id=row.value("taskId").toString();}
+                    if(!jumped.toBool() || id.isEmpty() || id==eventId){fail("later calendar occurrence owns a distinct task ID");return;}QMetaObject::invokeMethod(panel,"inspectEvent",Q_ARG(QVariant,QVariant(id)),Q_ARG(QVariant,QVariant(QString())));
                 } else if(phase==173) {
-                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));auto* preview=panel->findChild<QObject*>(QStringLiteral("eventPreview"));
-                    const auto date=QDate::fromString(m_workspace.calendarEvent(eventId).value(QStringLiteral("startDate")).toString(),Qt::ISODate).addDays(7).toString(Qt::ISODate);
-                    if(!preview || !preview->property("visible").toBool() || preview->property("modal").toBool() || panel->findChild<QObject*>(QStringLiteral("eventDialog"))->property("visible").toBool() || !preview->findChild<QObject*>(QStringLiteral("previewDate"))->property("text").toString().contains(date) || !capture(QStringLiteral("event-preview"))){fail("read-only occurrence context");return;}
-                    m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
+                    const auto id=mainWindow->property("editId").toString();if(!editor->property("visible").toBool() || id==eventId || m_workspace.task(id).value("recurrenceId")!=m_workspace.task(eventId).value("recurrenceId") || !capture(QStringLiteral("calendar-instance-task"))){fail("calendar opens actual occurrence in shared details");return;}m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
                 } else if(phase==174) {
-                    static int previewFrames=0;mainWindow->grabWindow();if(++previewFrames<4)return;
-                    auto* preview=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventPreview"));auto* button=preview->findChild<QQuickItem*>(QStringLiteral("editPreviewEvent"));
-                    if(!button || button->mapToScene(QPointF(0,button->height())).y()>mainWindow->height()+1 || !capture(QStringLiteral("event-preview-dark-200")) || !QMetaObject::invokeMethod(button,"clicked")){fail("preview edit action reachable");return;}
+                    static int frames=0;mainWindow->grabWindow();if(++frames<3)return;auto* save=mainWindow->findChild<QQuickItem*>(QStringLiteral("saveTaskEditor"));if(!save || save->mapToScene(QPointF(0,save->height())).y()>mainWindow->height()+1 || !capture(QStringLiteral("calendar-instance-task-dark-200"))){fail("shared task save reachable at 200 percent");return;}
                 } else if(phase==175) {
-                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));auto* editor=panel->findChild<QObject*>(QStringLiteral("eventDialog"));
-                    if(!editor->property("visible").toBool() || panel->findChild<QObject*>(QStringLiteral("eventPreview"))->property("visible").toBool()){fail("explicit series edit from preview");return;}
-                    QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);
-                    QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("calendarJump")),"clicked");
-                    panel->findChild<QObject*>(QStringLiteral("calendarJumpDate"))->setProperty("text",QStringLiteral("2026-02-30"));QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("confirmCalendarJump")),"clicked");
+                    if(!editor->property("visible").toBool()){fail("same detail panel remains open");return;}QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("calendarJump")),"clicked");panel->findChild<QObject*>(QStringLiteral("calendarJumpDate"))->setProperty("text",QStringLiteral("2026-02-30"));QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("confirmCalendarJump")),"clicked");
                 } else if(phase==176) {
                     auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));
                     const auto expected=QDate::fromString(m_workspace.calendarEvent(eventId).value(QStringLiteral("startDate")).toString(),Qt::ISODate).addDays(7).toString(Qt::ISODate);
@@ -791,14 +1064,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     panel->findChild<QObject*>(QStringLiteral("calendarJumpDate"))->setProperty("text",QStringLiteral("2024-02-29"));QMetaObject::invokeMethod(panel->findChild<QObject*>(QStringLiteral("confirmCalendarJump")),"clicked");
                     m_workspace.setTextScale(2);QMetaObject::invokeMethod(panel,"inspectEvent",Q_ARG(QVariant,QVariant(eventId)),Q_ARG(QVariant,QVariant(QString())));
                 } else if(phase==179) {
-                    auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));static int narrowFrames=0;calendar->grabWindow();if(++narrowFrames<4)return;
-                    auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));auto* independent=mainWindow->findChild<QObject*>(QStringLiteral("desktopCalendarPanel"));
-                    auto* preview=independent->findChild<QObject*>(QStringLiteral("eventPreview"));auto* edit=preview->findChild<QQuickItem*>(QStringLiteral("editPreviewEvent"));
-                    if(calendar->width()!=420 || calendar->height()!=480 || !preview->property("visible").toBool() || !edit || edit->mapToScene(QPointF(0,edit->height())).y()>calendar->height()+1 || (!screenshotPath.isEmpty() && !calendar->grabWindow().save(screenshotPath+QStringLiteral(".desktop-event-preview-200.png")))){fail("narrow large preview action");return;}
-                    QMetaObject::invokeMethod(preview,"close");m_workspace.setTextScale(1);
-                    if(!independent || independent->property("anchorDate").toString()!=QStringLiteral("2024-02-29") || panel->property("selectedDate").toString()!=QStringLiteral("2028-02-29")){fail("independent date jump");return;}
-                    QMetaObject::invokeMethod(mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow")),"close");
-                    m_workspace.selectCalendarDate(m_workspace.calendarEvent(eventId).value(QStringLiteral("startDate")).toString());
+                    auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));calendar->grabWindow();auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));auto* independent=mainWindow->findChild<QObject*>(QStringLiteral("desktopCalendarPanel"));if(calendar->width()!=420 || calendar->height()!=480 || !editor->property("visible").toBool() || mainWindow->property("editId").toString()!=eventId || !capture(QStringLiteral("desktop-opens-shared-details-200"))){fail("desktop calendar opens the same task editor");return;}QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(1);if(independent->property("anchorDate").toString()!=QStringLiteral("2024-02-29") || panel->property("selectedDate").toString()!=QStringLiteral("2028-02-29")){fail("independent date jump preserves main calendar");return;}QMetaObject::invokeMethod(calendar,"close");m_workspace.selectCalendarDate(m_workspace.calendarEvent(eventId).value("startDate").toString());
                 }
             } else if(phase>=112) {
                 auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
@@ -882,7 +1148,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             } else if(phase>=96) {
                 auto capture=[&](const QString& suffix){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+suffix+QStringLiteral(".png"));};
-                auto* eventEditor=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDialog"));
+                auto* eventEditor=mainWindow->findChild<QObject*>(QStringLiteral("taskEditor"));
                 auto show=[&](const QString& page,const QString& id){return QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(page)),Q_ARG(QVariant,QVariant(id)));};
                 if(!eventEditor){fail("event editor");return;}
                 if(phase==96) {
@@ -898,7 +1164,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 } else if(phase==99) {if(m_workspace.calendarEvents().size()!=2 || !show(QStringLiteral("month"),QString())){fail("calendar events loaded");return;}mainWindow->resize(1000,720);}
                 else if(phase==100){auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));QVariant titles;if(!panel || !QMetaObject::invokeMethod(panel,"verifyDayTitles",Q_RETURN_ARG(QVariant,titles)) || titles.toString()!=QStringLiteral("PASS")){qWarning()<<"Calendar title check:"<<titles;fail("calendar concrete titles");return;}if(!capture(QStringLiteral("calendar-agenda")) || !show(QStringLiteral("event"),eventId)){fail("event open");return;}}
                 else if(phase==101){
-                    auto* title=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventTitle"));auto* save=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("saveEvent"));
+                    auto* title=editTitle;auto* save=mainWindow->findChild<QObject*>(QStringLiteral("saveTaskEditor"));
                     if(!eventEditor->property("visible").toBool() || !title || !save || !capture(QStringLiteral("calendar-event"))){fail("event form");return;}
                     title->setProperty("text",QStringLiteral("产品评审 · 已更新"));if(!QMetaObject::invokeMethod(save,"clicked")){fail("event form save");return;}
                 } else if(phase==102){if(eventEditor->property("visible").toBool() || m_workspace.calendarEvent(eventId).value(QStringLiteral("title")).toString()!=QStringLiteral("产品评审 · 已更新")){fail("event UI committed");return;}}
@@ -910,10 +1176,10 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 else if(phase==104){if(m_workspace.task(linkedTaskId).value(QStringLiteral("taskStatus")).toString()!=QStringLiteral("COMPLETED") || m_workspace.calendarEvents().size()!=2){fail("calendar completion independent of event");return;}m_workspace.setCalendarCompleted(true);}
                 else if(phase==105){if(!capture(QStringLiteral("calendar-completed"))){fail("completed agenda screenshot");return;}m_workspace.setTextScale(2);mainWindow->resize(880,580);}
                 else if(phase==106){auto* panel=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"));QVariant titles;if(!panel || !QMetaObject::invokeMethod(panel,"verifyDayTitles",Q_RETURN_ARG(QVariant,titles)) || titles.toString()!=QStringLiteral("PASS")){qWarning()<<"Calendar title check:"<<titles;fail("compact calendar concrete titles");return;}if(!capture(QStringLiteral("calendar-200")) || !panel || !QMetaObject::invokeMethod(panel,"showAgenda")){fail("large calendar agenda entry");return;}}
-                else if(phase==107){auto* agenda=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QQuickItem*>(QStringLiteral("calendarAgenda"));if(!agenda || agenda->mapToScene(QPointF(0,0)).y()<0 || agenda->mapToScene(QPointF(0,0)).y()>mainWindow->height() || !capture(QStringLiteral("calendar-agenda-200")) || !show(QStringLiteral("event"),eventId)){fail("large agenda reachable");return;}}
-                else if(phase==108){if(!capture(QStringLiteral("calendar-event-200"))){fail("large event form");return;}eventEditor->setProperty("dirty",true);QMetaObject::invokeMethod(mainWindow,"close");}
-                else if(phase==109){auto* discard=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QObject*>(QStringLiteral("eventDiscard"));if(!discard || !discard->property("visible").toBool()){fail("event draft close protection");return;}QMetaObject::invokeMethod(discard,"reject");}
-                else if(phase==110){if(!eventEditor->property("visible").toBool() || !eventEditor->property("dirty").toBool()){fail("event draft cancellation retained");return;}eventEditor->setProperty("dirty",false);QMetaObject::invokeMethod(eventEditor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(2);mainWindow->resize(1440,900);}
+                else if(phase==107){auto* agenda=mainWindow->findChild<QObject*>(QStringLiteral("calendarPanel"))->findChild<QQuickItem*>(QStringLiteral("calendarAgenda"));if(!agenda || agenda->mapToScene(QPointF(0,0)).y()<0 || agenda->mapToScene(QPointF(0,0)).y()>mainWindow->height() || !capture(QStringLiteral("calendar-agenda-200")) || !show(QStringLiteral("event"),eventId)){qCritical()<<"Agenda geometry:"<<(agenda ? agenda->mapToScene(QPointF(0,0)) : QPointF())<<(agenda ? agenda->size() : QSizeF());fail("large agenda reachable");return;}}
+                else if(phase==108){if(!capture(QStringLiteral("calendar-event-200"))){fail("large event form");return;}mainWindow->setProperty("draftDirty",true);QMetaObject::invokeMethod(mainWindow,"close");}
+                else if(phase==109){auto* discard=mainWindow->findChild<QObject*>(QStringLiteral("unsavedChangesDialog"));if(!discard || !discard->property("visible").toBool()){fail("event draft close protection");return;}QMetaObject::invokeMethod(discard,"reject");}
+                else if(phase==110){if(!eventEditor->property("visible").toBool() || !mainWindow->property("draftDirty").toBool()){fail("event draft cancellation retained");return;}mainWindow->setProperty("draftDirty",false);QMetaObject::invokeMethod(eventEditor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(2);mainWindow->resize(1440,900);}
                 else if(phase==111){if(!capture(QStringLiteral("calendar-dark-wide"))){fail("dark calendar");return;}m_workspace.setThemeMode(1);mainWindow->resize(1120,720);}
             } else if(phase>=78) {
                 auto* gallery=mainWindow->findChild<QObject*>(QStringLiteral("styleGallery"));
@@ -988,7 +1254,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(qAbs(list->property("contentY").toDouble()-300)>2 || !capture(QStringLiteral("v1-list"))){fail("per-view scroll restoration");return;}
                     m_workspace.setPreference(QStringLiteral("sidebarCollapsed"),true);m_workspace.setPreference(QStringLiteral("compact"),true);
                 } else if(phase==72) {
-                    if(mainWindow->property("sidebarWidth").toDouble()!=0 || !capture(QStringLiteral("v1-collapsed"))){fail("recoverable collapsed navigation");return;}
+                    if(mainWindow->property("sidebarWidth").toDouble()!=44 || !mainWindow->findChild<QObject*>(QStringLiteral("toggleSidebar"))->property("visible").toBool() || !capture(QStringLiteral("v1-collapsed"))){fail("recoverable collapsed navigation");return;}
                     m_workspace.setPreference(QStringLiteral("sidebarCollapsed"),false);m_workspace.setTextScale(2);mainWindow->resize(880,580);invoke("openTool",QStringLiteral("settings"));
                 } else if(phase==73) {
                     if(!capture(QStringLiteral("v1-settings-200"))){fail("candidate settings screenshot");return;}
@@ -1095,7 +1361,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
             }
             ++phase;
-            if(phase<271)return;
+            if(phase<436)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
@@ -1124,8 +1390,8 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         });
         probe->start();
         // Capturing every surface adds synchronous GPU readbacks; keep the
-        // ordinary/package probe at 45s and give screenshot runs a bounded 90s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 120000,&m_engine,[smokePhase]{if(*smokePhase>=271)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        // ordinary/package probe at 45s and give screenshot runs a bounded 120s.
+        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 120000,&m_engine,[smokePhase]{if(*smokePhase>=398)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
     }
     return true;
 }

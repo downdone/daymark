@@ -18,7 +18,7 @@ set(DAYMARK_STYLE_FILES
     src/ui/style/Dialog.qml src/ui/style/DialogButtonBox.qml
     src/ui/style/ComboBox.qml src/ui/style/Menu.qml src/ui/style/MenuItem.qml src/ui/style/MenuSeparator.qml
     src/ui/style/Slider.qml src/ui/style/SpinBox.qml src/ui/style/ScrollBar.qml
-    src/ui/style/ItemDelegate.qml
+    src/ui/style/ItemDelegate.qml src/ui/style/ToolTip.qml
 )
 foreach(style_file IN LISTS DAYMARK_STYLE_FILES)
     get_filename_component(style_name "${style_file}" NAME)
@@ -34,8 +34,9 @@ add_library(daymark_core STATIC
     src/domain/CalendarEvent.h src/persistence/EventRepository.h src/persistence/EventRepository.cpp src/services/EventService.h src/services/EventService.cpp
     src/domain/Task.h
     src/persistence/SqliteDatabase.h src/persistence/SqliteDatabase.cpp
-    src/persistence/TaskRepository.h src/persistence/TaskRepository.cpp
-    src/services/TaskService.h src/services/TaskService.cpp
+    src/persistence/TaskRepository.h src/persistence/TaskRepository.cpp src/persistence/TaskComponents.cpp src/persistence/UnifiedTaskMigration.h src/persistence/UnifiedTaskMigration.cpp
+    src/services/TaskTime.cpp src/services/TaskService.h src/services/TaskService.cpp src/services/TaskTreeCommands.cpp
+    src/services/ReminderSchedule.h src/services/ReminderSchedule.cpp
     src/persistence/CatalogRepository.h src/persistence/CatalogRepository.cpp
     src/services/CatalogService.h src/services/CatalogService.cpp
     src/services/CalendarService.h src/services/CalendarService.cpp
@@ -45,7 +46,12 @@ add_library(daymark_core STATIC
 )
 target_include_directories(daymark_core PUBLIC src)
 target_link_libraries(daymark_core PUBLIC Qt6::Core Qt6::Sql)
-qt_add_resources(daymark_core daymark_schema PREFIX "/daymark" FILES src/persistence/migrations/001_init.sql src/persistence/migrations/002_area_archive.sql src/persistence/migrations/003_calendar_events.sql src/persistence/migrations/004_event_series.sql)
+qt_add_resources(daymark_core daymark_schema PREFIX "/daymark" FILES src/persistence/migrations/001_init.sql src/persistence/migrations/002_area_archive.sql src/persistence/migrations/003_calendar_events.sql src/persistence/migrations/004_event_series.sql
+        src/persistence/migrations/005_categories.sql
+        src/persistence/migrations/006_task_relations.sql
+        src/persistence/migrations/007_recurring_reminders.sql
+        src/persistence/migrations/008_unified_tasks.sql
+        src/persistence/migrations/009_task_tree_actions.sql)
 if(MSVC)
     target_compile_options(daymark_core PUBLIC /utf-8)
 endif()
@@ -64,6 +70,11 @@ if(WIN32)
     configure_file(src/platform/windows/daymark.rc.in "${CMAKE_CURRENT_BINARY_DIR}/daymark.rc" @ONLY)
     target_sources(daymark PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/daymark.rc")
 elseif(APPLE)
+    enable_language(OBJCXX)
+    set_target_properties(daymark PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
+    find_library(DAYMARK_APPKIT_FRAMEWORK AppKit REQUIRED)
+    target_sources(daymark PRIVATE src/platform/macos/SmokeActivation.h src/platform/macos/SmokeActivation.mm)
+    target_link_libraries(daymark PRIVATE ${DAYMARK_APPKIT_FRAMEWORK})
     target_sources(daymark PRIVATE assets/icons/daymark.icns)
     set_source_files_properties(assets/icons/daymark.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
     set_target_properties(daymark PROPERTIES MACOSX_BUNDLE_ICON_FILE daymark.icns)
@@ -75,8 +86,8 @@ target_sources(daymark PRIVATE src/platform/common/SystemEventFilter.h src/platf
 qt_add_qml_module(daymark
     URI Daymark
     VERSION 1.0
-    QML_FILES src/ui/RecurringSchedules.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/EventDialog.qml src/ui/EventPreview.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/ReminderCenter.qml src/ui/DesktopCalendarWindow.qml
-    QML_FILES src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationDialog.qml src/ui/TaskDetailsFields.qml src/ui/ChecklistRow.qml src/ui/CalendarPanel.qml src/ui/RecurrenceDialog.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
+    QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
+    QML_FILES src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES ${DAYMARK_WINDOW_SOURCES} src/models/TaskWorkspace.h src/models/TaskWorkspace.cpp src/platform/common/StartupController.h src/platform/common/StartupController.cpp
         src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp
 )
@@ -121,6 +132,9 @@ if(BUILD_TESTING)
     qt_add_executable(test_calendar_service tests/services/CalendarServiceTest.cpp)
     target_link_libraries(test_calendar_service PRIVATE daymark_core Qt6::Test)
     add_test(NAME calendar_service COMMAND test_calendar_service)
+    qt_add_executable(test_unified_tasks tests/services/UnifiedTaskTest.cpp)
+    target_link_libraries(test_unified_tasks PRIVATE daymark_core Qt6::Test)
+    add_test(NAME unified_tasks COMMAND test_unified_tasks)
     qt_add_executable(test_event_service tests/services/EventServiceTest.cpp)
     target_link_libraries(test_event_service PRIVATE daymark_core Qt6::Test)
     add_test(NAME event_service COMMAND test_event_service)
@@ -139,7 +153,7 @@ if(BUILD_TESTING)
     set_tests_properties(task_service PROPERTIES TIMEOUT 30)
     qt_add_executable(test_task_workspace tests/integration/TaskWorkspaceTest.cpp src/models/TaskWorkspace.h src/models/TaskWorkspace.cpp)
     target_include_directories(test_task_workspace PRIVATE src)
-    target_link_libraries(test_task_workspace PRIVATE daymark_core Qt6::Qml Qt6::Test)
+    target_link_libraries(test_task_workspace PRIVATE daymark_core Qt6::Qml Qt6::Gui Qt6::Test)
     add_test(NAME task_workspace COMMAND test_task_workspace)
     set_tests_properties(task_workspace PROPERTIES TIMEOUT 40)
     qt_add_executable(test_single_instance tests/integration/SingleInstanceTest.cpp src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp)

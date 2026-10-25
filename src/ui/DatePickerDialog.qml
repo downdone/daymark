@@ -9,9 +9,9 @@ Dialog {
     property string field: "start"
     property string selectedDate: ""
     signal dateSelected(string date,string field)
-    title: field === "start" ? qsTr("选择计划开始日") : qsTr("选择截止日")
-    width: Math.min(500,parent.width-32)
-    height: Math.min(530,parent.height-32)
+    title: field === "upcoming" ? qsTr("安排到未来日期") : field === "start" ? qsTr("选择计划开始日") : qsTr("选择截止日")
+    width: Math.min(360*Theme.scale,parent.width-32)
+    height: Math.min(460*Theme.scale,parent.height-32)
     modal: true
     standardButtons: Dialog.Cancel
     function showFor(date,which) {field=which;selectedDate=date;month=workspace.datePicker(date,0);open()}
@@ -36,6 +36,7 @@ Dialog {
                     Button {
                         required property var modelData
                         text: modelData.day
+                        enabled: root.field!=="upcoming" || modelData.date>root.workspace.dateOffset(0)
                         Layout.fillWidth: true
                         Layout.minimumWidth: 24
                         implicitWidth: 32
@@ -50,9 +51,9 @@ Dialog {
                 }
             }
             RowLayout {
-                Button { text: qsTr("今天"); onClicked: {root.dateSelected(root.workspace.dateOffset(0),root.field);root.close()} }
+                Button {visible: root.field!=="upcoming";text: qsTr("今天"); onClicked: {root.dateSelected(root.workspace.dateOffset(0),root.field);root.close()} }
                 Button { text: qsTr("明天"); onClicked: {root.dateSelected(root.workspace.dateOffset(1),root.field);root.close()} }
-                Button { text: qsTr("清除日期"); onClicked: {root.dateSelected("",root.field);root.close()} }
+                Button {visible: root.field!=="upcoming";text: qsTr("清除日期"); onClicked: {root.dateSelected("",root.field);root.close()} }
             }
         }
     }

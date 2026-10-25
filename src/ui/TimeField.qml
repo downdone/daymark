@@ -45,7 +45,7 @@ TextField {
         width: Math.min(Math.max(280,280*Theme.scale),field.hostWindow ? field.hostWindow.width-32 : 560)
         padding: 12;margins: 8;focus: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle {radius: 16;color: Theme.content;border.color: Theme.separator}
+        background: Rectangle {radius: Theme.panelRadius;color: Theme.content;border.color: Theme.separator}
         contentItem: ColumnLayout {
             spacing: 8
             Label {text: field.timeLabel;font.weight: Font.DemiBold}

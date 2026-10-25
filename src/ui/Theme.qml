@@ -31,6 +31,7 @@ QtObject {
     readonly property color danger: DS.DesignTokens.danger
     readonly property color toggleOn: DS.DesignTokens.toggleOn
     readonly property color primaryInk: DS.DesignTokens.primaryInk
+    readonly property color primaryFill: DS.DesignTokens.primaryFill
     readonly property color scheduleFill: DS.DesignTokens.scheduleFill
     readonly property color scheduleInk: DS.DesignTokens.scheduleInk
     readonly property color pressed: DS.DesignTokens.pressed
@@ -40,6 +41,8 @@ QtObject {
     readonly property int taskTitleSize: DS.DesignTokens.taskTitle
     readonly property int rowRadius: DS.DesignTokens.rowRadius
     readonly property int bodySize: DS.DesignTokens.body
+    readonly property int listTitleSize: Math.round(13*scale)
+    readonly property int navigationSize: DS.DesignTokens.navigation
     readonly property int captionSize: DS.DesignTokens.caption
     readonly property int sectionSize: DS.DesignTokens.section
     readonly property int headingSize: DS.DesignTokens.heading

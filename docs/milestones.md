@@ -1,5 +1,15 @@
 # 里程碑与可执行任务队列
 
+UI-33按[统一起止与动作设计](design/shared-task-time-and-actions.md)及ADR-019实施：C++时间/旧资料与提醒 → 共享日期编辑 → 普通列表拖动/任务菜单 → 分类标签重命名 → 双构建、原生输入与缩放。当前状态仅见PROGRESS。
+
+UI-32按[两层子任务与导航设计](design/compact-navigation-and-subtasks.md)及ADR-018实施；新建/改父校验、可见详情/草稿返回、紧凑来源导航及旧深层兼容为本片门禁，状态见PROGRESS。
+
+UI-31全窗口统一按[桌面语言设计](design/macos-desktop-language.md)分片构建、截图与回归；收集箱上移至系统入口、自建分类区保留两级文件夹。当前状态和证据仅在PROGRESS。
+
+UI-29 / FR-024～030按[紧凑桌面设计](design/desktop-task-inspector.md)处理详情信息层级、导航密度、展开编辑对齐及分类实际上下排序；双构建、CTest、lint和Cocoa证据记录后结束本片。UI28交付范围和局限保留在PROGRESS。
+
+UI-27按[统一任务系统](design/unified-task-system.md)覆盖用户FR-024～029：分类迁移 → 真正子任务/重要/置顶 → 统一时间/循环/提醒 → 共享编辑及列表/日历导航 → 双构建、迁移/导入、合成及原生门禁。新定义替代历史项目领域/双事件/清单切片，保留数据与平台门槛；唯一状态见PROGRESS。
+
 本文件细化原始 Plan，不替代需求与原任务 ID。状态唯一记录于 PROGRESS；这里的任务编号用于逐轮开发和追踪。工期沿用 Plan 的63～121有效工程人日初估，完成真实 M0/M1 后重估，不据此承诺交付日期。
 
 UI实施在对应M3/M4/M5业务切片中采用 [UI-01～06迁移顺序及UX门禁](design/ui-acceptance.md)，先做Today完整样板再推广。它不改变原功能依赖，也不自动将项目优先级改为全面视觉重写。
@@ -96,3 +106,11 @@ UI-18按[就近编辑设计](design/direct-editing.md)推进共享日期/时间�
 UI-19按[原行编辑及即时反馈](design/inline-task-experience.md)修订快速卡形式、整理与创建、详情动作、列表/完成反馈和菜单响应。
 
 UI-20 / CAL-06A按[连续日程与视觉修订](design/calendar-visual-refresh.md)推进跨日色条、长按排序、循环日程、全局颜色/行关系及提醒单层提交。
+
+UI-21按[产品哲学](product-philosophy.md)与[导航页面契约](design/navigation-and-pages.md)先复审责任/结果/场景和主操作链，再交付主内容管理页、领域项目层级/标签独立入口及完整草稿与平台验证；当前状态只记录于PROGRESS。
+
+UI-22～26按[全产品复审与简约方案](design/product-experience-review.md)单切片推进：先清理重复常驻元素/入口及状态措辞，再做今日与澄清、项目领域工作页、时间查找、设置恢复。遵守P-14“简约而不简单”；保留FR-001～022、草稿与安全语义，CAL-06/07、ENG-01和真实平台门禁不因重设计取消或宣称完成。
+
+UI-23A按用户截图及[直接操作设计](design/direct-task-actions.md)先实现详情/安排/导航移动闭环并构建，再增加FR-023任务日期范围投影与共享月周日历，最后真实QML指针、临时数据、双构建与原生合成验收。状态仅见PROGRESS；不扩大为小时排程。
+
+UI-30按[提醒事项式视图与任务树](design/task-list-context.md)和ADR-017推进FR-031：先树事务/schema9及旧JSON，再五视图/最近删除/局部编辑，最后完整构建与原生合成；替代旧父子独立语义的部分，状态仅见PROGRESS。

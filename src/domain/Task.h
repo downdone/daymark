@@ -44,12 +44,6 @@ public:
     QDateTime nowUtc() const override { return QDateTime::currentDateTimeUtc(); }
 };
 
-struct ChecklistItem {
-    QString id,title;
-    bool done=false;
-    qint64 sortOrder=0;
-    bool operator==(const ChecklistItem&) const = default;
-};
 struct CatalogItem {
     QString id,kind,title,parentId,planningState=QStringLiteral("ACTIVE"),status=QStringLiteral("OPEN");
     qint64 rowVersion=1;
@@ -62,16 +56,44 @@ struct RecurrenceRule {
     QDate anchor,end;
     int interval=1,weekdays=0,monthDay=1,yearMonth=1;
     bool active=true;
+    QString sourceTaskId,defaultsJson=QStringLiteral("{}");
     qint64 rowVersion=1;
+    bool operator==(const RecurrenceRule&) const = default;
 };
+struct TaskSchedule {
+    bool allDay=true;
+    QDate startOn,endOn;
+    QDateTime startUtc,endUtc;
+    QString timeZone;
+    int alertMinutes=-1;
+    bool operator==(const TaskSchedule&) const = default;
+};
+struct TaskLink {
+    QString taskId,role=QStringLiteral("preparation");
+    bool operator==(const TaskLink&) const = default;
+};
+
 struct Task {
     QString id, title, notes;
+    QString parentTaskId,parentTitle;
+    std::optional<TaskSchedule> schedule;
+    std::optional<RecurrenceRule> repeat;
+    QList<TaskLink> links;
+    // Command-only context; never stored as another task fact.
+    bool repeatChanged=false;
+    QString replacedRecurrenceId;
+    qint64 replacedRecurrenceVersion=0;
+    QDate repeatCutoff;
+    bool pinned=false,important=false;
+    int listDepth=0,listChildCount=0;
+    bool parentDeleted=false;
     QString planningState = QStringLiteral("INBOX");
     QString status = QStringLiteral("OPEN");
     std::optional<QDate> startOn, deadlineOn;
     bool todayFocus = false;
     bool evening = false;
     QString createdAtUtc, updatedAtUtc, completedAtUtc, cancelledAtUtc, deletedAtUtc;
+    QString deletionGroupId,completionGroupId;
     qint64 rowVersion = 1;
     qint64 sortOrder = 0;
     QString projectId, projectPlanning, projectStatus,areaId,headingId,projectName,projectAreaId,headingTitle;
@@ -79,8 +101,10 @@ struct Task {
     bool areaArchived=false;
     qint64 headingOrder=-1;
     QStringList tagIds,tagNames;
-    QList<ChecklistItem> checklist;
+    int pendingSubtasks=0;
     QString remindAtUtc,reminderFiredAtUtc;
+    QString reminderRepeat=QStringLiteral("NONE"),reminderAnchorUtc,reminderZone=QStringLiteral("UTC");
+    int reminderEvery=1;
     QString recurrenceId;
     QDate occurrenceOn;
     bool instanceOverridden=false;
@@ -90,13 +114,18 @@ struct Task {
 };
 
 struct TaskPatch {
-    FieldPatch<QString> title, notes, planningState;
+    FieldPatch<qint64> repeatVersion;
+    FieldPatch<TaskSchedule> schedule;
+    FieldPatch<RecurrenceRule> repeat;
+    FieldPatch<QList<TaskLink>> links;
+    FieldPatch<QString> title, notes, planningState, parentTaskId;
+    FieldPatch<bool> pinned,important;
     FieldPatch<QDate> startOn, deadlineOn;
     FieldPatch<bool> todayFocus;
     FieldPatch<bool> evening;
-    FieldPatch<QString> projectId,areaId,headingId,remindAtUtc;
+    FieldPatch<QString> projectId,areaId,headingId,remindAtUtc,reminderRepeat,reminderZone;
+    FieldPatch<int> reminderEvery;
     FieldPatch<QStringList> tagIds;
-    FieldPatch<QList<ChecklistItem>> checklist;
 };
 struct OrderChange {
     QString taskId;

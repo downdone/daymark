@@ -4,15 +4,17 @@
 namespace daymark {
 struct CalendarEntry {
     Task task;
-    QString kind; // start, deadline, both; presentation never infers date semantics.
+    QString kind; // start, deadline, both, range; presentation never infers date semantics.
 };
 struct CalendarDay {
     QDate date;
     bool inMonth=false;
     QList<CalendarEntry> entries;
 };
+struct CalendarTaskRange {Task task;QDate start,end;};
 class CalendarService final {
 public:
+    static QList<CalendarTaskRange> ranges(const QList<Task>& tasks,const QDate& from,const QDate& to,bool includeCompleted=false);
     static QList<CalendarEntry> entries(const QList<Task>& tasks,const QDate& date,bool includeCompleted=false);
     static QList<CalendarDay> days(const QList<Task>& tasks,const QDate& anchor,bool week,bool sundayFirst,bool includeCompleted=false);
     static QList<Task> unscheduled(const QList<Task>& tasks);

@@ -11,7 +11,13 @@ SingleInstance::Outcome SingleInstance::acquire(const QString& dataDirectory)
 {
     if(!QDir().mkpath(dataDirectory))return Outcome::Failed;
     const auto canonical=QDir(dataDirectory).canonicalPath();
-    const auto name=QStringLiteral("daymark-")+QString::fromLatin1(QCryptographicHash::hash(canonical.toUtf8(),QCryptographicHash::Sha256).toHex());
+    auto digest=QCryptographicHash::hash(canonical.toUtf8(),QCryptographicHash::Sha256).toHex();
+#ifdef Q_OS_MACOS
+    // macOS sun_path holds 104 bytes including NUL. Its per-user temporary
+    // directory plus a full hex SHA-256 exceeds that limit; retain 128 bits.
+    digest.truncate(32);
+#endif
+    const auto name=QStringLiteral("daymark-")+QString::fromLatin1(digest);
     m_lock=std::make_unique<QLockFile>(QDir(canonical).filePath(QStringLiteral("daymark.lock")));
     m_lock->setStaleLockTime(0);
     if(!m_lock->tryLock()) {

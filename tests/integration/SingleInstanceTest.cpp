@@ -9,6 +9,16 @@ using namespace daymark;
 class SingleInstanceTest : public QObject {
     Q_OBJECT
 private slots:
+    void independentDataDirectoriesHaveIndependentInstances()
+    {
+        QTemporaryDir firstDirectory,secondDirectory;
+        QVERIFY(firstDirectory.isValid());QVERIFY(secondDirectory.isValid());
+        SingleInstance first,second;
+        QCOMPARE(first.acquire(firstDirectory.path()),SingleInstance::Outcome::Primary);
+        QCOMPARE(second.acquire(secondDirectory.path()),SingleInstance::Outcome::Primary);
+        QVERIFY(!QFileInfo::exists(firstDirectory.filePath(QStringLiteral("daymark.sqlite"))));
+        QVERIFY(!QFileInfo::exists(secondDirectory.filePath(QStringLiteral("daymark.sqlite"))));
+    }
     void secondProcessActivatesWithoutBecomingWriter()
     {
         QTemporaryDir dir(QDir::tempPath()+QStringLiteral("/daymark instance-XXXXXX"));QVERIFY(dir.isValid());

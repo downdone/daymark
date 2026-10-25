@@ -5,11 +5,12 @@ import DaymarkStyle as DS
 import QtQuick.Templates as T
 T.Switch {
     id: control
+    property bool showSymbol: true
     property string symbol: "settings"
-    readonly property real trackWidth: Math.min(56,44*Theme.scale)
-    readonly property real trackHeight: Math.min(32,26*Theme.scale)
+    readonly property real trackWidth: Math.min(48,36*Theme.scale)
+    readonly property real trackHeight: Math.min(28,22*Theme.scale)
     implicitWidth: contentItem.implicitWidth+leftPadding+rightPadding
-    implicitHeight: Math.max(36,contentItem.implicitHeight+12,trackHeight+8)
+    implicitHeight: Math.max(32,contentItem.implicitHeight+8,trackHeight+8)
     padding: 4
     rightPadding: trackWidth+12
     hoverEnabled: true
@@ -18,10 +19,7 @@ T.Switch {
     Accessible.name: text
     contentItem: RowLayout {
         spacing: 8
-        Rectangle {
-            implicitWidth: 24;implicitHeight: 24;radius: 6;color: Theme.selected
-            AppIcon {anchors.centerIn: parent;width: 16;height: 16;name: control.symbol;ink: control.enabled ? Theme.accent : Theme.disabledText}
-        }
+        AppIcon {visible: control.showSymbol;implicitWidth: 16;implicitHeight: 16;name: control.symbol;ink: control.enabled ? Theme.secondary : Theme.disabledText}
         Text {text: control.text;font: control.font;color: control.enabled ? Theme.text : Theme.disabledText;Layout.fillWidth: true;wrapMode: Text.Wrap}
     }
     indicator: Rectangle {

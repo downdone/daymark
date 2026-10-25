@@ -13,31 +13,31 @@ ColumnLayout {
     property var tags: []
     readonly property bool twoColumns: width-24>=440*Theme.scale
     property bool infoExpanded: false
-    property Item draggedChecklistRow: null
-    function moveChecklist(from,to){if(from<0 || to<0 || from>=checklist.count || to>=checklist.count || from===to)return;checklist.move(from,to,1);draftChanged()}
-    readonly property var destinations: [{kind:"",id:"",title:qsTr("不分类")}].concat(projects.map(item=>({kind:"project",id:item.id,title:qsTr("项目 · %1").arg(item.title)}))).concat(areas.map(item=>({kind:"area",id:item.id,title:qsTr("领域 · %1").arg(item.title)})))
+    readonly property var destinations: [{kind:"",id:"",title:qsTr("收集箱")}].concat(workspace.categoryTree.map(item=>({kind:item.kind,id:item.id,title:item.path,depth:item.depth,parentTitle:item.parentTitle})))
     readonly property var selectedDestination: destinations[destinationChoice.currentIndex] || destinations[0]
     property var tagIds: []
     property var relatedEvents: []
     property int lastDestinationIndex: 0
+    property string parentTaskId: ""
+    property string parentTaskTitle: ""
+    property var parentChoices: []
+    readonly property bool parentPickerVisible: parentPicker.visible
+    function refreshParentChoices(){parentChoices=workspace.parentTaskChoices(taskData.taskId,parentSearch.text)}
     signal createCatalogRequested(string kind)
     signal draftChanged()
     signal openEvent(string eventId)
     signal focusRequested(Item item)
-    spacing: 16
+    spacing: Theme.fieldGap
     function loadTask(item) {
         taskData=item
         projects=workspace.catalogOf("project");areas=workspace.catalogOf("area");tags=workspace.catalogOf("tag")
-        relatedEvents=workspace.eventsForTask(item.taskId)
+        relatedEvents=workspace.eventsForTask(item.taskId).concat((item.links || []).map(link=>Object.assign({},workspace.task(link.taskId),{eventId:link.taskId})).filter(link=>!!link.taskId))
         tagIds=item.tagIds.slice()
-        infoExpanded=false
         destinationChoice.currentIndex=Math.max(0,destinations.findIndex(value=>item.projectId ? value.kind==="project" && value.id===item.projectId : item.areaId ? value.kind==="area" && value.id===item.areaId : value.kind===""))
         lastDestinationIndex=destinationChoice.currentIndex
         loadHeadings()
         headingChoice.currentIndex=headings.findIndex(value=>value.id===item.headingId)+1
-        checklist.clear()
-        for(const entry of item.checklist)checklist.append({itemId:entry.id,itemTitle:entry.title,itemDone:entry.done})
-        newItem.clear()
+        parentTaskId=item.parentTaskId || "";parentTaskTitle=item.parentTitle || "";important.checked=!!item.important;pinned.checked=!!item.pinned
     }
     function refreshCatalog() {
         const previous=selectedDestination
@@ -62,17 +62,10 @@ ColumnLayout {
         headingChoice.currentIndex=0
     }
     function detailsPatch() {
-        const items=[]
-        for(let i=0;i<checklist.count;i++) {
-            const item=checklist.get(i)
-            items.push({id:item.itemId,title:item.itemTitle,done:item.itemDone})
-        }
-        // Unsubmitted checklist text belongs to the same draft and is included on Save.
-        if(newItem.text.trim())items.push({id:"",title:newItem.text.trim(),done:false})
         return {projectId:selectedDestination.kind==="project" ? selectedDestination.id : "",
             areaId:selectedDestination.kind==="area" ? selectedDestination.id : "",
             headingId:headingChoice.currentIndex>0 ? headings[headingChoice.currentIndex-1].id : "",
-            tagIds:tagIds,checklist:items}
+            tagIds:tagIds,parentTaskId:parentTaskId,important:important.checked,pinned:pinned.checked}
     }
     function selectDestination(kind,id,headingId) {
         const index=destinations.findIndex(item=>item.kind===kind && item.id===id)
@@ -85,15 +78,8 @@ ColumnLayout {
         }
         return true
     }
-    function addChecklistItem() {
-        if(!newItem.text.trim())return
-        checklist.append({itemId:"",itemTitle:newItem.text.trim(),itemDone:false})
-        newItem.clear();root.draftChanged();newItem.forceActiveFocus()
-    }
-    ListModel {id: checklist}
     DetailSection {
-        heading: qsTr("整理");symbol: "project"
-        Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("项目管理多步骤目标，领域管理长期职责；标签便于跨项目查找。都可不选。")}
+        heading: qsTr("分类与标签");symbol: "folder"
         GridLayout {
             objectName: "editorAssignmentGrid"
             Layout.fillWidth: true
@@ -102,24 +88,24 @@ ColumnLayout {
             rowSpacing: 8
             ColumnLayout {
                 Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
-                Label {text: qsTr("放入项目或领域");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                Label {text: qsTr("分类");font.pixelSize: Theme.captionSize;color: Theme.secondary}
                 ComboBox {
                     id: destinationChoice;objectName: "editorDestination"
                     Layout.fillWidth: true
-                    Accessible.name: qsTr("任务归属，项目或领域只能选择一个")
-                    model: root.destinations.map(item=>item.title).concat([qsTr("新建项目…"),qsTr("新建领域…")])
-                    onActivated: {if(currentIndex>=root.destinations.length){const kind=currentIndex===root.destinations.length ? "project" : "area";currentIndex=root.lastDestinationIndex;root.createCatalogRequested(kind)}else{root.lastDestinationIndex=currentIndex;root.loadHeadings();root.draftChanged()}}
+                    Accessible.name: qsTr("任务分类")
+                    model: root.destinations.map(item=>item.title).concat([qsTr("新建分类…")])
+                    onActivated: {if(currentIndex>=root.destinations.length){const kind=currentIndex===root.destinations.length ? "project" : "area";currentIndex=root.lastDestinationIndex;root.createCatalogRequested(kind)}else{root.lastDestinationIndex=currentIndex;root.loadHeadings();if(root.parentTaskId){const parent=root.workspace.task(root.parentTaskId);const selected=root.selectedDestination;const parentId=parent.projectId || parent.areaId || "";if(selected.id!==parentId){root.parentTaskId="";root.parentTaskTitle=""}}root.draftChanged()}}
                 }
             }
             ColumnLayout {
                 objectName: "editorHeadingRow"
                 visible: root.selectedDestination.kind==="project" && root.headings.length>0
                 Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
-                Label {text: qsTr("项目分组");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+                Label {text: qsTr("分类分组");font.pixelSize: Theme.captionSize;color: Theme.secondary}
                 ComboBox {
                     id: headingChoice;objectName: "editorHeading"
                     Layout.fillWidth: true
-                    Accessible.name: qsTr("任务项目分组")
+                    Accessible.name: qsTr("分类分组")
                     model: [qsTr("无分组")].concat(root.headings.map(item=>item.title))
                     onActivated: root.draftChanged()
                 }
@@ -130,7 +116,6 @@ ColumnLayout {
             Label {text: qsTr("标签");Layout.alignment: Qt.AlignTop;Layout.topMargin: 7;font.pixelSize: Theme.captionSize;color: Theme.secondary}
             Flow {
                 id: tagFlow;Layout.fillWidth: true;spacing: 6
-                Label {visible: root.tags.length===0;text: qsTr("按地点或场景分类");topPadding: 7;bottomPadding: 7;color: Theme.secondary;font.pixelSize: Theme.captionSize}
                 Repeater {
                     model: root.tags
                     CheckBox {
@@ -146,57 +131,41 @@ ColumnLayout {
                 ActionButton {objectName: "newTagHere";symbol: "plus";text: qsTr("新建标签");onClicked: root.createCatalogRequested("tag")}
             }
         }
-    }
-    DetailSection {
-        heading: qsTr("检查清单");symbol: "list";summary: checklist.count>0 ? qsTr("%1项").arg(checklist.count) : ""
-    Repeater {
-        model: checklist
-        ChecklistRow {
-            id: row
-            objectName: "checklistRow-"+index
-            required property int index
-            required property string itemTitle
-            required property bool itemDone
-            itemIndex: index;itemCount: checklist.count;title: itemTitle;done: itemDone
-            onDraggingChanged: root.draggedChecklistRow=dragging ? row : null
-            onTitleEdited: function(value){checklist.setProperty(index,"itemTitle",value);root.draftChanged()}
-            onDoneEdited: function(value){checklist.setProperty(index,"itemDone",value);root.draftChanged()}
-            onMoveRequested: function(from,to){root.moveChecklist(from,to)}
-            onRemoveRequested: {checklist.remove(index);root.draftChanged()}
+        GridLayout {
+            Layout.fillWidth: true;columns: root.twoColumns ? 2 : 1;columnSpacing: 24;rowSpacing: 4
+            SettingSwitch {id: important;objectName: "editorImportant";Layout.fillWidth: true;Layout.preferredWidth: 1;text: qsTr("特别关注");symbol: "flag";onClicked: root.draftChanged()}
+            SettingSwitch {id: pinned;objectName: "editorPinned";Layout.fillWidth: true;Layout.preferredWidth: 1;text: qsTr("置顶显示");symbol: "up";onClicked: root.draftChanged()}
         }
     }
-    RowLayout {
-        Layout.fillWidth: true
-        TextField {id: newItem;objectName: "editorNewChecklistItem";Layout.fillWidth: true;placeholderText: qsTr("新增步骤，Enter 添加");Accessible.name: qsTr("新增清单项");onTextEdited: root.draftChanged();onAccepted: root.addChecklistItem();onActiveFocusChanged: if(activeFocus)root.focusRequested(this)}
-        IconToolButton {contentItem: AppIcon {name: "plus"} Accessible.name: qsTr("添加清单项");enabled: newItem.text.trim().length>0;onClicked: root.addChecklistItem()}
-    }
+    DetailSection {
+        heading: qsTr("任务关系");symbol: "list"
+        Label {text: qsTr("父任务");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+        Button {objectName: "parentTaskButton";Layout.fillWidth: true;text: root.parentTaskId ? (root.taskData.parentDeleted ? qsTr("原父任务（已删除）：%1").arg(root.parentTaskTitle) : root.parentTaskTitle) : qsTr("无父任务");onClicked: {parentSearch.clear();root.refreshParentChoices();parentPicker.open()}}
+        Popup {
+            id: parentPicker;objectName: "parentTaskPicker";parent: Overlay.overlay;anchors.centerIn: parent
+            width: Math.min(520,parent.width-32);height: Math.min(480,parent.height-32);padding: 12;modal: true;focus: true
+            background: Rectangle {color: Theme.content;radius: Theme.panelRadius;border.color: Theme.separator}
+            contentItem: ColumnLayout {
+                TextField {id: parentSearch;Layout.fillWidth: true;placeholderText: qsTr("搜索父任务…");onTextEdited: root.refreshParentChoices()}
+                Label {visible: root.parentChoices.length===0;Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("没有可选父任务。仅能归入根任务；已有下级的任务需先移出下级。")}
+                Button {text: qsTr("无父任务");onClicked: {root.parentTaskId="";root.parentTaskTitle="";root.draftChanged();parentPicker.close()}}
+                ListView {
+                    Layout.fillWidth: true;Layout.fillHeight: true;clip: true;model: root.parentChoices
+                    delegate: ItemDelegate {required property var modelData;width: ListView.view.width;text: modelData.title;highlighted: root.parentTaskId===modelData.id;onClicked: {root.parentTaskId=modelData.id;root.parentTaskTitle=modelData.title;const parent=root.workspace.task(modelData.id);root.selectDestination(parent.projectId ? "project" : parent.areaId ? "area" : "",parent.projectId || parent.areaId || "",parent.headingId || "");root.draftChanged();parentPicker.close()}}
+                }
+            }
+        }
     }
     DetailSection {
-        heading: qsTr("关联日程");symbol: "calendar";visible: root.relatedEvents.length>0
+        heading: qsTr("关联任务");symbol: "calendar";visible: root.relatedEvents.length>0
     Repeater {
         model: root.relatedEvents
         ItemDelegate {
             required property var modelData
             Layout.fillWidth: true
-            text: modelData.title+" · "+modelData.startDate
+            text: modelData.title+(modelData.startDate ? " · "+modelData.startDate : "")
             onClicked: root.openEvent(modelData.eventId)
         }
     }
-    }
-    DetailSection {
-        heading: qsTr("任务记录");symbol: "info"
-        ActionButton {
-            objectName: "taskInfoToggle";symbol: root.infoExpanded ? "up" : "down";text: root.infoExpanded ? qsTr("收起记录") : qsTr("查看创建与修改时间")
-            onClicked: root.infoExpanded=!root.infoExpanded
-        }
-        GridLayout {
-            objectName: "taskInfoContent";visible: root.infoExpanded;Layout.fillWidth: true;columns: 2;columnSpacing: 16;rowSpacing: 6
-            Label {text: qsTr("创建");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: root.workspace.localReminder(root.taskData.createdAtUtc || "");font.pixelSize: Theme.captionSize}
-            Label {text: qsTr("修改");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-            Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: root.workspace.localReminder(root.taskData.updatedAtUtc || "");font.pixelSize: Theme.captionSize}
-            Label {visible: !!root.taskData.completedAtUtc;text: qsTr("完成");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-            Label {visible: !!root.taskData.completedAtUtc;Layout.fillWidth: true;wrapMode: Text.Wrap;text: root.workspace.localReminder(root.taskData.completedAtUtc || "");font.pixelSize: Theme.captionSize}
-        }
     }
 }

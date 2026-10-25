@@ -26,7 +26,9 @@ CMake>=3.24、Ninja须在PATH。预设在子进程环境前置匹配编译器和
 
 直接命令为 `cmake --preset windows-debug`、`cmake --build --preset windows-debug`、`ctest --preset windows-debug`。产物位于build/windows-debug/bin；运行脚本使用当前Kit DLL，不代表安装包可分发。
 
-## macOS（bash，UNVERIFIED）
+## macOS（bash）
+
+2026-10-24本机构建环境：macOS15.8.1 / Apple M3 Pro（arm64）、Xcode15.4 / Apple Clang15.0.0、CMake3.31.10、Ninja1.13.0、Qt6.10.2 macOS Kit（含qtbase/qtdeclarative/qtsvg/qttools/qttranslations）。Debug/Release编译及各16项CTest、QML lint和Cocoa原生合成流程已有实际证据，最新范围见[进度](PROGRESS.md)。Intel、物理交互/读屏/IME、独立部署和签名仍分别待验；合成截图不替代这些门禁。
 
 ```bash
 export DAYMARK_QT='<Qt安装目录>/6.10.2/macos'
@@ -36,6 +38,19 @@ bash scripts/build-macos.sh macos-release
 ```
 
 要求Xcode/Apple Clang、CMake>=3.24、Ninja及对应架构Qt；Intel/Apple Silicon分别验证，最低macOS13。发布仍需macdeployqt及签名/公证核查。
+
+本轮本机工具均安装于忽略的build/toolchain，并生成仅本机使用的环境文件；在仓库根目录可直接复建：
+
+```bash
+source build/toolchain/env.sh
+bash scripts/build-macos.sh macos-debug
+cmake --build --preset macos-debug --target daymark_qmllint daymark_style_qmllint
+bash scripts/build-macos.sh macos-release
+# 隔离合成数据，不能当作物理键鼠或真实OS通知验收。
+QT_QPA_PLATFORM=cocoa ./build/macos-release/bin/daymark.app/Contents/MacOS/daymark --smoke-test --screenshot build/ui-smoke.png
+```
+
+该环境文件仅在已准备工具的本机存在，不提交也不代替其他机器配置DAYMARK_QT。测试日志位于build/macos-debug/Testing/Temporary。生成的daymark.app仍引用本机Kit，不是可独立分发的macOS安装包；正常运行会创建用户业务库，自动验证使用脚本内的隔离smoke。
 
 ## 测试与诊断
 

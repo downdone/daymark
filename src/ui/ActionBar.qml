@@ -8,6 +8,7 @@ Control {
     padding: Theme.panelPadding
     topPadding: Theme.fieldGap
     implicitHeight: implicitContentHeight+topPadding+bottomPadding
+    background: Rectangle {color: "transparent";Rectangle {width: parent.width;height: 1;color: Theme.separator}}
     contentItem: Item {
         implicitHeight: buttons.implicitHeight
         Flow {

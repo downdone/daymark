@@ -1,5 +1,8 @@
 #include "RecurrenceService.h"
 #include <QSet>
+#include <QTimeZone>
+#include <QJsonDocument>
+#include <QJsonObject>
 namespace daymark {
 bool RecurrenceService::occursOn(const RecurrenceRule& r,const QDate& d)
 {
@@ -32,7 +35,7 @@ Result<RecurrenceRule> RecurrenceService::save(RecurrenceRule r)
 }
 Result<void> RecurrenceService::stop(const QString& id,qint64 version,bool removeFuture)
 {return m_rules.stop(id,version,m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),removeFuture,m_clock.localToday());}
-Result<int> RecurrenceService::generate()
+Result<int> RecurrenceService::generate(const QDate& from,const QDate& through)
 {
     const auto rules=m_rules.all();if(!rules.ok())return {{},rules.error};
     const auto tasks=m_tasks.all();if(!tasks.ok())return {{},tasks.error};
@@ -56,8 +59,11 @@ Result<int> RecurrenceService::generate()
                     occurrenceKey=highestOccurrence>=next?highestOccurrence.addDays(1):next;
                 }
             }
-        } else for(auto date=qMax(rule.anchor,today.addDays(-30));date<=today.addDays(30);date=date.addDays(1))
-            if(occursOn(rule,date))dates.append(date);
+        } else {
+            int duration=0;const auto seed=TaskRepository::fromSeed(rule,rule.anchor);if(seed.ok() && seed.value.schedule){const auto& s=*seed.value.schedule;duration=s.allDay?s.startOn.daysTo(s.endOn):s.startUtc.toTimeZone(QTimeZone(s.timeZone.toUtf8())).date().daysTo(s.endUtc.toTimeZone(QTimeZone(s.timeZone.toUtf8())).date())+1;}
+            const auto notBefore=QDate::fromString(QJsonDocument::fromJson(rule.defaultsJson.toUtf8()).object().value(QStringLiteral("materialize_from")).toString(),Qt::ISODate);
+            for(auto date=qMax(qMax(rule.anchor,notBefore),(from.isValid()?from:today.addDays(-30)).addDays(-qMin(366,duration))),last=through.isValid()?through:today.addDays(30);date<=last;date=date.addDays(1))if(occursOn(rule,date))dates.append(date);
+        }
         const auto result=m_rules.materialize(rule,dates,m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),occurrenceKey);
         if(!result.ok())return result;generated+=result.value;
     }

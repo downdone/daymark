@@ -8,6 +8,7 @@ Control {
     required property string heading
     property string detail: ""
     property string actionText: ""
+    property alias actionObjectName: action.objectName
     signal triggered()
     padding: 24
     implicitHeight: implicitContentHeight+48
@@ -15,7 +16,7 @@ Control {
         spacing: 12
         AppIcon {name: state.symbol;ink: Theme.secondary;Layout.alignment: Qt.AlignHCenter;Layout.preferredWidth: 28;Layout.preferredHeight: 28}
         Label {text: state.heading;font.pixelSize: Theme.headingSize;font.weight: Font.DemiBold;horizontalAlignment: Text.AlignHCenter;Layout.fillWidth: true;wrapMode: Text.Wrap}
-        Label {text: state.detail;color: Theme.secondary;horizontalAlignment: Text.AlignHCenter;Layout.fillWidth: true;wrapMode: Text.Wrap}
-        Button {visible: state.actionText.length>0;text: state.actionText;Layout.alignment: Qt.AlignHCenter;onClicked: state.triggered()}
+        Label {visible: state.detail.length>0;text: state.detail;color: Theme.secondary;horizontalAlignment: Text.AlignHCenter;Layout.fillWidth: true;wrapMode: Text.Wrap}
+        Button {id: action;visible: state.actionText.length>0;text: state.actionText;Layout.alignment: Qt.AlignHCenter;onClicked: state.triggered()}
     }
 }

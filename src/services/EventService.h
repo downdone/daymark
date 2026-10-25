@@ -4,6 +4,7 @@
 namespace daymark {
 class EventService final {
 public:
+    static CalendarEvent projection(const Task& task);
     EventService(EventRepository& repository,const IClock& clock):m_repository(repository),m_clock(clock){}
     static QString occurrenceKey(const CalendarEvent& event);
     static Result<void> validate(const CalendarEvent& event);

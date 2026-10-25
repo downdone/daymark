@@ -50,10 +50,10 @@ void SoakRunner::tick()
         const auto created=choices.first().toMap();m_taskId=created.value(QStringLiteral("taskId")).toString();
         accepted=m_workspace.saveTaskWithDetails(m_taskId,created.value(QStringLiteral("rowVersion")).toLongLong(),
             QStringLiteral("stability-probe-%1").arg(m_cycles),QStringLiteral("synthetic"),QStringLiteral("ACTIVE"),m_workspace.dateOffset(0),m_workspace.dateOffset(2),false,
-            {{"checklist",QVariantList{QVariantMap{{"id",QString()},{"title",QStringLiteral("step")},{"done",true}}}}});break;
+            {{"important",true},{"schedule",QVariantMap{{"allDay",true},{"startDate",m_workspace.dateOffset(0)},{"endDate",m_workspace.dateOffset(2)}}}});break;
     }
     case 2:
-        if(task.value(QStringLiteral("checklist")).toList().size()!=1){finish(false,QStringLiteral("complete-draft"));return;}
+        if(!task.value(QStringLiteral("important")).toBool() || task.value(QStringLiteral("schedule")).toMap().isEmpty()){finish(false,QStringLiteral("complete-draft"));return;}
         accepted=m_workspace.changeState(m_taskId,task.value(QStringLiteral("rowVersion")).toLongLong(),QStringLiteral("complete"));break;
     case 3:
         if(task.value(QStringLiteral("taskStatus")).toString()!=QStringLiteral("COMPLETED")){finish(false,QStringLiteral("completed-state"));return;}
@@ -68,7 +68,7 @@ void SoakRunner::tick()
     case 7:accepted=m_workspace.verifyStorage();if(accepted)++m_integrityChecks;break;
     case 8:m_workspace.reload();break;
     case 9:
-        if(task.value(QStringLiteral("checklist")).toList().size()!=1){finish(false,QStringLiteral("reload-content"));return;}
+        if(!task.value(QStringLiteral("important")).toBool() || task.value(QStringLiteral("schedule")).toMap().isEmpty()){finish(false,QStringLiteral("reload-content"));return;}
         accepted=m_workspace.changeState(m_taskId,task.value(QStringLiteral("rowVersion")).toLongLong(),QStringLiteral("delete"));break;
     case 10: {
         if(!task.isEmpty()){finish(false,QStringLiteral("cycle-cleanup"));return;}

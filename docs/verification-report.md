@@ -1,3 +1,150 @@
+# UI-33 统一起止与任务动作验证（2026-10-25）
+
+依据[设计](design/shared-task-time-and-actions.md)、[ADR-019](ADR/019-shared-task-time.md)及FR-033。覆盖UX-02/04～07/09/11/14；新旧数据、失败/CAS、DST、同任务视图、拖放/右键/改名与草稿保护分开验证，自动库均临时目录。
+
+| 门禁 | 最终实际证据 |
+|---|---|
+| macOS15.8.1 arm64 Qt6.10.2 Debug | 17/17 PASS，62.31秒，QML44.52秒；ui33-completed-debug.log |
+| 同环境Release | 17/17 PASS，59.66秒，QML43.74秒；ui33-completed-release.log |
+| QML lint | 两构建各两目标无诊断；ui33-completed-{debug,release}-lint.log |
+| Release offscreen/Cocoa | 均436阶段退出0，各164 PNG，双窗口及QML warnings=false；ui33-completed-{offscreen,native}.log及同名目录 |
+| 原生菜单 | 打开命令2.08296ms，两次呈现上界8ms；100ms预算保留 |
+| 请求10秒短跑 | Cocoa11.788秒、1循环/1完整性检查、最大延迟21ms；offscreen12.251秒、1循环/1完整性检查，均PASS |
+| 静态 | 312对颜色、80份Markdown链接、123份变更文本隐私模式及diff检查零失败；ui33-completed-static.json |
+
+服务新增验证开始/结束与精确时间同步、跨DST墙钟/秒毫秒保持、无效时刻/倒序零修改、旧冲突仅改备注不变、主动统一保留原日期记录、取消相对提醒后改期不重生、跨时区Today/逾期与日历本机日期一致。普通收集箱/全部排序跨日期差异且重载持久，筛选/分组限制保留；旧循环/导入/故障测试不删。
+
+实际指针验证任务右键不进入简易编辑、菜单置顶/关注/取消提醒/删除和恢复、Shift-F10同菜单、超系统阈值直接拖动与重载顺序、分类与标签右键改名名称全选及元数据保留、日历定时任务点击同一ID详情。最终截图已看：shared-task-time-light、shared-task-time-dark-200、task-direct-context、tag-rename-nearby；其他旧阶段仍保留。截图在忽略build目录，不包含真实库。
+
+过程失败及修复见PROGRESS：首行身份假设、旧双日期预期、ListView滚动原点/实际delegate/缩放创建时序；右键保存误触详情回调在短跑中暴露并修复为自身保存限定。锁屏时原生激活被系统拒绝，解锁后完整重跑；系统启动器的dyld阻塞通过采样确认，只终止本轮新测试进程。45/120秒watchdog不变；不以跳过焦点、隐藏控件或放宽预算通过。Qt生成unused parameter、IMK/offscreen诊断仍存在，QML无警告不等于全系统无诊断。
+
+Windows、物理输入/IME/VoiceOver、真实通知/穿透恢复、多屏/睡眠/8h及独立部署签名仍UNVERIFIED；本机Kit开发产物。无真实库操作、提交推送或发布。Windows命令仍为scripts/build-windows.ps1和scripts/test-windows.ps1；macOS使用bash scripts/build-macos.sh macos-debug或macos-release。
+
+# UI-32 紧凑导航与子任务直达验证（2026-10-25）
+
+依据[设计](design/compact-navigation-and-subtasks.md)、[ADR-018](ADR/018-two-level-tasks.md)及FR-032，覆盖UX-01/02/04/05/07/09/11/14。新关系仅两层，旧资料不改写；全部自动库QTemporaryDir。
+
+| 门禁 | 实际证据 |
+|---|---|
+| macOS15.8.1 arm64 Qt6.10.2 Debug | 17/17 PASS，59.99秒；QML42.84秒，ui32-debug.log |
+| 同环境Release | 17/17 PASS，58.41秒；QML42.12秒，ui32-release.log |
+| lint | Debug/Release两目标无诊断，ui32-{debug,release}-lint.log |
+| Release Cocoa | 413阶段退出0、158张PNG、窗口2个/QML warnings=false，ui32-native.log与ui32-native/ |
+| 菜单/短跑 | 命令2.32908ms、两次呈现上界14ms；请求10秒实际11.883秒、1循环/1完整性检查、最大事件循环延迟1ms，PASS |
+| 静态 | 312对颜色零失败、78份Markdown链接/120份变更文本隐私模式及diff检查通过，ui32-static.json |
+
+服务回归验证新建/改父拒绝第三层、已有下级降级拒绝、失败版本/历史零变、合法脱离再归属、父选择合法根；旧深层fixture由Repository构造，保留跨重启整树完成/删除/恢复、分类移动、重叠批量、循环及CAS/注入失败回滚。未修改schema或导入兼容规则。
+
+原有407阶段保留并按新的单面板切换替换隐式首项选择断言；增加413阶段末尾的可见子详情、隐藏下级入口、默认/深色200%返回父列表及导航宽度检查。子任务列表实际指针点击、保存成功返回、脏草稿取消和放弃验证通过，完整详情标题必须实际在视口内。已查看最终compact-child-list、compact-child-details、compact-child-details-dark-200、compact-child-list-dark-200、compact-sources-navigation，以及行点击后的leaf-subtask-details原始PNG；没有用隐藏详情冒充可用。正文14/任务13保持，导航12/208宽、无来源图标大底座。
+
+中间ui32-rules/slice/interaction-*证据保留；旧三级创建测试按新约束保留兼容数据层fixture，原重新降级操作先验证拒绝，再显式整理。45/120秒watchdog和100ms菜单预算未改变。Qt生成C++unused parameter与IMK系统诊断仍存在。
+
+Windows、物理输入/IME/VoiceOver、通知/穿透恢复、多屏睡眠/8h及独立部署/签名UNVERIFIED。本机Kit开发产物；未操作真实库或既有进程，无推送发布。
+
+# UI-31 全窗口桌面语言验证（2026-10-25）
+
+依据[设计](design/macos-desktop-language.md)，覆盖收集箱上移、导航层级、日历与全窗口共享表单/控件。数据和父子规则沿用UI-30。单代理；全部自动库为QTemporaryDir，未操作真实库或既有应用进程。
+
+| 最终门禁 | 实际证据 |
+|---|---|
+| Qt6.10.2/macOS15.8.1 arm64 Debug | 17/17 PASS，55.01秒；QML42.02秒，ui31-verified-debug.log |
+| 同环境Release | 17/17 PASS，52.92秒；QML41.36秒，ui31-verified-release.log |
+| QML lint | Debug/Release两目标无诊断，ui31-verified-{debug,release}-lint.log |
+| Release Cocoa | 407阶段退出0，窗口2个，QML warnings=false，152张PNG；ui31-active-native.log及ui31-active-native/ |
+| 菜单呈现 | 命令2.26554ms，两次frameSwapped上界12ms；100ms预算不变 |
+| 短跑 | 请求10秒，实际11.933秒，1循环/1完整性检查，最大事件循环延迟1ms，PASS；soak.json |
+| 静态 | 312对颜色零失败、Markdown本地链接/变更文本隐私模式及diff检查见ui31-verified-static.json |
+
+新增针对实际可见表单的标签/控件不重叠、标签颜色选择及持久保存、200%新建/数据尾部可达、默认议程隐藏/展开、网格回顶。月格几何同时包括更多入口；既有跨天泳道、真实指针排序/移属、子任务、草稿、取消/失败和键盘断言保留。工作区补按住/释放不触发整页业务通知的回归，后台维护及日期变化通知仍验证。已查看最终浅色月历顶部和连续色条、六入口/文件夹、设置、分类创建、颜色和深色200%新增/数据/快捷编辑。
+
+过程失败及修复详见PROGRESS，日志ui31-slice/repair/nav/desktop/ready/final/launch/front/delivery/focus-*保留。macOS测试激活限定本进程且仅smoke调用AppKit，等待真实活动窗口；一次启动器dyld加载前阻塞只终止本轮测试进程，直接运行后完整通过。未提高45/120秒watchdog或删草稿/拖动断言。生成C++unused parameter、IMK诊断仍存在。
+
+Windows、物理输入/中文IME/VoiceOver、系统通知/穿透恢复、多屏睡眠/8h、Intel及干净机独立部署签名均UNVERIFIED。Release .app是依赖本机Kit的开发产物，不是独立分发包；未推送或发布。
+
+# UI-30 提醒事项式视图与任务树验证（2026-10-25）
+
+依据[设计](design/task-list-context.md)、[ADR-017](ADR/017-reminders-views-and-task-trees.md)及用户明确父子联动，覆盖FR-031与UX-01/02/04/05/07/08/09/11/14。先设计后分片实现，单代理；下方旧独立语义/六范围记录为历史证据，不作为当前行为。
+
+最终macOS arm64 / Qt6.10.2 Debug17/17 PASS（54.27秒，qml41.36秒）、Release17/17 PASS（52.37秒，qml40.71秒），两项QML lint无诊断。Cocoa Release398阶段退出0、145张PNG，实际窗口2个、QML warnings=false。菜单命令2.67746ms、两次呈现上界13ms；10秒短跑实际11.968秒，1循环/1完整性检查、最大事件循环延迟1ms、PASS。短跑不代表8小时或多屏睡眠通过。
+
+临时库验证整树完成/删除/分类移动、先前独立状态保护、重启和JSON往返恢复、源与后代CAS/失败回滚、重叠父子批量、循环后代、schema8真实DDL升级前备份、JSON旧格式及非法导入零修改；防循环、置顶/重要性与历史失败断言保留。工作区覆盖提交后所有后代刷新、五视图独立匹配/计数、隐藏偏好与搜索、树深度及有实际时间的任务跨时段排序拒绝。
+
+QML/原生合成覆盖真实指针子任务数量、整树删除取消/确认、最近删除父子恢复、全部/计划/特别关注/完成分组、局部分类编辑验证失败/保存/Esc保护和归档恢复入口；原分类中央移入/上下排序、简易退出保存、子任务列对齐、时间/日历背景、草稿、滚动、浅深和200%断言保留。已查看最终高亮拖放目标、最近删除树、今天列表、深色200%列表/小面板/提示及详情/子任务对齐。图片只含合成数据。
+
+过程修复包括嵌套事务与工作区旧根缓存、批量重叠、旧日期/独立语义断言、Popup锚点ID、导航滚动目标揭示，以及一次原生完成反馈固定40ms采样失败。改用实际prepare的任务行、afterAnimating状态和frameSwapped呈现确认，不延长110/80ms动画或45/120秒总门禁；菜单100ms预算和减少动效检查保留。探针90ms节拍覆盖398阶段。初次与中间失败日志保留，不能用旧PASS替代最终证据。
+
+最终日志ui30-accepted-{debug,release,debug-lint,release-lint,native}.log，145张截图及soak.json位于ui30-accepted-native/；此前ui30-*过程证据位于忽略build目录。颜色312对零失败、75份Markdown本地链接、104份变更文本隐私模式和diff检查通过。Qt生成C++未使用参数及macOS IMK诊断保留；QML无警告不是所有系统日志无诊断。
+
+Windows当前源码、物理键鼠/中文IME/VoiceOver、实际系统通知/穿透恢复、多屏/睡眠/8小时和独立部署签名均UNVERIFIED。全部自动库QTemporaryDir；本机Kit开发产物，不是独立分发包，无真实库操作或推送发布。
+
+# UI-29 紧凑桌面界面与交互回归（2026-10-25）
+
+按[设计](design/desktop-task-inspector.md)修复展开子任务丢失列对齐、分类拖经非法中部后无法边缘排序，统一导航字体/密度、组标题、开关、控件与面板圆角。完整详情四组，时间/重复按需展开，常用日期/归属就近面板，不改变查询、时间语义、数据模式或草稿安全。用户提供的macOS提醒事项截图用于关系与密度参考，数值/图标/视觉为Daymark实现。
+
+合成探针扩至372阶段，新增实际子任务展开前后完成/标题坐标、分类源带子节点时中央非法→上下缘合法排序、两个方向释放结果及重载持久化；中央移入、右键/键盘菜单与原有事务/CAS/失败回滚保留。200%快捷必须处于编辑并完整位于视口，不再把隐藏控件几何当验收；嵌套分组定位使用正文坐标。过程QML Popup窗口属性警告已修复，旧截图与本轮证据分开。
+
+最终Qt6.10.2/macOS arm64 Debug17/17 PASS（56.73秒，qml43.63秒）、Release17/17 PASS（55.33秒，qml43.34秒），两项lint无诊断。Release Cocoa372阶段、136张合成截图、双窗口/QML warnings=false；菜单命令2.46383ms、两次呈现上界14ms。10秒请求短跑实际11.823秒、1循环/1完整性检查、最大事件循环延迟1ms，PASS，只是短时证据。已查看四组详情、展开子任务、两方向插入线；最终深色200%真实快捷编辑、时间字段和管理截图也检查。颜色300对零失败，文档链接/变更文本隐私模式/diff审查通过。
+
+最终日志ui29-verified-{debug,release,lint,native}.log，截图及soak.json在ui29-verified-native/，位于忽略build目录。先固定临时初始顺序再分别向上、向下实际拖动，避免随机UUID顺序使上移断言成为空操作。Qt生成C++的unused parameter和原生日志IMK系统诊断保留，不把QML无警告扩大为所有运行时无诊断。自动数据库均临时目录，没有访问真实用户库或推送发布。物理输入/IME/VoiceOver、Windows当前源码、系统通知/穿透恢复、多屏/睡眠/长时及独立部署签名仍UNVERIFIED；Mac产物依赖本机Kit。
+
+# UI-27/28 统一任务与分类操作链（2026-10-25）
+
+按[统一任务设计](design/unified-task-system.md)和[分类/浏览设计](design/catalog-and-list-system.md)实施FR-024～030。任务为唯一对象，schema5～8追加迁移覆盖两级分类、真实子任务、周期提醒和统一时间/循环；旧事件、关联、认领历史与清单数据均有临时库升级/导入/回滚回归。产品只保留分类概念、统一文件夹图标；两区导航、共同创建、明确移属、右键/键盘菜单及分类拖放贯通同一树。旧隐藏分类可按归档恢复，历史元数据保留。
+
+列表全局显示/隐藏子任务、独立展开和极简L线；父子范围由QueryService判定，分组不拆树。简易退出先原子保存，失败保留输入焦点；改名移出搜索不重新打开编辑器。完整详情显式保存。日历所有任务有背景，列表/日历图标位置固定，导航内部收起及窄轨恢复。
+
+最终macOS arm64 Qt6.10.2：Debug17/17 PASS（55.22秒，qml42.53秒）、Release17/17 PASS（54.60秒，qml42.17秒），两项QML lint无诊断。Cocoa Debug361阶段退出0、双窗口、QML warnings=false，132张合成截图；菜单命令1.51196ms、两次呈现上界14ms。短跑请求10秒，实际12.05秒，1循环/1完整性检查、最大事件循环延迟50ms，PASS。已查看最终文件夹树、右键行定位、子任务连接、日历背景及深色200%管理；物理输入/读屏不由这些证据替代。
+
+分类拖放服务回归覆盖前后插入、移入、提升、源目标CAS、三级/带子节点阻止、任务不变，以及注入rank写失败完整回滚；随机UUID初始化连续20次PASS。新增旧隐藏分类恢复/日期说明保留、子项显示不改Today计数、孤立匹配父提示和分组回归。颜色审查300对（含截止文字/任务背景）PASS；最终文档链接、隐私模式及diff审查见build/ui28-static-review.json。
+
+过程失败及修复详见PROGRESS：初始JSON/历史schema fixture、隐藏内联焦点、搜索移出后的延迟重开、旧动效delegate误选、分类随机初始排序假设、DropArea误作图标行、右键菜单锚点及缩进占位。保留原45/120秒watchdog和业务/恢复断言，没有用旧可执行文件冒充当前源码通过。日志ui28-categories-{debug,release,lint,native}.log，截图及soak.json在ui28-categories-native/；全部位于忽略build目录。
+
+真实用户库未操作，无推送/发布。原生日志有IMK系统诊断，编译中Qt生成代码有unused parameter诊断，QML lint无诊断不等同所有运行时零警告。Windows当前源码、物理键鼠/IME/VoiceOver、系统通知送达/穿透恢复、多屏/睡眠/8h及独立部署/签名仍UNVERIFIED。Mac开发构建仍链接本机Kit。
+
+# UI-23A 任务直接操作与日期范围（2026-10-25）
+
+按[设计](design/direct-task-actions.md)及ADR-015实施FR-023。六视图移动统一TaskService校验/CAS；详情与安排用原草稿，范围引用同一task.id且不改变Today/Upcoming规则。新增临时库测试覆盖六目标、失败零修改、暂停父归属、范围端点/内部日、跨周跨月/闰日/超长范围、任务事件共同溢出；原309阶段保留并扩至333阶段，追加真实QML合成指针拖到侧栏、直接详情、安排保存重开、范围打开同一任务及取消确认。
+
+最终macOS arm64 Qt6.10.2 Debug16/16 PASS（48.74秒，qml_startup39.32秒）、Release16/16 PASS（47.85秒，qml_startup39.13秒），两项lint无诊断。Release Cocoa333阶段退出0、双窗口/QML warnings=false，125个截图文件；菜单命令3.31712ms、两次呈现上界15ms。已查看导航命中及完整预览、浅色跨周横条、深色200%日期标题、隐藏事件后任务条。颜色296对PASS、69份Markdown链接0失效、48份变更/新增文本隐私模式0命中、diff无空白错误。日志ui23-delivery-debug.log、ui23-delivery-release.log、ui23-delivery-lint.log、ui23-delivery-native.log及ui23-delivery-native/位于忽略build目录。
+
+过程失败保留：嵌套菜单visible构造期崩溃改enabled；长按层遮手柄通过内容z修复；导航Repeater改视觉树查找并判空；跨侧栏预览热点防左裁切、200%选择日高于视口时对齐顶部。ui23-complete-native在第二次拖动失败：成功提示改变列表高度，测试定位先于视图位置恢复，实际点击超出列表；startDrag先forceLayout/Contain并校验点在列表内，再发原指针，最终完整双构建和原生通过。没有删业务断言或放宽45秒普通/120秒截图上限。
+
+所有自动库QTemporaryDir，无真实库操作/推送/发布。IMK mach port诊断存在，QML warnings=false不表示全运行时零诊断；物理手势/IME/VoiceOver、Windows当前源码、系统通知送达/穿透恢复、多屏/睡眠/8h、独立部署/签名仍UNVERIFIED。Mac app是依赖本机Kit的开发构建。
+
+# UI-22 全产品复审与简约基线（2026-10-24）
+
+按用户“简约而不简单”要求，完成[全产品复审与逐片方案](design/product-experience-review.md)，并落实第一片减负：删常驻口号/概念段落和重复新建，空态与列表分别保留入口，编辑聚焦内容与保存；窄窗浏览列表填满正文。空标签不占侧栏但仍可创建，后台维护安静且空闲不虚报保存，统一可执行/系统通知等用户词；确认、错误、草稿、原有数据关系与时间查询不删减。后续今日/项目领域/时间查找/设置恢复只完成方案，不冒充已实现。
+
+最终Qt6.10.2 macOS arm64 Debug16/16 PASS（46.16秒，qml_startup36.90秒）、Release16/16 PASS（45.15秒，qml_startup36.74秒），应用/样式两项lint无诊断。新增QQmlComponent真实绑定回归，验证搜索改变后排序许可立即反映到QML且列表仍防抖。Release Cocoa309阶段全截图退出0、双窗口/QML warnings=false；菜单命令2.83933ms、两次呈现上界16ms，121个截图文件。已查看最终880×580/深色200%整理和规则正文/固定操作。颜色296对PASS；67份Markdown本地链接0失效，diff无空白问题，36份变更/新增文本未检出个人绝对路径、私钥或token模式。该扫描不是第三方安全审计。
+
+构建/CTest日志ui22-final-gate-debug.log、ui22-final-gate-release.log，lint为ui22-final-gate-lint.log；最终原生为ui22-final-verified-native.log及ui22-final-verified-native/，均保留于忽略build目录。自动库全部QTemporaryDir；没有启动真实用户库、推送、发布或更新Windows候选包。Mac Debug/Release产物仍链接本机Kit，不作为独立分发包。
+
+过程失败与修复：
+
+- Cocoa原备注滚轮检查多次失败；诊断显示事件timestamp=0会导致连续时间差为0，原生动画也不能由下一次probe定时器已执行推断已呈现。依据[Qt6.10.2 Flickable源码](https://code.qt.io/cgit/qt/qtdeclarative.git/plain/src/quick/items/qquickflickable.cpp?h=v6.10.2)补单调时间戳，并在原生后端等待两次frameSwapped再检查。原正文位移、选择不变及焦点断言保留，不改产品滚动规则，不延长45/120秒总上限；offscreen仍走自身动画验证路径。
+- 中间Release15/16（qml_startup在取消长按失败），重试虽通过仍继续查明：setSearch修改排序许可却没发属性通知，其他stateChanged可使QML保留过滤时的false。修复即时通知、保留250ms结果防抖；新增真实QML绑定回归，最终完整Debug/Release通过。未停维护、删除长按断言或增加长按等待作弊。
+- 一次原生规则大字页面检查失败，页面几何验证先polish并输出具体尺寸/失败截图；旧位置、96DIP内容下限及窗口边界未改。规则草稿测试不再调用隐藏新建，改用可见入口/页面导航；明确放弃后退出编辑状态，拒绝放弃保留原输入。
+
+QML引擎warnings=false不等于运行时零诊断：原生日志另含IMK mach port和QUnifiedTimer停止driver提示，真实IME/物理输入及动画长期行为仍待人工门禁。当前Windows源码、Narrator/VoiceOver、系统通知实际送达、穿透恢复、多屏/DPI/睡眠/8h、Intel、独立部署/签名/公证均UNVERIFIED。完整UX目标不因自动测试或截图通过标为DONE。
+
+# UI-21 导航、概念与主内容页（2026-10-24）
+
+设计见[导航与页面](design/navigation-and-pages.md)，哲学见[产品定义](product-philosophy.md)。主内容页替代组织/重复/历史长期浏览弹窗，重复任务与循环日程共享发现入口，提醒历史不作未读；侧栏归属层级与标签分开。新增C++导航投影和UI交互期间合并延后后台维护，不改schema/SQL/查询判定。
+
+最终Mac Qt6.10.2 Debug16/16 PASS（45.01秒，qml_startup36.85秒）、Release16/16 PASS（44.33秒，qml_startup36.68秒），两项QML lint无诊断。日志ui21-final-debug-test.log、ui21-final-release-test.log、ui21-final-lint.log保留于忽略的build目录。Release Cocoa309阶段全截图PASS，ui21-native-final.log退出0、2窗口、QML warnings=false；菜单命令2.95512ms、两次呈现上界11ms，121个截图文件，已查看归属层级/标签整理/窄窗深色200%。
+
+初次失败保留：QML双参默认值破坏单参元调用，恢复显式单参包装；30秒维护busy打断长按，改为交互结束合并补做，并新增临时库回归；空态拉伸及页尾任务工具泄漏修正；最终原生曾在备注滚轮场景失败，queued IME/光标回调不再取消手动滚动，仅主动键盘/指针/编辑恢复自动揭示。原断言和45秒普通/120秒截图watchdog未放宽。最终全回归覆盖修正源码。
+
+颜色296对PASS，普通文字最低4.617:1、必要边界最低3.369:1。所有自动DB为QTemporaryDir，未启动正常用户库/操作旧进程/推送发布。Cocoa有IMK mach port系统诊断，不等于已验证真实输入法；Windows当前源码、真实物理输入/IME/读屏、通知送达、穿透恢复、多屏/睡眠/8h、Intel/独立部署/签名公证仍UNVERIFIED。窄窗200%常驻解释挤占正文的问题继续按[全产品复审](design/product-experience-review.md)进入UI-22，不将自动PASS等同完整UX验收。
+
+# MAC-BUILD-01 macOS arm64 Debug构建（2026-10-24）
+
+Qt6.10.2、macOS15.8.1 / Apple M3 Pro、Xcode15.4 / Apple Clang15.0.0、CMake3.31.10、Ninja1.13.0；通过DAYMARK_QT注入本仓库忽略目录内Kit，未修改相邻项目。`bash scripts/build-macos.sh macos-debug`配置/编译通过。首轮CTest14/16，单实例与QML启动失败；默认临时目录中的121字节Unix socket路径超过macOS104字节限制。SingleInstance仅macOS采用128位摘要端点，保留文件锁、用户临时目录和权限；新增两独立数据目录分别持锁测试，既有真实子进程激活/不写库断言保留。
+
+修复后完整CTest16/16（46.09秒），qml_startup38.01秒，双窗口/warnings=false；macOS不注册Windows专用package_validation。两项qmllint无诊断，`daymark --version`输出1.0.0-rc.2，file确认Mach-O arm64。10k混合数据基准加载/搜索/月索引113/4/23ms，50对菜单可用性查询均值695.962μs。所有自动库使用临时目录。编译保留1项既有lambda捕获警告及12项Qt生成代码参数警告，不宣称编译零警告。
+
+产物为build/macos-debug/bin/daymark.app；完整日志保留于忽略的build/macos-debug-build.log（首轮）、build/macos-debug-build-retry.log（最终）、build/macos-debug-qmllint.log及CTest目录。未运行正常模式、未操作真实用户库、未打分发包或推送。Release/Intel/原生交互与截图/独立部署/签名公证/8h及多屏睡眠均未由本轮验证；当前状态唯一见[进度](PROGRESS.md)。
+
 # UI-20 连续日程、精简表单与导航（2026-10-24）
 
 按[设计](design/calendar-visual-refresh.md)完成周段泳道、循环日程入口/实际年度实例/时间预览、长按任务排序、关注范围合并/可空日期、提醒单层提交和可编辑时分、导航分区独立折叠/持久化、清单手柄排序/取消/原子保存、记录与结束分组及校验错误作用域。FR-002/007/010/014/019～022，UX-01/02/04～14；无schema、依赖或云变更。

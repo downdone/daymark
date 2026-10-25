@@ -2,6 +2,12 @@
 #include <QSet>
 #include <algorithm>
 namespace daymark {
+CalendarEvent EventService::projection(const Task& task)
+{
+    const auto& s=*task.schedule;CalendarEvent e;e.id=task.id;e.title=task.title;e.notes=task.notes;e.rowVersion=task.rowVersion;e.materialized=true;e.allDay=s.allDay;e.startOn=s.startOn;e.endOn=s.endOn;e.startUtc=s.startUtc;e.endUtc=s.endUtc;e.timeZone=s.timeZone;e.alertMinutes=s.alertMinutes;e.links=task.links;
+    if(task.repeat && task.repeat->active){e.repeatFrequency=task.repeat->frequency;e.repeatInterval=task.repeat->interval;e.repeatUntil=task.repeat->end;}return e;
+}
+
 QString EventService::occurrenceKey(const CalendarEvent& e)
 {return e.allDay?e.startOn.toString(Qt::ISODate):e.startUtc.toUTC().toString(Qt::ISODateWithMs);}
 Result<void> EventService::validate(const CalendarEvent& e)
@@ -34,14 +40,14 @@ Result<QDateTime> EventService::localInstant(const QString& input,const QString&
 bool EventService::onDate(const CalendarEvent& e,const QDate& date,const QTimeZone& zone)
 {
     if(!date.isValid())return false;
-    if(e.repeatFrequency!=QStringLiteral("NONE"))return !visibleDates(e,date,date,zone).isEmpty();
+    if(!e.materialized && e.repeatFrequency!=QStringLiteral("NONE"))return !visibleDates(e,date,date,zone).isEmpty();
     if(e.allDay)return e.startOn<=date && date<e.endOn;
     const auto start=date.startOfDay(zone),end=date.addDays(1).startOfDay(zone);
     return start.isValid() && end.isValid() && e.startUtc<end && e.endUtc>start;
 }
 QList<QDate> EventService::visibleDates(const CalendarEvent& e,const QDate& from,const QDate& through,const QTimeZone& zone)
 {
-    if(e.repeatFrequency!=QStringLiteral("NONE")) {
+    if(!e.materialized && e.repeatFrequency!=QStringLiteral("NONE")) {
         QSet<QDate> merged;for(const auto& instance:occurrences(e,from,through,zone))for(const auto& date:visibleDates(instance,from,through,zone))merged.insert(date);
         auto dates=merged.values();std::sort(dates.begin(),dates.end());return dates;
     }
@@ -56,6 +62,7 @@ QList<QDate> EventService::visibleDates(const CalendarEvent& e,const QDate& from
 QList<CalendarEvent> EventService::occurrences(const CalendarEvent& e,const QDate& from,const QDate& through,const QTimeZone& displayZone)
 {
     if(!from.isValid() || !through.isValid() || through<from)return {};
+    if(e.materialized){auto instance=e;instance.repeatFrequency=QStringLiteral("NONE");return {instance};}
     if(e.repeatFrequency==QStringLiteral("NONE"))return {e};
     if(!validate(e).ok())return {};
     const QTimeZone zone=e.allDay?displayZone:QTimeZone(e.timeZone.toUtf8());
@@ -79,15 +86,7 @@ Result<QVariantList> EventService::notifications() const
 {return m_repository.notifications();}
 Result<QVariantList> EventService::claimReminders()
 {
-    const auto events=m_repository.all();if(!events.ok())return {{},events.error};
-    const auto now=m_clock.nowUtc().toUTC();QVariantList candidates;
-    for(const auto& e:events.value)if(e.alertMinutes>=0)for(const auto& instance:occurrences(e,now.toLocalTime().date().addDays(-2),now.toLocalTime().date().addDays(2),QTimeZone::systemTimeZone())) {
-        const auto localInstant=instance.allDay?QDateTime(instance.startOn,QTime(9,0),QTimeZone::systemTimeZone(),QDateTime::TransitionResolution::Reject):instance.startUtc;
-        if(!localInstant.isValid())continue;const auto instant=localInstant.toUTC();
-        const auto due=instant.addSecs(-e.alertMinutes*60);if(!due.isValid() || due>now || due<now.addDays(-1))continue;
-        candidates.append(QVariantMap{{"eventId",e.id},{"title",e.title},{"occurrenceAt",instant.toString(Qt::ISODateWithMs)},{"leadMinutes",e.alertMinutes},{"firedAt",now.toString(Qt::ISODateWithMs)}});
-    }
-    return m_repository.claimReminders(candidates);
+    return m_repository.claimTaskReminders(m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs));
 }
 Result<void> EventService::save(CalendarEvent e)
 {e.title=e.title.trimmed();const auto valid=validate(e);if(!valid.ok())return valid;return m_repository.save(e,m_clock.nowUtc().toString(Qt::ISODateWithMs));}

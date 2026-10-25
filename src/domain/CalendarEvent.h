@@ -2,9 +2,10 @@
 #include "Task.h"
 #include <QTimeZone>
 namespace daymark {
-struct EventLink {QString taskId,role=QStringLiteral("preparation");};
+using EventLink=TaskLink;
 struct CalendarEvent {
     QString id,title,notes,timeZone;
+    bool materialized=false;
     bool allDay=true;
     QDate startOn,endOn;
     QDateTime startUtc,endUtc;

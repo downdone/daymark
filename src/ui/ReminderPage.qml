@@ -3,17 +3,17 @@ import QtQuick
 import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
-Dialog {
+Page {
     id: root
-    objectName: "reminderCenter"
+    objectName: "reminderPage"
     required property TaskWorkspace workspace
     signal openTask(string taskId)
     signal openEvent(string eventId)
-    title: qsTr("提醒中心")
-    width: Math.min(560*Theme.scale,parent.width-32)
-    height: Math.min(600,parent.height-32)
-    modal: true
-    standardButtons: Dialog.Close
+    title: qsTr("提醒记录")
+    padding: 0
+    background: Rectangle {color: Theme.content}
+    signal backRequested()
+    function close() {backRequested()}
     contentItem: ColumnLayout {
         Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("最近50条触发记录 · 应用运行时检查提醒");font.pixelSize: Theme.captionSize;color: Theme.secondary}
         ListView {
@@ -30,7 +30,7 @@ Dialog {
                 id: record
                 required property var modelData
                 width: reminders.width
-                onClicked: {root.close();if(modelData.eventId)root.openEvent(modelData.eventId);else root.openTask(modelData.taskId)}
+                onClicked: {if(modelData.eventId)root.openEvent(modelData.eventId);else root.openTask(modelData.taskId)}
                 Accessible.name: modelData.title
                 contentItem: ColumnLayout {
                     spacing: 4

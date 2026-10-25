@@ -1,5 +1,15 @@
 # 模块与行为契约
 
+UI-32/FR-032新增TaskService两层关系约束，保留旧深层访问/整树恢复；子任务列表和独立详情切换及返回契约见[设计](compact-navigation-and-subtasks.md)，替代自动选首项和窄窗列表/详情同页堆叠。
+
+UI-31共享桌面表单/弹层、收集箱与五智能视图、分类来源及日历按周泳道布局见[设计](macos-desktop-language.md)；沿用UI-30的数据和操作契约，不引入新模式。
+
+UI-30/FR-031当前契约见[设计](task-list-context.md)及[ADR-017](../ADR/017-reminders-views-and-task-trees.md)，替代下方历史父子独立及旧六/七范围定义。智能列表精确匹配、普通列表树显示、整树事务及分组恢复分别验证；浅深/窄窗/200%、键盘、草稿、失败回滚及真实截图不可省略，目标不等于已通过。
+
+UI-28/FR-030：TaskWorkspace.categoryTree为分类导航、管理和任务归属的共享投影；CatalogService统一验证层级，CatalogRepository.relocate在同一事务移属/排序并校验源目标版本。列表显示子任务及折叠只是QueryService投影，Today数量和持久化父子关系不变。简易编辑离开先保存，成功再执行目标动作，失败保留输入和焦点；完整详情仍显式保存。详见[交互设计](catalog-and-list-system.md)。
+
+UI-27当前契约优先于本文历史双对象/清单定义：Task为唯一可写内容实体，task_schedules只存task_id及时间事实，CalendarEvent是内部投影DTO。列表、月/周、桌面日历、搜索、完成、删除、详情均使用实际Task ID；未来循环按浏览范围补齐实际实例。旧事件和清单表只作升级/导入历史兼容，不能继续成为业务编辑通路。详情/子任务tab保护当前目标草稿，子任务各自保存；分类只允许两级。计划日期、起止时间、截止、重要与置顶互相独立；周期提醒提示同一任务，任务循环生成独立实例。规则更改使用版本CAS，失败整体回滚。导航去掉规划分组，列表与日历在顶部切换。具体数据、HIG及验收见[统一设计](unified-task-system.md)。
+
 以下为待实现契约；原始接口见 TDD §3.4，不表示相关类已经存在。
 
 ## 1. 公共值与错误（M1/M2）
@@ -56,6 +66,8 @@ moveCalendarEntry 必须指定要修改的字段；合并条目先由 UI 选择 
 
 QLockFile + QLocalServer 用于本机单实例；仅本机 IPC，不提供网络服务器。第二实例不访问 DB；已有实例激活主窗后回复。托盘不可用时关闭退出且禁用穿透。
 
+macOS 的 Unix socket 路径上限为104字节（含结尾NUL），默认用户临时目录加64位十六进制SHA-256名称会超限。macOS端点使用规范数据目录SHA-256的前128位（32位十六进制），保持Qt默认用户临时目录、UserAccessOption及原QLockFile不变；Windows保留既有完整摘要名称。以真实第二进程激活和独立数据目录分别获取主实例验证，不能只通过调整测试TMPDIR回避正常启动问题。
+
 ## 7. Recurrence/Reminder（FR-014/015）
 
 固定周期滚动生成未来30天、历史补全最近30天，唯一键(templateId, occurrenceOn)，多次 materialize 幂等；每月31日和每年2/29缺失时跳过。完成后 N 天模式最多一个 OPEN 后继。
@@ -74,6 +86,8 @@ UI-10：saveTaskWithDetails将标题/备注/规划/日期/今日关注与归属/
 
 UI-10分组投影：TaskListModel增加viewSection角色，refresh按当前视图选择既有分组元信息，QML固定section.property。内容/分组切换通过模型通知更新，避免隐藏/显示编辑面板时动态重设Qt Quick分组属性；不改变QueryService归属或排序。
 
+UI-21工具目的地使用Main.toolPage，与TaskWorkspace.view的任务/日历查询上下文分开；组织/重复草稿保护接入navigateSafely，页面不计入模态阻塞。Sidebar创建与任务草稿创建分开显示和处理，仍复用CatalogService。TaskWorkspace.interactionActive仅协调GUI手势与后台维护，期间多次维护合并延后、结束后补做，不放宽写命令/CAS或QueryService判定。完整入口、状态与验证见[导航页面契约](navigation-and-pages.md)。
+
 V-02W：SystemEventFilter将时间/设置/恢复及应用激活合并排队；TaskWorkspace.refreshClock在写入忙碌时保留一次维护请求，operationFinished后补做。backgroundBusy只代表后台维护，表单保持可编辑而写命令仍由busy互斥；维护成功不清除校验错误。SqliteDatabase.checkIntegrity只读检查quick_check与foreign_key_check，失败返回integrityFailed；verifyStorage仅供C++验收工具调用，不向QML暴露数据库接口。窗口规范化只调整可达几何，不主动显示/解除最小化。详见[稳定性设计](windows-stability.md)。
 
 ## CAL-04事件系列与提醒
@@ -81,3 +95,9 @@ V-02W：SystemEventFilter将时间/设置/恢复及应用激活合并排队；Ta
 EventService负责规则校验、可见范围实例投影与到期时间计算，EventRepository负责事件及提醒历史的SQL/事务；QML仅配置和展示。TaskWorkspace统一映射规则/实例、异步保存和提醒中心，两个CalendarPanel共用同一工作区。schema004和JSON兼容及UTC/本地日边界见[事件系列设计](event-series.md)与[ADR-014](../ADR/014-event-series.md)。
 
 CAL-05：calendarDaysFor事件增加occurrenceKey并在C++按全天/实例UTC/标题/ID稳定排序；calendarEventPreview(id,key)精确校验当前实例并输出只读规则/提醒/范围摘要。无key时明确系列起点，失效key返回空；不能用此键做单次修改。预览不写库，编辑仍走原CAS事务；导航只更新所属窗口锚点。详见[浏览定位契约](calendar-browsing.md)。
+
+UI-21/22：navigationCatalog是C++只读导航投影，领域后跟开放项目并输出depth，标签通过独立入口查找；它不改变catalog资料、查询或数据库归属。空标签导航可不显示，任务字段及整理页仍可创建。QML依据backgroundBusy区分维护与显式操作，不能从ready推断草稿已保存；保存结果仍以operationFinished与实际草稿为准。详细取舍及后续接口目标见[全产品复审](product-experience-review.md)，未实施的原因/进度/搜索接口不能当成当前可用API。
+
+UI-22回归修正：setSearch改变有效关键词时立即发stateChanged，使taskReorderingAllowed的QML绑定在下一次输入前更新；结果列表仍按原250ms防抖刷新，不在QML复制筛选逻辑。真实QQmlComponent绑定测试覆盖搜索禁止排序、清除立即恢复和结果防抖，避免中间状态通知将许可滞留在旧值。
+
+UI-23A：TaskService.moveToView统一验证六个导航目标并构造单个Patch，TaskWorkspace.moveTaskToView异步CAS提交；目标不可达/未来日期非法/超过截止失败零修改。可跨导航移动与可内部排序分开，QML仅控制手势及呈现。CalendarService.ranges输出跨日任务的原日期边界，days/entries对范围内日期输出同一task.id及start/range/deadline语义；TaskWorkspace与独立事件共同分配分周泳道和分类型溢出，QML不推算任务范围。详见[直接操作契约](direct-task-actions.md)。

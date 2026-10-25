@@ -6,6 +6,23 @@ using namespace daymark;
 class CalendarServiceTest:public QObject {
     Q_OBJECT
 private slots:
+    void taskRangesIncludeInteriorDaysAndKeepEndpointMeaning() {
+        Task task;task.id=QStringLiteral("range");task.planningState=QStringLiteral("ACTIVE");task.startOn=QDate(2026,10,24);task.deadlineOn=QDate(2026,11,20);
+        const auto ranges=CalendarService::ranges({task},QDate(2026,11,1),QDate(2026,11,30));QCOMPARE(ranges.size(),1);
+        QCOMPARE(ranges.first().start,QDate(2026,10,24));QCOMPARE(ranges.first().end,QDate(2026,11,20));
+        QCOMPARE(CalendarService::entries({task},QDate(2026,10,24)).first().kind,QStringLiteral("start"));
+        QCOMPARE(CalendarService::entries({task},QDate(2026,11,1)).first().kind,QStringLiteral("range"));
+        QCOMPARE(CalendarService::entries({task},QDate(2026,11,20)).first().kind,QStringLiteral("deadline"));
+        QVERIFY(CalendarService::entries({task},QDate(2026,11,21)).isEmpty());
+        int count=0;for(const auto& day:CalendarService::days({task},QDate(2026,10,24),false,false)){QVERIFY(day.entries.size()<=1);count+=day.entries.size();}QCOMPARE(count,16);
+        task.startOn=QDate(1000,1,1);task.deadlineOn=QDate(9000,1,1);count=0;
+        for(const auto& day:CalendarService::days({task},QDate(2024,2,29),false,false)){QCOMPARE(day.entries.size(),1);++count;}QCOMPARE(count,42);
+        task.planningState=QStringLiteral("SOMEDAY");QVERIFY(CalendarService::ranges({task},QDate(2024,2,1),QDate(2024,3,1)).isEmpty());
+        task.planningState=QStringLiteral("ACTIVE");task.status=QStringLiteral("COMPLETED");QVERIFY(CalendarService::ranges({task},QDate(2024,2,1),QDate(2024,3,1)).isEmpty());
+        QCOMPARE(CalendarService::ranges({task},QDate(2024,2,1),QDate(2024,3,1),true).size(),1);
+        task.status=QStringLiteral("OPEN");task.startOn=task.deadlineOn;QVERIFY(CalendarService::ranges({task},QDate(9000,1,1),QDate(9000,1,2)).isEmpty());
+        task.startOn.reset();QVERIFY(CalendarService::ranges({task},QDate(9000,1,1),QDate(9000,1,2)).isEmpty());
+    }
     void completedAndUnscheduledRespectEffectiveState()
     {
         Task open;open.id=QStringLiteral("open");open.planningState=QStringLiteral("ACTIVE");

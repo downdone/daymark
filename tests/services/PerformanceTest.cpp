@@ -33,16 +33,16 @@ private slots:
             QVERIFY(q.exec());if(i%37==0 && i%10>=3)++matches;
         }
         QSqlQuery details(connection);
-        details.prepare(QStringLiteral("INSERT INTO checklist_items(id,task_id,title,is_done,sort_order,created_at_utc,updated_at_utc) VALUES(?,?,?,?,?,?,?)"));
+        details.prepare(QStringLiteral("INSERT INTO tasks(id,parent_task_id,title,status,sort_order,created_at_utc,updated_at_utc,planning_state) VALUES(?,?,?,?,?,?,?,'ACTIVE')"));
         QSqlQuery tags(connection);tags.prepare(QStringLiteral("INSERT INTO task_tags(task_id,tag_id) VALUES(?,?)"));
         for(int i=0;i<10000;++i)for(int j=0;j<3;++j) {
-            details.bindValue(0,QStringLiteral("check-%1-%2").arg(i).arg(j));details.bindValue(1,QString::number(i));details.bindValue(2,QStringLiteral("清单 %1").arg(j));details.bindValue(3,j==0);details.bindValue(4,j);details.bindValue(5,now);details.bindValue(6,now);QVERIFY(details.exec());
+            details.bindValue(0,QStringLiteral("child-%1-%2").arg(i).arg(j));details.bindValue(1,QString::number(i));details.bindValue(2,QStringLiteral("子任务 %1").arg(j));details.bindValue(3,j==0?QStringLiteral("COMPLETED"):QStringLiteral("OPEN"));details.bindValue(4,j);details.bindValue(5,now);details.bindValue(6,now);QVERIFY(details.exec());
             tags.bindValue(0,QString::number(i));tags.bindValue(1,QStringLiteral("tag-%1").arg((i+j)%50));QVERIFY(tags.exec());
         }
-        QVERIFY(connection.commit());TaskRepository repo(connection);QElapsedTimer timer;timer.start();const auto tasks=repo.all();const auto loadMs=timer.elapsed();QVERIFY(tasks.ok());QCOMPARE(tasks.value.size(),10000);
+        QVERIFY(connection.commit());TaskRepository repo(connection);QElapsedTimer timer;timer.start();const auto tasks=repo.all();const auto loadMs=timer.elapsed();QVERIFY(tasks.ok());QCOMPARE(tasks.value.size(),40000);
         timer.restart();const auto found=QueryService::select(tasks.value,QStringLiteral("inbox"),today,QStringLiteral("NEEDLE"));const auto searchMs=timer.elapsed();QCOMPARE(found.size(),matches);
         timer.restart();const auto days=CalendarService::days(tasks.value,today,false,false);const auto calendarMs=timer.elapsed();QCOMPARE(days.size(),42);
-        qInfo().nospace()<<"10k mixed benchmark (20 areas, 200 projects, 50 tags, 30k checklist, 30% complete; ms): load="<<loadMs<<", search="<<searchMs<<", month="<<calendarMs;
+        qInfo().nospace()<<"10k mixed benchmark (20 areas, 200 projects, 50 tags, 30k subtask, 30% complete; ms): load="<<loadMs<<", search="<<searchMs<<", month="<<calendarMs;
         QVERIFY2(loadMs<3000,"10k load exceeded 3s");QVERIFY2(searchMs<1000,"Search blocked for more than 1s");QVERIFY2(calendarMs<1000,"Month indexing exceeded 1s");
     }
 };

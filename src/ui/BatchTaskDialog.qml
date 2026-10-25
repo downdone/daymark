@@ -5,16 +5,15 @@ import QtQuick.Layouts
 
 Dialog {
     id: root
-    background: Rectangle {color: Theme.sidebar;radius: 16;border.color: Theme.separator}
     objectName: "batchTaskDialog"
     required property TaskWorkspace workspace
     property var selection: []
     property var tags: []
-    readonly property var projects: workspace.catalogOf("project")
+    readonly property var categories: workspace.categoryTree.filter(item=>item.kind==="project")
     signal committed()
     title: qsTr("批量修改 %1 项").arg(selection.length)
     modal: true
-    width: Math.min(520,parent.width-40)
+    width: Math.min(480*Theme.scale,parent.width-32)
     height: Math.min(Math.max(300*Theme.scale,implicitHeight),parent.height-32)
     closePolicy: Popup.NoAutoClose
     onOpened: {action.currentIndex=0;date.clear();tags=[];project.currentIndex=0}
@@ -29,8 +28,8 @@ Dialog {
             Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("所有修改一次提交；任何任务冲突或验证失败，整批保留原值。")}
             FormGroup {
                 heading: qsTr("选择要修改的内容")
-            ComboBox {id: action;Accessible.name: qsTr("批量操作");Layout.fillWidth: true;model: [qsTr("完成任务"),qsTr("移动到项目"),qsTr("修改开始日"),qsTr("替换标签")]}
-            ComboBox {id: project;Accessible.name: qsTr("目标项目");Layout.fillWidth: true;visible: action.currentIndex===1;model: [qsTr("无项目（解除项目/分组）")].concat(root.projects.map(item=>item.title))}
+            ComboBox {id: action;Accessible.name: qsTr("批量操作");Layout.fillWidth: true;model: [qsTr("完成任务"),qsTr("移动到分类"),qsTr("修改开始日"),qsTr("替换标签")]}
+            ComboBox {id: project;Accessible.name: qsTr("目标分类");Layout.fillWidth: true;visible: action.currentIndex===1;model: [qsTr("无分类")].concat(root.categories.map(item=>item.path))}
             DateField {id: date;workspace: root.workspace;dateLabel: qsTr("批量开始日期");Layout.fillWidth: true;visible: action.currentIndex===2;placeholderText: qsTr("yyyy-MM-dd，留空清除开始日");Accessible.name: qsTr("批量开始日期")}
             Label {visible: action.currentIndex===3;text: qsTr("替换为所选标签；不选则清除全部标签。")}
             Repeater {
@@ -53,7 +52,7 @@ Dialog {
             highlighted: true
             text: qsTr("确认应用到 %1 项").arg(root.selection.length)
             enabled: root.selection.length>0 && !root.workspace.busy
-            onClicked: root.workspace.batchTasks(root.selection,["complete","project","start","tags"][action.currentIndex],action.currentIndex===1 ? (project.currentIndex>0 ? root.projects[project.currentIndex-1].id : "") : action.currentIndex===2 ? date.text : root.tags.join(","))
+            onClicked: root.workspace.batchTasks(root.selection,["complete","project","start","tags"][action.currentIndex],action.currentIndex===1 ? (project.currentIndex>0 ? root.categories[project.currentIndex-1].id : "") : action.currentIndex===2 ? date.text : root.tags.join(","))
         }
     }
     Connections {target: root.workspace;function onOperationFinished(operation,success){if(operation==="batch" && success){root.close();root.committed()}}}

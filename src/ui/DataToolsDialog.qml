@@ -6,10 +6,10 @@ import QtQuick.Dialogs as NativeDialogs
 
 Dialog {
     id: root
-    background: Rectangle {color: Theme.sidebar;radius: 16;border.color: Theme.separator}
+    objectName: "dataToolsDialog"
     required property TaskWorkspace workspace
-    width: Math.min(550,parent.width-40)
-    height: Math.min(600,parent.height-32)
+    width: Math.min(520*Theme.scale,parent.width-32)
+    height: Math.min(480*Theme.scale,parent.height-32)
     title: qsTr("数据导出、导入与恢复")
     modal: true
     closePolicy: Popup.NoAutoClose
@@ -20,7 +20,6 @@ Dialog {
         width: root.availableWidth-12
         spacing: Theme.fieldGap
         enabled: !root.workspace.busy
-        Label { text: qsTr("数据只保存在本机。JSON保留任务、事件、关联、组织、清单和重复规则；CSV仅导出任务供表格阅读。"); Layout.fillWidth: true; wrapMode: Text.Wrap }
         FormGroup {
             heading: qsTr("导出与备份")
             detail: qsTr("JSON保留全部内容，CSV供表格阅读；快照用于完整恢复。")
@@ -51,7 +50,7 @@ Dialog {
         Label { text: qsTr("默认每日首次启动自动保留快照（最近7份）。替换/恢复前另建完整快照；损坏导入不修改数据。"); Layout.fillWidth: true; wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }
     }
     }
-    footer: DialogButtonBox { Button { text: qsTr("返回"); enabled: !root.workspace.busy; onClicked: root.close() } }
+    footer: DialogButtonBox { Button { text: qsTr("关闭"); enabled: !root.workspace.busy; onClicked: root.close() } }
     NativeDialogs.FileDialog { id: exportJson; title: qsTr("导出Daymark JSON"); fileMode: NativeDialogs.FileDialog.SaveFile; nameFilters: ["Daymark JSON (*.json)"]; defaultSuffix: "json"; onAccepted: root.workspace.exportData(selectedFile.toString(),false) }
     NativeDialogs.FileDialog { id: exportCsv; title: qsTr("导出CSV"); fileMode: NativeDialogs.FileDialog.SaveFile; nameFilters: ["CSV (*.csv)"]; defaultSuffix: "csv"; onAccepted: root.workspace.exportData(selectedFile.toString(),true) }
     NativeDialogs.FileDialog { id: importJson; title: qsTr("选择Daymark JSON"); fileMode: NativeDialogs.FileDialog.OpenFile; nameFilters: ["Daymark JSON (*.json)"]; onAccepted: root.workspace.previewImport(selectedFile.toString(),false) }

@@ -14,3 +14,13 @@ ADR-001～006 已记录在 [原始 TDD](../02_TECHNICAL_DESIGN.md)，继续有�
 | [013](013-local-events.md) | 本地事件、任务议程、schema003及关系/时区边界 | 已接受：用户授权CAL-01/02 |
 
 | [014](014-event-series.md) | 事件系列、当地时间投影、schema004与提醒去重 | 已接受：用户授权CAL-04 |
+
+| [015](015-task-ranges-and-navigation.md) | 任务日期范围投影、导航移动与明确安排意图 | 已接受：用户截图反馈 |
+
+- [ADR-016：两级分类与统一任务系统](016-unified-task-system.md)
+
+- [ADR-017：提醒事项式视图与父子联动](017-reminders-views-and-task-trees.md)
+
+- [ADR-018：任务父子限制两层](018-two-level-tasks.md)
+
+- [ADR-019：列表与日历统一起止安排](019-shared-task-time.md)

@@ -1,9 +1,22 @@
 # 文档导航
 
+UI-33统一起止时间、列表/日历动作与右键按[当前契约](design/shared-task-time-and-actions.md)，覆盖旧双时间定义；保持UI-32两层任务及数据/草稿安全。
+
+UI-32紧凑导航与两层子任务优先按[设计](design/compact-navigation-and-subtasks.md)，保留UI-30父子联动和UI-31共享窗口契约；验证行点击真正可见详情、保存/草稿返回与旧关系兼容。
+
+UI-31全窗口视觉与交互统一按[桌面语言设计](design/macos-desktop-language.md)，与UI-30业务契约共同适用；新增/设置/导航/日历的目标和实际证据分开记录。
+
+提醒事项式五视图、父子联动、schema9及就近管理见[设计](design/task-list-context.md)及[ADR-017](ADR/017-reminders-views-and-task-trees.md)，替代下方历史父子独立及旧六/七范围定义。智能列表精确匹配、普通列表树显示、整树事务及分组恢复分别验证；浅深/窄窗/200%、键盘、草稿、失败回滚及真实截图不可省略，目标不等于已通过。
+
+紧凑桌面布局、任务信息分组、子任务展开对齐与分类边缘排序修订见[UI-29](design/desktop-task-inspector.md)。
+
+分类/标签统一创建、层级、归属、右键和拖放操作链，以及子任务浏览、简易退出保存、稳定工具位置见[UI-28](design/catalog-and-list-system.md)。
+
 ## 阅读顺序
 
 1. [项目入口](../README.md) → [进度](PROGRESS.md)：先确认实际代码和当前任务。
 2. [产品规格](01_PRODUCT_SPEC.md) → [技术基线](02_TECHNICAL_DESIGN.md) → [原始实施计划](03_IMPLEMENTATION_PLAN.md)：需求及验收基线。
+   [产品哲学与概念关系](product-philosophy.md)：统一任务、两级分类、标签及列表/日历视图各自解决的问题，后续功能取舍依据。
 3. [工程方法](engineering.md) → [工程原则](principles.md)：人与 AI 使用同一开发纪律。
 4. [当前详细设计](design/architecture.md) → [模块契约](design/contracts.md) → [界面设计](design/ui.md)。
    UI修改另必读：[官方调研](design/ui-research.md) → [UI/UX设计基准](design/ui-baseline.md) → [验收与迁移](design/ui-acceptance.md)。
@@ -79,3 +92,11 @@ UI-18按[就近编辑设计](design/direct-editing.md)推进共享日期/时间�
 UI-19按[原行编辑及即时反馈](design/inline-task-experience.md)修订快速卡形式、整理与创建、详情动作、列表/完成反馈和菜单响应。
 
 UI-20 / CAL-06A按[连续日程与视觉修订](design/calendar-visual-refresh.md)推进跨日色条、长按排序、循环日程、全局颜色/行关系及提醒单层提交。
+
+UI-21按[导航与主内容页面](design/navigation-and-pages.md)区分长期目的地、就近创建与短时模态操作，统一重复安排、组织管理和提醒历史的页面导航。
+
+全产品功能与UI/UX按[体验复审与实施方案](design/product-experience-review.md)审视，落实[产品哲学](product-philosophy.md)及P-14“简约而不简单”：逐页面取舍、完整操作链、状态与验收、UI-22～26切片。设计目标与当前实现状态分别记录。
+
+用户截图追加的详情直达、六视图导航拖放、安排生效与任务日期范围横条见[UI-23A](design/direct-task-actions.md)及[ADR-015](ADR/015-task-ranges-and-navigation.md)。
+
+2026-10-25新需求系统分析与目标架构见[UI-27统一任务系统](design/unified-task-system.md)及[ADR-016](ADR/016-unified-task-system.md)，明确两级分类、真实子任务、定时/循环任务及迁移；新定义优先于此前对象划分，状态见PROGRESS。

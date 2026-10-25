@@ -1,5 +1,47 @@
 # 平台验证矩阵
 
+UI-33：macOS15.8.1/arm64/Qt6.10.2 Debug17/17（62.31秒）及Release17/17（59.66秒），两构建QML lint无诊断；Release offscreen/Cocoa各436阶段、164 PNG及10秒请求短跑通过。Cocoa实际11.788秒、1循环/1完整性检查，菜单两呈现8ms。覆盖单一起止/DST/旧日期、普通拖放、右键动作及改名、日历同ID点击、保存回调隔离与200%。日志ui33-completed-*，详见[验证报告](verification-report.md)与PROGRESS。物理输入/IME/VoiceOver、Windows、真实通知/穿透、多屏睡眠/8h及独立部署签名仍UNVERIFIED，短跑不替代长时；本机Qt Kit开发产物。
+
+UI-32：macOS15.8.1/arm64/Qt6.10.2 Debug/Release17/17、两项lint、Cocoa413阶段与158张合成截图通过。覆盖紧凑来源导航、子任务行指针直达可见详情、保存/草稿返回、两层服务约束和旧深层恢复。10秒短跑实际11.883秒PASS；物理输入/IME/VoiceOver、Windows、真实通知/穿透、多屏睡眠/8h及独立部署签名仍UNVERIFIED，详情见[验证报告](verification-report.md)。
+
+UI-31当前macOS15.8.1/arm64/Qt6.10.2：Debug/Release17/17、两项lint及Release Cocoa407阶段通过，152张合成截图；覆盖六入口、设置/新增/数据、日历网格/议程和浅深/窄窗/200%。短跑11.933秒、1完整性检查PASS。手势独立通知、Esc草稿保护与本进程测试激活另有回归。实际证据见[验证报告](verification-report.md)及PROGRESS；物理输入/IME/VoiceOver、Windows、真实通知/穿透、多屏睡眠/8h及独立部署签名仍UNVERIFIED。
+
+## UI-30 macOS补充（2026-10-25）
+
+arm64 / Qt6.10.2 Debug17/17（54.27秒）、Release17/17（52.37秒），两项lint无诊断；Release Cocoa398阶段、145张合成PNG、双窗口/QML warnings=false，10秒短跑实际11.968秒、1循环/1完整性检查PASS，最大事件循环延迟1ms。覆盖五视图、智能数量入口/普通树、整树完成/删除/移动/分组恢复及最近删除树，schema9/JSON9和旧格式、事务回滚/CAS、局部编辑草稿和真实拖放高亮、浅深/窄窗/200%。详细过程失败、呈现采样修订和证据范围见[验证报告](verification-report.md)。
+
+物理输入/IME/读屏、Windows当前源码、真实通知/穿透、多屏/睡眠/8h和独立部署签名仍UNVERIFIED；自动合成不替代这些门禁，Mac产物依赖本机Kit，全部测试数据库隔离。
+
+## UI-29 macOS补充（2026-10-25）
+
+arm64 Qt6.10.2 Debug17/17（56.73秒）、Release17/17（55.33秒）、两项lint PASS。Release Cocoa372阶段、136张合成截图、双窗口/QML warnings=false，10秒短跑实际11.823秒、1循环/1完整性检查PASS。覆盖紧凑桌面布局、简易子任务编辑实际列对齐、四组详情和锚定日期/分类/标签面板、分类带子节点时真实指针上下移动及重载；200%快捷必须正在编辑并位于视口。详细证据及过程修复见[验证报告](verification-report.md)和[PROGRESS](PROGRESS.md)。物理键鼠/IME/读屏、Windows当前源码、通知/穿透/多屏/睡眠/8h与独立部署签名仍UNVERIFIED，本机Kit产物不代表独立发行包。
+
+## UI-27/28 macOS补充（2026-10-25）
+
+arm64 Qt6.10.2 Debug17/17（55.22秒）、Release17/17（54.60秒）及两项lint PASS；Cocoa Debug361阶段/132张合成截图/双窗口、QML warnings=false，10秒请求短跑实际12.05秒、1循环/1完整性检查PASS。涵盖schema5～8真实临时库迁移/导入/回滚、统一任务时间和循环、周期提醒认领、分类两级/右键/实际指针拖放、父子列表/独立面板、简易退出自动保存及失败保留、全分类文件夹、固定视图按钮、导航窄轨及200%布局。详细指标、过程FAIL和静态审查见[验证报告](verification-report.md)。
+
+原生合成与实机人工门禁分列：Windows当前源码、物理输入/IME/读屏、系统通知/鼠标穿透恢复、真实多屏/睡眠/8h与独立部署/签名均UNVERIFIED；本机Kit开发产物不是独立发行包。未操作真实用户库、无推送发布。
+
+## UI-23A macOS补充（2026-10-25）
+
+arm64 Qt6.10.2 Debug16/16（48.74秒）、Release16/16（47.85秒）、两项lint PASS；Cocoa333阶段及125张合成截图PASS。覆盖服务六目标与失败零修改、直接详情/安排保存、非排序列表到侧栏实际合成拖放、跨周跨月任务横条与事件共同溢出、隐藏事件/深色200%。原生定位失败及修复见验证报告。Windows当前源码、物理鼠标/触控板/键盘、IME/读屏及系统/长时/独立部署门禁UNVERIFIED。
+
+## UI-21/22 macOS补充（2026-10-24）
+
+UI-21：arm64 Qt6.10.2 Debug16/16（45.01秒）、Release16/16（44.33秒）、两项lint PASS；Cocoa Release309阶段及121张合成截图PASS，双窗口/warnings=false。覆盖内容页/统一导航草稿、归属项目层级/标签独立、页面创建与概念切换、后台维护期间手势协调；同时保留任务/日历/事件/数据恢复等既有回归。UI-22最新结果见PROGRESS及验证记录。
+
+UI-22：相同Mac Kit最终Debug16/16（46.16秒）、Release16/16（45.15秒）、两项lint PASS；Cocoa309阶段全截图PASS，已查看窄窗200%减负后整理/重复页。排序许可真实QML绑定回归PASS，后台维护/显式操作反馈分开，草稿/原规则保留。中间滚轮/长按/布局FAIL、探针呈现同步及属性通知修正见验证报告；不称一次通过，不把QML warnings=false当成无任何Qt/系统诊断。
+
+此证据不包括物理鼠标/键盘/触控板、中文IME、VoiceOver、通知权限/送达、穿透外部恢复、多屏/DPI、睡眠/8h、独立部署/签名；这些仍UNVERIFIED。Windows未在本次Mac环境复测当前源码，历史Windows记录保留原版本范围；Intel和macOS原生开机启动仍未验证/未实现，不将旧表批量改PASS。
+
+## macOS arm64 首次构建证据（2026-10-24）
+
+macOS15.8.1 / Apple M3 Pro / Qt6.10.2，macos-debug配置与编译PASS；完整CTest16/16（46.09秒）、两项QML lint PASS。覆盖实际临时SQLite、迁移/事务/恢复、任务/组织/日历/事件/循环/提醒、worker、双进程单实例、10k基准及离屏QML合成流程。首轮单实例路径超限及修复见[验证报告](verification-report.md)。QML最终双窗口/warnings=false，只证明合成流程；窗口flag测试不替代真实OS交互。
+
+Release、Intel、原生UI截图/物理输入/读屏/系统通知/穿透恢复/多屏睡眠/8h/独立部署/签名公证保持UNVERIFIED，macOS原生开机启动仍未实现。下方2026-10-22起的原始表及追加记录保留各轮历史范围；最新状态以[进度](PROGRESS.md)为准。
+
+## 初始Windows验证记录
+
 2026-10-22，1.0.0-rc.1 Windows本地候选。用户确认暂缺macOS环境；PASS只针对行内所述范围，macOS未执行任何本轮构建。
 
 | 场景 | Windows11 x64 / Qt6.10.2 MinGW | macOS Intel | macOS Apple Silicon |

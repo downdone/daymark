@@ -28,7 +28,7 @@ Canvas {
         else if(name==="someday") {p.beginPath();p.arc(12,12,9,Math.PI*0.15,Math.PI*1.65);p.stroke();line([[16,3],[19,3],[19,6]],false)}
         else if(name==="logbook" || name==="check")line([[5,12],[10,17],[20,6]],false)
         else if(name==="area") {p.strokeRect(3,3,7,7);p.strokeRect(14,3,7,7);p.strokeRect(3,14,7,7);p.strokeRect(14,14,7,7)}
-        else if(name==="project")line([[3,7],[3,20],[21,20],[21,6],[12,6],[10,3],[3,3]],true)
+        else if(name==="folder" || name==="project")line([[3,7],[3,20],[21,20],[21,6],[12,6],[10,3],[3,3]],true)
         else if(name==="tag") {line([[9,3],[6,21]],false);line([[18,3],[15,21]],false);line([[4,9],[21,9]],false);line([[3,15],[20,15]],false)}
         else if(name==="info") {circle(12,12,9);line([[12,10],[12,17]],false);circle(12,6.5,0.5)}
         else if(name==="flag") {line([[5,22],[5,3],[12,3],[14,5],[21,5],[21,15],[14,15],[12,13],[5,13]],false)}
@@ -50,6 +50,7 @@ Canvas {
         else if(name==="edit") {line([[4,16],[4,21],[9,20],[21,8],[16,3],[4,16]],false);line([[13,6],[18,11]],false)}
         else if(name==="reload" || name==="reset") {p.beginPath();p.arc(12,12,8,0.6,5.4);p.stroke();line([[16,3],[18,7],[13,7]],false)}
         else if(name==="window") {p.strokeRect(3,4,18,16);line([[3,9],[21,9]],false);circle(6,6.5,0.6)}
+        else if(name==="subtasks") {line([[4,4],[12,4]],false);line([[6,8],[6,19],[11,19]],false);line([[6,12],[11,12]],false);line([[15,12],[21,12]],false);line([[15,19],[21,19]],false)}
         else if(name==="list" || name==="batch") {for(let i=0;i<3;i++){p.strokeRect(3,4+6*i,3,3);line([[10,5.5+6*i],[21,5.5+6*i]],false)}}
         else if(name==="export") {line([[4,14],[4,21],[20,21],[20,14]],false);line([[12,16],[12,3]],false);line([[7,8],[12,3],[17,8]],false)}
         else if(name==="import") {line([[4,14],[4,21],[20,21],[20,14]],false);line([[12,3],[12,16]],false);line([[7,11],[12,16],[17,11]],false)}

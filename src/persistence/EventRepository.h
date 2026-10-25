@@ -10,6 +10,7 @@ public:
     Result<void> save(CalendarEvent event,const QString& now);
     Result<void> setDeleted(const QString& id,qint64 version,bool deleted,const QString& now);
     Result<QVariantList> notifications() const;
+    Result<QVariantList> claimTaskReminders(const QString& now);
     Result<QVariantList> claimReminders(const QVariantList& candidates);
 private:
     QSqlDatabase m_db;

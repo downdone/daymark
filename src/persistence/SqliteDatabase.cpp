@@ -1,4 +1,5 @@
 #include "SqliteDatabase.h"
+#include "UnifiedTaskMigration.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -23,68 +24,29 @@ Result<void> SqliteDatabase::checkIntegrity() const
 Result<void> MigrationManager::initialize(QSqlDatabase& db)
 {
     QSqlQuery query(db);
-    if (!query.exec(QStringLiteral("PRAGMA user_version")) || !query.next())
-        return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseRead"));
-    const int version = query.value(0).toInt();
-    query.finish();
-    if (version > 4)
-        return Result<void>::failure(ErrorCode::ValidationError, QStringLiteral("schemaTooNew"));
-    if (version == 4)
-        return {};
-    if(version==3) {
-        initializeSchemaResource();QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/004_event_series.sql"));
-        if(!schema.open(QIODevice::ReadOnly))return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("schemaResource"));
-        if(!db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
-        for(const auto& statement:QString::fromUtf8(schema.readAll()).split(';',Qt::SkipEmptyParts))if(!statement.trimmed().isEmpty() && !query.exec(statement)){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
-        if(!query.exec(QStringLiteral("PRAGMA user_version=4")) || !db.commit()){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}return {};
+    if(!query.exec(QStringLiteral("PRAGMA user_version")) || !query.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
+    const int version=query.value(0).toInt();query.finish();
+    constexpr int latest=9;
+    if(version>latest)return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("schemaTooNew"));
+    if(version==latest)return {};
+    if(version<0)return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("unknownSchema"));
+    if(version==0){
+        if(!query.exec(QStringLiteral("SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")) || !query.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
+        if(query.value(0).toInt()!=0)return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("unknownSchema"));query.finish();
     }
-    if(version==2) {
-        initializeSchemaResource();
-        QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/003_calendar_events.sql"));
-        if(!schema.open(QIODevice::ReadOnly))return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("schemaResource"));
-        if(!db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
-        for(const auto& statement:QString::fromUtf8(schema.readAll()).split(';',Qt::SkipEmptyParts)) {
-            if(!statement.trimmed().isEmpty() && !query.exec(statement)){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
-        }
-        if(!query.exec(QStringLiteral("PRAGMA user_version=3")) || !db.commit()){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
-        return initialize(db);
-    }
-    if(version==1) {
-        initializeSchemaResource();
-        QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/002_area_archive.sql"));
-        if(!schema.open(QIODevice::ReadOnly))return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("schemaResource"));
-        if(!db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
-        for(const auto& statement:QString::fromUtf8(schema.readAll()).split(';',Qt::SkipEmptyParts)) {
-            if(!statement.trimmed().isEmpty() && !query.exec(statement)){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
-        }
-        if(!query.exec(QStringLiteral("PRAGMA user_version=2")) || !db.commit()){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("migrationFailed"));}
-        return initialize(db);
-    }
-    if (version != 0)
-        return Result<void>::failure(ErrorCode::ValidationError, QStringLiteral("unknownSchema"));
-    if (!query.exec(QStringLiteral("SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")) || !query.next())
-        return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseRead"));
-    if (query.value(0).toInt() != 0)
-        return Result<void>::failure(ErrorCode::ValidationError, QStringLiteral("unknownSchema"));
-    query.finish();
     initializeSchemaResource();
-    QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/001_init.sql"));
-    if (!schema.open(QIODevice::ReadOnly))
-        return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("schemaResource"));
-    if (!db.transaction())
-        return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseWrite"));
-    const auto statements = QString::fromUtf8(schema.readAll()).split(';', Qt::SkipEmptyParts);
-    for (const auto& statement : statements) {
-        if (!statement.trimmed().isEmpty() && !query.exec(statement)) {
-            db.rollback();
-            return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("migrationFailed"));
-        }
+    const QStringList migrations={QStringLiteral("001_init.sql"),QStringLiteral("002_area_archive.sql"),QStringLiteral("003_calendar_events.sql"),QStringLiteral("004_event_series.sql"),QStringLiteral("005_categories.sql"),QStringLiteral("006_task_relations.sql"),QStringLiteral("007_recurring_reminders.sql"),QStringLiteral("008_unified_tasks.sql"),QStringLiteral("009_task_tree_actions.sql")};
+    if(!db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+    auto failed=[&](const QString& key){db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,key);};
+    // All pending migrations commit together, so a later conversion failure also
+    // rolls back earlier steps. The original WAL snapshot is kept by open().
+    for(int i=version;i<latest;++i){
+        QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/")+migrations[i]);if(!schema.open(QIODevice::ReadOnly))return failed(QStringLiteral("schemaResource"));
+        for(const auto& statement:QString::fromUtf8(schema.readAll()).split(';',Qt::SkipEmptyParts))if(!statement.trimmed().isEmpty() && !query.exec(statement))return failed(QStringLiteral("migrationFailed"));
     }
-    if (!query.exec(QStringLiteral("PRAGMA user_version=1")) || !db.commit()) {
-        db.rollback();
-        return Result<void>::failure(ErrorCode::PersistenceError, QStringLiteral("migrationFailed"));
-    }
-    return initialize(db);
+    if(!convertLegacyEvents(db,QDateTime::currentDateTimeUtc()).ok())return failed(QStringLiteral("migrationFailed"));
+    if(!query.exec(QStringLiteral("PRAGMA foreign_key_check")) || query.next())return failed(QStringLiteral("migrationFailed"));query.finish();
+    if(!query.exec(QStringLiteral("PRAGMA user_version=%1").arg(latest)) || !db.commit())return failed(QStringLiteral("migrationFailed"));return {};
 }
 
 SqliteDatabase::SqliteDatabase() : m_connectionName(QUuid::createUuid().toString(QUuid::WithoutBraces)) {}
@@ -112,7 +74,7 @@ Result<void> SqliteDatabase::open(const QString& path)
         QSqlQuery version(m_db);
         if(!version.exec(QStringLiteral("PRAGMA user_version")) || !version.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
         const int current=version.value(0).toInt();version.finish();
-        if(current>=1 && current<=3) {
+        if(current>=1 && current<=8) {
             const auto snapshot=createSnapshot(QFileInfo(path).dir().filePath(QStringLiteral("backups/migrations")));
             if(!snapshot.ok()){m_db.close();return {snapshot.error};}
         }

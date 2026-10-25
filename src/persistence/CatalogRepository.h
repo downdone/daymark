@@ -9,6 +9,7 @@ public:
     Result<CatalogItem> find(const QString& kind,const QString& id) const;
     Result<CatalogItem> save(CatalogItem item,const QString& now);
     Result<void> remove(const QString& kind,const QString& id,qint64 version,const QString& now);
+    Result<void> relocate(const CatalogItem& item,const QString& targetId,qint64 targetVersion,const QString& placement,const QString& now);
     Result<void> move(const QString& kind,const QString& id,qint64 version,int direction,const QString& now);
 private:
     QSqlDatabase m_db;

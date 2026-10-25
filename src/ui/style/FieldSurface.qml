@@ -5,15 +5,7 @@ Rectangle {
     property bool hovered: false
     property bool enabledField: true
     radius: DesignTokens.radius
-    color: !enabledField ? DesignTokens.sidebar : hovered ? DesignTokens.hover : DesignTokens.fieldFill
-    border.width: focused ? 1 : 0
-    border.color: DesignTokens.accent
-    Rectangle {
-        visible: !surface.focused && surface.hovered
-        x: surface.radius
-        width: Math.max(0,parent.width-2*x)
-        height: 1
-        anchors.bottom: parent.bottom
-        color: surface.enabledField ? DesignTokens.fieldLine : DesignTokens.border
-    }
+    color: !enabledField ? DesignTokens.sidebar : DesignTokens.surface
+    border.width: focused ? 2 : 1
+    border.color: focused ? DesignTokens.accent : DesignTokens.fieldLine
 }

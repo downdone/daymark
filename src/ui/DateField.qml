@@ -11,7 +11,7 @@ TextField {
     property bool allowClear: true
     property bool inlineMode: false
     property bool inlineExpanded: false
-    readonly property bool pickerVisible: shortcuts.visible || (inlineMode ? inlineExpanded : picker.visible)
+    readonly property bool pickerVisible: inlineMode ? inlineExpanded : picker.visible
     property var month: ({title: "", days: []})
     readonly property var hostWindow: Window.window
     property point anchorPosition: Qt.point(0,0)
@@ -23,20 +23,22 @@ TextField {
     Accessible.name: dateLabel
     rightPadding: calendarButton.width+8
     function openPicker() {
-        shortcuts.close()
         month=workspace.datePicker(text,0)
         if(inlineMode){inlineExpanded=true;forceActiveFocus();return}
         anchorPosition=mapToItem(null,0,0)
         const popupWidth=picker.width
-        if(anchorPosition.x>=popupWidth+8)placement="left"
+        const desiredHeight=Math.min(calendar.implicitHeight+picker.padding*2,(hostWindow ? hostWindow.height : 720)-24)
+        if(hostWindow && hostWindow.height-anchorPosition.y-height-12>=desiredHeight)placement="below"
+        else if(anchorPosition.y-12>=desiredHeight)placement="above"
+        else if(anchorPosition.x>=popupWidth+8)placement="left"
         else if(hostWindow && hostWindow.width-anchorPosition.x-width>=popupWidth+8)placement="right"
         else placement=hostWindow && hostWindow.height-anchorPosition.y-height<anchorPosition.y ? "above" : "below"
         picker.open()
         forceActiveFocus()
     }
     function chooseDate(value) {text=value;dateChosen();closePicker();forceActiveFocus()}
-    function openShortcuts(){if(inlineMode)inlineExpanded=false;picker.close();shortcuts.open()}
-    function closePicker() {picker.close();shortcuts.close();inlineExpanded=false}
+    function openShortcuts(){openPicker()}
+    function closePicker() {picker.close();inlineExpanded=false}
     onVisibleChanged: if(!visible)closePicker()
     Keys.onEscapePressed: function(event) {if(pickerVisible)closePicker();else event.accepted=false}
     Keys.onReturnPressed: function(event) {if(pickerVisible)closePicker();else event.accepted=false}
@@ -53,20 +55,9 @@ TextField {
         height: field.iconOnly ? field.height : field.height-4
         Accessible.name: qsTr("选择%1").arg(field.dateLabel)
         contentItem: AppIcon {name: field.symbol}
-        onClicked: shortcuts.visible ? shortcuts.close() : field.openShortcuts()
-        Menu {
-            id: shortcuts
-            objectName: "dateShortcuts"
-            x: parent.width-width;y: parent.height
-            MenuItem {visible: field.allowClear;text: qsTr("无日期");checkable: true;checked: !field.text;onTriggered: field.chooseDate("")}
-            MenuSeparator {visible: field.allowClear}
-            MenuItem {objectName: "dateShortcutToday";text: qsTr("今天");checkable: true;checked: field.text===field.workspace.dateOffset(0);onTriggered: field.chooseDate(field.workspace.dateOffset(0))}
-            MenuItem {objectName: "dateShortcutTomorrow";text: qsTr("明天");checkable: true;checked: field.text===field.workspace.dateOffset(1);onTriggered: field.chooseDate(field.workspace.dateOffset(1))}
-            MenuItem {text: qsTr("一周后");checkable: true;checked: field.text===field.workspace.dateOffset(7);onTriggered: field.chooseDate(field.workspace.dateOffset(7))}
-            MenuSeparator {}
-            MenuItem {text: qsTr("自定义日期…");onTriggered: field.openPicker()}
-        }
+        onClicked: field.pickerVisible ? field.closePicker() : field.openPicker()
     }
+
     Popup {
         id: picker
         objectName: "dateFieldPopup"
@@ -79,7 +70,7 @@ TextField {
         modal: false
         focus: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle {color: Theme.content;border.color: Theme.separator;radius: 16}
+        background: Rectangle {color: Theme.content;border.color: Theme.separator;radius: Theme.panelRadius}
         contentItem: ScrollView {
             clip: true
             implicitHeight: calendar.implicitHeight

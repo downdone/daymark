@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QElapsedTimer>
 #include <QtTest>
+#include "../support/LegacyDatabase.h"
 using namespace daymark;
 class EventTestClock:public IClock {public:QDateTime now=QDateTime(QDate(2026,3,7),QTime(14,0),QTimeZone::UTC);QDate localToday()const override{return now.date();}QDateTime nowUtc()const override{return now;}};
 class EventServiceTest:public QObject {
@@ -25,13 +26,16 @@ private slots:
         EventRepository reopened(db.connection());EventService restarted(reopened,clock);QCOMPARE(restarted.claimReminders().value.size(),0);
         clock.now=clock.now.addDays(1);QCOMPARE(restarted.claimReminders().value.size(),1);QCOMPARE(restarted.notifications().value.size(),2);
         DataTransfer transfer(db);const auto output=dir.filePath(QStringLiteral("series.json"));QVERIFY(transfer.exportJson(output).ok());const auto plan=transfer.preview(output,false);QVERIFY(plan.ok());QVERIFY(transfer.apply(plan.value,true).ok());QCOMPARE(restarted.claimReminders().value.size(),0);QCOMPARE(repo.all().value.first().repeatFrequency,QStringLiteral("DAILY"));
-        QVERIFY(service.setDeleted(e.id,e.rowVersion,true).ok());QVERIFY(restarted.claimReminders().value.isEmpty());QVERIFY(restarted.notifications().value.isEmpty());
+        e.rowVersion=TaskRepository(db.connection()).find(e.id).value.rowVersion;
+        QVERIFY(service.setDeleted(e.id,e.rowVersion,true).ok());QVERIFY(restarted.claimReminders().value.isEmpty());QCOMPARE(restarted.notifications().value.size(),1);
         QVERIFY(service.setDeleted(e.id,e.rowVersion+1,false).ok());QVERIFY(restarted.claimReminders().value.isEmpty());
         e.repeatInterval=0;QVERIFY(!EventService::validate(e).ok());e.repeatInterval=1;e.repeatUntil=QDate(2026,1,1);QVERIFY(!EventService::validate(e).ok());
     }
     void schemaThreeUpgradePreservesEvents() {
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("legacy.sqlite"));
-        {SqliteDatabase db;QVERIFY(db.open(path).ok());EventTestClock clock;EventRepository repo(db.connection());CalendarEvent e;e.title=QStringLiteral("legacy");e.startOn=QDate(2026,3,7);e.endOn=e.startOn.addDays(1);QVERIFY(EventService(repo,clock).save(e).ok());QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("DROP TABLE event_reminder_history")));for(const auto& column:{"repeat_frequency","repeat_interval","repeat_until","alert_minutes"})QVERIFY(q.exec(QStringLiteral("ALTER TABLE events DROP COLUMN ")+QLatin1String(column)));QVERIFY(q.exec(QStringLiteral("PRAGMA user_version=3")));}
+        QVERIFY(createLegacyDatabase(path,3));
+        {const auto name=QUuid::createUuid().toString();{auto raw=QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),name);raw.setDatabaseName(path);QVERIFY(raw.open());QSqlQuery q(raw);QVERIFY(q.exec(QStringLiteral("INSERT INTO events(id,title,all_day,start_on,end_on,created_at_utc,updated_at_utc) VALUES('legacy','legacy',1,'2026-03-07','2026-03-08','2026-03-07T00:00:00.000Z','2026-03-07T00:00:00.000Z')")));q.finish();raw.close();}QSqlDatabase::removeDatabase(name);}
+
         SqliteDatabase db;QVERIFY(db.open(path).ok());const auto events=EventRepository(db.connection()).all();QVERIFY(events.ok());QCOMPARE(events.value.size(),1);QCOMPARE(events.value.first().title,QStringLiteral("legacy"));QCOMPARE(events.value.first().repeatFrequency,QStringLiteral("NONE"));QCOMPARE(events.value.first().alertMinutes,-1);QCOMPARE(QDir(dir.filePath(QStringLiteral("backups/migrations"))).entryList({QStringLiteral("*.sqlite")},QDir::Files).size(),1);
     }
 
@@ -48,9 +52,9 @@ private slots:
     void tenThousandEvents() {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("benchmark.sqlite"))).ok());auto connection=db.connection();QVERIFY(connection.transaction());QSqlQuery q(connection);
         for(int i=0;i<10000;i++) {
-            q.prepare(QStringLiteral("INSERT INTO events(id,title,all_day,start_on,end_on,created_at_utc,updated_at_utc) VALUES(?,?,1,'2026-10-23','2026-10-24','2026-10-23T00:00:00.000Z','2026-10-23T00:00:00.000Z')"));q.addBindValue(QString::number(i));q.addBindValue(QStringLiteral("event %1").arg(i));QVERIFY(q.exec());
+            q.prepare(QStringLiteral("INSERT INTO tasks(id,title,planning_state,start_on,created_at_utc,updated_at_utc) VALUES(?,?,'ACTIVE','2026-10-23','2026-10-23T00:00:00.000Z','2026-10-23T00:00:00.000Z')"));q.addBindValue(QString::number(i));q.addBindValue(QStringLiteral("event %1").arg(i));QVERIFY(q.exec());
         }
-        QVERIFY(connection.commit());QElapsedTimer timer;timer.start();const auto events=EventRepository(connection).all();QVERIFY(events.ok());QCOMPARE(events.value.size(),10000);const auto loaded=timer.elapsed();timer.restart();int count=0;const auto zone=QTimeZone::systemTimeZone();for(const auto& e:events.value)count+=EventService::visibleDates(e,QDate(2026,10,1),QDate(2026,11,11),zone).size();QCOMPARE(count,10000);const auto projected=timer.elapsed();qInfo()<<"10k events: load ms"<<loaded<<"visible-date index ms"<<projected;QVERIFY(loaded<5000 && projected<5000);
+        QVERIFY(q.exec(QStringLiteral("INSERT INTO task_schedules(task_id,all_day,start_on,end_on) SELECT id,1,'2026-10-23','2026-10-24' FROM tasks")));QVERIFY(connection.commit());QElapsedTimer timer;timer.start();const auto events=EventRepository(connection).all();QVERIFY(events.ok());QCOMPARE(events.value.size(),10000);const auto loaded=timer.elapsed();timer.restart();int count=0;const auto zone=QTimeZone::systemTimeZone();for(const auto& e:events.value)count+=EventService::visibleDates(e,QDate(2026,10,1),QDate(2026,11,11),zone).size();QCOMPARE(count,10000);const auto projected=timer.elapsed();qInfo()<<"10k events: load ms"<<loaded<<"visible-date index ms"<<projected;QVERIFY(loaded<5000 && projected<5000);
     }
     void rangesAndDst() {
         CalendarEvent e;e.title=QStringLiteral("event");e.startOn=QDate(2026,10,23);e.endOn=e.startOn.addDays(1);
@@ -71,24 +75,24 @@ private slots:
         EventRepository repo(db.connection());EventService service(repo,clock);CalendarEvent e;e.title=QStringLiteral("review");e.startOn=QDate(2026,10,23);e.endOn=e.startOn.addDays(1);e.links={{task.value.id,QStringLiteral("preparation")}};
         QVERIFY(service.save(e).ok());e=repo.all().value.first();QCOMPARE(e.links.size(),1);
         auto invalid=e;invalid.title=QStringLiteral("must rollback");invalid.links.append({QStringLiteral("missing"),QStringLiteral("followup")});QVERIFY(!service.save(invalid).ok());QCOMPARE(repo.all().value.first().title,e.title);
-        QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("CREATE TRIGGER fail_event_link BEFORE INSERT ON event_tasks BEGIN SELECT RAISE(ABORT,'injected'); END")));
+        QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("CREATE TRIGGER fail_event_link BEFORE INSERT ON task_links BEGIN SELECT RAISE(ABORT,'injected'); END")));
         invalid=e;invalid.title=QStringLiteral("SQL rollback");QVERIFY(!service.save(invalid).ok());QCOMPARE(repo.all().value.first().title,e.title);QCOMPARE(repo.all().value.first().links.size(),1);QVERIFY(q.exec(QStringLiteral("DROP TRIGGER fail_event_link")));
         e.startOn=e.startOn.addDays(1);e.endOn=e.endOn.addDays(1);QVERIFY(service.save(e).ok());QCOMPARE(tasks.find(task.value.id).value.startOn,task.value.startOn);
         QCOMPARE(service.save(e).error.code,ErrorCode::Conflict);e=repo.all().value.first();
         QVERIFY(taskService.changeState(task.value.id,task.value.rowVersion,QStringLiteral("complete")).ok());QCOMPARE(repo.all().value.size(),1);
         DataTransfer transfer(db);const auto path=dir.filePath(QStringLiteral("events.json"));QVERIFY(transfer.exportJson(path).ok());const auto plan=DataTransfer::preview(path);QVERIFY(plan.ok());
-        auto merge=plan.value;auto mergeData=merge.document.value(QStringLiteral("tables")).toObject();auto mergeLinks=mergeData.value(QStringLiteral("event_tasks")).toArray();mergeLinks.append(QJsonObject{{"event_id",e.id},{"task_id",other.value.id},{"role",QStringLiteral("followup")}});mergeData.insert(QStringLiteral("event_tasks"),mergeLinks);merge.document.insert(QStringLiteral("tables"),mergeData);QVERIFY(transfer.apply(merge,false).ok());QCOMPARE(repo.all().value.first().links.size(),1);
+        auto merge=plan.value;auto mergeData=merge.document.value(QStringLiteral("tables")).toObject();auto mergeLinks=mergeData.value(QStringLiteral("task_links")).toArray();mergeLinks.append(QJsonObject{{"source_id",e.id},{"target_id",other.value.id},{"role",QStringLiteral("followup")}});mergeData.insert(QStringLiteral("task_links"),mergeLinks);merge.document.insert(QStringLiteral("tables"),mergeData);QVERIFY(transfer.apply(merge,false).ok());QCOMPARE(repo.all().value.first().links.size(),1);
         QVERIFY(transfer.apply(plan.value,true).ok());QCOMPARE(repo.all().value.first().links.size(),1);
-        auto currentTask=tasks.find(task.value.id).value;auto deleted=taskService.changeState(currentTask.id,currentTask.rowVersion,QStringLiteral("delete"));QVERIFY(deleted.ok());QCOMPARE(repo.all().value.size(),1);QVERIFY(repo.all().value.first().links.isEmpty());QVERIFY(taskService.changeState(currentTask.id,deleted.value.rowVersion,QStringLiteral("restore")).ok());QCOMPARE(repo.all().value.first().links.size(),1);
+        auto currentTask=tasks.find(task.value.id).value;auto deleted=taskService.changeState(currentTask.id,currentTask.rowVersion,QStringLiteral("delete"));QVERIFY(deleted.ok());QCOMPARE(repo.all().value.size(),1);QCOMPARE(repo.all().value.first().links.size(),1);QVERIFY(taskService.changeState(currentTask.id,deleted.value.rowVersion,QStringLiteral("restore")).ok());QCOMPARE(repo.all().value.first().links.size(),1);
         QVERIFY(service.setDeleted(e.id,e.rowVersion,true).ok());QVERIFY(repo.all().value.isEmpty());QVERIFY(!tasks.find(task.value.id).value.deletedAtUtc.size());
         QVERIFY(service.setDeleted(e.id,e.rowVersion+1,false).ok());QCOMPARE(repo.all().value.first().links.size(),1);
-        auto corrupted=plan.value;auto data=corrupted.document.value(QStringLiteral("tables")).toObject();auto events=data.value(QStringLiteral("events")).toArray();auto row=events.first().toObject();row.insert(QStringLiteral("end_on"),row.value(QStringLiteral("start_on")));events[0]=row;data.insert(QStringLiteral("events"),events);corrupted.document.insert(QStringLiteral("tables"),data);
+        auto corrupted=plan.value;auto data=corrupted.document.value(QStringLiteral("tables")).toObject();auto schedules=data.value(QStringLiteral("task_schedules")).toArray();auto row=schedules.first().toObject();row.insert(QStringLiteral("end_on"),row.value(QStringLiteral("start_on")));schedules[0]=row;data.insert(QStringLiteral("task_schedules"),schedules);corrupted.document.insert(QStringLiteral("tables"),data);
         QVERIFY(!transfer.apply(corrupted,true).ok());QCOMPARE(repo.all().value.size(),1);
-        auto legacy=plan.value;data=legacy.document.value(QStringLiteral("tables")).toObject();data.remove(QStringLiteral("events"));data.remove(QStringLiteral("event_tasks"));legacy.document.insert(QStringLiteral("tables"),data);legacy.document.insert(QStringLiteral("schemaVersion"),2);QVERIFY(transfer.apply(legacy,true).ok());QVERIFY(repo.all().value.isEmpty());
+
     }
     void schemaTwoUpgradeBackup() {
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("upgrade.sqlite"));
-        {SqliteDatabase db;QVERIFY(db.open(path).ok());QSqlQuery q(db.connection());QVERIFY(q.exec(QStringLiteral("DROP TABLE event_reminder_history")));QVERIFY(q.exec(QStringLiteral("DROP TABLE event_tasks")));QVERIFY(q.exec(QStringLiteral("DROP TABLE events")));QVERIFY(q.exec(QStringLiteral("PRAGMA user_version=2")));}
+        QVERIFY(createLegacyDatabase(path,2));
         QFile blocker(dir.filePath(QStringLiteral("backups")));QVERIFY(blocker.open(QIODevice::WriteOnly));blocker.close();{SqliteDatabase db;QVERIFY(!db.open(path).ok());}QVERIFY(blocker.remove());
         SqliteDatabase db;QVERIFY(db.open(path).ok());QCOMPARE(QDir(dir.filePath(QStringLiteral("backups/migrations"))).entryList({QStringLiteral("*.sqlite")},QDir::Files).size(),1);QVERIFY(EventRepository(db.connection()).all().ok());
     }

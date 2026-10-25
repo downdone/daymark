@@ -6,10 +6,11 @@ T.DialogButtonBox {
     implicitHeight: implicitContentHeight+topPadding+bottomPadding
     spacing: 8
     padding: DesignTokens.panelPadding
-    topPadding: 8
+    topPadding: 12
     alignment: Qt.AlignRight
     contentWidth: (contentItem as ListView).contentWidth
     delegate: Button {highlighted: T.DialogButtonBox.buttonRole===T.DialogButtonBox.AcceptRole || T.DialogButtonBox.buttonRole===T.DialogButtonBox.YesRole}
+    background: Rectangle {color: "transparent";Rectangle {width: parent.width;height: 1;color: DesignTokens.border}}
     contentItem: ListView {
                 // Avoid background row incubation across model resets on Qt 6.10.2.
                 cacheBuffer: 0
