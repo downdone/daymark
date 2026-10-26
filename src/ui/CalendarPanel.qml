@@ -9,6 +9,7 @@ ColumnLayout {
     objectName: "calendarPanel"
     implicitWidth: 640
     implicitHeight: 480
+    Layout.minimumWidth: 0
     required property TaskWorkspace workspace
     signal desktopRequested
     signal scaleRequested(string scale)
@@ -18,6 +19,59 @@ ColumnLayout {
     signal timeMoveRequested(string taskId, real version, string date, int minute, string edge)
     signal dateMoveRequested(string taskId, real version, string from, string date, string edge)
     signal creationRequested(string date, int minute, int duration, point anchor)
+    property string filterIdentity: ""
+    readonly property string selectionContext: (independent ? anchorDate : workspace.scope+"/"+workspace.calendarDate+"/"+filterIdentity)+"/"+calendarScale
+    onSelectionContextChanged: clearSelection()
+    function pruneTimelineSelection() {
+        if(!selectedTaskId || workspace.busy || (calendarScale!=="day" && calendarScale!=="week"))return
+        const found=timelineData.blocks.some(value=>value.taskId===selectedTaskId) || timelineData.days.some(day=>day.entries.some(value=>(value.taskId || value.eventId)===selectedTaskId))
+        if(!found)clearSelection()
+    }
+    onTimelineDataChanged: pruneTimelineSelection()
+    property bool editingBlocked: false
+    property string selectedTaskId: ""
+    property var selectedEntry: ({})
+    property int selectedMinute: -1
+    property point selectedAnchor: Qt.point(-1,-1)
+    readonly property var hostWindow: panel.Window.window
+    readonly property bool commandsAvailable: visible && !editingBlocked && !modalOpen && !workspace.busy && !!hostWindow && hostWindow.active && !(hostWindow.activeFocusItem instanceof TextInput) && !(hostWindow.activeFocusItem instanceof TextEdit)
+    readonly property bool canvasFocused: {
+        let item=hostWindow ? hostWindow.activeFocusItem : null
+        while(item){if(item===panel || item===monthGrid || item===timelineView || item===yearLoader.item)return true;item=item.parent}
+        return false
+    }
+    readonly property bool canvasReturn: !!hostWindow && !!hostWindow.activeFocusItem && (hostWindow.activeFocusItem===panel || hostWindow.activeFocusItem===timelineView || hostWindow.activeFocusItem.objectName.indexOf("calendarDay-")===0)
+    property string previousScale: "month"
+    function selectEntry(entry,source,date) {
+        selectedTaskId=entry.taskId || entry.eventId || "";selectedEntry=entry;selectedMinute=-1
+        if(date)selectedDate=date
+        if(source){selectedAnchor=source.mapToItem(panel.Window.window.contentItem,source.width,0);source.forceActiveFocus()}
+    }
+    function clearSelection() {selectedTaskId="";selectedEntry=({});selectedMinute=-1}
+    function editSelected() {if(selectedTaskId){taskAnchor=selectedAnchor;openTask(selectedTaskId)}}
+    function requestNew() {if(modalOpen)return;const minute=selectedMinute>=0 ? selectedMinute : (calendarScale==="day" || calendarScale==="week" ? 540 : -1);selectedTaskId="";openCreate(selectedDate,minute,-1,selectedAnchor.x>=0 ? selectedAnchor : undefined)}
+    function command(action) {
+        if(modalOpen)return
+        if(action==="new"){requestNew();return}
+        if(action==="calendarToday"){step(0);Qt.callLater(function(){if(panel.timelineView)panel.timelineView.revealNow()});return}
+        if(action==="calendarNext" || action==="calendarPrevious"){step(action==="calendarNext" ? 1 : -1);return}
+        if(action==="calendarGoTo"){openDateJump();return}
+        if(action==="calendarEdit"){editSelected();return}
+        if(["day","week","month","year"].indexOf(action)>=0)setScale(action)
+    }
+    Shortcut {sequence:"Ctrl+T";enabled:panel.commandsAvailable;onActivated:panel.command("calendarToday")}
+    Shortcut {sequence:"Ctrl+Shift+T";enabled:panel.commandsAvailable;onActivated:panel.command("calendarGoTo")}
+    Shortcut {sequence:"Ctrl+Right";enabled:panel.commandsAvailable;onActivated:panel.command("calendarNext")}
+    Shortcut {sequence:"Ctrl+Left";enabled:panel.commandsAvailable;onActivated:panel.command("calendarPrevious")}
+    Shortcut {sequence:"Ctrl+E";enabled:panel.commandsAvailable && !!panel.selectedTaskId;onActivated:panel.editSelected()}
+    Shortcut {sequences: Qt.platform.os==="osx" ? ["Backspace",StandardKey.Delete] : [StandardKey.Delete];enabled:panel.commandsAvailable && !!panel.selectedTaskId;onActivated:panel.taskAction(panel.selectedTaskId,"delete")}
+    Shortcut {sequence:"Return";enabled:panel.commandsAvailable && panel.canvasReturn;onActivated:panel.selectedTaskId ? panel.editSelected() : panel.requestNew()}
+    Shortcut {sequence:"Escape";enabled:panel.commandsAvailable && (!!panel.selectedTaskId || panel.selectedMinute>=0) && !panel.timelineDragging;onActivated:panel.clearSelection()}
+    Shortcut {sequences:[StandardKey.New];enabled:panel.independent && panel.commandsAvailable;onActivated:panel.requestNew()}
+    Shortcut {sequence:"Ctrl+1";enabled:panel.independent && panel.commandsAvailable;onActivated:panel.setScale("day")}
+    Shortcut {sequence:"Ctrl+2";enabled:panel.independent && panel.commandsAvailable;onActivated:panel.setScale("week")}
+    Shortcut {sequence:"Ctrl+3";enabled:panel.independent && panel.commandsAvailable;onActivated:panel.setScale("month")}
+    Shortcut {sequence:"Ctrl+4";enabled:panel.independent && panel.commandsAvailable;onActivated:panel.setScale("year")}
     property bool independent: false
     property bool weekMode: false
     property string independentScale: "month"
@@ -42,6 +96,8 @@ ColumnLayout {
         refreshTimeline();
     }
     function setScale(value) {
+        if(value==="year" && calendarScale!=="year")previousScale=calendarScale
+        clearSelection()
         if(independent){if(!workspace.setPreference("desktopCalendarScale",value))return;if(calendarScale==="month" && value!=="month")anchorDate=selectedDate;independentScale=value;weekMode=value==="week"}
         else if(calendarScale==="month" && value!=="month")presentationRequested(selectedDate,value)
         else scaleRequested(value)
@@ -72,7 +128,8 @@ ColumnLayout {
     }
     function step(offset) {
         if (calendarScale === "month" && monthGrid.visibleMonth) {
-            const date = offset === 0 ? workspace.dateOffset(0) : workspace.shiftCalendarScale(monthGrid.visibleMonth, offset, "month");
+            const base=monthGrid.navigationMonth || (independent ? anchorDate : workspace.calendarDate);
+            const date = offset === 0 ? workspace.dateOffset(0) : workspace.shiftCalendarScale(base, offset, "month");
             jumpToDate(date);
         } else if (independent) {
             anchorDate = workspace.shiftCalendarScale(anchorDate, offset, calendarScale);
@@ -245,7 +302,7 @@ ColumnLayout {
         return true;
     }
     function finishDateSelection(date) {
-        selectedDate = date;
+        clearSelection();selectedDate = date;
         jumpDialog.close();
         if (calendarScale === "month")
             monthGrid.resetToAnchor();
@@ -357,7 +414,7 @@ ColumnLayout {
     property bool agendaCreating: false
     property var creationCloseAction:null
     Label {
-        visible: panel.compact
+        visible: panel.compact && panel.calendarScale!=="month"
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         text: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
@@ -365,97 +422,110 @@ ColumnLayout {
         font.bold: true
         elide: Text.ElideRight
     }
-    RowLayout {
+    GridLayout {
+        objectName: "calendarToolbar"
         Layout.fillWidth: true
-        spacing: 4
-        Label {
-            visible: !panel.compact
-            Layout.minimumWidth: 0
-            text: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
-            font.pixelSize: Theme.headingSize
-            font.bold: true
+        Layout.minimumWidth: 0
+        columns: panel.width < 160*Theme.scale+5*Theme.controlHeight+40 ? 1 : 2
+        columnSpacing: 8;rowSpacing: Theme.fieldGap
+        RowLayout {
             Layout.fillWidth: true
-            elide: Text.ElideRight
-        }
-        SegmentedPicker {
-            objectName: "calendarScalePicker"
-            Layout.fillWidth: false
-            Layout.preferredWidth: 160 * Theme.scale
-            Layout.minimumWidth: 4 * Math.max(32, Theme.bodySize + 12)
-            selectionIsExternal: true
-            model: [qsTr("日"), qsTr("周"), qsTr("月"), qsTr("年")]
-            currentIndex: ["day", "week", "month", "year"].indexOf(panel.calendarScale)
-            onActivated: function (index) {
-                panel.setScale(["day", "week", "month", "year"][index]);
+            Layout.minimumWidth: 0
+            spacing: 4
+            Label {
+                visible: !panel.compact && panel.calendarScale!=="month"
+                Layout.minimumWidth: 0
+                text: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
+                font.pixelSize: Theme.headingSize
+                font.bold: true
+                Layout.fillWidth: true
+                elide: Text.ElideRight
             }
-        }
-        IconToolButton {
-            contentItem: AppIcon {
-                name: "left"
-            }
-            Accessible.name: qsTr("上一页")
-            onClicked: panel.step(-1)
-        }
-        Button {
-            text: qsTr("今天")
-            onClicked: panel.step(0)
-        }
-        IconToolButton {
-            contentItem: AppIcon {
-                name: "right"
-            }
-            Accessible.name: qsTr("下一页")
-            onClicked: panel.step(1)
-        }
-        WidgetAction {
-            symbol: "plus"
-            description: qsTr("新建任务")
-            onClicked: panel.openCreate(panel.selectedDate, -1)
-        }
-        WidgetAction {
-            objectName: "calendarDisplayAction"
-            symbol: "more"
-            description: qsTr("日历显示与操作")
-            onClicked: displayMenu.open()
-            Menu {
-                id: displayMenu
-                MenuItem {
-                    objectName: "calendarJump"
-                    text: qsTr("跳转日期…")
-                    onTriggered: panel.openDateJump()
+            SegmentedPicker {
+                objectName: "calendarScalePicker"
+                Layout.fillWidth: false
+                Layout.preferredWidth: 160 * Theme.scale
+                Layout.minimumWidth: 4 * Math.max(32, Theme.bodySize + 12)
+                selectionIsExternal: true
+                model: [qsTr("日"), qsTr("周"), qsTr("月"), qsTr("年")]
+                currentIndex: ["day", "week", "month", "year"].indexOf(panel.calendarScale)
+                onActivated: function (index) {
+                    panel.setScale(["day", "week", "month", "year"][index]);
                 }
-                MenuItem {
-                    text: qsTr("未安排任务（%1）").arg(panel.unscheduledItems.length)
-                    onTriggered: unscheduled.open()
+            }
+            Item {Layout.fillWidth: true;visible: panel.compact || panel.calendarScale==="month"}
+        }
+        RowLayout {
+            Layout.alignment: Qt.AlignRight
+            spacing: 2
+            IconToolButton {
+                contentItem: AppIcon {
+                    name: "left"
                 }
-                MenuItem {
-                    visible: panel.calendarScale === "month"
-                    text: panel.agendaVisible ? qsTr("收起当天议程") : qsTr("当天议程")
-                    onTriggered: {
-                        if (panel.agendaVisible)
-                            panel.agendaVisible = false;
-                        else
-                            panel.showAgenda();
+                Accessible.name: qsTr("上一页")
+                onClicked: panel.step(-1)
+            }
+            Button {
+                text: qsTr("今天")
+                onClicked: panel.command("calendarToday")
+            }
+            IconToolButton {
+                contentItem: AppIcon {
+                    name: "right"
+                }
+                Accessible.name: qsTr("下一页")
+                onClicked: panel.step(1)
+            }
+            WidgetAction {
+                symbol: "plus"
+                description: qsTr("新建任务")
+                onClicked: panel.requestNew()
+            }
+            WidgetAction {
+                objectName: "calendarDisplayAction"
+                symbol: "more"
+                description: qsTr("日历显示与操作")
+                onClicked: displayMenu.open()
+                Menu {
+                    id: displayMenu
+                    MenuItem {
+                        objectName: "calendarJump"
+                        text: qsTr("跳转日期…")
+                        onTriggered: panel.openDateJump()
                     }
-                }
-                MenuSeparator {}
-                MenuItem {
-                    visible: panel.calendarScale !== "year"
-                    text: qsTr("已完成任务")
-                    checkable: true
-                    checked: panel.workspace.calendarCompleted
-                    onTriggered: panel.workspace.calendarCompleted = checked
-                }
-                MenuItem {
-                    text: qsTr("周日为每周首日")
-                    checkable: true
-                    checked: panel.workspace.sundayFirst
-                    onTriggered: panel.workspace.sundayFirst = checked
-                }
-                MenuItem {
-                    text: qsTr("桌面日历")
-                    visible: !panel.independent
-                    onTriggered: panel.desktopRequested()
+                    MenuItem {
+                        text: qsTr("未安排任务（%1）").arg(panel.unscheduledItems.length)
+                        onTriggered: unscheduled.open()
+                    }
+                    MenuItem {
+                        visible: panel.calendarScale === "month"
+                        text: panel.agendaVisible ? qsTr("收起当天议程") : qsTr("当天议程")
+                        onTriggered: {
+                            if (panel.agendaVisible)
+                                panel.agendaVisible = false;
+                            else
+                                panel.showAgenda();
+                        }
+                    }
+                    MenuSeparator {}
+                    MenuItem {
+                        visible: panel.calendarScale !== "year"
+                        text: qsTr("已完成任务")
+                        checkable: true
+                        checked: panel.workspace.calendarCompleted
+                        onTriggered: panel.workspace.calendarCompleted = checked
+                    }
+                    MenuItem {
+                        text: qsTr("周日为每周首日")
+                        checkable: true
+                        checked: panel.workspace.sundayFirst
+                        onTriggered: panel.workspace.sundayFirst = checked
+                    }
+                    MenuItem {
+                        text: qsTr("桌面日历")
+                        visible: !panel.independent
+                        onTriggered: panel.desktopRequested()
+                    }
                 }
             }
         }
@@ -470,6 +540,10 @@ ColumnLayout {
             workspace: panel.workspace
             timeline: panel.timelineData
             creationSelection:createPopup.visible && panel.newMinute>=0 ? ({date:panel.newDate,minute:panel.newMinute,duration:panel.newDuration}) : ({})
+            selectedId: panel.selectedTaskId
+            slotSelectionActive: panel.selectedMinute>=0
+            onTaskSelected: function(entry,source){panel.selectEntry(entry,source,entry.date)}
+            onSlotSelected: function(date,minute,at){panel.clearSelection();panel.selectedDate=date;panel.selectedMinute=minute;panel.selectedAnchor=panel.timelineView.mapToItem(panel.Window.window.contentItem,at.x,at.y)}
             onOpenTask: function (id) {
                 panel.taskAnchor = panel.timelineView.taskAnchor;
                 panel.openTask(id);
@@ -496,6 +570,7 @@ ColumnLayout {
         }
     }
     Loader {
+        id: yearLoader
         active: panel.visible && panel.calendarScale === "year"
         visible: active
         Layout.fillWidth: true
@@ -506,8 +581,9 @@ ColumnLayout {
                 panel.jumpToDate(date);
             }
             anchorDate: panel.independent ? panel.anchorDate : panel.workspace.calendarDate
+            onDateHighlighted: function(date){panel.selectedDate=date}
             onDaySelected: function (date) {
-                panel.navigateTo(date, "day");
+                panel.navigateTo(date, panel.previousScale);
             }
             onMonthSelected: function (date) {
                 panel.navigateTo(date, "month");
@@ -645,13 +721,18 @@ ColumnLayout {
                         rangeRequest.restart();
                     }
                     workspace: panel.workspace
+                    selectedTaskId: panel.selectedTaskId
                     selectedDate: panel.selectedDate
                     showTasks: panel.showTasks
                     showEvents: panel.showEvents
                     draggingMarker: panel.draggingMarker
                     onDateSelected: function (date) {
-                        panel.selectedDate = date;
+                        panel.clearSelection();panel.selectedDate = date;
                     }
+                    onDateOpened: function(date){panel.navigateTo(date,"day")}
+                    onCreateRequested: function(date,source){panel.selectedDate=date;panel.openCreate(date,-1,-1,source.mapToItem(panel.Window.window.contentItem,source.width/2,source.height/2))}
+                    onTaskSelected: function(entry,source,date){panel.selectEntry(entry,source,date)}
+                    onContextRequested: function(entry,source,at){panel.selectEntry(entry,source,entry.date);panel.contextTask=entry;const point=source.mapToItem(panel,at.x,at.y);taskMenu.popup(panel,point.x,point.y)}
                     onDateActivated: function (date) {
                         panel.selectedDate = date;
                         panel.showAgenda();
@@ -827,8 +908,7 @@ ColumnLayout {
             creating: panel.creating
             globalScope:panel.independent
             anchor: panel.creationAnchor
-            onClosed: if (!panel.awaitingCreated)
-                panel.editAfterCreate = false
+            onClosed: {if(!panel.awaitingCreated)panel.editAfterCreate=false;Qt.callLater(function(){if(panel.visible && panel.hostWindow && panel.hostWindow.active)panel.forceActiveFocus()})}
             onSubmitted: function (title) {
                 panel.editAfterCreate = false;
                 panel.creating = panel.workspace.createTaskWithDetails(title,createPopup.notes,createPopup.startOn,createPopup.endOn,createPopup.detailsPatch());

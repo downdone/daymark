@@ -206,7 +206,7 @@ ItemDelegate {
         onDropped:function(drop){const source=drop.source as TaskRow;if(source && root.workspace.canDropTask(source.taskId,root.taskId)){root.dropRequested(source.taskId);drop.acceptProposedAction()}allowed=false}
     }
     Rectangle {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:2;color:Theme.accent;visible:dropZone.containsDrag && dropZone.allowed}
-    ToolTip {visible:dropZone.containsDrag && !dropZone.allowed && !!dropZone.sourceTask;text:dropZone.sourceTask ? root.workspace.dropTaskReason(dropZone.sourceTask.taskId,root.taskId) : ""}
+    DS.ToolTip {contextualFeedback:true;delay:0;timeout:-1;visible:dropZone.containsDrag && !dropZone.allowed && !!dropZone.sourceTask;text:dropZone.sourceTask ? root.workspace.dropTaskReason(dropZone.sourceTask.taskId,root.taskId) : ""}
     padding: Theme.compact ? 2 : 4
     leftPadding: 10+Math.min(8,taskDepth)*16
     rightPadding: 10
@@ -248,6 +248,7 @@ ItemDelegate {
         }
         IconToolButton {
             id: completionAction
+            hintEnabled: false
             visible: !root.selectionMode
             enabled: !root.deleted
             Layout.alignment: Qt.AlignTop
@@ -285,7 +286,9 @@ ItemDelegate {
                 visible:root.metadataText.length>0 || root.subtaskTotal>0
                 Label {visible:root.subtaskTotal>0;text:qsTr("%1/%2").arg(root.subtaskTotal-root.subtaskPending).arg(root.subtaskTotal);font.pixelSize:Theme.captionSize;color:Theme.secondary;Accessible.name:qsTr("%1 个子任务，已完成 %2 个").arg(root.subtaskTotal).arg(root.subtaskTotal-root.subtaskPending)}
                 Label {Layout.fillWidth:true;Layout.minimumWidth:0;text:root.metadataText;elide:Text.ElideRight;font.pixelSize:Theme.captionSize;color:root.isOverdue ? Theme.danger : Theme.secondary;Accessible.name:root.metadataText
-                    ToolTip.visible:metadataHover.hovered && truncated;ToolTip.text:root.metadataText
+                    ToolTip.visible:!Theme.hintsBlocked && metadataHover.hovered && truncated;ToolTip.text:root.metadataText
+                    ToolTip.delay: Theme.hintDelay
+                    ToolTip.timeout: Theme.hintTimeout
                     HoverHandler {id:metadataHover}
                 }
             }
@@ -312,7 +315,7 @@ ItemDelegate {
             enabled: !root.selectionMode
             contentItem: AppIcon {name: root.deleted ? "undo" : "info"}
             Accessible.name: (root.deleted ? qsTr("恢复任务：") : qsTr("打开任务详情："))+root.title
-            ToolTip.visible: hovered;ToolTip.text: root.deleted ? qsTr("恢复任务") : qsTr("详情")
+            hintText: root.deleted ? qsTr("恢复任务") : qsTr("编辑任务详情")
             onClicked: {if(root.deleted)root.restoreRequested();else root.editRequested()}
 
         }

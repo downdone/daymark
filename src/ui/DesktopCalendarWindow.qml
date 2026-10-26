@@ -22,13 +22,15 @@ ApplicationWindow {
     palette.windowText: Theme.text;palette.text: Theme.text;palette.buttonText: Theme.text
     background: Rectangle {
         objectName: "desktopCalendarBackground"
-        color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,Theme.highContrast ? 1 : calendar.workspace.preferences.desktopCalendarOpacity/100)
+        color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,Theme.highContrast || calendar.workspace.preferences.solidWidget ? 1 : calendar.workspace.preferences.desktopCalendarOpacity/100)
         radius: Theme.panelRadius;border.color: Theme.separator
     }
     onClosing: function(event) {
         event.accepted=false
         if(!page.protectClose(function(){calendar.workspace.setPreference("desktopCalendarVisible",false)}))calendar.workspace.setPreference("desktopCalendarVisible",false)
     }
+    readonly property bool dragging: page.timelineDragging
+    function calendarCommand(action){page.command(action)}
     function protectClose(action) {
         if(!page.protectClose(action))return false
         workspace.setPreference("desktopCalendarVisible",true);requestActivate();return true
@@ -52,7 +54,7 @@ ApplicationWindow {
             Label {text: qsTr("日历");font.weight: Font.DemiBold;Layout.fillWidth: true
                 DragHandler {target: null;onActiveChanged: if(active)calendar.startSystemMove()}
             }
-            WidgetAction {symbol: "pin";description: qsTr("日历置顶");checked: calendar.workspace.preferences.desktopCalendarTopmost;onClicked: calendar.workspace.setPreference("desktopCalendarTopmost",!checked)}
+            WidgetAction {symbol: "pin";description: checked ? qsTr("取消日历置顶") : qsTr("日历置顶");checked: calendar.workspace.preferences.desktopCalendarTopmost;Accessible.checkable: true;Accessible.checked: checked;onClicked: calendar.workspace.setPreference("desktopCalendarTopmost",!checked)}
             WidgetAction {symbol: "settings";description: qsTr("日历透明度与位置");onClicked: options.open()
                 Menu {
                         popupType: Popup.Window

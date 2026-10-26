@@ -8,6 +8,7 @@ Item {
     required property TaskWorkspace workspace
     required property var days
     property string selectedDate: ""
+    property string selectedTaskId: ""
     property bool showTasks: true
     property bool showEvents: true
     property bool draggingMarker: false
@@ -30,6 +31,10 @@ Item {
     implicitHeight: gridMinimum
     signal dateSelected(string date)
     signal dateActivated(string date)
+    signal dateOpened(string date)
+    signal createRequested(string date,Item source)
+    signal taskSelected(var entry,Item source,string date)
+    signal contextRequested(var entry,Item source,point at)
     signal selectionMoved(int offset)
     signal taskRequested(string taskId, Item source)
     signal dragStarted(var entry, Item source, point origin, string from, string edge)
@@ -88,7 +93,7 @@ Item {
         property real dateWidth: 0
         dragDistance: root ? root.workspace.dragDistance : 10
         onDragStarted: function (entry, source, origin) {
-            root.beginDrag(entry, source, origin, dateWidth > 0 ? root.workspace.shiftDate(fromDate, Math.floor(origin.x / dateWidth)) : fromDate, "move");
+            root.taskSelected(entry,source,fromDate);root.beginDrag(entry, source, origin, dateWidth > 0 ? root.workspace.shiftDate(fromDate, Math.floor(origin.x / dateWidth)) : fromDate, "move");
         }
         onDragMoved: function (source, position) {
             root.moveDrag(source, position);
@@ -128,7 +133,7 @@ Item {
         onClicked: root.dateSelected(modelData.date)
         onDoubleClicked: {
             root.dateSelected(modelData.date);
-            root.dateActivated(dayCell.modelData.date);
+            root.createRequested(dayCell.modelData.date,dayCell);
         }
         Keys.onLeftPressed: function (event) {
             root.moveSelection(-1);
@@ -148,7 +153,7 @@ Item {
         }
         background: Rectangle {
             radius: 0
-            color: dayCell.highlighted ? Theme.selected : dayCell.modelData.weekend ? Theme.grouped : Theme.content
+            color: dayCell.modelData.weekend ? Theme.grouped : Theme.content
             border.width: dayCell.visualFocus ? 2 : 0
             border.color: Theme.accent
         }
@@ -157,6 +162,8 @@ Item {
             clip: true
             Item {
                 id: dayNumber
+                objectName: "calendarDateHeader-"+dayCell.modelData.date
+                MouseArea {anchors.right:parent.right;anchors.top:parent.top;anchors.bottom:parent.bottom;width:parent.height;onClicked:root.dateSelected(dayCell.modelData.date);onDoubleClicked:root.dateOpened(dayCell.modelData.date)}
                 width: dayCell.availableWidth
                 implicitHeight: Math.max(28, Math.ceil(Theme.bodySize * 1.65))
                 height: implicitHeight
@@ -165,13 +172,13 @@ Item {
                     width: parent.height
                     height: width
                     radius: width / 2
-                    color: dayCell.modelData.today ? Theme.calendarToday : "transparent"
+                    color: dayCell.modelData.today ? Theme.calendarToday : dayCell.highlighted ? Theme.accent : "transparent"
                     Text {
                         anchors.centerIn: parent
                         text: dayCell.modelData.day
                         font.pixelSize: Theme.bodySize
                         font.weight: dayCell.modelData.today || dayCell.highlighted ? Font.DemiBold : Font.Normal
-                        color: dayCell.modelData.today ? Theme.calendarTodayText : dayCell.modelData.inMonth && !dayCell.modelData.weekend ? Theme.text : Theme.secondary
+                        color: dayCell.modelData.today ? Theme.calendarTodayText : dayCell.highlighted ? Theme.accentText : dayCell.modelData.inMonth && !dayCell.modelData.weekend ? Theme.text : Theme.secondary
                     }
                 }
             }
@@ -192,7 +199,7 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: 6
                     background: Rectangle {
-                        color: Theme.primaryFill
+                        color: root && root.selectedTaskId===(marker.modelData.taskId || marker.modelData.eventId) ? Theme.accent : Theme.primaryFill
                         radius: 4
                         Rectangle {
                             width: 3
@@ -205,9 +212,13 @@ Item {
                     font.strikeout: modelData.taskStatus === "COMPLETED"
                     elide: Text.ElideRight
                     font.pixelSize: Theme.captionSize
-                    color: Theme.primaryInk
+                    color: root && root.selectedTaskId===(modelData.taskId || modelData.eventId) ? Theme.accentText : Theme.primaryInk
+                    activeFocusOnTab: true
+                    Keys.onReturnPressed: root.inspectAt(modelData.taskId || modelData.eventId,marker)
                     Accessible.name: modelData.title
-                    ToolTip.visible: marker.visible && root.visible && markerHover.hovered && !root.draggingMarker
+                    ToolTip.visible: !Theme.hintsBlocked && marker.visible && root && root.visible && marker.truncated && markerHover.hovered && !root.draggingMarker
+                    ToolTip.delay: Theme.hintDelay
+                    ToolTip.timeout: Theme.hintTimeout
                     ToolTip.text: modelData.title
                     HoverHandler {
                         id: markerHover
@@ -215,25 +226,39 @@ Item {
                     EntryDrag {
                         entry: marker.modelData
                         fromDate: dayCell.modelData.date
-                        onActivated: {
-                            root.dateSelected(dayCell.modelData.date);
-                            root.inspectAt(marker.modelData.taskId || marker.modelData.eventId, marker);
-                        }
+                        onActivated: root.taskSelected(marker.modelData,marker,dayCell.modelData.date)
+                        onDoubleActivated: root.inspectAt(marker.modelData.taskId || marker.modelData.eventId,marker)
+                        onContextRequested: function(at){root.contextRequested(Object.assign({date:dayCell.modelData.date},marker.modelData),marker,at)}
                     }
                 }
             }
             Label {
                 id: moreEntries
+                objectName: "calendarMore-"+dayCell.modelData.date
+                readonly property int remainingCount: Math.max(0,dayCell.items.length-dayCell.entryLimit)+dayCell.hiddenRangeCount
+                readonly property bool compactOverflow: moreMetrics.width>width
+                function openDay() {root.dateSelected(dayCell.modelData.date);root.dateActivated(dayCell.modelData.date)}
                 width: dayCell.availableWidth
                 visible: dayCell.items.length > dayCell.entryLimit || dayCell.hiddenRangeCount > 0
-                text: "+" + (Math.max(0, dayCell.items.length - dayCell.entryLimit) + dayCell.hiddenRangeCount)
+                text: compactOverflow ? "…" : "+"+remainingCount
+                elide: Text.ElideRight
                 font.pixelSize: Theme.captionSize
                 color: Theme.accent
+                activeFocusOnTab: true
+                Accessible.role: Accessible.Button
+                Accessible.name: qsTr("还有 %1 项，打开当天议程").arg(remainingCount)
+                Accessible.onPressAction: openDay()
+                Keys.onReturnPressed: openDay()
+                Keys.onSpacePressed: openDay()
+                background: Rectangle {color: "transparent";radius: Theme.rowRadius;border.width: moreEntries.activeFocus ? 1 : 0;border.color: Theme.accent}
+                TextMetrics {id: moreMetrics;font: moreEntries.font;text: "+"+moreEntries.remainingCount}
+                ToolTip.visible: !Theme.hintsBlocked && compactOverflow && moreHover.hovered
+                ToolTip.delay: Theme.hintDelay
+                ToolTip.timeout: Theme.hintTimeout
+                ToolTip.text: Accessible.name
+                HoverHandler {id: moreHover}
                 TapHandler {
-                    onTapped: {
-                        root.dateSelected(dayCell.modelData.date);
-                        root.dateActivated(dayCell.modelData.date);
-                    }
+                    onTapped: moreEntries.openDay()
                 }
             }
         }
@@ -318,7 +343,7 @@ Item {
                 bottomLeftRadius: topLeftRadius
                 topRightRadius: modelData.endsHere ? 5 : 0
                 bottomRightRadius: topRightRadius
-                color: Theme.primaryFill
+                color: root && root.selectedTaskId===(modelData.taskId || modelData.eventId) ? Theme.accent : Theme.primaryFill
                 activeFocusOnTab: true
                 Accessible.role: Accessible.Button
                 border.width: activeFocus ? 2 : 0
@@ -333,6 +358,7 @@ Item {
                 }
                 Accessible.name: (taskRange ? qsTr("任务计划范围：") : "") + modelData.title + ", " + modelData.firstVisibleDate + " — " + modelData.lastVisibleDate
                 Text {
+                    id: bandTitle
                     anchors.fill: parent
                     anchors.leftMargin: 6
                     anchors.rightMargin: 4
@@ -340,11 +366,13 @@ Item {
                     text: (band.taskRange ? "○ " : band.modelData.recurring ? "↻ " : "") + band.modelData.title
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.captionSize
-                    color: Theme.primaryInk
+                    color: root && root.selectedTaskId===(band.modelData.taskId || band.modelData.eventId) ? Theme.accentText : Theme.primaryInk
                     verticalAlignment: Text.AlignVCenter
                     elide: Text.ElideRight
                 }
-                ToolTip.visible: band.visible && root.visible && bandHover.hovered && !root.draggingMarker
+                ToolTip.visible: !Theme.hintsBlocked && band.visible && root && root.visible && bandTitle.truncated && bandHover.hovered && !root.draggingMarker
+                ToolTip.delay: Theme.hintDelay
+                ToolTip.timeout: Theme.hintTimeout
                 ToolTip.text: Accessible.name
                 HoverHandler {
                     id: bandHover
@@ -353,7 +381,9 @@ Item {
                     entry: band.modelData
                     dateWidth: band.cellWidth
                     fromDate: root.days[band.modelData.week * 7 + band.modelData.column].date
-                    onActivated: band.inspect()
+                    onActivated: root.taskSelected(band.modelData,band,band.modelData.firstVisibleDate)
+                    onDoubleActivated: band.inspect()
+                    onContextRequested: function(at){root.contextRequested(Object.assign({date:band.modelData.firstVisibleDate},band.modelData),band,at)}
                 }
                 Repeater {
                     model: ["start", "deadline"]

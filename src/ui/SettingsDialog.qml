@@ -6,6 +6,8 @@ ApplicationWindow {
     id: root
     objectName: "settingsDialog"
     signal quitRequested()
+    signal dataRequested()
+    signal helpRequested()
     signal calendarVisibilityRequested(bool visible)
     required property TaskWorkspace workspace
     required property WidgetViewModel widgetController
@@ -52,6 +54,7 @@ ApplicationWindow {
         }
         ScrollView {
             id: body
+            objectName: "settingsScroll"
             Layout.fillWidth: true
             Layout.fillHeight: true
             ColumnLayout {
@@ -147,6 +150,17 @@ ApplicationWindow {
                         heading: qsTr("自动备份")
                         detail: qsTr("启动时检查，保留最近7份一致性快照。")
                         ComboBox {Layout.fillWidth: true;Accessible.name: qsTr("自动备份周期");model: [qsTr("每天"),qsTr("每7天"),qsTr("每30天")];currentIndex: [1,7,30].indexOf(root.workspace.preferences.backupDays);onActivated: root.workspace.setPreference("backupDays",[1,7,30][currentIndex])}
+                    }
+                    FormGroup {
+                        heading:qsTr("资料与帮助")
+                        BrandWordmark {Layout.preferredWidth:128;Layout.preferredHeight:128*36/164;Layout.topMargin:4;Layout.bottomMargin:4}
+                        Label {text:"Daymark · "+Qt.application.version;Layout.fillWidth:true;font.pixelSize:Theme.captionSize;color:Theme.secondary}
+                        Label {text:qsTr("本地任务与时间安排，无需账号。");Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary}
+                        Flow {
+                            Layout.fillWidth:true;spacing:8
+                            ActionButton {objectName:"settingsData";symbol:"backup";text:qsTr("数据与备份");onClicked:root.dataRequested()}
+                            ActionButton {objectName:"settingsHelp";symbol:"info";text:qsTr("使用提示");onClicked:root.helpRequested()}
+                        }
                     }
                     ActionButton {symbol: "close";text: qsTr("退出 Daymark");onClicked: root.quitRequested()}
                     Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: root.widgetController.trayAvailable ? qsTr("托盘可打开主窗口、恢复穿透或彻底退出。") : qsTr("系统托盘不可用；关闭主窗口将退出，穿透已禁用。")}

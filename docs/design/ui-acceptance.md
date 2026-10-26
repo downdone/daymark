@@ -2,6 +2,14 @@
 
 ## 当前契约与目标边界
 
+UX-41按[主框架、字标与侧栏](sidebar-and-wordmark.md)删除Windows窗口内菜单，保留原生标题栏/macOS屏幕菜单；设置承接支持入口，原创单色字标、六卡弱选中/正常名称/统一对齐及大字单列。验收包括真实像素绘制、浅深切换、六范围/折叠/窄轨恢复、设置到帮助/备份接线。
+
+UX-40按[提示与菜单字级](help-tags-and-menu-type.md)统一全局tooltip准入、菜单正文/文字列；同轮修复日历连续拖选与年视图重复高亮，新建面板支持标题拖动，外部点击有效保存/失败保持，覆盖100/200%、键盘及临时库验证。
+
+UX-39/FR-038覆盖日历空白单击即新建的旧交互：单击选择、双击/键盘编辑或新建，日历上下文快捷键和日期钻取见[macOS日历操作契约](macos-calendar-interaction.md)。验证包含文字不误删、快速跳日期后前后导航、关闭恢复焦点及主/独立窗口隔离；平台证据只见PROGRESS。
+
+UX-38追加矩阵：340/260宽小窗、260迷你、420独立日历与主窗并存；100/200%文字、浅深/高对比/实色；标题/完成分离、失败不移除、成功勾选/减少动态、无溢出不滚动、迷你正文点击及Enter/Space、锁定仍可展开、菜单无裁剪。对应UX-01/04/09～14，设计见[全窗口精修](desktop-surfaces-polish.md)，自动/原生/物理验收分开记录。
+
 当前业务遵循[产品哲学](../product-philosophy.md)、[UI-30智能范围/整树联动](task-list-context.md)、[UI-32两层任务](compact-navigation-and-subtasks.md)及[UI-33统一时间/动作](shared-task-time-and-actions.md)；分类操作按[UI-28](catalog-and-list-system.md)，共享窗口语言按[UI-31](macos-desktop-language.md)。真实通过范围只见[PROGRESS](../PROGRESS.md)。
 
 本轮[UX-34全产品评估](system-ux-review-2026-10.md)给出细节清单、状态/键盘/缩放矩阵和单切片顺序。本轮新增契约：[日历v2](calendar-workspace-v2.md)的日/周小时轴、月分布/年导航及范围连续性；[就近任务面板](contextual-task-inspector.md)的默认小窗、同一编辑器展开、子项tab与离开保存。对应FR-034/035和[ADR-020](../ADR/020-contextual-task-workspace.md)，已实施默认就近面板及同会话离开前保存；失败保持和明确放弃规则见[实现索引](ux34-implementation.md)，实际通过范围只见PROGRESS。

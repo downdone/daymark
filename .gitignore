@@ -20,3 +20,6 @@
 *.p12
 *.bundle
 Thumbs.db
+
+__pycache__/
+*.py[cod]

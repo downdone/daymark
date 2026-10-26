@@ -83,7 +83,9 @@ Page {
                         Layout.fillWidth: true
                         highlighted: root.selected.id===modelData.id
                         leftPadding: 10+(modelData.depth || 0)*16
-                        ToolTip.visible: hovered;ToolTip.text: modelData.path || modelData.title
+                        ToolTip.visible: !Theme.hintsBlocked && hovered && !down && ((contentItem as Text).truncated || (!!modelData.path && modelData.path!==modelData.title));ToolTip.text: modelData.path || modelData.title
+                        ToolTip.delay: Theme.hintDelay
+                        ToolTip.timeout: Theme.hintTimeout
                         text: modelData.title + (modelData.archived ? qsTr("（已归档）") : "")
                         TapHandler {acceptedButtons: Qt.RightButton;onTapped: function(point){const x=point.position.x,y=point.position.y;root.safely(function(){root.optionsRequested(catalogEntry.modelData,catalogEntry,x,y)})}}
                         Keys.onPressed: function(event){if(event.key===Qt.Key_Menu || (event.key===Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))){root.safely(function(){root.optionsRequested(modelData,catalogEntry,catalogEntry.width/2,catalogEntry.height)});event.accepted=true}}

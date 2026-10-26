@@ -49,6 +49,7 @@ Control {
     function close(){fullNotes.keepOpen=false;hideNotesTooltip.stop();fullNotes.close();quickStart.closePicker();quickEnd.closePicker();reminder.closePicker();tagPicker.close();destinationPicker.close();editing=false}
     function focusTitle(){quickTitle.forceActiveFocus();focusRequested(quickTitle)}
     function verifyLayout(){return editing && visible && width>0 && height<=170*Theme.scale && quickTitle.font.pixelSize===Theme.listTitleSize && quickNotes.font.pixelSize===Theme.captionSize ? "PASS" : "inline geometry editing="+editing+" width="+width+" height="+height+" implicit="+implicitHeight+" scale="+Theme.scale+" fonts="+quickTitle.font.pixelSize+","+quickNotes.font.pixelSize}
+    Connections {target:Theme;function onHintsBlockedChanged(){if(Theme.hintsBlocked){fullNotes.keepOpen=false;hideNotesTooltip.stop();fullNotes.close()}}}
     Shortcut {sequence: "Escape";enabled: root.visible && !root.guardActive && !root.pickerVisible;onActivated: root.closeRequested()}
     Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+Return" : "Ctrl+Return";enabled: root.visible && !root.guardActive && !root.pickerVisible;onActivated: root.saveRequested()}
     contentItem: ColumnLayout {
@@ -56,7 +57,7 @@ Control {
         enabled: !root.workspace.busy || root.workspace.backgroundBusy
         RowLayout {
             Layout.fillWidth: true;spacing: 8
-            IconToolButton {id: quickComplete;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {anchors.centerIn: parent;width: Theme.iconSize;height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.5}} onClicked: root.completeRequested()}
+            IconToolButton {id: quickComplete;hintEnabled: false;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {anchors.centerIn: parent;width: Theme.iconSize;height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.5}} onClicked: root.completeRequested()}
             AppIcon {name: root.relationSymbol;opacity:root.relationSymbol.length>0 ? 1 : 0;Layout.preferredWidth:Math.min(24,16*Theme.scale);Layout.preferredHeight:Math.min(24,16*Theme.scale)}
             TextField {
                 id: quickTitle;objectName: "quickEditorTitle"
@@ -87,8 +88,8 @@ Control {
             ToolTip {
                 id: fullNotes;objectName: "quickNotesTooltip"
                 property bool keepOpen: false
-                visible: root.visible && (quickNotes.hovered || notesTooltipHover.hovered || keepOpen) && root.notesText.length>0
-                delay: 500;timeout: -1
+                visible: !Theme.hintsBlocked && !root.guardActive && !root.pickerVisible && root.visible && (root.multilineNotes || quickNotes.contentWidth>quickNotes.width-quickNotes.leftPadding-quickNotes.rightPadding+1) && (quickNotes.hovered || notesTooltipHover.hovered || keepOpen) && root.notesText.length>0
+                delay: Theme.hintDelay;timeout: -1
                 width: Math.min(480*Theme.scale,root.hostWindow ? root.hostWindow.width-32 : 480)
                 HoverHandler {id: notesTooltipHover;onHoveredChanged: {if(hovered){fullNotes.keepOpen=true;hideNotesTooltip.stop()}else hideNotesTooltip.restart()}}
                 contentItem: ScrollView {

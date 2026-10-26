@@ -8,5 +8,5 @@ T.ScrollBar {
     visible: policy===T.ScrollBar.AlwaysOn || (policy===T.ScrollBar.AsNeeded && size>0 && size<0.999)
     padding: 5
     hoverEnabled: true
-    contentItem: Rectangle {implicitWidth: 4;implicitHeight: 4;radius: 2;color: control.pressed ? DesignTokens.accent : control.hovered ? DesignTokens.secondary : DesignTokens.highContrast ? DesignTokens.outline : DesignTokens.border;opacity: DesignTokens.highContrast || control.active || control.hovered ? 1 : 0.4}
+    contentItem: Rectangle {implicitWidth: 4;implicitHeight: 4;radius: 2;color: control.pressed ? DesignTokens.accent : DesignTokens.secondary;opacity: DesignTokens.highContrast || control.active || control.hovered ? 1 : 0.35}
 }

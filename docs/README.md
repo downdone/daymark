@@ -2,6 +2,14 @@
 
 ## 当前入口（2026-10-26）
 
+[UX-41主框架与字标](design/sidebar-and-wordmark.md)移除Windows应用内菜单，将帮助/备份归入设置；原创daymark字标、侧栏权重及大字重排共用验收。
+
+[UX-40提示与菜单字级](design/help-tags-and-menu-type.md)定义全局tooltip准入、抑制与例外，并补齐日历连续拖选、年视图去重、草稿标题拖动及点击外部保存契约；真实验证见PROGRESS。
+
+[UX-39 macOS日历操作](design/macos-calendar-interaction.md)统一选择/编辑/新建、日期钻取及当前窗口快捷键，覆盖旧“单击空白即新建”；需求FR-038，决策ADR-023。
+
+[UX-38全窗口精修](design/desktop-surfaces-polish.md)统一主窗、小窗、迷你条的职责、工具状态、完成反馈与窄日历重排；证据见PROGRESS。
+
 任务列表的多选可发现性、父子图标及详情响应复审见[UX-37分析与切片方案](design/task-list-interaction-review.md)；选择、关系及密度的本轮代码映射见文末；详情会话/性能剩余项单独追踪，实际状态见PROGRESS。
 
 用户追加的同屏密度问题扩展为[UX-37D全局桌面密度](design/desktop-density-review.md)：统一侧栏、列表、详情、日历、菜单/选择器、设置及组件的桌面行关系、字级、间距和命中；已作为本轮实现契约，全表面迁移与验证边界见文末和PROGRESS。
@@ -34,7 +42,7 @@
 5. [里程碑及任务队列](milestones.md)：依赖、下一批切片、阶段门禁。
 6. [环境与构建](environment.md) → [验证记录](verification-report.md) → [平台矩阵](platform-test-matrix.md)。
 
-实际使用参阅[使用说明](user-guide.md)、[1.0源码发行说明](release-notes-v1.0.md)与[第三方记录](third-party-notices.md)。
+实际使用参阅[使用说明](user-guide.md)、[1.0.1源码发行说明](release-notes-v1.0.1.md)与[发布规则](release-policy.md)与[第三方记录](third-party-notices.md)。
 
 本轮核心能力实现与本地发行见 [v0.1交付设计](design/release-v0.1.md)。实际验证仍以PROGRESS及验证报告为准。
 

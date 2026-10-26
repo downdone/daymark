@@ -3,6 +3,12 @@ import QtQuick.Templates as T
 T.Menu {
     id: control
     popupType: T.Popup.Item
+    property bool registeredHintBlock: false
+    onVisibleChanged: {
+        if(visible && !registeredHintBlock){registeredHintBlock=true;++DesignTokens.activeMenus}
+        else if(!visible && registeredHintBlock){registeredHintBlock=false;DesignTokens.activeMenus=Math.max(0,DesignTokens.activeMenus-1)}
+    }
+    Component.onDestruction: if(registeredHintBlock)DesignTokens.activeMenus=Math.max(0,DesignTokens.activeMenus-1)
     readonly property real entriesHeight: {
         let total=0
         for(let i=0;i<count;i++) {const item=itemAt(i);if(item && item.visible)total+=item.implicitHeight}
@@ -22,7 +28,9 @@ T.Menu {
     width: implicitWidth
     implicitHeight: Math.min(480,entriesHeight+topPadding+bottomPadding)
     padding: 6
-    font.pixelSize: DesignTokens.body
+    font.family: DesignTokens.fontFamily
+    font.pixelSize: DesignTokens.menuFontSize
+    font.weight: Font.Normal
     delegate: MenuItem {}
     contentItem: ListView {
                 // Avoid background row incubation across model resets on Qt 6.10.2.

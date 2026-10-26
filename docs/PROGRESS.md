@@ -1,5 +1,67 @@
 # Daymark 实施进度
 
+### RELEASE-1.0.1 源码提交及发布规则（2026-10-26，SOURCE_SNAPSHOT_READY；远端发布待回读）
+
+用户授权提交GitHub、制定发布规则并建立版本tag。只读核对发现远端已有v1.0.0→23cbc0a；用户明确选择保留，最新版本改为1.0.1/v1.0.1。新增[发布规则](release-policy.md)、独立[发行说明](release-notes-v1.0.1.md)，CMake两处及README同步；不改旧tag/Release或旧发行说明。
+
+发布守卫检查完整稳定版本、两处版本/说明精确一致、已跟踪源码中的产物/常见密钥/本机路径；错误只输出文件名。真实发布另验annotated tag、checkout SHA及origin/main可达性；既有Release仅允许完全一致的幂等重试，不修改不一致记录。11项标准库单测覆盖patch说明与旧1.0说明兼容、非法tag/错版本/错说明、运行库/库文件/缓存/秘密的拒绝及不回显、untracked排除、注释/轻量标签、checkout和main可达性。分支CI单独执行一次源码守卫，tag工作流串行并使用短期最小权限token，不上传二进制。
+
+本轮重新验证1.0.1：Release构建和两目标lint PASS（`release-1.0.1-{build,lint}.log`，无lint诊断）；11项发布守卫PASS、3.806秒（`release-1.0.1-guards.log`）；完整Release23/25、144.09秒（`release-1.0.1-tests.log`）。qml_startup在phase412、late watchdog在phase404超时，继续保留FAIL，未改45秒预算/断言；其余23项含核心/存储/集成/性能/包/五项独立UI均PASS。既有最终Debug和Windows原生67阶段证据见UX-41；macOS及其他人工平台门禁UNVERIFIED。已在1.0.1发行说明公开以上边界，源码发布不冒充二进制RELEASE-READY。
+
+审查并暂存UX-38～41的实现/测试/文档及发布规则；源码版本/隐私守卫、101份Markdown链接、cached diff及既有语义颜色检查PASS。排除无关未跟踪架构草案，缓存/本机构建/日志/库/Qt SDK不进入索引；项目身份及UTC提交元数据沿用，不改公共历史、不触及个人数据库。下一步非强制原子推送main与单个v1.0.1，回读分支、tag及无资产源码Release后另记发布证据。
+
+### UX-41 主框架、字标与侧栏（2026-10-26，IMPLEMENTED；相关最终PASS / 完整门禁FAIL）
+
+用户截图要求去菜单、品牌字标和侧栏精修；先定义[完整设计/映射/状态及验收](design/sidebar-and-wordmark.md)，追加FR-039。Windows删除窗口内文件/视图/帮助及占位，保留原生系统标题栏、工作区操作及共享快捷键；macOS保持屏幕级原生菜单。设置仍为外观/组件/通用三类，通用增加版本、本地优先说明、数据与备份/使用提示接线；退出保留，切换先关闭设置并走既有保护路径。
+
+新增原创BrandWordmark，daymark小写几何笔画、固定字距/基线、单层a和圆弧d/m；QML独立矢量路径，无外部字体或小米资产。侧栏与设置复用，普通界面仍系统字体。侧栏标题/开关居中、56起卡片8～10内边距、12正常名称/选中半粗、16数字、小语义图形及浅选中底；分组箭头贴近标题、操作统一命中、分类关系槽收紧。默认两列、150～200%单列，字号不缩小，脚部固定、正文溢出滚动。旧分类/标签、折叠/拖动、键盘、子项及草稿不变。
+
+验证：Qt6.10.2最终Release/Debug构建和两目标lint PASS，无lint诊断（`ux41-verified-{release,debug}-{build,lint}.log`）。整轮完整Release23/25、145.96秒（`ux41-final-release-tests.log`），旧qml_startup/watchdog均在phase389触发45秒门禁；未延长预算或删除断言。最终字标兼容修正后相关Release五项5/5、38.94秒（`ux41-last-release-tests.log`）；最后加Bound约束后desktop_surfaces Release PASS、11.67秒（`ux41-verified-release-tests.log`），Debug重查PASS、12.03秒（`ux41-debug-recheck.log`）。此前关联Debug五项5/5、39.96秒；完整门禁仍FAIL。
+
+复用desktop_surfaces临时库扩为67阶段，不加CTest入口：菜单确无占高、六范围往返、任务分组折叠/恢复、窄轨恢复、200%单列/名称不截断/脚部可达、设置实际点击到帮助及数据；字标检查画幅/有限尺寸以及实际窗口像素，验证浅深切换/恢复。最终Release Windows窗口后端退出0，三个可见窗口、无QML warning（`ux41-verified-native.log`）。复看`build/ux41-captures/final.png.desktop-{sidebar-light,sidebar-dark-200,settings-support}.png`；品牌颜色/字形及设置入口均可见。此为Qt合成输入/自身窗口抓图，macOS实机、物理键鼠/IME/读屏、P95与干净机仍UNVERIFIED。
+
+过程FAIL保留：CurveRenderer在本机主窗未绘出，GeometryRenderer后浅色可见但换深色残留旧描边；小型字标在配色变化时重建绘制节点并使用独立抗锯齿层，实际像素断言后通过，不只检查对象存在。尺寸绑定改为显式品牌画幅；内嵌Component加Bound使lint无外层ID诊断。最后Debug单项一次在既有stage13完成反馈判定失败，未改产品/断言，隔离重查PASS；该时序风险仍保留，不将首次FAIL抹掉或称绝对稳定。99份文档链接、语义颜色对比、diff/新改动隐私检查PASS。保留用户正在运行的旧进程，仅在build目录改名保留占用exe以完成新链接；用户需退出旧进程后打开新版。未触及个人数据库，保留所有既有未提交改动及未跟踪架构草案，未提交/推送或上传二进制。
+
+### UX-40 提示/菜单及日历拖动修复（2026-10-26，IMPLEMENTED；相关AUTO-PASS / 完整门禁FAIL）
+
+用户追加菜单字级、tooltip准入、年视图高亮、连续拖选及新建面板拖动/外部保存。先定义[完整规则与日历契约](design/help-tags-and-menu-type.md)，按P-13/14、FR-037/038、UX-01/09～13实施：完整可见文字和通用展开/关闭/完成不重复提示；必要图标说明动作，截断内容补全原文；600ms/5000ms、辅助12、正文13正常字重；键盘焦点不触发，菜单跨窗/拖动抑制，保留多行备注预览和受限拖放原因。已检查全部ToolTip调用与共享图标类，保留可访问名称；分类/子任务操作提示简短，不复述任务标题。菜单显式统一字体、勾选/箭头及文字列；宽度同时使用实际Text自然宽度，中文长项100/200%不意外换行。
+
+日历空白/任务/端点拖动保留指针，避免外层Flickable偷取手势；六帧连续拖动后精确生成一个90分钟草稿。年视图只绘制本月日号，非本月占位不可选/聚焦，今日与选择分色；相同投影不重复重建代理。新建面板标题栏可拖动并限制于窗口内；外部点击拦截底层，空标题关闭不插入，有效草稿原子保存后关闭，日期错误/写入失败保留输入。内部选择器和取消/离开保存门保留。未改schema、查询或数据语义。
+
+验证：Qt6.10.2最终Release/Debug构建及两目标QML lint PASS（`ux40-final4-{release,debug}-{build,lint}.log`，lint无诊断）。完整Release23/25、142.50秒（`ux40-final3-release-tests.log`）；qml_startup在phase414、qml_watchdog_late在phase411触发既有45秒超时，未延长预算/删阶段。最终相关Debug五项5/5、36.52秒（`ux40-final3-debug-tests.log`）；最后仅缩短分类/子任务提示文字后，Release三项3/3、24.54秒（`ux40-final4-release-tests.log`）。所有核心、存储、集成、性能及包校验在完整运行中PASS；完整门禁仍FAIL。
+
+复用calendar_interaction临时库58阶段和desktop_surfaces临时库48阶段，不增加重复CTest入口：连续指针吸附/范围、真实落库schedule、标题移动、大字可滚动、外部点击无底层动作、非法输入零插入、年视图代理与高亮；mini/通用展开无提示、必要置顶提示、短分类不提示/长分类全文、焦点不触发、跨窗菜单抑制、菜单实际字级/单行。最终Windows窗口后端两组均退出0、各三个可见窗口、无QML warning（`ux40-{calendar-interaction,desktop-surfaces}-native.log`）。复看`build/ux40-captures/`中的拖动草稿、年视图和原生菜单自身窗口100/200%截图。此为Qt合成输入/自身抓图，物理鼠标/触控板、IME/读屏、macOS实机及P95仍UNVERIFIED。
+
+过程FAIL已修复：标题区fillHeight误吞表单高度，改为标题控件行高并保留200%滚动断言；原生窗口分类截断需等待真实布局，探针抓取该窗口后断言，不跳过检查；共享tooltip验证加入所属控件并发送跨窗Leave，避免合成指针仍停留在另一个窗口；菜单截图改抓Popup.Window自身，实际发现中文换行后修复度量。初次链接被运行中的旧程序占用，进程结束后重建PASS。98份Markdown链接、语义颜色对比、diff与变更隐私检查PASS。保留UX-38/39与未跟踪架构草案；新UI未提交/推送、未上传二进制。最新本机程序`build/windows-release/bin/daymark.exe`。
+
+### UX-39 macOS日历操作对齐（2026-10-26，IMPLEMENTED；核心交互AUTO-PASS / 完整门禁FAIL）
+
+用户要求操作和精细度对齐macOS Calendar。先核对Apple日期导航、键盘、编辑及Qt的macOS键位映射，再形成[完整差距/契约矩阵](design/macos-calendar-interaction.md)、FR-038与ADR-023，覆盖UX-35/FR-036单击空白即新建旧约定。主窗与独立日历共用；任务、C++时间命令、CAS/DST、树联动、原子新建和离开前保存门不变，无schema变化。
+
+本轮已实现：月格/日期任务/时间块单击选择、双击或Return编辑；月格数字双击进日，空白双击新建，更多仍开议程；小时空白单击只定位，双击/Return或拖选新建；周日期与年月份/日期分离选择和双击钻取。Command/Ctrl+1～4在日历上下文切日周月年，New保留范围/日期/时刻；今天、跳日期、前后、编辑与安全删除有键盘通路，文本Delete保留编辑含义。关闭恢复日历焦点，重复New不覆盖活跃草稿，范围/日期/筛选变化清除旧选择，时间块消失时清除目标。Mac便携Ctrl映射Command，物理Control上下文使用Meta；本地macOS菜单按当前独立日历窗口路由，Windows增加日期菜单。
+
+视觉与精细行为：日期数字和事项分别表达选择，取消整格大蓝背景；普通时间块淡底/细色条，选中填色，端点与详情按选中呈现。周头星期/数字分层，窄大字缩短星期而保留可访问全文，数字去除过量内边距且断言不省略；日期任务栏按空间缩短，不与26等数字相撞。月份导航区分显式定位与手动滚动，闰日跳转后立即前后不会因可见周归属跳过一月；字号缩放保留视口真实分钟，不把08:00视口变成04:00。
+
+验证：Qt6.10.2 Release/Debug最终构建及两目标QML lint PASS（`ux39-final7-{release,debug}-{build,lint}.log`，lint无诊断）。完整Release23/25、152.98秒（`ux39-final2-release-tests.log`），qml_startup与晚阶段watchdog仍在phase388超时；未提高45秒预算或删除阶段。后续选择/窄周样板关联Release5项PASS（`ux39-final2-ui-tests.log`，31.18秒），Debug5项PASS（`ux39-final-debug-tests.log`，56.29秒）；最终字号时刻锚点/头部修正Debug相关三项3/3、17.65秒（`ux39-final7-debug-tests.log`）。独立`calendar_interaction`临时库38阶段，CTest 30秒；完整入口25、fast仍17。旧连续日历的单击新建指针输入改为真实双击，原取消/错误保留/事务/字段断言保留，历史末段任务双击编辑也更新输入。
+
+最终Windows窗口后端38阶段退出0、三个可见窗口、无QML warning（`ux39-final7-native.log`）。已复看`build/ux39-captures/final.png*`的月选择、新建及480宽200%深色周：日期完整、类型栏不重叠、视口保持08:00。此为Qt合成指针/键盘及自身窗口抓图，macOS实机、物理触控板、IME/读屏、真实首帧/P95仍UNVERIFIED。日历多选、剪贴板、系列批量修改、外部账户等差距在设计中明确，不能据本片宣称Apple全产品等价。
+
+过程FAIL保留：端点改为选中后出现，拖入成功先选中其身份，旧端点断言恢复PASS；原生切周前未布局就点击到错误日期，探针按实际布局/目标等待，不以固定睡眠冒充响应；月格回收/销毁时新增颜色绑定出现root为空，增加绑定生命周期保护后独立probe无警告。检查新建取消以服务投影/最终全量计数为准，不误把日历时隐藏的列表投影当全量；跨独立窗口的合成输入明确激活来源并等待真实可见目标。97份Markdown链接、diff与变更隐私检查PASS；保留UX-38改动和未跟踪架构草案，未提交/推送新改动或上传二进制。最新程序`build/windows-release/bin/daymark.exe`。
+
+### UX-38 全窗口与桌面组件精修（2026-10-26，IMPLEMENTED；关联AUTO-PASS / 旧完整门禁FAIL）
+
+按用户要求从产品哲学、Apple HIG及macOS日历/提醒事项机制审视导航、任务列表、就近详情/新增、日历、设置/数据、小窗与迷你条；问题、保留理由、视觉/交互关系与验收见[全窗口精修](design/desktop-surfaces-polish.md)。主窗负责整理与安排，小窗负责今日扫读/完成，迷你条负责摘要/展开。保留同一QueryService、任务模型、草稿与恢复通路，不创建新的筛选语义、数据库或窗口设置副本。
+
+小窗采用统一字级、日期/数量标题、独立滚动内容及单一添加底栏；新WidgetTaskRow显示既有时间摘要、父子关系和重要标记。成功落库后勾选/190ms收拢，减少动态效果时无延迟移除；版本冲突保留原行和错误。迷你条分离数量与首项，正文点击/Enter/Space或下箭头展开，上箭头收起；无置顶按钮，小窗保留图钉；锁定仅禁止位置/大小变更，不阻止展开。背景透明与文字分离，错误在迷你条仍有图形及完整可访问说明；最小高度跟随字体和错误内容，主动窗口模式切换恢复键盘焦点。
+
+共享工具按钮改为紧凑圆角且禁用无悬停填色，滚动条使用次级语义色、仅真实溢出显示；作用于主窗列表/日历、详情、设置和桌面表面。日历工具栏解除隐式最小宽度互相撑大，窄/大字分行，连续月取消重复标题；月格更多数量放不下时以完整省略入口代替截断数字，保留计数提示、键盘和辅助操作。独立日历置顶可访问状态及实色/高对比回退同步。
+
+验证：Qt6.10.2 Release/Debug最终构建和两目标QML lint PASS（`ux38-final3-{release,debug}-{build,lint}.log`，lint无诊断）。Release完整22/24、130.48秒（`ux38-final2-release-tests.log`），仍为旧qml_startup phase372及watchdog phase374超时；未延长45秒预算或删断言。随后最小高度关联5/5 PASS（25.71秒），最终月格/焦点修正Release四个独立UI 4/4 PASS（26.52秒，`ux38-final-ui-tests.log`）、Debug四项4/4 PASS（25.88秒，`ux38-final3-debug-tests.log`）；Debug窗口控制器另已PASS。未重复运行未改变的核心事务全套。新增`desktop_surfaces`独立临时库35阶段、CTest 30秒，完整入口24、fast仍17；只在此profile要求三个窗口，其余保留两个窗口检查。
+
+Windows窗口后端最终独立probe退出0、三个可见窗口、无QML warning（`ux38-final-native.log`）。`build/ux38-captures/final.png*`保存并复看小窗浅深、迷你/错误/200%、完成反馈、260宽/高对比及420宽日历；菜单只据控件尺寸断言验证，单窗grab不包含独立菜单窗口。此为Qt合成指针/键盘与自身窗口抓图，不代表物理输入、真实OS置顶/穿透、壁纸透明对比、读屏或macOS实机PASS；UX-37C真实首帧/P95继续UNVERIFIED。
+
+过程修正：发现200%日历被子布局撑到556宽、完成动画期间空态过早出现、标准快捷键多绑定QML warning；已修正布局最小值、按内容高度延后空态及sequences。菜单关闭与下一次操作分事件轮次；减少动态场景断言落库/模型移除/无动画，不把Qt延迟销毁对象当成业务失败。月格焦点静态警告已修复后双lint无诊断。95份Markdown链接及变更文本隐私扫描PASS；保留未跟踪架构草案，未提交、推送或上传新UI产物。最新程序`build/windows-release/bin/daymark.exe`。
+
 ### 1.0.0源码发布（2026-10-26，SOURCE-PUBLISHED；完整二进制门禁FAIL）
 
 用户要求发布1.0、更新版本并提交GitHub；已明确选择先发布源码，Qt运行库再分发许可待确认，不上传Windows便携二进制。更新CMake/应用版本和当前发行文档，保留旧RC历史，复验Qt6.10.2构建/CTest/QML lint及隐私/相对链接；不提高45秒watchdog预算；20ms轮询/软件渲染试验暴露旧探针去抖、tooltip及虚拟行时序耦合，已撤回，保留60ms及完整断言。源码提交包含此前UX-37、schema9打包校验修正；未跟踪架构提案不纳入。检查远端差异及身份/历史，不强推或重写公共提交；只推main及新建v1.0.0标签，GitHub源码Release明确已知未测与不含二进制。

@@ -15,6 +15,7 @@ Popup {
     property bool globalScope: false
     property point anchor: Qt.point(-1, -1)
     property bool creating: false
+    property point manualPosition: Qt.point(-1,-1)
     property bool validDraft: false
     readonly property var hostWindow: contentItem ? contentItem.Window.window : null
     readonly property string notes: notesField.text
@@ -50,8 +51,8 @@ Popup {
         target:root.hostWindow
         function onActiveFocusItemChanged(){Qt.callLater(function(){if(root.hostWindow)root.reveal(root.hostWindow.activeFocusItem)})}
     }
-    x: anchor.x >= 0 ? Math.max(8, Math.min(anchor.x, parent.width - width - 8)) : Math.max(12, (parent.width - width) / 2)
-    y: anchor.y >= 0 ? Math.max(8, Math.min(anchor.y, parent.height - height - 8)) : Math.max(12, (parent.height - height) / 3)
+    x: manualPosition.x>=0 ? Math.max(8,Math.min(manualPosition.x,parent.width-width-8)) : anchor.x >= 0 ? Math.max(8, Math.min(anchor.x, parent.width - width - 8)) : Math.max(12, (parent.width - width) / 2)
+    y: manualPosition.y>=0 ? Math.max(8,Math.min(manualPosition.y,parent.height-height-8)) : anchor.y >= 0 ? Math.max(8, Math.min(anchor.y, parent.height - height - 8)) : Math.max(12, (parent.height - height) / 3)
     width: Math.min(400 * Theme.scale, parent.width - 24)
     height: Math.min(parent.height-24,Math.max(320,Math.min(540*Theme.scale,form.implicitHeight+96)))
     padding: Theme.panelPadding
@@ -61,13 +62,14 @@ Popup {
     closePolicy: Popup.NoAutoClose
     Overlay.modeless: Rectangle {
         color: "transparent"
-        TapHandler {onTapped: root.finish()}
+        MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton | Qt.RightButton;onClicked:root.finish()}
     }
     Shortcut {
         sequence: "Escape";enabled:root.visible && !root.creating
         onActivated:picker.active ? picker.close() : root.finish()
     }
     onOpened: {
+        manualPosition=Qt.point(-1,-1);
         const item=workspace.calendarDraft(date,minute,duration,globalScope);
         validDraft=item.startOn!==undefined;
         title.clear();notesField.clear();startField.text=item.startOn || date;endField.text=item.deadlineOn || "";
@@ -84,7 +86,17 @@ Popup {
         spacing: 6
         RowLayout {
             Layout.fillWidth:true
-            Label {text:qsTr("新任务");font.pixelSize:Theme.bodySize;font.weight:Font.DemiBold;Layout.fillWidth:true}
+            Label {
+                objectName: "calendarCreateDragHandle"
+                text:qsTr("新任务");font.pixelSize:Theme.bodySize;font.weight:Font.DemiBold;Layout.fillWidth:true;Layout.preferredHeight:Theme.controlHeight;verticalAlignment:Text.AlignVCenter
+                MouseArea {
+                    anchors.fill:parent;cursorShape:Qt.SizeAllCursor;preventStealing:true
+                    property point origin
+                    property point popupOrigin
+                    onPressed:function(mouse){origin=mapToItem(root.parent,mouse.x,mouse.y);popupOrigin=Qt.point(root.x,root.y)}
+                    onPositionChanged:function(mouse){if(pressed){const at=mapToItem(root.parent,mouse.x,mouse.y);root.manualPosition=Qt.point(popupOrigin.x+at.x-origin.x,popupOrigin.y+at.y-origin.y)}}
+                }
+            }
             Button {text:qsTr("取消");enabled:!root.creating;onClicked:root.discard()}
             Button {objectName:"calendarCreateSubmit";text:root.creating ? qsTr("正在添加…") : qsTr("添加");highlighted:true;enabled:root.validDraft && !!title.text.trim() && !root.creating;onClicked:{root.submitted(title.text)}}
         }

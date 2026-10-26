@@ -7,6 +7,16 @@ on:
 permissions:
   contents: read
 jobs:
+  source-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test publication guards
+        run: python3 -m unittest discover -s tests -p test_release_metadata.py -v
+      - name: Check current source version and privacy
+        run: python3 scripts/publish-source-release.py --check-current
   desktop:
     strategy:
       fail-fast: false

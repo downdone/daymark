@@ -11,28 +11,74 @@ from urllib.parse import urljoin
 
 
 def release_input(root, tag):
-    if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
+    if not re.fullmatch(r"v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", tag):
         raise ValueError("A stable vMAJOR.MINOR.PATCH tag is required")
     version = tag[1:]
     cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8")
-    if f'set(DAYMARK_VERSION "{version}")' not in cmake:
-        raise ValueError("Tag does not match application version")
+    if (not re.search(r'project\(Daymark\s+VERSION\s+'+re.escape(version)+r'\s', cmake)
+            or f'set(DAYMARK_VERSION "{version}")' not in cmake):
+        raise ValueError("Tag, CMake project and application version must match")
     minor = ".".join(version.split(".")[:2])
-    notes = (root / f"docs/release-notes-v{minor}.md").read_text(encoding="utf-8")
-    if not notes.startswith(f"# Daymark {version}") or "仅发布源码" not in notes:
+    notes_path = root / f"docs/release-notes-v{version}.md"
+    if not notes_path.exists():
+        notes_path = root / f"docs/release-notes-v{minor}.md"  # Legacy 1.0.0 notes remain immutable.
+    notes = notes_path.read_text(encoding="utf-8")
+    if not notes.splitlines() or notes.splitlines()[0] != f"# Daymark {version}" or "仅发布源码" not in notes:
         raise ValueError("Matching source-only release notes are required")
     return version, notes
 
 
+
+def validate_source_tree(root):
+    """Reject tracked machine data, distributable runtimes and common secrets."""
+    names = subprocess.check_output(["git", "ls-files", "-z"], cwd=root).decode("utf-8").split("\0")
+    blocked = {".exe", ".dll", ".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm",
+               ".sqlite-wal", ".sqlite-shm", ".log", ".pem", ".pfx", ".p12", ".key",
+               ".bundle", ".zip", ".7z", ".obj", ".o", ".a", ".pdb", ".user", ".pyc"}
+    sensitive = re.compile(r"[A-Za-z]:[/\\](?:Users|Code|Qt[0-9]*)[/\\]|"
+                           r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"
+                           r"gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}")
+    for name in filter(None, names):
+        path = Path(name)
+        if (path.parts[0] in {"build", "dist", ".idea", ".vscode"} or "__pycache__" in path.parts
+                or path.name.startswith(".env") and path.name != ".env.example"
+                or any(name.lower().endswith(suffix) for suffix in blocked)):
+            raise ValueError(f"Source release contains a forbidden tracked path: {name}")
+        try:
+            content = (root / path).read_text(encoding="utf-8")
+        except UnicodeError:
+            continue  # Original product icon/image assets are allowed.
+        if sensitive.search(content):
+            raise ValueError(f"Source privacy review required: {name} (value omitted)")
+
+
+def validate_tag_checkout(root, tag, revision):
+    def git(*args):
+        return subprocess.check_output(["git", *args], cwd=root, text=True).strip()
+    if git("cat-file", "-t", "refs/tags/"+tag) != "tag":
+        raise ValueError("An annotated release tag is required")
+    if git("rev-parse", "refs/tags/"+tag+"^{}") != revision:
+        raise ValueError("Release tag does not identify this checkout")
+    if subprocess.run(["git", "merge-base", "--is-ancestor", revision, "origin/main"],
+                      cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
+        raise ValueError("Release commit must already be reachable from origin/main")
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tag", required=True)
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--tag")
+    selection.add_argument("--check-current", action="store_true")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
+    if args.check_current:
+        args.tag = "v" + re.search(r'set\(DAYMARK_VERSION "([^"]+)"\)',
+                                  (root / "CMakeLists.txt").read_text(encoding="utf-8")).group(1)
+        args.check = True  # This mode can never access the publication API.
     version, notes = release_input(root, args.tag)
+    validate_source_tree(root)
     if args.check:
-        print(f"PASS: {args.tag} matches application version and source-only notes")
+        print(f"PASS: {args.tag} matches version/notes; tracked source privacy checks passed")
         return
     if os.environ.get("GITHUB_REF") != f"refs/tags/{args.tag}":
         raise ValueError("Publishing is restricted to the matching tag workflow")
@@ -42,6 +88,7 @@ def main():
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     if revision != os.environ["GITHUB_SHA"]:
         raise ValueError("Checkout does not match triggering commit")
+    validate_tag_checkout(root, args.tag, revision)
     # Release bodies are outside docs/, so resolve their relative documentation links.
     docs_base = f"https://github.com/{repository}/blob/{args.tag}/docs/"
     notes = re.sub(r"\]\((?!https?://|#)([^)]+)\)",
@@ -65,7 +112,8 @@ def main():
         if error.code != 404:
             raise RuntimeError(f"Release lookup failed (HTTP {error.code})") from None
     else:
-        if (existing["target_commitish"] != revision or existing["draft"]
+        if (existing["tag_name"] != args.tag or existing["name"] != f"Daymark {version}"
+                or existing["body"] != notes or existing["target_commitish"] != revision or existing["draft"]
                 or existing["prerelease"] or existing["assets"]):
             raise ValueError("An incompatible release already exists; it was not modified")
         print(existing["html_url"])

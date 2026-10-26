@@ -5,6 +5,8 @@ import QtQuick.Layouts
 
 ColumnLayout {
     id: root
+    objectName: "calendarTimeline"
+    Layout.minimumWidth: 0
     implicitWidth: 640
     implicitHeight: 480
     required property TaskWorkspace workspace
@@ -14,12 +16,26 @@ ColumnLayout {
             minutes: 1440
         })
     property string selectedId: ""
+    property var selectedSlot: ({})
+    property bool slotSelectionActive: false
+    signal taskSelected(var entry,Item source)
+    signal slotSelected(string date,int minute,point at)
+    function chooseSlot(date,minute,at){selectedSlot={date:date,minute:minute,at:at};slotSelected(date,minute,at)}
+    function revealNow(){const day=timeline.days.find(value=>value.today);const flick=scroll.contentItem as Flickable;if(day && flick)flick.contentY=Math.max(0,Math.min(day.nowMinute*minuteHeight-scroll.availableHeight/3,grid.height-scroll.availableHeight))}
     property var preview: ({})
     property var creationSelection: ({})
     property var activeCluster: null
     readonly property int maximumLanes: Math.max(2, Math.floor(grid.dayWidth / (80 * Theme.scale)))
     readonly property bool dragging: !!preview.taskId
     readonly property real minuteHeight: Math.max(0.8, Theme.captionSize / 15)
+    property real previousMinuteHeight: 0
+    Component.onCompleted: previousMinuteHeight=minuteHeight
+    onMinuteHeightChanged: {
+        const flick=scroll.contentItem as Flickable
+        const minute=flick && previousMinuteHeight>0 ? flick.contentY/previousMinuteHeight : -1
+        previousMinuteHeight=minuteHeight
+        if(minute>=0)Qt.callLater(function(){if(!root || !scroll)return;const view=scroll.contentItem as Flickable;if(view)view.contentY=Math.max(0,Math.min(minute*root.minuteHeight,Math.max(0,view.contentHeight-view.height)))})
+    }
     readonly property real gutter: Math.max(56, 44 * Theme.scale)
     property point taskAnchor: Qt.point(0, 0)
     function inspectAt(id, item) {
@@ -70,7 +86,8 @@ ColumnLayout {
         if (value.edge === "create") {
             const first = Math.min(value.startMinute, value.minute), last = Math.max(value.startMinute, value.minute);
             const at = grid.mapToItem(root, value.pointerX, value.pointerY);
-            createRequested(value.date, first, at.x, at.y, value.moved ? Math.max(first + 15, last) : first + 60);
+            chooseSlot(value.date,first,at);
+            if(value.moved)createRequested(value.date,first,at.x,at.y,Math.max(first+15,last));
         } else if (value.moved)
             timeMoveRequested(value.taskId, value.version, value.date, value.minute, value.edge);
     }
@@ -98,10 +115,17 @@ ColumnLayout {
     }
     RowLayout {
         Layout.fillWidth: true
+        Layout.minimumWidth: 0
         spacing: 0
         Label {
             Layout.preferredWidth: root.gutter
-            text: qsTr("日期任务")
+            text: root.gutter<4*Theme.captionSize ? qsTr("日期") : qsTr("日期任务")
+            elide: Text.ElideRight
+            Accessible.name: qsTr("仅设置日期的任务")
+            ToolTip.visible: !Theme.hintsBlocked && dateTasksHover.hovered && text!==qsTr("日期任务");ToolTip.text: qsTr("只设置日期、未指定具体时刻的任务")
+            ToolTip.delay: Theme.hintDelay
+            ToolTip.timeout: Theme.hintTimeout
+            HoverHandler {id: dateTasksHover}
             font.pixelSize: Theme.captionSize
             color: Theme.secondary
         }
@@ -112,20 +136,35 @@ ColumnLayout {
                 required property var modelData
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
+                Layout.minimumWidth: 0
                 spacing: 2
+                Label {
+                    visible: root.timeline.days.length>1
+                    Layout.fillWidth: true;Layout.minimumWidth: 0
+                    text: dayHeader.width<80*Theme.scale ? dayHeader.modelData.title.slice(-1) : dayHeader.modelData.title.split(" ").pop()
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight
+                }
                 Button {
                     Layout.fillWidth: true
-                    text: dayHeader.modelData.title
+                    Layout.minimumWidth: 0
+                    objectName: "calendarDayHeader-"+dayHeader.modelData.date
+                    text: root.timeline.days.length>1 ? Number(dayHeader.modelData.date.slice(8)) : dayHeader.modelData.title
+                    horizontalPadding: root.timeline.days.length>1 ? 0 : 8
+                    font.pixelSize: root.timeline.days.length>1 ? Theme.headingSize : Theme.bodySize
+                    Accessible.name: dayHeader.modelData.title
                     flat: true
                     palette.buttonText: dayHeader.modelData.today ? Theme.danger : Theme.text
                     font.weight: dayHeader.modelData.today ? Font.DemiBold : Font.Normal
-                    onClicked: root.dayRequested(dayHeader.modelData.date)
+                    onClicked: root.slotSelected(dayHeader.modelData.date,-1,Qt.point(0,0))
+                    onDoubleClicked: root.dayRequested(dayHeader.modelData.date)
                 }
                 Repeater {
                     model: dayHeader.modelData.entries.slice(0, 3)
                     Button {
                         required property var modelData
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         implicitHeight: Math.max(24, Theme.captionSize + 8)
                         padding: 3
                         font.pixelSize: Theme.captionSize
@@ -135,12 +174,15 @@ ColumnLayout {
                             radius: 4
                             color: Theme.primaryFill
                         }
-                        onClicked: root.openTask(modelData.taskId || modelData.eventId)
+                        onClicked: root.taskSelected(Object.assign({date:dayHeader.modelData.date},modelData),this)
+                        onDoubleClicked: root.inspectAt(modelData.taskId || modelData.eventId,this)
+                        Keys.onReturnPressed: root.inspectAt(modelData.taskId || modelData.eventId,this)
                     }
                 }
                 Button {
                     visible: dayHeader.modelData.entries.length > 3
                     Layout.fillWidth: true
+                    Layout.minimumWidth: 0
                     flat: true
                     text: qsTr("另有 %1 项").arg(dayHeader.modelData.entries.length - 3)
                     onClicked: root.activeCluster = {
@@ -185,12 +227,12 @@ ColumnLayout {
                     x: root.gutter + index * grid.dayWidth
                     width: grid.dayWidth
                     height: modelData.minutes * root.minuteHeight
-                    color: modelData.today ? Theme.hover : "transparent"
-                    border.width: 1
-                    border.color: Theme.separator
+                    color: Theme.content
+                    Rectangle {anchors.right:parent.right;width:1;height:parent.height;color:Theme.separator}
                     MouseArea {
                         anchors.fill: parent
                         acceptedButtons: Qt.LeftButton
+                        preventStealing: true
                         onPressed: function (mouse) {
                             root.forceActiveFocus();
                             const at = mapToItem(grid, mouse.x, mouse.y), minute = Math.max(0, Math.min(day.modelData.minutes - 15, Math.round(mouse.y / root.minuteHeight / 15) * 15));
@@ -213,13 +255,17 @@ ColumnLayout {
                         }
                         onReleased: root.finishPreview()
                         onCanceled: root.cancelPreview()
-                        onClicked: root.selectedId = ""
+                        onDoubleClicked: function(mouse){
+                            root.cancelPreview();const minute=Math.max(0,Math.min(day.modelData.minutes-15,Math.round(mouse.y/root.minuteHeight/15)*15));
+                            const at=mapToItem(root,mouse.x,mouse.y);root.chooseSlot(day.modelData.date,minute,at);root.createRequested(day.modelData.date,minute,at.x,at.y,minute+60)
+                        }
                     }
                     DropArea {
                         anchors.fill: parent
                         onDropped: function (drop) {
                             const task = drop.source as TaskDragPayload;
                             if (task && task.taskId) {
+                                root.taskSelected(Object.assign({date:day.modelData.date},root.workspace.task(task.taskId)),day);
                                 root.timeMoveRequested(task.taskId, task.rowVersion, day.modelData.date, Math.round(drop.y / root.minuteHeight / 15) * 15, "move");
                                 drop.acceptProposedAction();
                             }
@@ -270,9 +316,10 @@ ColumnLayout {
                     width: Math.max(12, grid.dayWidth / modelData.laneCount - 4)
                     height: Math.max(24, (modelData.endMinute - modelData.startMinute) * root.minuteHeight)
                     radius: 5
-                    color: root.selectedId === modelData.taskId ? Theme.selected : Theme.primaryFill
-                    border.width: activeFocus || root.selectedId === modelData.taskId ? 2 : 1
+                    color: root.selectedId === modelData.taskId ? Theme.accent : Theme.primaryFill
+                    border.width: activeFocus ? 1 : 0
                     border.color: Theme.accent
+                    Rectangle {anchors.left:parent.left;anchors.top:parent.top;anchors.bottom:parent.bottom;width:3;radius:2;color:Theme.accent}
                     focus: false
                     activeFocusOnTab: true
                     Accessible.role: Accessible.Button
@@ -298,14 +345,14 @@ ColumnLayout {
                             font.pixelSize: Theme.captionSize
                             font.weight: Font.DemiBold
                             font.strikeout: block.modelData.taskStatus === "COMPLETED"
-                            color: Theme.primaryInk
+                            color: root.selectedId===block.modelData.taskId ? Theme.accentText : Theme.primaryInk
                             elide: Text.ElideRight
                         }
                         Label {
                             width: parent.width
                             text: block.modelData.shortTimeLabel
                             font.pixelSize: Math.max(10, Theme.captionSize - 1)
-                            color: Theme.primaryInk
+                            color: root.selectedId===block.modelData.taskId ? Theme.accentText : Theme.primaryInk
                             elide: Text.ElideRight
                             visible: block.height > 40
                         }
@@ -315,11 +362,12 @@ ColumnLayout {
                         anchors.fill: parent
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        preventStealing: true
                         cursorShape: root.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                         onPressed: function (mouse) {
                             block.forceActiveFocus();
-                            root.selectedId = block.modelData.taskId;
-                            if (mouse.button === Qt.RightButton || (Qt.platform.os === "osx" && (mouse.modifiers & Qt.ControlModifier))) {
+                            root.taskSelected(block.modelData,block);
+                            if (mouse.button === Qt.RightButton || (Qt.platform.os === "osx" && (mouse.modifiers & Qt.MetaModifier))) {
                                 const at = mapToItem(root, mouse.x, mouse.y);
                                 root.contextRequested(block.modelData, at.x, at.y);
                             } else
@@ -341,6 +389,8 @@ ColumnLayout {
                             anchors.right: block.right
                             y: modelData === "start" ? 0 : block.height - height
                             height: 6
+                            visible: root.selectedId===block.modelData.taskId || block.activeFocus
+                            preventStealing: true
                             cursorShape: Qt.SizeVerCursor
                             onPressed: function (mouse) {
                                 root.beginPreview(block.modelData, modelData, mapToItem(grid, mouse.x, mouse.y));
@@ -358,7 +408,7 @@ ColumnLayout {
                         anchors.top: parent.top
                         symbol: "info"
                         description: qsTr("任务详情：%1").arg(block.modelData.title)
-                        visible: block.width > 100 && (hit.containsMouse || block.activeFocus)
+                        visible: block.width > 100 && (root.selectedId===block.modelData.taskId || block.activeFocus)
                         onClicked: root.inspectAt(block.modelData.taskId, block)
                     }
                 }
@@ -377,6 +427,13 @@ ColumnLayout {
                     Accessible.description: qsTr("打开此时段的任务列表")
                     onClicked: root.activeCluster = modelData
                 }
+            }
+            Rectangle {
+                visible: root.slotSelectionActive && !!root.selectedSlot.date && !root.selectedId && !root.creationSelection.date && !root.dragging
+                x: root.gutter+Math.max(0,root.timeline.days.findIndex(day=>day.date===root.selectedSlot.date))*grid.dayWidth+2
+                y: (root.selectedSlot.minute || 0)*root.minuteHeight
+                width: grid.dayWidth-4;height:60*root.minuteHeight
+                color:Theme.hover;border.color:Theme.separator;radius:4
             }
             Rectangle {
                 visible:!!root.creationSelection.date

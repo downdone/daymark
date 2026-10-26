@@ -15,8 +15,10 @@ ItemDelegate {
     property bool suppressCatalogTooltips: false
     signal expansionRequested(bool value)
     signal optionsRequested(real x,real y)
-    ToolTip.visible: showCatalogActions && (hovered || activeFocus) && !catalogDragging && !suppressCatalogTooltips && detailsText.length>0
-    ToolTip.delay: 600
+    function hintForVerification(){const tip=ToolTip.toolTip;return {visible:tip ? tip.visible && tip.parent===root : false,text:tip ? tip.text : ""}}
+    ToolTip.visible: !Theme.hintsBlocked && showCatalogActions && navTextHover.hovered && !down && !catalogDragging && !suppressCatalogTooltips && detailsText.length>0 && (navText.truncated || detailsText!==text)
+    ToolTip.delay: Theme.hintDelay
+    ToolTip.timeout: Theme.hintTimeout
     ToolTip.text: detailsText
     TapHandler {acceptedButtons:Qt.LeftButton;acceptedModifiers:Qt.ControlModifier;enabled:Qt.platform.os==="osx" && root.showCatalogActions;onTapped:function(point){root.optionsRequested(point.position.x,point.position.y)}}
     TapHandler {acceptedButtons: Qt.RightButton;enabled: root.showCatalogActions;onTapped: function(point){root.optionsRequested(point.position.x,point.position.y)}}
@@ -85,16 +87,16 @@ ItemDelegate {
     Accessible.name: detailsText
     contentItem: RowLayout {
         spacing: 6
-        Item {visible: root.showBranchSlot || root.hasChildren;Layout.preferredWidth: 16;Layout.preferredHeight: 32;WidgetAction {anchors.centerIn: parent;visible: root.hasChildren;symbol: root.branchExpanded ? "down" : "right";description: (root.branchExpanded ? qsTr("收起分类：") : qsTr("展开分类："))+root.text;onClicked: root.expansionRequested(!root.branchExpanded)}}
+        Item {visible: root.showBranchSlot || root.hasChildren;Layout.preferredWidth: 12;Layout.preferredHeight: 32;WidgetAction {anchors.centerIn: parent;visible: root.hasChildren;symbol: root.branchExpanded ? "down" : "right";description: (root.branchExpanded ? qsTr("收起分类：") : qsTr("展开分类："))+root.text;onClicked: root.expansionRequested(!root.branchExpanded)}}
         Item {
             Layout.preferredWidth: root.iconBadge ? 26 : Math.min(24,16*Theme.scale)
             Layout.preferredHeight: root.iconBadge ? 26 : Math.min(24,16*Theme.scale)
             Rectangle {anchors.fill: parent;visible: root.iconBadge;radius: 7;color: root.selected || root.taskDropActive ? Theme.primaryFill : Theme.content}
             AppIcon {anchors.centerIn: parent;name: root.symbol;ink: root.selected || root.taskDropActive ? Theme.accent : root.symbolColor;implicitWidth: Math.min(22,16*Theme.scale);implicitHeight: implicitWidth}
         }
-        Label { font.weight: root.selected ? Font.DemiBold : Font.Normal;text: root.catalogDropActive && root.catalogDropAllowed && root.catalogDropPlacement==="inside" ? qsTr("移入：%1").arg(root.text) : root.text; color: Theme.text; font.pixelSize: Theme.navigationSize; Layout.fillWidth: true; elide: Text.ElideRight }
+        Label { id: navText;objectName: "navigationLabel";HoverHandler {id: navTextHover} font.weight: root.selected ? Font.DemiBold : Font.Normal;text: root.catalogDropActive && root.catalogDropAllowed && root.catalogDropPlacement==="inside" ? qsTr("移入：%1").arg(root.text) : root.text; color: Theme.text; font.pixelSize: Theme.navigationSize; Layout.fillWidth: true; elide: Text.ElideRight }
         Rectangle {visible: root.ancestorSelected;implicitWidth: 5;implicitHeight: 5;radius: 3;color: Theme.accent}
-        WidgetAction {visible: root.showCatalogActions;opacity: root.hovered || root.activeFocus ? 1 : 0;symbol: "more";description: qsTr("%1 的选项").arg(root.text);onClicked: root.optionsRequested(root.width,root.height)}
+        WidgetAction {visible: root.showCatalogActions;opacity: root.hovered || root.activeFocus ? 1 : 0;symbol: "more";description: qsTr("%1 的选项").arg(root.text);hintText:qsTr("分类或标签选项");onClicked: root.optionsRequested(root.width,root.height)}
         Label { visible: root.count>=0; text: root.count; color: Theme.secondary; font.pixelSize: Theme.captionSize }
     }
     Keys.onEscapePressed: function(event){if(root.catalogDragging){catalogProxy.Drag.cancel();root.catalogDragging=false;categoryDrag.enabled=false;categoryDrag.enabled=Qt.binding(function(){return root.canDragCatalog})}else event.accepted=false}

@@ -32,6 +32,13 @@ void Ux35SmokeProbe::click(const QPointF& at)
         event.setTimestamp(m_inputClock.elapsed()+m_inputSequence++);QCoreApplication::sendEvent(m_window,&event);
     }
 }
+void Ux35SmokeProbe::doubleClick(const QPointF& at) {
+    click(at);
+    for(const auto type:{QEvent::MouseButtonPress,QEvent::MouseButtonDblClick,QEvent::MouseButtonRelease}) {
+        QMouseEvent event(type,at,m_window->mapToGlobal(at),Qt::LeftButton,type==QEvent::MouseButtonRelease?Qt::NoButton:Qt::LeftButton,Qt::NoModifier);
+        event.setTimestamp(m_inputClock.elapsed()+m_inputSequence++);QCoreApplication::sendEvent(m_window,&event);
+    }
+}
 QString Ux35SmokeProbe::advance()
 {
     if(!m_window)return QStringLiteral("UX35 window destroyed");if(!m_workspace.ready() || m_workspace.busy())return {};
@@ -70,13 +77,13 @@ QString Ux35SmokeProbe::advance()
         if(!capture("month-recycled"))return fail("recycled capture");auto* list=find("continuousMonthList");QMetaObject::invokeMethod(list,"positionViewAtIndex",Q_ARG(int,1),Q_ARG(int,0));
     }else if(m_stage==7){if(m_wait.elapsed()<400)return {};auto* stream=find("calendarMonthGrid");if(stream->property("windowAnchor").toString()!=m_windowAnchor || m_workspace.task(m_task)!=m_before)return fail("reverse recycling keeps task unchanged");m_workspace.selectCalendarDate("2026-10-25");m_workspace.setView("day");
     }else if(m_stage==8){
-        if(!settled())return {};auto* day=qobject_cast<QQuickItem*>(find("calendarTimelineDay-2026-10-25"));if(!day)return fail("day surface");click(day->mapToScene(QPointF(day->width()/2,9*60*0.8)));
+        if(!settled())return {};auto* day=qobject_cast<QQuickItem*>(find("calendarTimelineDay-2026-10-25"));if(!day)return fail("day surface");doubleClick(day->mapToScene(QPointF(day->width()/2,9*60*0.8)));
     }else if(m_stage==9){
         auto* popup=find("calendarCreatePopup");
-        if(!popup || !popup->property("visible").toBool() || panel->property("newMinute").toInt()!=540 || panel->property("newDuration").toInt()!=60 || !capture("day-click-create"))return fail("single click opens hour creation");
+        if(!popup || !popup->property("visible").toBool() || panel->property("newMinute").toInt()!=540 || panel->property("newDuration").toInt()!=60 || !capture("day-click-create"))return fail("double click opens hour creation");
         invoke(popup,"finish");if(popup->property("visible").toBool() || m_workspace.task(m_task)!=m_before || m_workspace.timelineFor("2026-10-25",false).value("blocks").toList().size())return fail("empty draft finish creates nothing");
-        auto* day=qobject_cast<QQuickItem*>(find("calendarTimelineDay-2026-10-25"));click(day->mapToScene(QPointF(day->width()/2,10*60*0.8)));
-    }else if(m_stage==10){auto* title=find("calendarCreateTitle");title->setProperty("text",QStringLiteral("单击时刻创建"));find("calendarCreateNotes")->setProperty("text",QStringLiteral("新增面板中的备注"));find("calendarCreateEnd")->setProperty("text",QStringLiteral("2026-10-24"));invoke(title,"accepted");}
+        auto* day=qobject_cast<QQuickItem*>(find("calendarTimelineDay-2026-10-25"));doubleClick(day->mapToScene(QPointF(day->width()/2,10*60*0.8)));
+    }else if(m_stage==10){auto* title=find("calendarCreateTitle");title->setProperty("text",QStringLiteral("双击时刻创建"));find("calendarCreateNotes")->setProperty("text",QStringLiteral("新增面板中的备注"));find("calendarCreateEnd")->setProperty("text",QStringLiteral("2026-10-24"));invoke(title,"accepted");}
     else if(m_stage==11){
         if(!m_retriedDraft){
             auto* popup=find("calendarCreatePopup");if(m_workspace.errorText().isEmpty() || !popup->property("visible").toBool() || find("calendarCreateNotes")->property("text").toString()!=QStringLiteral("新增面板中的备注") || m_workspace.timelineFor("2026-10-25",false).value("blocks").toList().size() || !capture("invalid-draft-retained"))return fail("invalid new draft remains without insert");

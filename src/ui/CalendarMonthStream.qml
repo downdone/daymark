@@ -9,6 +9,7 @@ Item {
     property string anchorDate: workspace.dateOffset(0)
     property bool scoped: true
     property string selectedDate: ""
+    property string selectedTaskId: ""
     property bool showTasks: true
     property bool showEvents: true
     property bool draggingMarker: false
@@ -21,6 +22,8 @@ Item {
     property bool resetPending: false
     property string pendingFocusDate: ""
     property string focusAnchor: ""
+    property bool userScrolled: false
+    readonly property string navigationMonth: userScrolled && visibleMonth ? visibleMonth : anchorDate
     property int refreshGeneration: 0
     property real placedScale: 0
     property real placedHeight: 0
@@ -29,6 +32,10 @@ Item {
     readonly property real weekHeight: Math.max(64, Theme.captionSize * 4, list.height / 5.4)
     signal dateSelected(string date)
     signal dateActivated(string date)
+    signal dateOpened(string date)
+    signal createRequested(string date,Item source)
+    signal taskSelected(var entry,Item source,string date)
+    signal contextRequested(var entry,Item source,point at)
     signal selectionMoved(int offset)
     signal taskRequested(string taskId, Item source)
     signal dragStarted(var entry, Item source, point origin, string from, string edge)
@@ -144,7 +151,7 @@ Item {
         refresh(true);
     }
     function focusDate(date) {
-        focusAnchor = date;
+        if(indexForDate(date)<0)focusAnchor=date;
         pendingFocusDate = date;
         applyFocus();
     }
@@ -239,7 +246,7 @@ Item {
         }
     }
     onAnchorDateChanged: {
-        focusAnchor = anchorDate;
+        focusAnchor = "";userScrolled=false;
         refresh(true);
     }
     onVisibleChanged: if (visible)
@@ -276,12 +283,17 @@ Item {
             workspace: root.workspace
             days: row.modelData.days
             selectedDate: root.selectedDate
+            selectedTaskId: root.selectedTaskId
             showTasks: root.showTasks
             showEvents: root.showEvents
             draggingMarker: root.draggingMarker
             onDateSelected: function (date) {
                 root.dateSelected(date);
             }
+            onDateOpened: function(date){root.dateOpened(date)}
+            onCreateRequested: function(date,source){root.createRequested(date,source)}
+            onTaskSelected: function(entry,source,date){root.taskSelected(entry,source,date)}
+            onContextRequested: function(entry,source,at){root.contextRequested(entry,source,at)}
             onDateActivated: function (date) {
                 root.dateActivated(date);
             }
@@ -324,7 +336,7 @@ Item {
         DS.ScrollPhysics {
             target: list
         }
-        onMovementStarted: root.focusAnchor = ""
+        onMovementStarted: {root.focusAnchor="";root.userScrolled=true}
         onContentYChanged: root.updateVisible()
         onMovementEnded: root.updateVisible()
     }

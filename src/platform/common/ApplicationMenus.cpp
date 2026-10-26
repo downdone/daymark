@@ -69,6 +69,11 @@ ApplicationMenus::ApplicationMenus(std::function<void(const QString&)> command)
     add(view,QObject::tr("列表"),QStringLiteral("list"));
     for(const auto& pair:QList<QPair<QString,QString>>{{QObject::tr("日"),"day"},{QObject::tr("周"),"week"},{QObject::tr("月"),"month"},{QObject::tr("年"),"year"}})
         add(view,pair.first,pair.second);
+    view->addSeparator();
+    add(view,QObject::tr("今天"),QStringLiteral("calendarToday"));
+    add(view,QObject::tr("前往日期…"),QStringLiteral("calendarGoTo"));
+    add(view,QObject::tr("上一个时段"),QStringLiteral("calendarPrevious"));
+    add(view,QObject::tr("下一个时段"),QStringLiteral("calendarNext"));
     auto* window=m_bar->addMenu(QObject::tr("窗口"));
     add(window,QObject::tr("主窗口"),QStringLiteral("main"));
     add(window,QObject::tr("显示/隐藏侧栏"),QStringLiteral("sidebar"));

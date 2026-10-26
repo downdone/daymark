@@ -99,3 +99,20 @@ Apple现行Design principles列出Purpose、Agency、Responsibility、Familiarit
 ## UI-15官方依据复核（2026-10-24）
 
 [Apple Buttons](https://developer.apple.com/design/human-interface-guidelines/buttons)强调动作可辨识、合适命中区域及交互状态；[Icons](https://developer.apple.com/design/human-interface-guidelines/icons)强调熟悉含义和统一图形语言；[Color](https://developer.apple.com/design/human-interface-guidelines/color)要求语义一致并适配浅深/增强对比度。动态网页以官方同域.md正文读取。Daymark的按钮三分类、32DIP起命中、原创线性图标与具体配色是本项目的平台设计决定，不能写成Apple规定值，也不作视觉/辅助技术认证。落实见[动作与配色](actions-and-color.md)。
+
+
+## UX-39 日历操作官方依据（2026-10-26核对）
+
+[Apple日期与视图导航](https://support.apple.com/en-md/guide/calendar/icl1010/mac)说明月/周日期双击进入日、年月份双击进月；[Apple日历键盘](https://support.apple.com/en-ae/guide/calendar/ical002/mac)列出Command数字视图、今天/跳日期/前后、新建与编辑入口。Daymark的实际对照和取舍见[UX-39](macos-calendar-interaction.md)，不能据Windows合成事件宣称macOS实机操作全通过。
+
+[Qt QKeySequence](https://doc.qt.io/qt-6/qkeysequence.html)明确便携Ctrl/ControlModifier在Apple平台对应Command，Meta对应物理Control；日历和原任务导航按此表达，不手写Meta数字作为Command。未复制Apple字体、图标或其他专有资产。
+
+
+## UX-40 辅助提示与菜单（2026-10-26核对）
+
+[Apple Offering help](https://developer.apple.com/design/human-interface-guidelines/offering-help)要求提示简洁、针对当前控件、避免重复名称；[Qt ToolTip](https://doc.qt.io/qt-6/qml-qtquick-controls-tooltip.html)说明共享提示和显式延迟等机制。当前工程6.10.2不使用6.12新增policy。Daymark准入、600ms/5000ms、12/13字级及28起菜单行均为自主实现数值，具体见[UX-40](help-tags-and-menu-type.md)，并非Apple给出的量化要求。
+
+
+## UX-41 侧栏与品牌参考
+
+[Apple Sidebars](https://developer.apple.com/design/human-interface-guidelines/sidebars)、[The menu bar](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar)用于平台入口关系；[小米官方2021Q1材料](https://ir.mi.com/static-files/9f0e2af7-4564-4540-a52f-b85ab64ef6d0)确认视觉参考对象。Daymark没有采用小米资产/字体或宣称字形符合其内部标准，而是自行定义圆弧、笔画及留白，见[UX-41](sidebar-and-wordmark.md)。Qt图形机制见[Shape 6.10文档](https://doc.qt.io/qt-6.10/qml-qtquick-shapes-shape.html)，实际固定构建仍为6.10.2，平台兼容修正以PROGRESS证据为准。

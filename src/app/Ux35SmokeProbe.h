@@ -15,6 +15,7 @@ private:
     bool invoke(QObject* object,const char* method,const QVariant& value={});
     bool capture(const QString& suffix)const;
     void click(const QPointF& at);
+    void doubleClick(const QPointF& at);
     TaskWorkspace& m_workspace;
     QPointer<QQuickWindow> m_window;
     QString m_screenshot,m_scope,m_task,m_windowAnchor;

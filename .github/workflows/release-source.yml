@@ -2,6 +2,9 @@ name: Publish source release
 on:
   push:
     tags: ['v*']
+concurrency:
+  group: source-release-${{ github.ref }}
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
@@ -14,6 +17,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Test release guards
+        run: python3 -m unittest discover -s tests -p test_release_metadata.py -v
       - name: Check source release metadata
         env:
           RELEASE_TAG: ${{ github.ref_name }}

@@ -15,6 +15,9 @@ QtObject {
         return colors[key] || secondary
     }
     property SystemPalette systemPalette: SystemPalette { colorGroup: SystemPalette.Active }
+    readonly property int hintDelay: DS.DesignTokens.hintDelay
+    readonly property int hintTimeout: DS.DesignTokens.hintTimeout
+    readonly property bool hintsBlocked: DS.DesignTokens.activeMenus>0 || DS.DesignTokens.dragActive
     readonly property bool dark: DS.DesignTokens.dark
     readonly property color content: DS.DesignTokens.surface
     readonly property color sidebar: DS.DesignTokens.sidebar

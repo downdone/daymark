@@ -1,5 +1,15 @@
 # 里程碑与可执行任务队列
 
+UX-41按[主框架与字标](design/sidebar-and-wordmark.md)依次移除应用内菜单/设置入口补齐→原创字标→侧栏样板与大字→临时库回归、像素绘制及原生截图；不新增重复CTest入口，平台门禁仍独立。状态仅见PROGRESS。
+
+
+UX-40先按[提示与菜单字级](design/help-tags-and-menu-type.md)定义准入/视觉，再迁移共享样式和各表面；日历恢复连续拖选、年日号唯一表达及草稿拖动/离开保存，复用现有临时库探针验证，不另加重复CTest入口。状态只见PROGRESS。
+
+
+UX-39按[macOS日历操作](design/macos-calendar-interaction.md)实施：选择与双击/日期钻取→日历内新建/快捷键/焦点→视觉/拖动反馈→独立临时fixture与既有拖动/草稿回归；FR-038覆盖UX-35单击新建约定。
+
+UX-38按[全窗口精修](design/desktop-surfaces-polish.md)顺序实施：小窗/迷你扫读与完成闭环→共享工具/滚动边缘→窄日历与实色→独立fixture及全回归；沿用UX-37C性能与平台门禁，不以外观精修覆盖未验证项。
+
 任务列表下一轮拟按[UX-37复审](design/task-list-interaction-review.md)拆为选择闭环→父子关系及行骨架→详情直接呈现与首帧测量。本轮已授权落实选择、关系、密度及直接呈现；UX-37C会话重构/30次性能矩阵单列后续，不扩大数据库或任务树语义。Windows现有UI/watchdog失败继续作为发布门禁，状态只见PROGRESS。
 
 用户追加的[UX-37D全局密度](design/desktop-density-review.md)作为上述三片共同约束：先标准件/列表详情样板，再同屏导航统一，随后日历与其余表面分片迁移，最后密度/响应/平台矩阵；保持字号、可访问命中和单一草稿。

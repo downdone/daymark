@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 1.0.0 LANGUAGES CXX)
-set(DAYMARK_VERSION "1.0.0")
+project(Daymark VERSION 1.0.1 LANGUAGES CXX)
+set(DAYMARK_VERSION "1.0.1")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -97,14 +97,14 @@ target_sources(daymark PRIVATE src/platform/common/SystemEventFilter.h src/platf
 qt_add_qml_module(daymark
     URI Daymark
     VERSION 1.0
-    QML_FILES src/ui/TaskSelection.qml
-    QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
+    QML_FILES src/ui/TaskSelection.qml src/ui/BrandWordmark.qml
+    QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/WidgetTaskRow.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
     QML_FILES src/ui/CalendarMonthStream.qml src/ui/CalendarMonthGrid.qml src/ui/ListViewportState.qml src/ui/CalendarDateMoveDialog.qml src/ui/CalendarCreatePopup.qml src/ui/UnscheduledTasksPanel.qml src/ui/TaskDragGesture.qml src/ui/TaskDragPayload.qml src/ui/TaskInspectorPicker.qml src/ui/CalendarTimeline.qml src/ui/YearCalendar.qml src/ui/TaskEditorSession.qml src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES ${DAYMARK_WINDOW_SOURCES} ${DAYMARK_WORKSPACE_SOURCES} src/platform/common/StartupController.h src/platform/common/StartupController.cpp
         src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp
 )
 target_include_directories(daymark PRIVATE src src/models src/platform/common)
-target_sources(daymark PRIVATE src/app/Ux37SmokeProbe.h src/app/Ux37SmokeProbe.cpp)
+target_sources(daymark PRIVATE src/app/Ux37SmokeProbe.h src/app/Ux37SmokeProbe.cpp src/app/Ux38SmokeProbe.h src/app/Ux38SmokeProbe.cpp src/app/Ux39SmokeProbe.h src/app/Ux39SmokeProbe.cpp)
 target_link_libraries(daymark PRIVATE daymark_core daymark_styleplugin Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Network)
 target_compile_definitions(daymark PRIVATE DAYMARK_VERSION="${DAYMARK_VERSION}")
 set_target_properties(daymark PROPERTIES WIN32_EXECUTABLE TRUE MACOSX_BUNDLE TRUE
@@ -190,6 +190,10 @@ if(BUILD_TESTING)
     add_test(NAME contextual_workspace COMMAND daymark --contextual-workspace-smoke)
     set_tests_properties(contextual_workspace PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
     add_test(NAME continuous_calendar COMMAND daymark --continuous-calendar-smoke)
+    add_test(NAME calendar_interaction COMMAND daymark --calendar-interaction-smoke)
+    set_tests_properties(calendar_interaction PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
+    add_test(NAME desktop_surfaces COMMAND daymark --desktop-surfaces-smoke)
+    set_tests_properties(desktop_surfaces PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
     add_test(NAME task_list_interaction COMMAND daymark --task-list-smoke)
     set_tests_properties(task_list_interaction PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
     set_tests_properties(continuous_calendar PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
@@ -198,14 +202,14 @@ if(BUILD_TESTING)
     set_tests_properties(qml_startup PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
     if(WIN32)
         set_property(TEST qml_startup APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
-        set_property(TEST contextual_workspace continuous_calendar task_list_interaction APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
+        set_property(TEST contextual_workspace continuous_calendar task_list_interaction desktop_surfaces calendar_interaction APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
     endif()
     # One owner per risk layer; full CTest remains the release default.
     set_tests_properties(task_service catalog_service calendar_service unified_tasks event_service recurrence_service reminders data_transfer PROPERTIES LABELS "core")
     set_tests_properties(storage_integrity sqlite_runtime PROPERTIES LABELS "storage")
     set_tests_properties(system_recovery startup_settings ux34_workspace task_workspace single_instance widget_window PROPERTIES LABELS "integration")
     set_tests_properties(performance PROPERTIES LABELS "performance")
-    set_tests_properties(qml_startup contextual_workspace continuous_calendar task_list_interaction PROPERTIES LABELS "ui" RESOURCE_LOCK daymark_ui)
+    set_tests_properties(qml_startup contextual_workspace continuous_calendar task_list_interaction desktop_surfaces calendar_interaction PROPERTIES LABELS "ui" RESOURCE_LOCK daymark_ui)
     set_tests_properties(qml_watchdog_late PROPERTIES LABELS "watchdog" RESOURCE_LOCK daymark_ui)
     if(WIN32)
         set_tests_properties(package_validation PROPERTIES LABELS "package")

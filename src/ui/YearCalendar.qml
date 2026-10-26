@@ -5,12 +5,16 @@ import QtQuick.Layouts
 
 ScrollView {
     id: root
+    objectName: "calendarYearView"
     implicitWidth: 640
     implicitHeight: 480
     required property TaskWorkspace workspace
     property string anchorDate: workspace.dateOffset(0)
     property var months: []
     property string wantedDate: ""
+    property string selectedDate: ""
+    property string selectedMonth: ""
+    signal dateHighlighted(string date)
     signal anchorRequested(string date)
     signal daySelected(string date)
     signal monthSelected(string date)
@@ -40,7 +44,8 @@ ScrollView {
         }
     }
     function refresh() {
-        months = workspace.calendarMonthsFor(anchorDate);
+        const next=workspace.calendarMonthsFor(anchorDate);
+        if(JSON.stringify(next)!==JSON.stringify(months))months=next;
     }
     onAnchorDateChanged: refresh()
     Component.onCompleted: refresh()
@@ -52,20 +57,36 @@ ScrollView {
         }
     }
     component DateButton: Button {
+        id: dateButton
         required property var modelData
+        objectName: "calendarYearDay-"+modelData.date+"-"+modelData.inMonth
         Layout.fillWidth: true
         Layout.preferredWidth: 1
+        Layout.minimumWidth: 0
         implicitWidth: 28
         implicitHeight: Math.max(28, Theme.captionSize + 10)
         padding: 1
         horizontalPadding: 0
         text: modelData.day
         flat: true
-        highlighted: modelData.today
+        readonly property bool todayMarker: modelData.inMonth && modelData.today
+        readonly property bool dateSelected: modelData.inMonth && root.selectedDate===modelData.date
+        highlighted: false
+        enabled: modelData.inMonth
+        focusPolicy: modelData.inMonth ? Qt.StrongFocus : Qt.NoFocus
+        contentItem: Text {text:dateButton.modelData.inMonth ? dateButton.text : "";font:dateButton.font;color:dateButton.dateSelected ? Theme.accentText : dateButton.todayMarker ? Theme.calendarTodayText : Theme.text;horizontalAlignment:Text.AlignHCenter;verticalAlignment:Text.AlignVCenter}
+        background: Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width,parent.height);height:width;radius:width/2
+            color: dateButton.dateSelected ? Theme.accent : dateButton.todayMarker ? Theme.calendarToday : dateButton.hovered ? Theme.hover : "transparent"
+            border.width: dateButton.visualFocus ? 1 : 0;border.color: Theme.accent
+        }
         palette.buttonText: modelData.inMonth ? Theme.text : Theme.secondary
         font.pixelSize: Theme.captionSize
         Accessible.name: modelData.date
-        onClicked: root.daySelected(modelData.date)
+        onClicked: {root.selectedDate=modelData.date;root.dateHighlighted(modelData.date)}
+        onDoubleClicked: root.daySelected(modelData.date)
+        Keys.onReturnPressed: root.daySelected(modelData.date)
         Keys.onLeftPressed: root.moveFocus(modelData.date, -1, false)
         Keys.onRightPressed: root.moveFocus(modelData.date, 1, false)
         Keys.onUpPressed: root.moveFocus(modelData.date, -7, false)
@@ -89,14 +110,20 @@ ScrollView {
         }
         required property var modelData
         Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Layout.alignment: Qt.AlignTop
         Layout.preferredWidth: 1
         spacing: 4
         Button {
             Layout.fillWidth: true
+            objectName: "calendarYearMonth-"+month.modelData.anchor
             text: month.modelData.month + qsTr("月")
             flat: true
             font.pixelSize: Theme.headingSize
-            onClicked: root.monthSelected(month.modelData.anchor)
+            onClicked: root.selectedMonth=month.modelData.anchor
+            highlighted: root.selectedMonth===month.modelData.anchor
+            onDoubleClicked: root.monthSelected(month.modelData.anchor)
+            Keys.onReturnPressed: root.monthSelected(month.modelData.anchor)
         }
         GridLayout {
             columns: 7

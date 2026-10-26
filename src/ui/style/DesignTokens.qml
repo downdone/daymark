@@ -5,6 +5,12 @@ QtObject {
     property real scale: 1
     property bool compact: true
     property bool highContrast: false
+    property int activeMenus: 0
+    property bool dragActive: false
+    readonly property int hintDelay: 600
+    readonly property int hintTimeout: 5000
+    readonly property int menuFontSize: body
+    readonly property int menuRowHeight: Math.max(compact ? 28 : 32,body+10)
     property SystemPalette systemPalette: SystemPalette {colorGroup: SystemPalette.Active}
     readonly property bool dark: mode===2 || (mode===0 && systemPalette.window.hslLightness<0.5)
     readonly property color surface: dark ? "#1c1c1e" : "#ffffff"
@@ -47,7 +53,7 @@ QtObject {
     readonly property int controlInset: Math.max(0,(controlHeight-controlVisualHeight)/2)
     readonly property int navigationRowHeight: Math.max(32,navigation+12)
     readonly property int taskRowHeight: Math.max(compact ? 36 : 40,body+16)
-    readonly property int smartTileHeight: Math.max(compact ? 52 : 60,navigation+Math.round(16*scale)+16)
+    readonly property int smartTileHeight: Math.max(compact ? 56 : 64,caption+Math.round(16*scale)+20)
     readonly property int toolbarHeight: Math.max(compact ? 40 : 44,controlHeight+8)
     readonly property int propertyLabelWidth: Math.round(72*scale)
     readonly property int listTitle: Math.round(14*scale)

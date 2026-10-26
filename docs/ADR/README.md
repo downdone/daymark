@@ -28,3 +28,7 @@ ADR-001～006 已记录在 [原始 TDD](../02_TECHNICAL_DESIGN.md)，继续有�
 - [ADR-020：上下文任务工作区与就近面板](020-contextual-task-workspace.md)
 
 - [ADR-021：小时轴投影与改期命令](021-calendar-time-commands.md)
+
+- [ADR-022：测试分层与仅源码发布](022-test-layers-and-source-release.md)
+
+- [ADR-023：macOS日历核心操作](023-macos-calendar-interaction.md)

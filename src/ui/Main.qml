@@ -16,28 +16,6 @@ ApplicationWindow {
     minimumHeight: 580
     visible: true
     title: "Daymark"
-    menuBar: MenuBar {
-        visible:Qt.platform.os==="windows"
-        Menu {title:qsTr("文件")
-            MenuItem{text:qsTr("新建任务");onTriggered:mainWindow.applicationCommand("new")}
-            MenuItem{text:qsTr("保存任务");visible:mainWindow.editingActive;onTriggered:mainWindow.applicationCommand("save")}
-            MenuItem{text:qsTr("数据与备份…");onTriggered:mainWindow.applicationCommand("data")}
-            MenuSeparator{}
-            MenuItem{text:qsTr("设置…");onTriggered:mainWindow.applicationCommand("settings")}
-            MenuItem{text:qsTr("退出Daymark");onTriggered:mainWindow.applicationCommand("quit")}
-        }
-        Menu {title:qsTr("视图")
-            MenuItem{text:qsTr("列表");onTriggered:mainWindow.applicationCommand("list")}
-            MenuItem{text:qsTr("日");onTriggered:mainWindow.applicationCommand("day")}
-            MenuItem{text:qsTr("周");onTriggered:mainWindow.applicationCommand("week")}
-            MenuItem{text:qsTr("月");onTriggered:mainWindow.applicationCommand("month")}
-            MenuItem{text:qsTr("年");onTriggered:mainWindow.applicationCommand("year")}
-            MenuSeparator{}
-            MenuItem{text:qsTr("显示/隐藏侧栏");onTriggered:mainWindow.applicationCommand("sidebar")}
-            MenuItem{text:qsTr("桌面日历");onTriggered:mainWindow.applicationCommand("desktopCalendar")}
-        }
-        Menu{title:qsTr("帮助");MenuItem{text:qsTr("使用提示");onTriggered:mainWindow.applicationCommand("help")}}
-    }
     color: Theme.content
     font.pixelSize: Theme.bodySize
     font.family: Theme.fontFamily
@@ -56,6 +34,7 @@ ApplicationWindow {
     Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "scale"; value: mainWindow.taskWorkspace.textScale }
     Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "highContrast"; value: mainWindow.taskWorkspace.preferences.followSystemAccessibility ? mainWindow.taskWorkspace.systemAccessibility.highContrast : mainWindow.taskWorkspace.preferences.highContrast }
     Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "compact"; value: mainWindow.taskWorkspace.preferences.compact }
+    Binding {restoreMode: Binding.RestoreNone;target: DS.DesignTokens;property: "dragActive";value: !!mainWindow.draggedTaskRow || mainWindow.catalogDragActive || calendarPanel.timelineDragging || desktopCalendar.dragging || taskWidget.interacting}
 
     readonly property var viewCodes: ["today", "scheduled", "all", "important", "completed"]
     readonly property var viewNames: [qsTr("今天"), qsTr("计划"), qsTr("全部"), qsTr("特别关注"), qsTr("完成")]
@@ -234,7 +213,7 @@ ApplicationWindow {
         const parentId=editorReturnTaskId
         navigateSafely(function(){if(parentId && taskWorkspace.task(parentId).taskId){loadEditor(parentId);editorTab=1;subtasks.refresh()}else editor.close()})
     }
-    function returnFromDetails() {if(editorReturnTaskId)returnToParentTasks();else navigateSafely(function(){editor.close()})}
+    function returnFromDetails() {if(editorReturnTaskId)returnToParentTasks();else navigateSafely(function(){editor.close();if(mainWindow.calendarVisible)Qt.callLater(function(){calendarPanel.forceActiveFocus()})})}
     function selectEditorTab(index) {
         if(index===editorTab || (index===1 && editorIsSubtask && !editorHasChildren))return
         navigateSafely(function(){if(!inspectorExpanded)editorSession.anchor=Qt.point(editor.x,editor.y);fillEditor(editorRootId);editorTab=index;if(index===1)subtasks.refresh()})
@@ -437,7 +416,7 @@ ApplicationWindow {
         navigateSafely(function(){editor.close();taskWorkspace.changeState(id,savedDraft ? taskWorkspace.task(id).rowVersion : version,action)})
     }
     function runCalendarTaskAction(id,action){mainWindow.navigateSafely(function(){const item=mainWindow.taskWorkspace.task(id);if(action==="delete")mainWindow.requestDeleteTask(id);else if(action==="pin")mainWindow.taskWorkspace.saveDetails(id,item.rowVersion,{pinned:!item.pinned});else if(action==="important")mainWindow.taskWorkspace.saveDetails(id,item.rowVersion,{important:!item.important});else if(action==="reminderClear")mainWindow.taskWorkspace.saveDetails(id,item.rowVersion,{remindAtUtc:"",reminderRepeat:"NONE"});else mainWindow.taskWorkspace.changeState(id,item.rowVersion,action)})}
-    function newTask(view) {navigateSafely(function(){editor.close();toolPage="";if(view)changeView(view);else if(calendarVisible || ["logbook","completed","trash","cancelled"].indexOf(taskWorkspace.view)>=0)changeView("inbox");Qt.callLater(function(){focusHeader(newTitle)})})}
+    function newTask(view) {if(!view && calendarVisible){calendarPanel.requestNew();return}navigateSafely(function(){editor.close();toolPage="";if(view)changeView(view);else if(calendarVisible || ["logbook","completed","trash","cancelled"].indexOf(taskWorkspace.view)>=0)changeView("inbox");Qt.callLater(function(){focusHeader(newTitle)})})}
     function canNavigateByKey() {return !editor.visible && !toolModalOpen && !(activeFocusItem instanceof TextInput) && !(activeFocusItem instanceof TextEdit)}
     function changeTaskState(id,action) {
         if(action==="delete"){requestDeleteTask(id);return}
@@ -502,6 +481,7 @@ ApplicationWindow {
         if(action==="settings"){openTool("settings");return}
         if(action==="data"){openTool("data");return}
         if(action==="quit"){forceQuit=true;close();return}
+        if(calendarVisible && ["day","week","month","year","calendarToday","calendarNext","calendarPrevious","calendarGoTo","calendarEdit"].indexOf(action)>=0){calendarPanel.command(action);return}
         if(action==="new"){newTask("");return}
         if(action==="save"){if(editingActive && draftDirty){const id=editId;pendingAction=function(){loadEditor(id)};if(!saveEditor())pendingAction=null}return}
         if(action==="main"){showNormal();requestActivate();return}
@@ -511,7 +491,7 @@ ApplicationWindow {
         if(action==="list"){changeView(taskWorkspace.scope);return}
         if(["day","week","month","year"].indexOf(action)>=0 && ["trash","logbook","completed","cancelled"].indexOf(taskWorkspace.scope)<0)changeView(action)
     }
-    Dialog {id:helpPanel;parent:Overlay.overlay;anchors.centerIn:parent;width:Math.min(480*Theme.scale,parent.width-32);title:qsTr("Daymark");modal:true;standardButtons:Dialog.Close
+    Dialog {id:helpPanel;objectName:"helpPanel";parent:Overlay.overlay;anchors.centerIn:parent;width:Math.min(480*Theme.scale,parent.width-32);title:qsTr("Daymark");modal:true;standardButtons:Dialog.Close
         contentItem:Label{wrapMode:Text.Wrap;text:qsTr("本地任务与时间安排\n\n点击标题快速编辑，信息按钮查看详情。离开编辑前自动保存；失败会保留输入。\n拖动任务可排序或安排到导航范围。日历的日/周查看具体时段，月看分布，年用于定位。\nEnter确认录入；Esc结束编辑；输入中的空格不会完成任务。")}
     }
     function currentViewTitle() {
@@ -559,13 +539,13 @@ ApplicationWindow {
 
     Shortcut {sequence: "Escape";enabled: (mainWindow.toolPage==="notifications" || mainWindow.toolPage==="schedules") && !mainWindow.toolModalOpen;onActivated: mainWindow.returnToContent()}
     Shortcut { sequences: [StandardKey.New];enabled: !mainWindow.toolModalOpen;onActivated: mainWindow.newTask("") }
-    Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+1" : "Ctrl+1";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("today")}
-    Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+2" : "Ctrl+2";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("scheduled")}
-    Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+3" : "Ctrl+3";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("all")}
-    Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+4" : "Ctrl+4";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("important")}
-    Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+5" : "Ctrl+5";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("completed")}
+    Shortcut {sequence: "Ctrl+1";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.calendarVisible ? calendarPanel.setScale("day") : mainWindow.changeView("today")}
+    Shortcut {sequence: "Ctrl+2";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.calendarVisible ? calendarPanel.setScale("week") : mainWindow.changeView("scheduled")}
+    Shortcut {sequence: "Ctrl+3";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.calendarVisible ? calendarPanel.setScale("month") : mainWindow.changeView("all")}
+    Shortcut {sequence: "Ctrl+4";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.calendarVisible ? calendarPanel.setScale("year") : mainWindow.changeView("important")}
+    Shortcut {sequence: "Ctrl+5";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("completed")}
     Shortcut {sequences: [StandardKey.Preferences];enabled: !mainWindow.toolModalOpen || mainWindow.editingActive;onActivated: mainWindow.openTool("settings")}
-    Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+6" : "Ctrl+6";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("month")}
+    Shortcut {sequence: "Ctrl+6";enabled: mainWindow.canNavigateByKey();onActivated: mainWindow.changeView("month")}
     Shortcut { sequences: [StandardKey.Find];enabled: !mainWindow.toolModalOpen && mainWindow.taskContentVisible;onActivated: { if (!editor.visible || mainWindow.detailDocked) {mainWindow.searchExpanded=true;Qt.callLater(function(){mainWindow.focusHeader(search)})} } }
     Shortcut {sequences:[StandardKey.Save];enabled:editor.visible && !mainWindow.editorSaving;onActivated:{const id=mainWindow.editId;const tab=mainWindow.editorTab;const y=editorScroll.contentY;const caret=editNotes.cursorPosition;mainWindow.pendingAction=function(){mainWindow.fillEditor(id);mainWindow.editorTab=tab;Qt.callLater(function(){editorScroll.contentY=y;editNotes.cursorPosition=caret})};if(!mainWindow.saveEditor())mainWindow.pendingAction=null}}
     Shortcut {sequence:"Escape";enabled:editor.visible && inspectorPicker.active;onActivated:inspectorPicker.close()}
@@ -582,8 +562,12 @@ ApplicationWindow {
             ColumnLayout {
                 anchors.fill: parent;spacing: 0
                 RowLayout {
-                    Layout.fillWidth: true;Layout.margins: 6;spacing: 0
-                    Label {text: "Daymark";visible: !mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.fillWidth: true;Layout.leftMargin: 10;font.pixelSize: Theme.bodySize;font.weight: Font.DemiBold;elide: Text.ElideRight}
+                    id: brandHeader
+                    objectName: "sidebarBrandHeader"
+                    readonly property real wordmarkWidth: Math.min(104*Math.min(1.25,Theme.scale),mainWindow.sidebarWidth-64)
+                    Layout.fillWidth: true;Layout.margins: 10;Layout.preferredHeight: 32;spacing: 8
+                    BrandWordmark {objectName:"sidebarWordmark";visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.preferredWidth:brandHeader.wordmarkWidth;Layout.preferredHeight:brandHeader.wordmarkWidth*36/164;Layout.alignment:Qt.AlignVCenter;Layout.leftMargin:2}
+                    Item {visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.fillWidth:true}
                     IconToolButton {objectName: "toggleSidebar";Accessible.name: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? qsTr("显示导航") : qsTr("收起导航");contentItem: AppIcon {name: "sidebar"} onClicked: mainWindow.taskWorkspace.setPreference("sidebarCollapsed",!mainWindow.taskWorkspace.preferences.sidebarCollapsed)}
                 }
             Item {visible: mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.fillWidth: true;Layout.fillHeight: true}
@@ -599,12 +583,12 @@ ApplicationWindow {
                 height: implicitHeight
                 spacing: 2
                 NavSection {
-                    objectName: "sidebarTasks";title: qsTr("任务")
+                    objectName: "sidebarTasks";title: qsTr("任务");Layout.topMargin:0
                     expanded: mainWindow.taskWorkspace.preferences.sidebarTasksExpanded
                     containsSelection: !mainWindow.toolPageVisible && (mainWindow.taskWorkspace.view==="inbox" || mainWindow.viewCodes.indexOf(mainWindow.taskWorkspace.view)>=0)
                     onExpansionRequested: function(value){mainWindow.taskWorkspace.setPreference("sidebarTasksExpanded",value)}
                 GridLayout {
-                    Layout.fillWidth: true;columns: 2;columnSpacing: 6;rowSpacing: 6
+                    objectName:"smartNavigationGrid";Layout.fillWidth:true;columns:Theme.scale>=1.5 ? 1 : 2;columnSpacing:6;rowSpacing:6
                     Repeater {
                         model: [qsTr("收集箱")].concat(mainWindow.viewNames)
                         SmartViewTile {
@@ -873,6 +857,8 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 visible: mainWindow.calendarVisible
                 workspace: mainWindow.taskWorkspace
+                filterIdentity: mainWindow.selectedTag+"/"+mainWindow.selectedProject+"/"+search.text
+                editingBlocked: mainWindow.editingActive || mainWindow.toolModalOpen
                 onDesktopRequested: mainWindow.taskWorkspace.setPreference("desktopCalendarVisible",true)
                 onOpenTask: function(taskId) {mainWindow.openEditor(taskId)}
                 onTaskAction: function(id,action){mainWindow.runCalendarTaskAction(id,action)}
@@ -1133,7 +1119,7 @@ ApplicationWindow {
                                 Label {text: childRow.modelData.title;Layout.fillWidth: true;elide: Text.ElideRight;font.pixelSize: Theme.listTitleSize;font.strikeout: childRow.modelData.taskStatus!=="OPEN"}
                                 Label {text: [childRow.modelData.notes || "",childRow.modelData.startOn || "",childRow.modelData.deadlineOn ? qsTr("结束 %1").arg(childRow.modelData.deadlineOn) : ""].filter(value=>value.length>0).join(" · ");visible: text.length>0;Layout.fillWidth: true;maximumLineCount: 1;elide: Text.ElideRight;font.pixelSize: Theme.captionSize;color: Theme.secondary}
                             }
-                            WidgetAction {objectName: "subtaskDetails-"+childRow.taskId;symbol: "info";description: qsTr("子任务详情：%1").arg(childRow.modelData.title);onClicked: mainWindow.openSubtask(childRow.taskId)}
+                            WidgetAction {objectName: "subtaskDetails-"+childRow.taskId;symbol: "info";description: qsTr("子任务详情：%1").arg(childRow.modelData.title);hintText:qsTr("编辑子任务详情");onClicked: mainWindow.openSubtask(childRow.taskId)}
                         }
                     }
                     Label {anchors.centerIn: parent;visible: subtasks.count===0;text: qsTr("还没有子任务");font.pixelSize: Theme.captionSize;color: Theme.secondary}
@@ -1404,6 +1390,8 @@ ApplicationWindow {
     SettingsDialog {
         id: windowSettings
         transientParent: mainWindow
+        onDataRequested: {windowSettings.close();mainWindow.openTool("data")}
+        onHelpRequested: {windowSettings.close();helpPanel.open()}
         onQuitRequested: {windowSettings.close();mainWindow.forceQuit=true;mainWindow.close()}
         onCalendarVisibilityRequested: function(visible){if(visible)mainWindow.taskWorkspace.setPreference("desktopCalendarVisible",true);else desktopCalendar.close()}
         workspace: mainWindow.taskWorkspace
@@ -1443,6 +1431,7 @@ ApplicationWindow {
         onCompleteTask:function(id,version,action){mainWindow.changeCalendarTaskState(id,version,action)}
     }
     WidgetWindow {
+        id: taskWidget
         controller: mainWindow.widgetController
         workspace: mainWindow.taskWorkspace
         onNewTaskRequested: {mainWindow.showNormal();mainWindow.requestActivate();mainWindow.newTask("today")}

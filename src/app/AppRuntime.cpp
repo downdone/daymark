@@ -2,6 +2,8 @@
 #include "Ux34SmokeProbe.h"
 #include "Ux35SmokeProbe.h"
 #include "Ux37SmokeProbe.h"
+#include "Ux38SmokeProbe.h"
+#include "Ux39SmokeProbe.h"
 #include "SoakRunner.h"
 
 #include <QCoreApplication>
@@ -84,7 +86,12 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     auto* desktopCalendar=mainWindow->findChild<QWindow*>(QStringLiteral("desktopCalendarWindow"));
     m_calendarState=std::make_unique<WindowStateStore>(desktopCalendar,QDir(directory).filePath(QStringLiteral("ui.ini")),nullptr,QStringLiteral("desktopCalendar"),QSize(420,480));
     QObject::connect(m_calendarState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);
-    m_menus=std::make_unique<ApplicationMenus>([window=QPointer<QQuickWindow>(mainWindow)](const QString& action){if(window)QMetaObject::invokeMethod(window,"applicationCommand",Q_ARG(QVariant,QVariant(action)));});
+    m_menus=std::make_unique<ApplicationMenus>([window=QPointer<QQuickWindow>(mainWindow)](const QString& action){
+        auto* focused=QGuiApplication::focusWindow();
+        const QStringList calendarActions={"new","day","week","month","year","calendarToday","calendarNext","calendarPrevious","calendarGoTo","calendarEdit"};
+        if(focused && focused->objectName()==QStringLiteral("desktopCalendarWindow") && calendarActions.contains(action)){QMetaObject::invokeMethod(focused,"calendarCommand",Q_ARG(QVariant,QVariant(action)));return;}
+        if(window)QMetaObject::invokeMethod(window,"applicationCommand",Q_ARG(QVariant,QVariant(action)));
+    });
     if(!smokeTest)m_tray=std::make_unique<DesktopTray>(m_widget,mainWindow);
     QObject::connect(&m_workspace,&TaskWorkspace::reminderReady,&m_engine,[this](const QString& title,const QString& message){
         if(m_tray)m_tray->notify(title,message);
@@ -102,13 +109,15 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto ux34=std::make_shared<Ux34SmokeProbe>(m_workspace,mainWindow,screenshotPath);
         auto ux35=std::make_shared<Ux35SmokeProbe>(m_workspace,mainWindow,screenshotPath);
         auto ux37=std::make_shared<Ux37SmokeProbe>(m_workspace,mainWindow,screenshotPath);
+        auto ux38=std::make_shared<Ux38SmokeProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath);
+        auto ux39=std::make_shared<Ux39SmokeProbe>(m_workspace,mainWindow,screenshotPath);
         if(!smokeProfile.isEmpty())activateSmokeWindow(mainWindow);
         auto smokePhase=std::make_shared<int>(0);
         auto smokeCompleted=std::make_shared<bool>(false);
         auto inputClock=std::make_shared<QElapsedTimer>();
         inputClock->start();
         probe->setInterval(60);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,ux34,ux35,ux37,smokeProfile,smokePhase,smokeCompleted,inputClock,soakSeconds,soakReport,phase=smokeProfile.isEmpty()?0:436,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragPosition=QPointF(),inlineColumns=QVariantMap(),quickOriginalTask=QVariantMap(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<std::atomic<bool>>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1),wheelFrames=std::make_shared<std::atomic<int>>(0),wheelConnection=std::make_shared<QMetaObject::Connection>()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,ux34,ux35,ux37,ux38,ux39,smokeProfile,smokePhase,smokeCompleted,inputClock,soakSeconds,soakReport,phase=smokeProfile.isEmpty()?0:436,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragPosition=QPointF(),inlineColumns=QVariantMap(),quickOriginalTask=QVariantMap(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<std::atomic<bool>>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1),wheelFrames=std::make_shared<std::atomic<int>>(0),wheelConnection=std::make_shared<QMetaObject::Connection>()]() mutable {
             *smokePhase=phase;m_verificationPhase=phase;
             bool stallConfigured=false;const int stall=qEnvironmentVariableIntValue("DAYMARK_SMOKE_STALL_PHASE",&stallConfigured);if(stallConfigured && phase==stall)return;
             if(m_workspace.busy())return;
@@ -124,7 +133,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             auto* startDate=mainWindow->findChild<QObject*>(QStringLiteral("editStartDate"));
             auto* editor=mainWindow->findChild<QObject*>(QStringLiteral("taskEditor"));
             if(!input || !editTitle || !startDate || !editor){fail("UI objects");return;}
-            if(phase==436){if(!smokeProfile.isEmpty()){const auto status=smokeProfile==QStringLiteral("selection")?ux37->advance():smokeProfile==QStringLiteral("continuous")?ux35->advance():ux34->advance();if(status.isEmpty())return;if(status!=QStringLiteral("DONE")){qCritical()<<status;fail("workspace scenario suite");return;}}} else if(phase==0) {
+            if(phase==436){if(!smokeProfile.isEmpty()){const auto status=smokeProfile==QStringLiteral("calendar")?ux39->advance():smokeProfile==QStringLiteral("desktop")?ux38->advance():smokeProfile==QStringLiteral("selection")?ux37->advance():smokeProfile==QStringLiteral("continuous")?ux35->advance():ux34->advance();if(status.isEmpty())return;if(status!=QStringLiteral("DONE")){qCritical()<<status;fail("workspace scenario suite");return;}}} else if(phase==0) {
                 const auto icon=QGuiApplication::windowIcon();
                 if(icon.isNull() || icon.pixmap(16,16).isNull() || icon.pixmap(256,256).isNull()) {fail("application icon resources");return;}
                 // Start-Process -WindowStyle Hidden suppresses the first Win32 show.
@@ -761,7 +770,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                         else if(phase==426){QVariantMap current;for(const auto& value:m_workspace.categoryTree())if(value.toMap().value("id").toString()==detailProjectId)current=value.toMap();if(current.value("title").toString()!=QStringLiteral("右键重命名分类") || current.value("parentId")!=quickOriginalTask.value("parentId") || current.value("description")!=quickOriginalTask.value("description")){fail("category rename preserves hierarchy and metadata");return;}const auto tags=m_workspace.catalogOf("tag");if(tags.isEmpty()){fail("tag rename fixture");return;}dragStepFirst=tags.first().toMap().value("id").toString();auto* row=visual(mainWindow->contentItem(),QStringLiteral("tagNav-")+dragStepFirst);if(!right(row)){fail("tag actual right click");return;}quickOriginalTask=mainWindow->property("catalogContextItem").toMap();QMetaObject::invokeMethod(find("renameCatalog"),"triggered");QMetaObject::invokeMethod(find("categoryContextMenu"),"close");}
                         else if(phase==427){auto* name=find("catalogEditName");if(mainWindow->property("catalogContextItem").toMap().value("id").toString()!=dragStepFirst || !find("catalogEditPopup")->property("visible").toBool() || !name->property("activeFocus").toBool() || name->property("selectedText")!=quickOriginalTask.value("title") || !capture(QStringLiteral("tag-rename-nearby"))){qCritical()<<"Tag rename"<<mainWindow->property("catalogContextItem")<<dragStepFirst<<find("catalogEditPopup")->property("visible")<<name->property("activeFocus")<<name->property("selectedText")<<quickOriginalTask.value("title");fail("tag rename focused and selected");return;}name->setProperty("text",QStringLiteral("右键重命名标签"));QMetaObject::invokeMethod(name,"textEdited");click("saveCatalogEdit");}
                         else if(phase==428){QVariantMap current;for(const auto& value:m_workspace.catalogOf("tag"))if(value.toMap().value("id").toString()==dragStepFirst)current=value.toMap();if(current.value("title").toString()!=QStringLiteral("右键重命名标签") || current.value("colorKey")!=quickOriginalTask.value("colorKey")){fail("tag rename preserves color and identity");return;}QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("month"))));auto* panel=find("calendarPanel");panel->setProperty("showTasks",true);panel->setProperty("showEvents",true);panel->setProperty("agendaVisible",false);QMetaObject::invokeMethod(panel,"jumpToDate",Q_ARG(QVariant,QVariant(m_workspace.dateOffset(2))));}
-                        else if(phase==429){mainWindow->grabWindow();auto* marker=visual(mainWindow->contentItem(),QStringLiteral("calendarTaskMark-")+scheduleId);if(!marker){fail("same timed task is visible in calendar");return;}const auto at=marker->mapToScene(QPointF(marker->width()/2,marker->height()/2));mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);}
+                        else if(phase==429){mainWindow->grabWindow();auto* marker=visual(mainWindow->contentItem(),QStringLiteral("calendarTaskMark-")+scheduleId);if(!marker){fail("same timed task is visible in calendar");return;}const auto at=marker->mapToScene(QPointF(marker->width()/2,marker->height()/2));mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonDblClick,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);}
                         else if(phase==430){mainWindow->grabWindow();if(!editor->property("visible").toBool() || mainWindow->property("editId").toString()!=scheduleId || startDate->property("text").toString()!=m_workspace.dateOffset(2) || !find("taskAllDay")->property("checked").toBool() || !capture(QStringLiteral("shared-task-time-light"))){fail("calendar click opens same task with single time controls");return;}m_workspace.setTextScale(2);m_workspace.setThemeMode(2);mainWindow->resize(880,580);}
                         else if(phase==431){mainWindow->grabWindow();QMetaObject::invokeMethod(mainWindow,"revealTimingForVerification");}
                         else if(phase==432){mainWindow->grabWindow();if(!capture(QStringLiteral("shared-task-time-dark-200"))){fail("shared time large dark capture");return;}QMetaObject::invokeMethod(editor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);mainWindow->resize(1120,720);QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));reveal(scheduleId);}
@@ -1394,7 +1403,8 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     && window->width() > 0 && window->height() > 0)
                     ++visibleWindows;
             }
-            const bool passed = visibleWindows == 2 && !m_qmlWarnings && m_workspace.ready();
+            const int expectedWindows=(smokeProfile==QStringLiteral("desktop") || smokeProfile==QStringLiteral("calendar")) ? 3 : 2;
+            const bool passed = visibleWindows == expectedWindows && !m_qmlWarnings && m_workspace.ready();
             const bool screenshotOk=screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath);
             qInfo() << "QML startup: visible windows=" << visibleWindows
                     << "warnings=" << m_qmlWarnings;

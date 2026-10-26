@@ -1,0 +1,39 @@
+# Daymark 发布规则
+
+2026-10-26。用户已确认保留公开v1.0.0，本次使用v1.0.1；本规则适用于后续发布。最新执行状态只维护在[PROGRESS](PROGRESS.md)。
+
+## 版本和标签
+
+1. 使用SemVer：修复/兼容的体验调整递增PATCH，兼容功能递增MINOR，不兼容协议或数据契约才递增MAJOR并说明升级/回退。尚未支持自动预发行标签；本流水线仅接受无前导零的`vMAJOR.MINOR.PATCH`。
+2. CMake的project VERSION、DAYMARK_VERSION、对应发行说明标题及tag完全一致。新版本使用`docs/release-notes-v完整版本.md`；已有v1.0.0保留旧`release-notes-v1.0.md`兼容路径，不覆盖旧发行说明。
+3. 标签必须为annotated tag，精确指向已提交且已在origin/main中的版本提交。公开标签/Release不改指、不复用；修正进入下个版本，不force push公共分支。推送前先查远端同名标签，出现冲突停止而非覆盖。
+4. 仅推明确授权的main和本次单个tag，不使用all/mirror或自动跟随本机历史标签；本地旧local标签不公开。推送使用非强制方式，条件允许时将分支/tag原子推送。
+
+## 源码快照和二进制门槛
+
+- 当前仅发布源码；Qt再分发许可待核实，禁止上传含Qt/MinGW运行库的包、SDK、安装包或便携包。源码授权选择不因tag自动成立。
+- 源码快照允许如实披露已有UI时序失败和未验证平台；必须具备可构建、相关链路证据及发行说明中的FAIL/UNVERIFIED边界，不得称RELEASE-READY。源码发布job只证明元数据/源码守卫和Release创建，不取代桌面完整CI。
+- 正式二进制须完整CTest、数据/迁移/备份/故障、UI状态/键盘/缩放、真实平台/辅助技术、干净机/签名及运行库许可等门禁通过；不得加大watchdog预算、删断言或以mock/offscreen代替实测。
+
+## 提交与隐私
+
+- 包含经过审查的功能、测试、设计和发行说明；不混入无关草案、构建缓存、日志、数据库/WAL/备份、凭据、证书、SDK、个人绝对路径。用户已有数据不删除或覆盖。
+- 使用项目提交身份和UTC元数据；检查暂存内容和将推送的提交/标签身份。不得未经授权重写已有公开历史来清理隐私。
+- 自动守卫检查已跟踪路径、常见密钥和本机路径，错误只报文件名，不输出敏感值。它不能代替人工审查；GitHub自动源码归档只包含对应提交，不上传本机目录压缩包。
+
+## 执行顺序
+
+1. 同步远端并查现有版本/标签；确定增量版本，先写真实发行说明和本轮PROGRESS计划。
+2. 审查并暂存明确文件，运行`python scripts/publish-source-release.py --check-current`、发布守卫单测、文档链接/颜色检查及合适的构建/测试；完整门禁结果如实披露。
+3. 检查cached diff、隐私及项目作者，提交。创建本次annotated tag，重新检查其commit/版本/说明；确认远端没有同名tag，再非强制推送main和该tag。
+4. 分支CI跑发布守卫一次及Windows/macOS完整构建/测试。tag仅运行源码发布流水线，避免同一版本重复两套平台构建；它校验已跟踪源码、注释标签、checkout SHA及origin/main可达性，使用短期GITHUB_TOKEN的最小权限创建无资产Release。
+5. 同一tag发布串行，幂等重试只接受目标和说明均一致的现有Release，不静默修订；若失败修复后重跑，不移动公开tag。确认远端分支/tag和Release真实内容，再汇报链接及CI状态。
+
+本地预检（Windows和macOS均使用Python3；macOS通常命令为python3）：
+
+```text
+python -m unittest discover -s tests -p test_release_metadata.py -v
+python scripts/publish-source-release.py --check-current
+```
+
+发布请求仍须来自用户；新增规则本身不授权代理自动推送、上传或发布。GitHub没有可用凭据时不得索取或记录长期token，复用已获授权的Git/Actions通路。
