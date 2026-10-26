@@ -82,7 +82,9 @@ QVariantList TaskListModel::selectionEntries(int first,int last) const
 void TaskListModel::replace(const QList<Task>& tasks,const QDate& today,int groupRole)
 {
     QHash<QString,QString> headers;QString current;
+    bool hasHierarchy = false;
     for(const auto& task:tasks){
+        hasHierarchy |= task.listDepth>0 || task.listChildCount>0;
         if(task.listDepth==0){
             if(groupRole==Section)current=QStringList{tr("全天"),tr("上午"),tr("下午"),tr("今晚")}.value(QueryService::todayPeriod(task,today));
             else if(groupRole==PlannedDate){const auto date=QueryService::plannedDate(task);current=date<today?tr("此前安排"):date==today?tr("今天"):date==today.addDays(1)?tr("明天"):date<=today.addDays(6)?date.toString(QStringLiteral("M月d日 dddd")):date.toString(QStringLiteral("yyyy年M月"));}
@@ -95,6 +97,7 @@ void TaskListModel::replace(const QList<Task>& tasks,const QDate& today,int grou
         }
         headers.insert(task.id,current);
     }
+    m_hasHierarchy = hasHierarchy;
     const bool groupingChanged=m_groupRole!=groupRole || headers!=m_groupHeaders;m_groupRole=groupRole;m_groupHeaders=headers;
     const auto oldToday=m_today; m_today=today;
     QSet<QString> incomingIds;

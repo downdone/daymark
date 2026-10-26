@@ -21,6 +21,7 @@ class TaskListModel : public QAbstractListModel {
     QML_ELEMENT
     QML_UNCREATABLE("Owned by TaskWorkspace")
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
+    Q_PROPERTY(bool hasHierarchy READ hasHierarchy NOTIFY countChanged)
 public:
     enum Role { Id=Qt::UserRole+1, Title, Notes, Done, Status, StartOn, DeadlineOn, Focus, Version, Overdue, Evening, ProjectName, TagSummary, Section, HeadingTitle, SubtaskPending, ContextGroup, InToday, ViewSection, ParentTask, ParentTitle, Depth, ChildCount, Pinned, Important, Planning, ParentDeleted, PlannedDate, CompletionMonth, DeletedAt, ArrangementSummary, SubtaskTotal };
     using QAbstractListModel::QAbstractListModel;
@@ -29,6 +30,7 @@ public:
     QHash<int,QByteArray> roleNames() const override;
     void replace(const QList<Task>& tasks,const QDate& today,int groupRole=0);
     const QList<Task>& items() const {return m_tasks;}
+    bool hasHierarchy() const {return m_hasHierarchy;}
     static QVariantMap taskMap(const Task& task);
     Q_INVOKABLE QString taskIdAt(int row) const { return row>=0 && row<m_tasks.size() ? m_tasks[row].id : QString(); }
     Q_INVOKABLE QVariantList selectionEntries(int first,int last) const;
@@ -36,6 +38,7 @@ signals:
     void countChanged();
 private:
     QList<Task> m_tasks;
+    bool m_hasHierarchy = false;
     QDate m_today;
     int m_groupRole=0;
     QHash<QString,QString> m_groupHeaders;

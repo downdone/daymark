@@ -1,5 +1,17 @@
 # Daymark 实施进度
 
+### UX-43：提醒事项式列表精修（2026-10-26～27，IMPLEMENTED；关联AUTO-PASS / 完整门禁仍FAIL）
+
+按用户截图及[列表设计](design/reminders-list-refinement.md)统一浏览/编辑文字轴，移除重复关系图标，以缩进和展开箭头表达父子；备注、时间、归属分层，按钮按悬停/焦点呈现，保留智能范围关系入口与原草稿/右键/拖放。基线bb35a03、工作区干净；1.0.2双构建、关联PASS，完整21/24含三个已知失败。计划先共享行/快捷编辑最小改动，再独立探针与浅深/200%截图、构建/测试、隐私审查后提交并推送main；不自动发布tag或二进制。
+
+已实现：TaskRowSummary分文件绘制标题、单行备注预览和辅助信息；TaskRow保留手势/菜单/完成/选择，原行编辑使用相同完成圆、标题、备注与分隔线轴。移除父子分支图标列和展开时0/N；普通树24 DIP缩进，智能范围保留父名/子项数量入口。收起或全局隐藏子项仍有数量入口，空树结果不占展开槽；模型在既有投影遍历聚合hasHierarchy，不增加查询或QML扫描。日期不重复今天，置顶/特别关注用小标记及可访问名称，信息/拖动按钮按悬停/焦点出现。原行无大卡底色，无修改不显示保存勾；失焦保存、无效草稿保留、右键/多选/详情迁移/拖放契约不变。
+
+验证：Qt6.10.2 macOS arm64 Debug/Release构建及两目标lint PASS（ux43-{debug,release}-final-build.log、ux43-{debug,release}-lint.log，无lint诊断；编译保留Qt生成代码unused参数警告）。完整Debug21/24、117.61秒（ux43-debug-full-tests.log），Release21/24、105.69秒（ux43-release-full-tests.log）；沿用qml_startup/late watchdog phase430日历详情断言、desktop_surfaces stage9完成冲突/布局三项旧失败，不提高45秒预算或删断言。最终共享模型、UX34工作区及三项独立UI关联Debug5/5、27.62秒，Release5/5、24.80秒（ux43-{debug,release}-final-tests.log）。
+
+task_list_interaction扩展至58阶段，保留原选择/菜单/详情测试并补充父/子列偏移、备注预览、浏览/编辑同列、离开保存、非法标题恢复、收起/全局隐藏子项入口、搜索去展开槽及恢复、浅深/200%/高对比。最终离屏抓图ux43-final.png.ux37-list-refined-{light,inline,dark-200,inline-200,invalid-title,contrast-200,flat}.png已复看，无QML warning；离屏插件提示不作为原生实测。Windows/macOS物理输入、VoiceOver/Narrator及真实DPI仍UNVERIFIED。
+
+源码守卫、12项发布守卫、103份Markdown链接、四种主题/对比颜色检查及diff检查PASS。更新产品哲学、用户指南和当前UI契约覆盖旧关系图标方案；版本仍1.0.2，本轮为后续源码修订。未改用户数据库或运行中的旧窗口；只提交代码/测试/文档，截图、日志、缓存和Qt运行库均保持忽略。完成后按本轮授权非强制推送main，远端结果在回复中核对。
+
 ### UX-42 / 1.0.2：今日年视图、桌面层级与关于（2026-10-26，IMPLEMENTED；关联AUTO-PASS / 完整门禁仍FAIL）
 
 按[设计](design/desktop-layer-and-year-focus.md)处理三项新要求：年视图进入定位今天；独立日历/小窗/Mini增加与置顶互斥的固定桌面模式；收集箱改紫色。先共用平台接口/原生层级、失败回滚与设置测试，再接菜单/设置及日期入口，执行双构建/测试/lint与隔离原生验证。基线当前1.0.1 macOS Debug构建成功、21/24测试通过，已知qml_startup、desktop_surfaces、late watchdog失败见上轮日志current-macos-debug-build-test.log；不以新功能通过抹去原门禁。风险为原生句柄重建、激活后的Z序、恢复通路及跨平台可测性。不触碰用户数据库或正在运行的旧窗口。

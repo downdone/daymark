@@ -1293,7 +1293,6 @@ ApplicationWindow {
 
     TaskQuickEditor {
         id: quickEditor
-        relationSymbol: mainWindow.editorIsSubtask ? "subtask" : mainWindow.editorHasChildren ? "subtasks" : ""
         parent: mainWindow.inlineRow ? mainWindow.inlineRow.editorHost : mainWindow.contentItem
         width: parent ? parent.width : 0
         height: implicitHeight

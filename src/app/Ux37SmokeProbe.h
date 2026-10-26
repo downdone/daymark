@@ -2,6 +2,7 @@
 #include <QElapsedTimer>
 #include <QPointer>
 #include <QStringList>
+#include <QVariantMap>
 class QQuickWindow;
 class QQuickItem;
 namespace daymark {
@@ -20,6 +21,7 @@ private:
     QPointer<QQuickWindow> m_window;
     QString m_screenshot,m_parent;
     QStringList m_ids;
+    QVariantMap m_columns;
     int m_stage=0;
     QElapsedTimer m_wait,m_clock,m_presentClock;
     qint64 m_panelFrameMs=-1;

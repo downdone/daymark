@@ -60,6 +60,8 @@ API、数据模式和用户行为变化同步设计、测试及追踪；历史 m
 
 ## UX-34模块边界（2026-10-25）
 
+UX-43主列表分工：TaskRow保留手势、菜单、完成/选择与草稿承载，TaskRowSummary只绘制标题/备注/辅助信息及子项意图。TaskListModel在既有投影遍历聚合hasHierarchy供布局，复用notes角色，不新增SQL/查询语义或QML全表扫描。
+
 - `TaskWorkspace.cpp`：QML命令编排、异步工作线程与结果同步；不得直接在界面执行SQL。
 - `TaskWorkspaceCalendar.cpp`：范围、日历/时间轴、年导航及循环/提醒的只读适配投影；不写库，不生成全年实例。两文件属于同一适配器，避免复制状态。
 - `CalendarService`：可测试的时段分段、重叠泳道、整段移动和端点调整；`RecurrenceService`负责下一日期计算；`TaskService`负责统一校验、CAS和树操作。

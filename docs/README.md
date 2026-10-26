@@ -2,6 +2,8 @@
 
 ## 当前入口（2026-10-26）
 
+[UX-43提醒事项式列表](design/reminders-list-refinement.md)统一完成圆/标题/备注文字轴，以缩进表达父子，去除重复图标列与0/N堆叠；主列表与原行编辑共享对齐，真实验证见PROGRESS。
+
 [UX-42年视图与桌面层级](design/desktop-layer-and-year-focus.md)定义进入年视图回到今天、日历/小窗/Mini固定在桌面与置顶互斥、收集箱紫色及设置关于；1.0.2实际构建和平台证据见PROGRESS。
 
 [UX-41主框架与字标](design/sidebar-and-wordmark.md)移除Windows应用内菜单，将帮助/备份归入设置；原创daymark字标、侧栏权重及大字重排共用验收。

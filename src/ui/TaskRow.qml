@@ -38,6 +38,7 @@ ItemDelegate {
     required property TaskWorkspace workspace
     required property string taskId
     required property string title
+    required property string notes
     required property string startOn
     required property string deadlineOn
     required property string projectName
@@ -48,7 +49,7 @@ ItemDelegate {
     property bool showSeparator: true
     property bool deleted: false
     property bool smartView: false
-    readonly property real treeGutter: smartView ? 0 : 32
+    readonly property real treeGutter: smartView || !workspace.tasks.hasHierarchy ? 0 : 32
     property string completionText: ""
     signal subtaskRequested()
     signal restoreRequested()
@@ -80,8 +81,7 @@ ItemDelegate {
         taskDepth===0 && parentTitle ? (parentDeleted ? qsTr("原父任务（已删除）：%1") : qsTr("父任务：%1")).arg(parentTitle) : "",
         completionText,
         planningState==="SOMEDAY" ? qsTr("已暂停") : "",
-        pinned ? qsTr("置顶") : "", important ? qsTr("特别关注") : "",
-        inToday && showTodayMarker ? qsTr("今天") : "",
+        inToday && showTodayMarker && !arrangementSummary ? qsTr("今天") : "",
         showCategory ? projectName : "",tagSummary,
         taskStatus==="CANCELLED" ? qsTr("已取消") : ""
     ].filter(value=>value.length>0).join(" · ")
@@ -208,21 +208,20 @@ ItemDelegate {
     Rectangle {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:2;color:Theme.accent;visible:dropZone.containsDrag && dropZone.allowed}
     DS.ToolTip {contextualFeedback:true;delay:0;timeout:-1;visible:dropZone.containsDrag && !dropZone.allowed && !!dropZone.sourceTask;text:dropZone.sourceTask ? root.workspace.dropTaskReason(dropZone.sourceTask.taskId,root.taskId) : ""}
     padding: Theme.compact ? 2 : 4
-    leftPadding: 10+Math.min(8,taskDepth)*16
+    leftPadding: 6+Math.min(8,taskDepth)*24
     rightPadding: 10
     function columnPositions() {
         const completion=expanded ? inlineEditor.completionItem : completionAction
-        const titleItem=expanded ? inlineEditor.titleItem : rowTitle
-        return {completion:completion.mapToItem(root,0,0).x,title:titleItem.mapToItem(root,0,0).x,depth:taskDepth}
+        const titleItem=expanded ? inlineEditor.titleItem : summary.titleItem
+        const notesItem=expanded ? inlineEditor.notesItem : summary.notesItem
+        return {completion:completion.mapToItem(root,0,0).x,title:titleItem.mapToItem(root,0,0).x,notes:notesItem.mapToItem(root,0,0).x,separator:rowSeparator.x,depth:taskDepth}
     }
     implicitHeight: Math.max(Theme.taskRowHeight,contentItem.implicitHeight+topPadding+bottomPadding)
     function verifyGeometry() {
-        for(const child of metadata.children)if(child.visible && child.y+child.height>metadata.height+1)return "metadata exceeds row"
-        if(!expanded && rowTitle.mapToItem(root,0,0).y+rowTitle.height>root.height-bottomPadding+1)return "title exceeds row"
-        if(!expanded && metadata.mapToItem(root,0,0).y+metadata.height>root.height-bottomPadding+1)return "metadata exceeds row"
-        return "PASS"
+        if(!expanded && summary.mapToItem(root,0,0).y+summary.height>root.height-bottomPadding+1)return "summary exceeds row"
+        return expanded ? "PASS" : summary.verifyGeometry()
     }
-    Accessible.name: (relationSymbol==="subtask" ? qsTr("子任务，") : relationSymbol==="subtasks" ? qsTr("包含子任务，") : "") + title + (isDone ? qsTr("，已结束") : qsTr("，未完成"))
+    Accessible.name: (relationSymbol==="subtask" ? qsTr("子任务，") : relationSymbol==="subtasks" ? qsTr("包含子任务，") : "") + title + (isDone ? qsTr("，已结束") : qsTr("，未完成")) + (pinned ? qsTr("，已置顶") : "") + (important ? qsTr("，特别关注") : "")
     onClicked: selectionMode ? selectionRequested() : quickEditRequested()
     contentItem: ColumnLayout {
         z: 1
@@ -232,7 +231,7 @@ ItemDelegate {
         visible: !root.expanded
         spacing: 8
         Item {
-            visible:!root.smartView;Layout.preferredWidth: 24;Layout.preferredHeight: 32
+            visible:root.treeGutter>0;Layout.preferredWidth: 24;Layout.preferredHeight: 32
             WidgetAction {
                 anchors.centerIn: parent;visible: !root.smartView && root.visibleChildCount>0
                 objectName: "taskChildren-"+root.taskId
@@ -260,39 +259,26 @@ ItemDelegate {
                 implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize
                 Rectangle {
                     anchors.centerIn: parent
-                    width: Theme.iconSize;height: width;radius: width/2
+                    width: Math.min(24,18*Theme.scale);height: width;radius: width/2
                     color: (root.isDone || root.removingAfterCompletion) ? Theme.accent : "transparent"
                     border.color: (root.isDone || root.removingAfterCompletion) ? Theme.accent : Theme.secondary
+                    border.width: 1.25
                     AppIcon {anchors.centerIn: parent;name: "check";width: Math.round(Theme.iconSize*2/3);height: width;visible: root.isDone || root.removingAfterCompletion;ink: Theme.accentText}
                 }
             }
         }
-        Item {
-            Layout.preferredWidth:Math.min(24,16*Theme.scale);Layout.preferredHeight:32;Layout.alignment:Qt.AlignTop
-            AppIcon {objectName:"taskRelation-"+root.taskId;anchors.centerIn:parent;name:root.relationSymbol;visible:root.subtaskTotal===0 || root.deleted;opacity:root.relationSymbol.length>0 ? 1 : 0;Accessible.ignored:root.relationSymbol.length===0;Accessible.name:root.relationSymbol==="subtask" ? qsTr("子任务") : qsTr("包含子任务")}
-            WidgetAction {
-                objectName:"taskSubtasksLink-"+root.taskId;anchors.centerIn:parent
-                visible:root.subtaskTotal>0 && !root.deleted;enabled:!root.selectionMode
-                symbol:"subtasks";description:qsTr("%1：%2 个子任务，已完成 %3 个。查看子任务").arg(root.title).arg(root.subtaskTotal).arg(root.subtaskTotal-root.subtaskPending)
-                onClicked:root.subtaskRequested()
-            }
-        }
-        ColumnLayout {
+        TaskRowSummary {
+            id: summary
             Layout.fillWidth: true
-            spacing: 1
-            Label {id: rowTitle;objectName:"taskTitle-"+root.taskId;font.underline:false;topPadding: Math.max(0,(Math.max(32,Theme.iconSize+12)-Theme.listTitleSize*1.35)/2);text: root.title; font.pixelSize: Theme.listTitleSize; color: Theme.text; font.strikeout: root.isDone || root.removingAfterCompletion; Layout.fillWidth: true; elide: Text.ElideRight }
-            RowLayout {
-                id:metadata;Layout.fillWidth:true;spacing:6
-                visible:root.metadataText.length>0 || root.subtaskTotal>0
-                Label {visible:root.subtaskTotal>0;text:qsTr("%1/%2").arg(root.subtaskTotal-root.subtaskPending).arg(root.subtaskTotal);font.pixelSize:Theme.captionSize;color:Theme.secondary;Accessible.name:qsTr("%1 个子任务，已完成 %2 个").arg(root.subtaskTotal).arg(root.subtaskTotal-root.subtaskPending)}
-                Label {Layout.fillWidth:true;Layout.minimumWidth:0;text:root.metadataText;elide:Text.ElideRight;font.pixelSize:Theme.captionSize;color:root.isOverdue ? Theme.danger : Theme.secondary;Accessible.name:root.metadataText
-                    ToolTip.visible:!Theme.hintsBlocked && metadataHover.hovered && truncated;ToolTip.text:root.metadataText
-                    ToolTip.delay: Theme.hintDelay
-                    ToolTip.timeout: Theme.hintTimeout
-                    HoverHandler {id:metadataHover}
-                }
-            }
+            taskId: root.taskId;title: root.title;notes: root.notes;metadataText: root.metadataText
+            done: root.isDone || root.removingAfterCompletion;overdue: root.isOverdue
+            showSubtasks: root.subtaskTotal>0 && !root.deleted && (root.smartView || !root.childrenExpanded || !root.workspace.preferences.listShowSubtasks)
+            subtaskTotal: root.subtaskTotal;subtaskPending: root.subtaskPending
+            interactive: !root.selectionMode
+            onSubtasksRequested: if(!root.selectionMode)root.subtaskRequested()
         }
+        AppIcon {name:"pin";visible:root.pinned;Layout.preferredWidth:14;Layout.preferredHeight:14;ink:Theme.secondary;Accessible.name:qsTr("已置顶")}
+        AppIcon {name:"flag";visible:root.important;Layout.preferredWidth:14;Layout.preferredHeight:14;ink:Theme.catalogColor("orange");Accessible.name:qsTr("特别关注")}
         Item {
             opacity: root.canDrag && !root.selectionMode && (root.hovered || root.activeFocus || root.dragArmed) ? 1 : 0
             Accessible.ignored: !root.canDrag
@@ -310,7 +296,7 @@ ItemDelegate {
         }
         IconToolButton {
             objectName: "taskDetails-"+root.taskId
-            opacity: root.selectionMode ? 0 : 1
+            opacity: !root.selectionMode && (root.hovered || root.highlighted || root.activeFocus || activeFocus) ? 1 : 0
             Accessible.ignored: root.selectionMode
             enabled: !root.selectionMode
             contentItem: AppIcon {name: root.deleted ? "undo" : "info"}
@@ -325,9 +311,9 @@ ItemDelegate {
     background: Rectangle {
         opacity: root.dragging ? 0.5 : 1
         radius: Theme.rowRadius
-        color: root.selectionMode ? (root.selectedForBatch ? Theme.selected : root.hovered ? Theme.hover : "transparent") : root.expanded ? Theme.grouped : root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"
+        color: root.selectionMode ? (root.selectedForBatch ? Theme.selected : root.hovered ? Theme.hover : "transparent") : root.expanded ? "transparent" : root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"
         border.width: root.visualFocus || root.dragArmed ? 1 : 0;border.color: Theme.accent
         Rectangle {visible: dropZone.containsDrag && !root.dragging;height: 2;width: parent.width;anchors.top: parent.top;color: Theme.accent}
-        Rectangle {objectName: "taskRowSeparator";visible: root.showSeparator && !root.expanded && !root.highlighted && !root.hovered && !root.visualFocus;height: 1;x: root.leftPadding+root.treeGutter+completionAction.width+16+Math.min(24,16*Theme.scale);width: Math.max(0,parent.width-x-root.rightPadding);anchors.bottom: parent.bottom;color: Theme.separator}
+        Rectangle {id:rowSeparator;objectName: "taskRowSeparator";visible: root.showSeparator;height: 1;x: root.leftPadding+root.treeGutter+completionAction.width+8;width: Math.max(0,parent.width-x-root.rightPadding);anchors.bottom: parent.bottom;color: Theme.separator}
     }
 }

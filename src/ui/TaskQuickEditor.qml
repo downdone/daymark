@@ -7,7 +7,6 @@ Control {
     objectName: "taskQuickEditor"
     required property TaskWorkspace workspace
     property bool dirty: false
-    property string relationSymbol: ""
     property bool guardActive: false
     property string titleText: ""
     property string notesText: ""
@@ -41,9 +40,10 @@ Control {
     visible: editing
     readonly property Item completionItem: quickComplete
     readonly property Item titleItem: quickTitle
-    readonly property real textInset: quickComplete.width+16+Math.min(24,16*Theme.scale)
+    readonly property Item notesItem: quickNotes
+    readonly property real textInset: quickComplete.width+8
     padding: 0
-    topPadding: 4;bottomPadding: 4
+    topPadding: 0;bottomPadding: 4
     implicitHeight: implicitContentHeight+topPadding+bottomPadding
     function open(){editing=true;Qt.callLater(focusTitle)}
     function close(){fullNotes.keepOpen=false;hideNotesTooltip.stop();fullNotes.close();quickStart.closePicker();quickEnd.closePicker();reminder.closePicker();tagPicker.close();destinationPicker.close();editing=false}
@@ -57,8 +57,7 @@ Control {
         enabled: !root.workspace.busy || root.workspace.backgroundBusy
         RowLayout {
             Layout.fillWidth: true;spacing: 8
-            IconToolButton {id: quickComplete;hintEnabled: false;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {anchors.centerIn: parent;width: Theme.iconSize;height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.5}} onClicked: root.completeRequested()}
-            AppIcon {name: root.relationSymbol;opacity:root.relationSymbol.length>0 ? 1 : 0;Layout.preferredWidth:Math.min(24,16*Theme.scale);Layout.preferredHeight:Math.min(24,16*Theme.scale)}
+            IconToolButton {id: quickComplete;hintEnabled: false;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {anchors.centerIn: parent;width: Math.min(24,18*Theme.scale);height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.25}} onClicked: root.completeRequested()}
             TextField {
                 id: quickTitle;objectName: "quickEditorTitle"
                 Layout.fillWidth: true
@@ -71,7 +70,7 @@ Control {
             }
             Binding {target: quickTitle;property: "text";value: root.titleText}
             IconToolButton {objectName: "quickEditorDetails";contentItem: AppIcon {name: "info"} Accessible.name: qsTr("完整任务详情");onClicked: root.detailsRequested()}
-            IconToolButton {objectName: "saveQuickEditor";contentItem: AppIcon {name: root.dirty ? "check" : "up";ink: root.dirty ? Theme.accent : Theme.secondary} Accessible.name: root.dirty ? qsTr("保存并收起，%1+Enter").arg(Qt.platform.os==="osx" ? "⌘" : "Ctrl") : qsTr("收起任务，Esc");onClicked: root.dirty ? root.saveRequested() : root.closeRequested()}
+            IconToolButton {objectName: "saveQuickEditor";visible:root.dirty;contentItem: AppIcon {name: "check";ink: Theme.accent} Accessible.name: qsTr("保存并收起，%1+Enter").arg(Qt.platform.os==="osx" ? "⌘" : "Ctrl");onClicked: root.saveRequested()}
         }
         TextField {
             id: quickNotes;objectName: "quickEditorNotes"
