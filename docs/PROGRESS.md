@@ -1,12 +1,12 @@
 # Daymark 实施进度
 
-### 1.0.0源码发布（2026-10-26，IN_PROGRESS；用户授权）
+### 1.0.0源码发布（2026-10-26，SOURCE-PUBLISHED；完整二进制门禁FAIL）
 
 用户要求发布1.0、更新版本并提交GitHub；已明确选择先发布源码，Qt运行库再分发许可待确认，不上传Windows便携二进制。更新CMake/应用版本和当前发行文档，保留旧RC历史，复验Qt6.10.2构建/CTest/QML lint及隐私/相对链接；不提高45秒watchdog预算；20ms轮询/软件渲染试验暴露旧探针去抖、tooltip及虚拟行时序耦合，已撤回，保留60ms及完整断言。源码提交包含此前UX-37、schema9打包校验修正；未跟踪架构提案不纳入。检查远端差异及身份/历史，不强推或重写公共提交；只推main及新建v1.0.0标签，GitHub源码Release明确已知未测与不含二进制。
 
 测试方法审视覆盖全部23个CTest入口，按core/storage/integration/ui/watchdog/performance/package归类，新增fast（17入口）/ui/full脚本及UI资源锁，默认和主CI仍full；[完整方法与链路矩阵](testing-method.md)记录各层唯一风险责任。具名C++测试110→108，仅三个外观偏好重复建库/重启场景合为一个，默认/错误类型/改值/重启断言均保留；原150多处worker轮询改为等待同一stateChanged，仍限原5秒。迁移、WAL、导入晚失败、树CAS/中途失败回滚、提醒去重、平台失败恢复及436末段故障注入不删除。发布说明、应用及Windows文件版本为1.0.0；macOS bundle版本元数据同步但本轮未验证。
 
-使用仅tag触发的GitHub源码发布workflow：本机没有API凭据，复用现有SSH推送及作业短期GITHUB_TOKEN、contents:write创建Release，不新建账户/长期凭据、不上传二进制。源码Release与Qt公开再分发/签名/人工平台门禁分离，见[ADR-022](ADR/022-test-layers-and-source-release.md)。最终Release完整21/23（139.30秒，`v1-final-release-tests.log`），旧qml_startup与qml_watchdog_late仍FAIL；工作区测试4.53秒，UX34工作区0.50秒。两构建/两目标QML lint已通过，Windows命令行和文件/产品版本均为1.0.0。Qt许可工具有服务版本诊断但构建返回成功；未修改、注册或绕过许可设置。Debug最终完整21/23（273.46秒，`v1-final-debug-tests.log`），同两项旧探针FAIL。远端发布待验证；不据源码发布宣称二进制门禁通过。
+使用仅tag触发的GitHub源码发布workflow：本机没有API凭据，复用现有SSH推送及作业短期GITHUB_TOKEN、contents:write创建Release，不新建账户/长期凭据、不上传二进制。源码Release与Qt公开再分发/签名/人工平台门禁分离，见[ADR-022](ADR/022-test-layers-and-source-release.md)。最终Release完整21/23（139.30秒，`v1-final-release-tests.log`），旧qml_startup与qml_watchdog_late仍FAIL；工作区测试4.53秒，UX34工作区0.50秒。两构建/两目标QML lint已通过，Windows命令行和文件/产品版本均为1.0.0。Qt许可工具有服务版本诊断但构建返回成功；未修改、注册或绕过许可设置。Debug最终完整21/23（273.46秒，`v1-final-debug-tests.log`），同两项旧探针FAIL。源码提交`23cbc0a28fc1d842fb24e11a344a19f66af3a633`已推送main，注解标签`v1.0.0`解析至同一提交。已验证[GitHub Release](https://github.com/downdone/daymark/releases/tag/v1.0.0)公开页面HTTP 200、版本及仅源码说明，资产仅GitHub自动源码zip/tar.gz，无上传二进制，无Draft/Pre-release标记。公共API受403限制，当前远端平台CI结论未核实，不据源码发布宣称二进制门禁通过。
 
 ### UX-37A/B/D：桌面选择、关系图标及全局密度（2026-10-26，IMPLEMENTED；定向PASS / 完整门禁FAIL）
 
