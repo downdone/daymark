@@ -92,12 +92,19 @@ ColumnLayout {
             timelineData = workspace.timelineFor(independent ? anchorDate : workspace.calendarDate, calendarScale === "week", !independent);
     }
     onCalendarScaleChanged: {
+        if(calendarScale==="year")selectedDate=workspace.dateOffset(0)
         refreshIndependent();
         refreshTimeline();
     }
     function setScale(value) {
         if(value==="year" && calendarScale!=="year")previousScale=calendarScale
         clearSelection()
+        if(value==="year"){
+            const today=workspace.dateOffset(0)
+            if(independent){if(!workspace.setPreference("desktopCalendarScale",value))return;anchorDate=today;selectedDate=today;independentScale=value;weekMode=false}
+            else presentationRequested(today,value)
+            return
+        }
         if(independent){if(!workspace.setPreference("desktopCalendarScale",value))return;if(calendarScale==="month" && value!=="month")anchorDate=selectedDate;independentScale=value;weekMode=value==="week"}
         else if(calendarScale==="month" && value!=="month")presentationRequested(selectedDate,value)
         else scaleRequested(value)
@@ -359,7 +366,7 @@ ColumnLayout {
             panel.refreshIndependent();
             if (panel.visible && !panel.workspace.busy)
                 rangeRequest.restart();
-            if (panel.calendarScale !== "month" && !panel.days.some(day => day.date === panel.selectedDate)) {
+            if (panel.calendarScale !== "month" && panel.calendarScale!=="year" && !panel.days.some(day => day.date === panel.selectedDate)) {
                 const day = panel.days.find(day => day.inMonth);
                 if (day)
                     panel.selectedDate = day.date;

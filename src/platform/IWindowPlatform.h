@@ -7,6 +7,7 @@ class QWindow;
 namespace daymark {
 
 enum class WindowError { None, WindowUnavailable, OperationRejected, MoveUnsupported };
+enum class WindowLayer { Normal, Topmost, Desktop };
 
 struct WindowResult {
     WindowError error = WindowError::None;
@@ -18,6 +19,7 @@ public:
     virtual ~IWindowPlatform() = default;
     virtual WindowResult prepare(QWindow* window) = 0;
     virtual WindowResult setAlwaysOnTop(QWindow* window, bool enabled) = 0;
+    virtual WindowResult setDesktopPinned(QWindow*,bool) {return {WindowError::OperationRejected};}
     virtual WindowResult resize(QWindow* window, const QSize& size) = 0;
     virtual WindowResult setVisible(QWindow* window, bool visible) = 0;
     virtual WindowResult startMove(QWindow* window) = 0;

@@ -2,6 +2,8 @@
 
 ## 当前入口（2026-10-26）
 
+[UX-42年视图与桌面层级](design/desktop-layer-and-year-focus.md)定义进入年视图回到今天、日历/小窗/Mini固定在桌面与置顶互斥、收集箱紫色及设置关于；1.0.2实际构建和平台证据见PROGRESS。
+
 [UX-41主框架与字标](design/sidebar-and-wordmark.md)移除Windows应用内菜单，将帮助/备份归入设置；原创daymark字标、侧栏权重及大字重排共用验收。
 
 [UX-40提示与菜单字级](design/help-tags-and-menu-type.md)定义全局tooltip准入、抑制与例外，并补齐日历连续拖选、年视图去重、草稿标题拖动及点击外部保存契约；真实验证见PROGRESS。

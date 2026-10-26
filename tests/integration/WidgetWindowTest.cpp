@@ -1,5 +1,6 @@
 #include "models/WidgetViewModel.h"
 #include "platform/common/QtWindowPlatform.h"
+#include "platform/common/NativeWindowLayer.h"
 
 #include <QSignalSpy>
 #include <QWindow>
@@ -15,11 +16,14 @@ public:
     QtWindowPlatform qt;
     bool rejectResize = false;
     bool rejectTop = false;
+    bool rejectDesktop=false;
     WindowResult prepare(QWindow* w) override { return qt.prepare(w); }
     WindowResult resize(QWindow* w, const QSize& size) override
     { return rejectResize ? WindowResult{WindowError::OperationRejected} : qt.resize(w, size); }
     WindowResult setAlwaysOnTop(QWindow* w, bool top) override
     { return rejectTop ? WindowResult{WindowError::OperationRejected} : qt.setAlwaysOnTop(w, top); }
+    WindowResult setDesktopPinned(QWindow* w,bool enabled)override
+    {return rejectDesktop?WindowResult{WindowError::OperationRejected}:qt.setDesktopPinned(w,enabled);}
     WindowResult setVisible(QWindow* w, bool visible) override { return qt.setVisible(w, visible); }
     WindowResult startMove(QWindow*) override { return {WindowError::MoveUnsupported}; }
 };
@@ -27,6 +31,29 @@ public:
 class WidgetWindowTest : public QObject {
     Q_OBJECT
 private slots:
+    void desktopLayerPersistsAndSurvivesWindowChanges()
+    {
+        QTemporaryDir dir;QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;
+        window.setGeometry(80,100,360,240);model.configureSettings(dir.filePath("ui.ini"));QVERIFY(model.attachWindow(&window));
+        const auto geometry=window.geometry();QVERIFY(model.setDesktopPinned(true));QVERIFY(model.desktopPinned());QVERIFY(!model.alwaysOnTop());QCOMPARE(window.geometry(),geometry);QVERIFY(!model.visible());
+        QVERIFY(model.setMini(true));QVERIFY(model.desktopPinned());QCOMPARE(window.size(),QSize(260,48));QVERIFY(model.setMini(false));QCOMPARE(window.geometry(),geometry);
+        model.setTrayAvailable(true);QVERIFY(model.setClickThrough(true));QVERIFY(model.desktopPinned());QVERIFY(model.setClickThrough(false));
+        QVERIFY(model.setVisible(true));QCoreApplication::processEvents();
+        if(QGuiApplication::platformName()=="offscreen")QVERIFY(!nativeWindowLayerMatches(&window,WindowLayer::Desktop));
+        else {QTRY_VERIFY(nativeWindowLayerMatches(&window,WindowLayer::Desktop));window.raise();window.requestActivate();QCoreApplication::processEvents();QVERIFY(nativeWindowLayerMatches(&window,WindowLayer::Desktop));}
+        QVERIFY(model.setVisible(false));QVERIFY(model.setVisible(true));QCoreApplication::processEvents();QVERIFY(model.desktopPinned());
+        model.saveSettings();
+        WidgetViewModel restored(platform);QWindow second;second.resize(340,190);restored.configureSettings(dir.filePath("ui.ini"));QVERIFY(restored.attachWindow(&second));QVERIFY(restored.desktopPinned());QVERIFY(!restored.alwaysOnTop());
+        QVERIFY(model.setAlwaysOnTop(true));QVERIFY(model.alwaysOnTop());QVERIFY(!model.desktopPinned());
+        QVERIFY(model.setDesktopPinned(true));QVERIFY(model.setDesktopPinned(false));QVERIFY(!model.desktopPinned() && !model.alwaysOnTop());QCOMPARE(window.geometry(),geometry);
+        if(QGuiApplication::platformName()!="offscreen")QVERIFY(nativeWindowLayerMatches(&window,WindowLayer::Normal));
+    }
+    void rejectedDesktopModeKeepsOriginalLayer()
+    {
+        RejectingPlatform platform;WidgetViewModel model(platform);QWindow window;window.resize(360,240);QVERIFY(model.attachWindow(&window));
+        platform.rejectDesktop=true;QVERIFY(!model.setDesktopPinned(true));QVERIFY(!model.desktopPinned());QVERIFY(model.alwaysOnTop());QVERIFY(!model.errorText().isEmpty());
+        platform.rejectDesktop=false;QVERIFY(model.setDesktopPinned(true));platform.rejectTop=true;QVERIFY(!model.setAlwaysOnTop(true));QVERIFY(model.desktopPinned());QVERIFY(!model.alwaysOnTop());
+    }
     void passthroughRequiresRecoveryAndSettingsStayIsolated()
     {
         QTemporaryDir dir;

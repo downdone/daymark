@@ -93,6 +93,8 @@ Window {
                             x: parent.width-width;y: parent.height
                             MenuItem {text: qsTr("打开主窗口");onTriggered: widget.openMainRequested()}
                             MenuSeparator {}
+                            MenuItem {objectName:"widgetDesktopPinnedMenu";text:qsTr("固定在桌面");checkable:true;checked:widget.controller.desktopPinned;onTriggered:widget.controller.setDesktopPinned(!widget.controller.desktopPinned)}
+                            MenuItem {text:qsTr("保持置顶");checkable:true;checked:widget.controller.alwaysOnTop;onTriggered:widget.controller.setAlwaysOnTop(!widget.controller.alwaysOnTop)}
                             MenuItem {text: qsTr("锁定位置与大小");checkable: true;checked: widget.controller.locked;onTriggered: widget.controller.setLocked(checked)}
                             MenuItem {text: qsTr("鼠标穿透（托盘/主窗恢复）");enabled: widget.controller.trayAvailable;onTriggered: widget.controller.setClickThrough(true)}
                             MenuItem {text: qsTr("外观与组件设置…");onTriggered: widget.settingsRequested()}
@@ -180,6 +182,7 @@ Window {
                     ToolTip.text: widget.errorMessage || widget.workspace.firstTodayTitle
                 }
                 WidgetAction {objectName: "widgetExpand";symbol: "down";description: qsTr("展开任务组件");onClicked: widget.controller.setMini(false)}
+                WidgetAction {id:miniMore;objectName:"miniMore";symbol:"more";description:qsTr("组件菜单");onClicked:widgetMenu.popup(miniMore,0,miniMore.height)}
             }
             MouseArea {
                 anchors.right: parent.right;anchors.bottom: parent.bottom

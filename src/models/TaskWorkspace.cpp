@@ -1,4 +1,5 @@
 #include "TaskWorkspace.h"
+#include "platform/common/QtWindowPlatform.h"
 #include "services/ReminderSchedule.h"
 #include <QGuiApplication>
 #include <QStyleHints>
@@ -197,6 +198,8 @@ void TaskWorkspace::start(const QString& path) {
         else if(stored.toString()==QStringLiteral("true") || stored.toString()==QStringLiteral("false"))it.value()=stored.toBool();
     }
     m_calendarScale=m_preferences.value(QStringLiteral("calendarScale")).toString();
+    if(m_preferences.value(QStringLiteral("desktopCalendarPinned")).toBool())m_preferences[QStringLiteral("desktopCalendarTopmost")]=false;
+    applyCalendarLayer(m_preferences.value(QStringLiteral("desktopCalendarPinned")).toBool(),m_preferences.value(QStringLiteral("desktopCalendarTopmost")).toBool());
     reload();
 }
 bool TaskWorkspace::begin(bool clearFeedback)
@@ -255,6 +258,7 @@ void TaskWorkspace::setView(const QString& view)
     if(!view.startsWith(QStringLiteral("project:")) && !view.startsWith(QStringLiteral("area:")) && !view.startsWith(QStringLiteral("tag:"))
        && !QStringList{QStringLiteral("all"),QStringLiteral("scheduled"),QStringLiteral("completed"),QStringLiteral("cancelled"),QStringLiteral("trash"),QStringLiteral("inbox"),QStringLiteral("today"),QStringLiteral("upcoming"),QStringLiteral("anytime"),QStringLiteral("someday"),QStringLiteral("important"),QStringLiteral("repeating"),QStringLiteral("logbook"),QStringLiteral("month"),QStringLiteral("week"),QStringLiteral("day"),QStringLiteral("year")}.contains(view))return;
     if(QStringList{"day","week","month","year"}.contains(view) && m_calendarScale!=view){if(!setPreference(QStringLiteral("calendarScale"),view))return;}
+    if(view==QStringLiteral("year") && m_view!=view)m_calendarDate=m_today;
     m_view=view;
     if(calendarMode())m_calendarScale=view;else m_scope=view;
     refresh();emit stateChanged();
@@ -263,7 +267,9 @@ void TaskWorkspace::setScope(const QString& scope)
 {
     const bool calendar=calendarMode();
     setView(scope);
-    if(calendar && scope!=QStringLiteral("trash") && scope!=QStringLiteral("logbook") && scope!=QStringLiteral("completed") && scope!=QStringLiteral("cancelled"))setView(m_calendarScale);
+    // A scope change preserves the current calendar navigation; only entering
+    // year presentation explicitly returns to today.
+    if(calendar && scope!=QStringLiteral("trash") && scope!=QStringLiteral("logbook") && scope!=QStringLiteral("completed") && scope!=QStringLiteral("cancelled")){m_view=m_calendarScale;refresh();emit stateChanged();}
 }
 void TaskWorkspace::setSearch(const QString& search)
 {
@@ -397,12 +403,18 @@ bool TaskWorkspace::setPreference(const QString& key,const QVariant& value)
     else if(key==QStringLiteral("desktopCalendarOpacity")){bool ok=false;const int opacity=value.toInt(&ok);if(!ok || opacity<50 || opacity>100)return false;}
     else if(key==QStringLiteral("calendarScale") || key==QStringLiteral("desktopCalendarScale")){if(!QStringList{"day","week","month","year"}.contains(value.toString()))return false;}
     else if(value.metaType().id()!=QMetaType::Bool)return false;
+    const bool calendarLayer=key==QStringLiteral("desktopCalendarPinned") || key==QStringLiteral("desktopCalendarTopmost");
+    auto next=m_preferences;next[key]=value;
+    if(calendarLayer && value.toBool())next[key==QStringLiteral("desktopCalendarPinned")?QStringLiteral("desktopCalendarTopmost"):QStringLiteral("desktopCalendarPinned")]=false;
+    if(calendarLayer && !applyCalendarLayer(next.value(QStringLiteral("desktopCalendarPinned")).toBool(),next.value(QStringLiteral("desktopCalendarTopmost")).toBool()))return false;
     QSettings settings(QFileInfo(m_path).dir().filePath(QStringLiteral("ui.ini")),QSettings::IniFormat);
     settings.setValue(QStringLiteral("preferences/")+key,value);
+    if(calendarLayer){settings.setValue(QStringLiteral("preferences/desktopCalendarPinned"),next.value(QStringLiteral("desktopCalendarPinned")));settings.setValue(QStringLiteral("preferences/desktopCalendarTopmost"),next.value(QStringLiteral("desktopCalendarTopmost")));}
     const bool manualAccessibility=key==QStringLiteral("reduceMotion") || key==QStringLiteral("highContrast");
     if(manualAccessibility)settings.setValue(QStringLiteral("preferences/followSystemAccessibility"),false);
     settings.sync();
-    if(settings.status()!=QSettings::NoError){settingsFailed();return false;}
+    if(settings.status()!=QSettings::NoError){if(calendarLayer)applyCalendarLayer(m_preferences.value(QStringLiteral("desktopCalendarPinned")).toBool(),m_preferences.value(QStringLiteral("desktopCalendarTopmost")).toBool());settingsFailed();return false;}
+    if(calendarLayer)m_preferences=next;
     m_preferences[key]=value;if(manualAccessibility)m_preferences[QStringLiteral("followSystemAccessibility")]=false;if(key==QStringLiteral("listShowSubtasks"))refresh();emit stateChanged();return true;
 }
 QVariantMap TaskWorkspace::systemAccessibility() const
@@ -486,6 +498,7 @@ QString TaskWorkspace::errorText() const
 {
     if(m_error.code==ErrorCode::None)return {};
     const auto& key=m_error.key;
+    if(key==QStringLiteral("windowLayer"))return tr("未能应用日历窗口层级，原设置已保留。请关闭固定或置顶后重试。");
     if(key==QStringLiteral("titleInvalid"))return tr("标题不能为空，且不能超过512个Unicode字符。");
     if(key==QStringLiteral("dateInvalid"))return tr("日期无效。请使用 yyyy-MM-dd，或留空清除日期。");
     if(key==QStringLiteral("eventRange"))return tr("事件结束必须晚于开始。请检查日期、时间及有效时区。");

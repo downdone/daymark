@@ -9,8 +9,12 @@
 #include <functional>
 #include <QHash>
 #include <QSet>
+#include <QPointer>
+#include <memory>
+#include <QWindow>
 
 namespace daymark {
+class QtWindowPlatform;
 
 class TaskListModel : public QAbstractListModel {
     Q_OBJECT
@@ -225,6 +229,7 @@ public:
     Q_INVOKABLE QVariantMap catalogImpact(const QString& kind,const QString& id) const;
     Q_INVOKABLE int batchImpact(const QVariantList& selection,const QString& action) const;
     Q_INVOKABLE bool setPreference(const QString& key,const QVariant& value);
+    Q_INVOKABLE bool attachDesktopCalendarWindow(QWindow* window);
     Q_INVOKABLE bool undoDelete();
     Q_INVOKABLE bool createBackup();
     bool verifyStorage();
@@ -295,8 +300,11 @@ private:
     bool m_calendarCompleted=false;
     QVariantList m_taskNotifications;
     QVariantMap m_viewCounts;
-    QVariantMap m_preferences{{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
+    QVariantMap m_preferences{{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarPinned",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
+    bool applyCalendarLayer(bool desktop,bool topmost);
+    QPointer<QWindow> m_calendarWindow;
+    std::unique_ptr<QtWindowPlatform> m_calendarPlatform;
 };
 
 } // namespace daymark

@@ -8,6 +8,31 @@ using namespace daymark;
 class Ux34WorkspaceTest:public QObject {
     Q_OBJECT
 private slots:
+    void yearEntryReturnsToTodayAndScopeChangesKeepNavigation() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("year.sqlite"));QVERIFY(daymark::test::awaitIdle(w,true));
+        w.setView("month");w.selectCalendarDate("1998-05-12");w.setView("year");QCOMPARE(w.calendarDate(),w.dateOffset(0));
+        w.stepCalendar(1);const auto browsed=w.calendarDate();QVERIFY(browsed!=w.dateOffset(0));w.setScope("all");QCOMPARE(w.calendarDate(),browsed);QCOMPARE(w.calendarScale(),QString("year"));
+        w.setView("week");w.setView("year");QCOMPARE(w.calendarDate(),w.dateOffset(0));
+    }
+    void calendarDesktopLayerSettingsStayIndependentAndMutuallyExclusive() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("layer.sqlite"));QVERIFY(daymark::test::awaitIdle(w,true));QWindow calendar;calendar.setGeometry(40,50,500,400);
+        QVERIFY(w.attachDesktopCalendarWindow(&calendar));const auto geometry=calendar.geometry();
+        QVERIFY(w.setPreference("desktopCalendarTopmost",true));QVERIFY(calendar.flags().testFlag(Qt::WindowStaysOnTopHint));
+        QVERIFY(w.setPreference("desktopCalendarPinned",true));QVERIFY(w.preferences().value("desktopCalendarPinned").toBool());QVERIFY(!w.preferences().value("desktopCalendarTopmost").toBool());QVERIFY(calendar.flags().testFlag(Qt::WindowStaysOnBottomHint));QCOMPARE(calendar.geometry(),geometry);QVERIFY(!calendar.isVisible());
+        TaskWorkspace reopened;reopened.start(dir.filePath("layer.sqlite"));QVERIFY(daymark::test::awaitIdle(reopened,true));QWindow second;QVERIFY(reopened.attachDesktopCalendarWindow(&second));QVERIFY(second.flags().testFlag(Qt::WindowStaysOnBottomHint));
+        QVERIFY(w.setPreference("desktopCalendarTopmost",true));QVERIFY(!w.preferences().value("desktopCalendarPinned").toBool());QVERIFY(!calendar.flags().testFlag(Qt::WindowStaysOnBottomHint));
+        QVERIFY(w.setPreference("desktopCalendarPinned",true));QVERIFY(w.setPreference("desktopCalendarPinned",false));QVERIFY(!calendar.flags().testFlag(Qt::WindowStaysOnTopHint));QVERIFY(!calendar.flags().testFlag(Qt::WindowStaysOnBottomHint));
+    }
+    void calendarLayerRollsBackWhenSettingsCannotBeWritten() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("failed-layer.sqlite"));QVERIFY(daymark::test::awaitIdle(w,true));
+        QWindow calendar;QVERIFY(w.attachDesktopCalendarWindow(&calendar));
+        QVERIFY(QDir().mkdir(dir.filePath("ui.ini")));
+        QVERIFY(!w.setPreference("desktopCalendarPinned",true));
+        QVERIFY(!w.preferences().value("desktopCalendarPinned").toBool());
+        QVERIFY(!calendar.flags().testFlag(Qt::WindowStaysOnBottomHint));
+        QVERIFY(!calendar.flags().testFlag(Qt::WindowStaysOnTopHint));
+        QVERIFY(!w.errorText().isEmpty());
+    }
     void calendarDraftAndAtomicCreation() {
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("draft.sqlite"));QVERIFY(daymark::test::awaitIdle(w,true));
         QVERIFY(w.saveCatalog({{"kind","project"},{"title","Draft category"}}));QVERIFY(daymark::test::awaitIdle(w));

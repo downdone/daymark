@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 1.0.1 LANGUAGES CXX)
-set(DAYMARK_VERSION "1.0.1")
+project(Daymark VERSION 1.0.2 LANGUAGES CXX)
+set(DAYMARK_VERSION "1.0.2")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -61,12 +61,11 @@ endif()
 
 set(DAYMARK_WINDOW_SOURCES
     src/platform/IWindowPlatform.h
-    src/platform/common/QtWindowPlatform.h src/platform/common/QtWindowPlatform.cpp
     src/models/WidgetViewModel.h src/models/WidgetViewModel.cpp
 )
 
 set(DAYMARK_WORKSPACE_SOURCES
-    src/models/TaskWorkspace.h src/models/TaskWorkspace.cpp src/models/TaskWorkspaceCalendar.cpp
+    src/models/TaskWorkspace.h src/models/TaskWorkspace.cpp src/models/TaskWorkspaceCalendar.cpp src/models/TaskWorkspaceWindow.cpp
 )
 
 qt_add_executable(daymark src/app/Ux35SmokeProbe.h src/app/Ux35SmokeProbe.cpp src/app/Ux34SmokeProbe.h src/app/Ux34SmokeProbe.cpp src/platform/common/ApplicationMenus.h src/platform/common/ApplicationMenus.cpp src/main.cpp src/app/AppRuntime.h src/app/AppRuntime.cpp src/app/SoakRunner.h src/app/SoakRunner.cpp)
@@ -90,6 +89,23 @@ elseif(APPLE)
     set_source_files_properties(assets/icons/daymark.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
     set_target_properties(daymark PROPERTIES MACOSX_BUNDLE_ICON_FILE daymark.icns)
 endif()
+# Shared UI platform port, linked by the app and isolated integration tests.
+set(DAYMARK_NATIVE_LAYER src/platform/common/NativeWindowLayerStub.cpp)
+if(APPLE)
+    set(DAYMARK_NATIVE_LAYER src/platform/macos/NativeWindowLayer.mm)
+elseif(WIN32)
+    set(DAYMARK_NATIVE_LAYER src/platform/windows/NativeWindowLayer.cpp)
+endif()
+qt_add_library(daymark_window_platform STATIC src/platform/common/QtWindowPlatform.h src/platform/common/QtWindowPlatform.cpp src/platform/common/NativeWindowLayer.h ${DAYMARK_NATIVE_LAYER})
+target_include_directories(daymark_window_platform PUBLIC src)
+target_link_libraries(daymark_window_platform PUBLIC Qt6::Core Qt6::Gui)
+if(APPLE)
+    find_library(DAYMARK_COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
+    set_target_properties(daymark_window_platform PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
+    target_link_libraries(daymark_window_platform PRIVATE ${DAYMARK_APPKIT_FRAMEWORK} ${DAYMARK_COREGRAPHICS_FRAMEWORK})
+elseif(WIN32)
+    target_link_libraries(daymark_window_platform PRIVATE user32)
+endif()
 set_source_files_properties(src/ui/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 target_sources(daymark PRIVATE src/platform/common/DesktopTray.h src/platform/common/DesktopTray.cpp)
 target_sources(daymark PRIVATE src/platform/common/WindowStateStore.h src/platform/common/WindowStateStore.cpp)
@@ -97,7 +113,7 @@ target_sources(daymark PRIVATE src/platform/common/SystemEventFilter.h src/platf
 qt_add_qml_module(daymark
     URI Daymark
     VERSION 1.0
-    QML_FILES src/ui/TaskSelection.qml src/ui/BrandWordmark.qml
+    QML_FILES src/ui/TaskSelection.qml src/ui/BrandWordmark.qml src/ui/SettingsAboutPage.qml
     QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/WidgetTaskRow.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
     QML_FILES src/ui/CalendarMonthStream.qml src/ui/CalendarMonthGrid.qml src/ui/ListViewportState.qml src/ui/CalendarDateMoveDialog.qml src/ui/CalendarCreatePopup.qml src/ui/UnscheduledTasksPanel.qml src/ui/TaskDragGesture.qml src/ui/TaskDragPayload.qml src/ui/TaskInspectorPicker.qml src/ui/CalendarTimeline.qml src/ui/YearCalendar.qml src/ui/TaskEditorSession.qml src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES ${DAYMARK_WINDOW_SOURCES} ${DAYMARK_WORKSPACE_SOURCES} src/platform/common/StartupController.h src/platform/common/StartupController.cpp
@@ -105,7 +121,7 @@ qt_add_qml_module(daymark
 )
 target_include_directories(daymark PRIVATE src src/models src/platform/common)
 target_sources(daymark PRIVATE src/app/Ux37SmokeProbe.h src/app/Ux37SmokeProbe.cpp src/app/Ux38SmokeProbe.h src/app/Ux38SmokeProbe.cpp src/app/Ux39SmokeProbe.h src/app/Ux39SmokeProbe.cpp)
-target_link_libraries(daymark PRIVATE daymark_core daymark_styleplugin Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Network)
+target_link_libraries(daymark PRIVATE daymark_window_platform daymark_core daymark_styleplugin Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Network)
 target_compile_definitions(daymark PRIVATE DAYMARK_VERSION="${DAYMARK_VERSION}")
 set_target_properties(daymark PROPERTIES WIN32_EXECUTABLE TRUE MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
@@ -168,12 +184,12 @@ if(BUILD_TESTING)
     set_tests_properties(task_service PROPERTIES TIMEOUT 30)
     qt_add_executable(test_ux34_workspace tests/integration/Ux34WorkspaceTest.cpp ${DAYMARK_WORKSPACE_SOURCES})
     target_include_directories(test_ux34_workspace PRIVATE src)
-    target_link_libraries(test_ux34_workspace PRIVATE daymark_core Qt6::Qml Qt6::Gui Qt6::Widgets Qt6::Test)
+    target_link_libraries(test_ux34_workspace PRIVATE daymark_window_platform daymark_core Qt6::Qml Qt6::Gui Qt6::Widgets Qt6::Test)
     add_test(NAME ux34_workspace COMMAND test_ux34_workspace)
     set_tests_properties(ux34_workspace PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
     qt_add_executable(test_task_workspace tests/integration/TaskWorkspaceTest.cpp ${DAYMARK_WORKSPACE_SOURCES})
     target_include_directories(test_task_workspace PRIVATE src)
-    target_link_libraries(test_task_workspace PRIVATE daymark_core Qt6::Qml Qt6::Gui Qt6::Test)
+    target_link_libraries(test_task_workspace PRIVATE daymark_window_platform daymark_core Qt6::Qml Qt6::Gui Qt6::Test)
     add_test(NAME task_workspace COMMAND test_task_workspace)
     set_tests_properties(task_workspace PROPERTIES TIMEOUT 40)
     qt_add_executable(test_single_instance tests/integration/SingleInstanceTest.cpp src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp)
@@ -183,7 +199,7 @@ if(BUILD_TESTING)
     set_tests_properties(single_instance PROPERTIES TIMEOUT 20)
     qt_add_executable(test_widget_window tests/integration/WidgetWindowTest.cpp ${DAYMARK_WINDOW_SOURCES})
     target_include_directories(test_widget_window PRIVATE src)
-    target_link_libraries(test_widget_window PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Test)
+    target_link_libraries(test_widget_window PRIVATE daymark_window_platform Qt6::Core Qt6::Gui Qt6::Qml Qt6::Test)
     add_test(NAME widget_window COMMAND test_widget_window)
     set_tests_properties(widget_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20)
     add_test(NAME qml_startup COMMAND daymark --smoke-test)

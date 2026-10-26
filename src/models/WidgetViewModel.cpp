@@ -1,4 +1,5 @@
 #include "WidgetViewModel.h"
+#include "platform/common/QtWindowPlatform.h"
 #include <QGuiApplication>
 #include <QScreen>
 #include <cmath>
@@ -11,6 +12,7 @@ WidgetViewModel::WidgetViewModel(IWindowPlatform& platform, QObject* parent)
     m_saveTimer.setSingleShot(true);m_saveTimer.setInterval(500);
     connect(&m_saveTimer,&QTimer::timeout,this,&WidgetViewModel::saveSettings);
     connect(this,&WidgetViewModel::stateChanged,this,[this]{if(m_settings && m_window)m_saveTimer.start();});
+    if(auto* qt=dynamic_cast<QtWindowPlatform*>(&m_platform))connect(qt,&QtWindowPlatform::layerRestoreFailed,this,[this](QWindow* window){if(window==m_window)accept({WindowError::OperationRejected});});
 }
 
 bool WidgetViewModel::attachWindow(QWindow* window)
@@ -58,6 +60,7 @@ bool WidgetViewModel::attachWindow(QWindow* window)
         }
         window->setPosition(position);
         setAlwaysOnTop(m_settings->value(QStringLiteral("widget/alwaysOnTop"),true).toBool());
+        if(m_settings->value(QStringLiteral("widget/desktopPinned"),false).toBool())setDesktopPinned(true);
         setMini(m_settings->value(QStringLiteral("widget/mini"),false).toBool());
         normalizeGeometry();
     }
@@ -87,6 +90,10 @@ bool WidgetViewModel::setAlwaysOnTop(bool enabled)
     // Re-evaluate checkable UI controls even when the platform rejects a toggle.
     emit stateChanged();
     return succeeded;
+}
+bool WidgetViewModel::setDesktopPinned(bool enabled)
+{
+    const bool success=accept(m_platform.setDesktopPinned(m_window,enabled));emit stateChanged();return success;
 }
 
 bool WidgetViewModel::setVisible(bool visible)
@@ -157,6 +164,7 @@ void WidgetViewModel::saveSettings()
     m_settings->setValue(QStringLiteral("widget/mini"),m_mini);
     m_settings->setValue(QStringLiteral("widget/visible"),visible());
     m_settings->setValue(QStringLiteral("widget/alwaysOnTop"),alwaysOnTop());
+    m_settings->setValue(QStringLiteral("widget/desktopPinned"),desktopPinned());
     m_settings->setValue(QStringLiteral("widget/locked"),m_locked);
     m_settings->setValue(QStringLiteral("widget/backgroundOpacity"),m_backgroundOpacity);
     m_settings->setValue(QStringLiteral("main/closeToTray"),m_closeToTray);

@@ -6,7 +6,7 @@ Windows/macOS离线任务管理与日历应用，C++20 + **Qt 6.10.2 / Qt Quick*
 
 当前源码按[统一任务系统](docs/design/unified-task-system.md)结合日历与提醒事项：所有内容统一为任务，支持起止时间、循环、周期提醒、真实父子任务与两级分类；分类取代项目/领域，子任务取代检查清单。侧栏删除规划，顶部切换列表/日历，共用详情、完成与编辑记录。导航采用今天、计划、全部、特别关注、完成五个自动视图；父子任务完成、删除、分类移动联动，最近删除按同次操作恢复。分类与标签在右键就近管理。数据库schema9；本轮实现与验证仅以[PROGRESS](docs/PROGRESS.md)为准，RC2包描述仅为历史发行范围。
 
-当前源码版本为 **1.0.1**，对应`v1.0.1`标签（保留已发布`v1.0.0`）；本次仅发布源码，不附Qt运行库或用户数据。[1.0.1发行说明](docs/release-notes-v1.0.1.md)列出当前能力和边界，[测试方法](docs/testing-method.md)说明分层、去重及链路覆盖；实际PASS/FAIL/UNVERIFIED只见[进度](docs/PROGRESS.md)。
+当前源码版本为 **1.0.2**；版本提交与远端标签/发布分别记录，不覆盖已有版本。本轮不附Qt运行库或用户数据。[1.0.2发行说明](docs/release-notes-v1.0.2.md)列出变化和边界，[测试方法](docs/testing-method.md)说明分层、去重及链路覆盖；实际PASS/FAIL/UNVERIFIED只见[进度](docs/PROGRESS.md)。
 
 Windows/macOS是工程目标，当前源码的跨平台CI及物理输入、通知/穿透、多屏/睡眠/8h、独立部署和签名仍需分别验收，不能以1.0版本号或历史测试代替。Qt运行库公开再分发许可未确认，因此Windows便携包暂不公开上传；[RC2记录](docs/release-notes-v1-rc2.md)及[v0.1记录](docs/release-notes-v0.1.md)保留历史。
 

@@ -1,4 +1,9 @@
 #include "QtWindowPlatform.h"
+#include "NativeWindowLayer.h"
+#include <QEvent>
+#include <QPlatformSurfaceEvent>
+#include <QPointer>
+#include <QTimer>
 
 #include <QGuiApplication>
 #include <QWindow>
@@ -16,24 +21,78 @@ WindowResult QtWindowPlatform::prepare(QWindow* window)
     return {};
 }
 
-WindowResult QtWindowPlatform::setAlwaysOnTop(QWindow* window, bool enabled)
+void QtWindowPlatform::watch(QWindow* window)
+{
+    if (m_watched.contains(window))
+        return;
+    m_watched.insert(window);
+    window->installEventFilter(this);
+    connect(window, &QObject::destroyed, this, [this, window] {
+        m_watched.remove(window);
+        m_pending.remove(window);
+    });
+}
+WindowResult QtWindowPlatform::restoreLayer(QWindow* window)
+{
+    const auto backend = QGuiApplication::platformName();
+    if (backend == QStringLiteral("offscreen") || backend == QStringLiteral("minimal"))
+        return {}; // Only Qt state can be tested without a native window system.
+    const auto flags = window->flags();
+    const auto layer = flags.testFlag(Qt::WindowStaysOnBottomHint) ? WindowLayer::Desktop
+        : flags.testFlag(Qt::WindowStaysOnTopHint) ? WindowLayer::Topmost : WindowLayer::Normal;
+    return applyNativeWindowLayer(window, layer);
+}
+bool QtWindowPlatform::eventFilter(QObject* watched, QEvent* event)
+{
+    auto* window = qobject_cast<QWindow*>(watched);
+    const bool created = event->type() == QEvent::PlatformSurface
+        && static_cast<QPlatformSurfaceEvent*>(event)->surfaceEventType() == QPlatformSurfaceEvent::SurfaceCreated;
+    if (window && (created || event->type() == QEvent::Show || event->type() == QEvent::WindowActivate)
+        && !m_pending.contains(window)) {
+        m_pending.insert(window);
+        QPointer<QWindow> guard(window);
+        // Let Qt finish changing the handle before restoring its native level.
+        QTimer::singleShot(0, this, [this, guard] {
+            if (!guard)
+                return;
+            m_pending.remove(guard.data());
+            if (guard->handle() && !restoreLayer(guard.data()).succeeded())
+                emit layerRestoreFailed(guard.data());
+        });
+    }
+    return QObject::eventFilter(watched, event);
+}
+WindowResult QtWindowPlatform::setLayer(QWindow* window, WindowLayer layer)
 {
     if (!window)
         return {WindowError::WindowUnavailable};
+    watch(window);
     const auto oldFlags = window->flags();
-    const auto oldGeometry = window->geometry();
-    const bool wasVisible = window->isVisible();
-    window->setFlag(Qt::WindowStaysOnTopHint, enabled);
-    window->setGeometry(oldGeometry);
-    window->setVisible(wasVisible);
-    if (window->flags().testFlag(Qt::WindowStaysOnTopHint) != enabled) {
+    const auto geometry = window->geometry();
+    const bool visible = window->isVisible();
+    auto flags = oldFlags;
+    flags.setFlag(Qt::WindowStaysOnTopHint, layer == WindowLayer::Topmost);
+    flags.setFlag(Qt::WindowStaysOnBottomHint, layer == WindowLayer::Desktop);
+    window->setFlags(flags);
+    window->setGeometry(geometry);
+    window->setVisible(visible);
+    const auto result = restoreLayer(window);
+    if (!result.succeeded() || window->flags() != flags) {
         window->setFlags(oldFlags);
-        window->setGeometry(oldGeometry);
-        window->setVisible(wasVisible);
-        return {WindowError::OperationRejected};
+        window->setGeometry(geometry);
+        window->setVisible(visible);
+        restoreLayer(window);
+        return result.succeeded() ? WindowResult{WindowError::OperationRejected} : result;
     }
-    // This checks Qt's accepted flag, not OS-level stacking or focus behavior.
     return {};
+}
+WindowResult QtWindowPlatform::setAlwaysOnTop(QWindow* window, bool enabled)
+{
+    return setLayer(window, enabled ? WindowLayer::Topmost : WindowLayer::Normal);
+}
+WindowResult QtWindowPlatform::setDesktopPinned(QWindow* window, bool enabled)
+{
+    return setLayer(window, enabled ? WindowLayer::Desktop : WindowLayer::Normal);
 }
 
 WindowResult QtWindowPlatform::resize(QWindow* window, const QSize& size)
@@ -61,7 +120,11 @@ WindowResult QtWindowPlatform::setClickThrough(QWindow* window, bool enabled)
         window->setFlags(flags);window->setGeometry(geometry);window->setVisible(visible);
         return {WindowError::OperationRejected};
     }
-    return {};
+    const auto result=restoreLayer(window);
+    if(!result.succeeded()){
+        window->setFlags(flags);window->setGeometry(geometry);window->setVisible(visible);restoreLayer(window);
+    }
+    return result;
 }
 
 WindowResult QtWindowPlatform::setVisible(QWindow* window, bool visible)

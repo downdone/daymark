@@ -19,6 +19,7 @@ class WidgetViewModel final : public QObject {
     Q_PROPERTY(bool ready READ ready NOTIFY stateChanged)
     Q_PROPERTY(bool mini READ mini NOTIFY stateChanged)
     Q_PROPERTY(bool alwaysOnTop READ alwaysOnTop NOTIFY stateChanged)
+    Q_PROPERTY(bool desktopPinned READ desktopPinned NOTIFY stateChanged)
     Q_PROPERTY(bool visible READ visible NOTIFY stateChanged)
     Q_PROPERTY(QString errorText READ errorText NOTIFY errorChanged)
     Q_PROPERTY(int errorCode READ errorCode NOTIFY errorChanged)
@@ -34,6 +35,7 @@ public:
     bool ready() const { return !m_window.isNull(); }
     bool mini() const { return m_mini; }
     bool alwaysOnTop() const { return m_window && m_window->flags().testFlag(Qt::WindowStaysOnTopHint); }
+    bool desktopPinned() const {return m_window && m_window->flags().testFlag(Qt::WindowStaysOnBottomHint);}
     bool visible() const { return m_window && m_window->isVisible(); }
     QString errorText() const;
     int errorCode() const { return static_cast<int>(m_error); }
@@ -49,6 +51,7 @@ public:
 
     Q_INVOKABLE bool setMini(bool mini);
     Q_INVOKABLE bool setAlwaysOnTop(bool enabled);
+    Q_INVOKABLE bool setDesktopPinned(bool enabled);
     Q_INVOKABLE bool setVisible(bool visible);
     Q_INVOKABLE bool startMove();
     Q_INVOKABLE bool startResize();

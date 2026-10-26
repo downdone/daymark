@@ -27,6 +27,8 @@ READY 至少有需求 ID、用户可见结果、受影响模块、失败行为�
 
 ## 文档、决策和任务记录
 
+桌面窗口层级共用`daymark_window_platform`：QtWindowPlatform负责互斥、几何/可见性及重建恢复，macOS/Windows实现分别位于src/platform，TaskWorkspaceWindow仅协调独立日历窗口与设置，WidgetViewModel复用同一端口。QML不调用原生API；离屏检查状态契约，原生测试另验实际层级。
+
 每个事实只维护一处，其他文档链接引用。需求基线保留；ADR 编号接续 TDD 的 ADR-001～006，以追加或新 ADR 替代决策，不抹掉原意。任务记录采用 [模板](templates/task.md)，复杂切片存入 docs/tasks/；小改动可直接在 PROGRESS 记录，避免文档膨胀。
 
 API、数据模式和用户行为变化同步设计、测试及追踪；历史 migration 不改写。未决问题写明推荐方案和影响，只有依赖这个答案的工作暂停，其他独立工作继续。

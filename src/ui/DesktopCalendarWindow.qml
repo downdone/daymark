@@ -15,7 +15,8 @@ ApplicationWindow {
     minimumWidth: 420;minimumHeight: 480
     visible: workspace.ready && workspace.preferences.desktopCalendarVisible
     transientParent: null
-    flags: Qt.Window | Qt.FramelessWindowHint | (workspace.preferences.desktopCalendarTopmost ? Qt.WindowStaysOnTopHint : 0)
+    flags: Qt.Window | Qt.FramelessWindowHint
+    Component.onCompleted:workspace.attachDesktopCalendarWindow(calendar)
     title: qsTr("Daymark · 桌面日历")
     color: "transparent"
     font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize
@@ -64,6 +65,9 @@ ApplicationWindow {
                     MenuItem {text: "90%";onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",90)}
                     MenuItem {text: "70%";onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",70)}
                     MenuItem {text: "50%";onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",50)}
+                    MenuSeparator {}
+                    MenuItem {objectName:"calendarDesktopPinned";text:qsTr("固定在桌面");checkable:true;checked:calendar.workspace.preferences.desktopCalendarPinned;onTriggered:calendar.workspace.setPreference("desktopCalendarPinned",!calendar.workspace.preferences.desktopCalendarPinned)}
+                    MenuItem {text:qsTr("保持置顶");checkable:true;checked:calendar.workspace.preferences.desktopCalendarTopmost;onTriggered:calendar.workspace.setPreference("desktopCalendarTopmost",!calendar.workspace.preferences.desktopCalendarTopmost)}
                     MenuSeparator {}
                     MenuItem {text: qsTr("重置位置");onTriggered: calendar.resetPosition()}
                 }

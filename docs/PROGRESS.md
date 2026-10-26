@@ -1,5 +1,19 @@
 # Daymark 实施进度
 
+### UX-42 / 1.0.2：今日年视图、桌面层级与关于（2026-10-26，IMPLEMENTED；关联AUTO-PASS / 完整门禁仍FAIL）
+
+按[设计](design/desktop-layer-and-year-focus.md)处理三项新要求：年视图进入定位今天；独立日历/小窗/Mini增加与置顶互斥的固定桌面模式；收集箱改紫色。先共用平台接口/原生层级、失败回滚与设置测试，再接菜单/设置及日期入口，执行双构建/测试/lint与隔离原生验证。基线当前1.0.1 macOS Debug构建成功、21/24测试通过，已知qml_startup、desktop_surfaces、late watchdog失败见上轮日志current-macos-debug-build-test.log；不以新功能通过抹去原门禁。风险为原生句柄重建、激活后的Z序、恢复通路及跨平台可测性。不触碰用户数据库或正在运行的旧窗口。
+
+用户追加关于及1.0.2提交：设置新增独立SettingsAboutPage，版本读取应用元数据，QQ交流群1057825113、反馈邮箱409962@qq.com为只读可复制内容，复制即时反馈；品牌说明从通用迁入，帮助/备份原入口保留。CMake两处版本、README及独立[1.0.2说明](release-notes-v1.0.2.md)同步，无schema变更。
+
+窗口实现集中daymark_window_platform，macOS公开NSWindow.level及桌面图标层、Windows公开SetWindowPos及本进程Z序保护分别实现；Qt端负责互斥、几何/显隐保持及原生句柄重建后恢复，WidgetViewModel与TaskWorkspaceWindow接线，QML只呈现菜单/开关。Mini就近菜单可切换；设置文件写失败回滚日历层级。固定与锁定拖动独立，穿透仍保留托盘/主窗恢复通路。
+
+验证：Qt6.10.2 macOS arm64 Debug/Release构建及两目标lint PASS（ux42-{debug,release}-build相关日志、ux42-{debug,release}-lint.log）；完整Debug21/24、113.45秒（ux42-debug-full-tests.log），Release21/24、108.67秒（ux42-release-build-test.log）。同三项旧失败：qml_startup/late watchdog在phase430的日历详情断言，desktop_surfaces在stage9完成冲突/布局断言；未改45秒预算或删断言。新增关联widget_window、ux34_workspace、calendar_interaction通过；平台代码可读性整理及键盘复制后最终Debug3/3、6.10秒（ux42-final-focused-tests.log），Release3/3、5.64秒（ux42-release-final-focused-tests.log）。
+
+独立日历探针扩展为67阶段，覆盖年入口今日选择及月份钻取、独立日历隔离、关于版本/文本/复制、200%深色、Mini实际菜单点选、设置层级同步及浅深收集箱色差；离屏截图已复看ux42-capture.png.calendar-about-{light,dark-200}.png，无QML warning，离屏插件自身的尺寸提示不作为原生实测。语义色审计增加紫色徽标前景配对，四种主题/对比组合通过。macOS Cocoa原生widget两个用例及calendar两个用例分别4/4 PASS（含init/cleanup，ux42-native-{window,calendar}-tests.log），验证实际level、激活/显隐/Mini/穿透及保存失败回滚；Windows构建/原生、macOS多Spaces/全屏/显示桌面及物理输入/读屏完整矩阵UNVERIFIED。
+
+过程失败保留：首次新增native matcher错误地读取offscreen伪句柄导致崩溃，已在原生入口核对真实后端并保留“离屏不等于原生”断言；原年视图探针仍点击2028年旧月份，已按本轮“进入即今天”更新日期fixture并保留单击/双击行为断言。发布守卫12项通过；不提交缓存、截图、日志、Qt库或用户数据库。本轮仅按用户要求提交1.0.2代码，不自动推送、打公共标签或创建Release。
+
 ### RELEASE-1.0.1 源码提交及发布规则（2026-10-26，SOURCE_PUBLISHED；完整质量门禁仍FAIL）
 
 用户授权提交GitHub、制定发布规则并建立版本tag。只读核对发现远端已有v1.0.0→23cbc0a；用户明确选择保留，最新版本改为1.0.1/v1.0.1。新增[发布规则](release-policy.md)、独立[发行说明](release-notes-v1.0.1.md)，CMake两处及README同步；不改旧tag/Release或旧发行说明。

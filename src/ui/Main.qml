@@ -599,7 +599,7 @@ ApplicationWindow {
                             Layout.fillWidth: true;Layout.preferredWidth: 1
                             text: modelData;selected: !mainWindow.toolPageVisible && (mainWindow.taskWorkspace.scope===viewCode || (viewCode==="completed" && mainWindow.taskWorkspace.scope==="cancelled"))
                             symbol: ["inbox","today","calendar","list","flag","logbook"][index]
-                            tint: viewCode==="scheduled" ? Theme.danger : viewCode==="all" || viewCode==="completed" ? Theme.secondary : viewCode==="important" ? Theme.catalogColor("orange") : Theme.accent
+                            tint: viewCode==="inbox" ? Theme.catalogColor("purple") : viewCode==="scheduled" ? Theme.danger : viewCode==="all" || viewCode==="completed" ? Theme.secondary : viewCode==="important" ? Theme.catalogColor("orange") : Theme.accent
                             count: mainWindow.taskWorkspace.viewCounts[viewCode] || 0
                             acceptsTaskDrop: viewCode!=="all" && mainWindow.taskWorkspace.ready && !mainWindow.taskWorkspace.busy
                             onTaskDropped: function(taskId,version){mainWindow.moveTaskToNavigation(taskId,version,viewCode==="scheduled" ? "upcoming" : viewCode==="completed" ? "logbook" : viewCode)}

@@ -13,7 +13,7 @@ ApplicationWindow {
     required property WidgetViewModel widgetController
     required property StartupController startupController
     property alias categoryIndex: categories.currentIndex
-    title: [qsTr("外观"),qsTr("桌面组件"),qsTr("通用")][categoryIndex]+qsTr(" · Daymark设置")
+    title: [qsTr("外观"),qsTr("桌面组件"),qsTr("通用"),qsTr("关于")][categoryIndex]+qsTr(" · Daymark设置")
     visible:false
     flags:Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.CustomizeWindowHint
     color:Theme.grouped
@@ -34,7 +34,7 @@ ApplicationWindow {
         if(viewport)viewport.contentY=0
     }
     function verifyCategory() {
-        const selected=categories.currentIndex===0 ? appearance : categories.currentIndex===1 ? widgetOptions : general
+        const selected=categories.currentIndex===0 ? appearance : categories.currentIndex===1 ? widgetOptions : categories.currentIndex===2 ? general : about
         if(!selected.visible || selected.width<=0 || selected.height<=0)return "category content missing"
         if(categories.y+categories.height>root.availableHeight)return "category navigation clipped"
         if(categories.currentIndex===2 && (!systemReminders.visible || systemReminders.width<=0))return "system reminder preference missing"
@@ -47,9 +47,9 @@ ApplicationWindow {
             id: categories
             objectName: "settingsCategories"
             Layout.fillWidth: false
-            Layout.preferredWidth: Math.min(root.availableWidth,340*Theme.scale)
+            Layout.preferredWidth: Math.min(root.availableWidth,400*Theme.scale)
             Layout.alignment: Qt.AlignHCenter
-            model: [qsTr("外观"),qsTr("桌面组件"),qsTr("通用")]
+            model: [qsTr("外观"),qsTr("桌面组件"),qsTr("通用"),qsTr("关于")]
             onActivated: function(index){root.setVerificationCategory(index)}
         }
         ScrollView {
@@ -108,6 +108,7 @@ ApplicationWindow {
                     FormGroup {
                         heading: qsTr("窗口与交互")
                         SettingSwitch {showSymbol: false;Layout.fillWidth: true;symbol: "pin";text: qsTr("保持置顶");checked: root.widgetController.alwaysOnTop;onClicked: root.widgetController.setAlwaysOnTop(checked)}
+                        SettingSwitch {objectName:"widgetDesktopPinnedSetting";showSymbol:false;Layout.fillWidth:true;symbol:"desktop";text:qsTr("固定在桌面");checked:root.widgetController.desktopPinned;onClicked:root.widgetController.setDesktopPinned(checked)}
                         SettingSwitch {showSymbol: false;Layout.fillWidth: true;symbol: "cursor";text: qsTr("鼠标穿透");enabled: root.widgetController.trayAvailable;checked: root.widgetController.clickThrough;onClicked: root.widgetController.setClickThrough(checked)}
                         SettingSwitch {showSymbol: false;Layout.fillWidth: true;symbol: "lock";text: qsTr("锁定拖动");checked: root.widgetController.locked;onClicked: root.widgetController.setLocked(checked)}
                         Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("穿透可从托盘或这里关闭；重启后恢复为可点击。组件显示状态会保留。")}
@@ -127,6 +128,7 @@ ApplicationWindow {
                         }
                     }
                     SettingSwitch {showSymbol: false;symbol: "pin";text: qsTr("日历保持置顶");checked: root.workspace.preferences.desktopCalendarTopmost;onClicked: root.workspace.setPreference("desktopCalendarTopmost",checked)}
+                    SettingSwitch {objectName:"calendarDesktopPinnedSetting";showSymbol:false;symbol:"desktop";text:qsTr("固定在桌面");checked:root.workspace.preferences.desktopCalendarPinned;onClicked:root.workspace.setPreference("desktopCalendarPinned",checked)}
                 }
 
                 ColumnLayout {
@@ -153,9 +155,6 @@ ApplicationWindow {
                     }
                     FormGroup {
                         heading:qsTr("资料与帮助")
-                        BrandWordmark {Layout.preferredWidth:128;Layout.preferredHeight:128*36/164;Layout.topMargin:4;Layout.bottomMargin:4}
-                        Label {text:"Daymark · "+Qt.application.version;Layout.fillWidth:true;font.pixelSize:Theme.captionSize;color:Theme.secondary}
-                        Label {text:qsTr("本地任务与时间安排，无需账号。");Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary}
                         Flow {
                             Layout.fillWidth:true;spacing:8
                             ActionButton {objectName:"settingsData";symbol:"backup";text:qsTr("数据与备份");onClicked:root.dataRequested()}
@@ -165,6 +164,7 @@ ApplicationWindow {
                     ActionButton {symbol: "close";text: qsTr("退出 Daymark");onClicked: root.quitRequested()}
                     Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: root.widgetController.trayAvailable ? qsTr("托盘可打开主窗口、恢复穿透或彻底退出。") : qsTr("系统托盘不可用；关闭主窗口将退出，穿透已禁用。")}
                 }
+                SettingsAboutPage {id: about;visible: categories.currentIndex===3;Layout.fillWidth: true}
             }
         }
         Label {visible: root.widgetController.errorText.length>0;Layout.fillWidth: true;wrapMode: Text.Wrap;color: Theme.danger;text: root.widgetController.errorText}
