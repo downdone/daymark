@@ -1,0 +1,46 @@
+name: Recover requested source release
+on:
+  push:
+    branches: [main]
+    paths: ['.github/release-request.json']
+permissions:
+  contents: read
+concurrency:
+  group: requested-source-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Read explicit immutable source request
+        id: request
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          request=json.loads(Path('.github/release-request.json').read_text())
+          assert request['source_only'] is True
+          assert re.fullmatch(r'v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)',request['tag'])
+          assert re.fullmatch(r'[0-9a-f]{40}',request['commit'])
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('tag='+request['tag']+'\ncommit='+request['commit']+'\n')
+          PY
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ steps.request.outputs.tag }}
+          path: source-snapshot
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Publish requested immutable source snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.request.outputs.tag }}
+          RELEASE_SOURCE_SHA: ${{ steps.request.outputs.commit }}
+          RELEASE_REQUEST_MODE: 'true'
+        run: python3 scripts/publish-source-release.py --source-root source-snapshot --tag "$RELEASE_TAG"

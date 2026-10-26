@@ -69,8 +69,9 @@ def main():
     selection.add_argument("--tag")
     selection.add_argument("--check-current", action="store_true")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--source-root", type=Path)
     args = parser.parse_args()
-    root = Path(__file__).resolve().parent.parent
+    root = (args.source_root or Path(__file__).resolve().parent.parent).resolve()
     if args.check_current:
         args.tag = "v" + re.search(r'set\(DAYMARK_VERSION "([^"]+)"\)',
                                   (root / "CMakeLists.txt").read_text(encoding="utf-8")).group(1)
@@ -80,13 +81,16 @@ def main():
     if args.check:
         print(f"PASS: {args.tag} matches version/notes; tracked source privacy checks passed")
         return
-    if os.environ.get("GITHUB_REF") != f"refs/tags/{args.tag}":
-        raise ValueError("Publishing is restricted to the matching tag workflow")
+    tag_event = os.environ.get("GITHUB_REF") == f"refs/tags/{args.tag}"
+    request_event = os.environ.get("GITHUB_REF") == "refs/heads/main" and os.environ.get("RELEASE_REQUEST_MODE") == "true"
+    if not (tag_event or request_event):
+        raise ValueError("Publishing requires a matching tag or an explicit main-branch release request")
     repository = os.environ["GITHUB_REPOSITORY"]
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Invalid repository")
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    if revision != os.environ["GITHUB_SHA"]:
+    expected_revision = os.environ.get("RELEASE_SOURCE_SHA") if request_event else os.environ["GITHUB_SHA"]
+    if revision != expected_revision:
         raise ValueError("Checkout does not match triggering commit")
     validate_tag_checkout(root, args.tag, revision)
     # Release bodies are outside docs/, so resolve their relative documentation links.
@@ -130,4 +134,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as error:
+        # No token/request headers are included in these sanitized guard/API errors.
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            message = str(error).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+            print(f"::error title=Source release rejected::{message}", flush=True)
+        raise
+
