@@ -16,6 +16,8 @@
 
 后续工具修正明确处理webhook的annotated tag对象SHA、显式获取main、发布错误安全注释及共用串行队列；增加对象SHA解析回归，最终发布守卫12项PASS、3.934秒（`release-final-guards.log`），不为修复流水线改动公开应用版本tag。原始失败记录保留，根因未凭日志完全确认。发布规则/恢复入口与本记录继续提交到main；桌面远程CI独立于源码发布，不把Release成功当全部测试成功。无关架构草案仍未提交。
 
+远端CI回读补充：源码提交7a6a804的[Build and test作业40327015406](https://github.com/downdone/daymark/actions/runs/40327015406)已结束为FAIL；source-policy通过，Windows/macOS桌面job分别退出1/8，未登录日志不可读，未将远端失败擅自归因于本机相同超时。Release仅有GitHub自动生成的zip/tar.gz源码入口；主分支发布工具修正及证据已推送，不改v1.0.1快照。正式二进制仍不具备全绿门禁。
+
 ### UX-41 主框架、字标与侧栏（2026-10-26，IMPLEMENTED；相关最终PASS / 完整门禁FAIL）
 
 用户截图要求去菜单、品牌字标和侧栏精修；先定义[完整设计/映射/状态及验收](design/sidebar-and-wordmark.md)，追加FR-039。Windows删除窗口内文件/视图/帮助及占位，保留原生系统标题栏、工作区操作及共享快捷键；macOS保持屏幕级原生菜单。设置仍为外观/组件/通用三类，通用增加版本、本地优先说明、数据与备份/使用提示接线；退出保留，切换先关闭设置并走既有保护路径。
