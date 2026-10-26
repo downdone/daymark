@@ -91,6 +91,14 @@ class ReleaseGuards(unittest.TestCase):
         revision = self.committed_tag()
         release.validate_tag_checkout(self.root, "v1.0.1", revision)
 
+    def test_webhook_annotated_tag_sha_is_peeled_without_changing_identity(self):
+        revision = self.committed_tag()
+        self.assertEqual(release.resolve_commit(self.root, self.git("rev-parse", "v1.0.1")), revision)
+        self.assertEqual(release.resolve_commit(self.root, revision), revision)
+        for invalid in (None, "main", "--help", "v1.0.1"):
+            with self.subTest(revision=invalid), self.assertRaises(ValueError):
+                release.resolve_commit(self.root, invalid)
+
     def test_lightweight_tag_and_different_checkout_are_rejected(self):
         revision = self.committed_tag()
         self.git("tag", "lightweight")

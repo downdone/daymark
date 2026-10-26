@@ -1,6 +1,6 @@
 # Daymark 实施进度
 
-### RELEASE-1.0.1 源码提交及发布规则（2026-10-26，SOURCE_SNAPSHOT_READY；远端发布待回读）
+### RELEASE-1.0.1 源码提交及发布规则（2026-10-26，SOURCE_PUBLISHED；完整质量门禁仍FAIL）
 
 用户授权提交GitHub、制定发布规则并建立版本tag。只读核对发现远端已有v1.0.0→23cbc0a；用户明确选择保留，最新版本改为1.0.1/v1.0.1。新增[发布规则](release-policy.md)、独立[发行说明](release-notes-v1.0.1.md)，CMake两处及README同步；不改旧tag/Release或旧发行说明。
 
@@ -9,6 +9,12 @@
 本轮重新验证1.0.1：Release构建和两目标lint PASS（`release-1.0.1-{build,lint}.log`，无lint诊断）；11项发布守卫PASS、3.806秒（`release-1.0.1-guards.log`）；完整Release23/25、144.09秒（`release-1.0.1-tests.log`）。qml_startup在phase412、late watchdog在phase404超时，继续保留FAIL，未改45秒预算/断言；其余23项含核心/存储/集成/性能/包/五项独立UI均PASS。既有最终Debug和Windows原生67阶段证据见UX-41；macOS及其他人工平台门禁UNVERIFIED。已在1.0.1发行说明公开以上边界，源码发布不冒充二进制RELEASE-READY。
 
 审查并暂存UX-38～41的实现/测试/文档及发布规则；源码版本/隐私守卫、101份Markdown链接、cached diff及既有语义颜色检查PASS。排除无关未跟踪架构草案，缓存/本机构建/日志/库/Qt SDK不进入索引；项目身份及UTC提交元数据沿用，不改公共历史、不触及个人数据库。下一步非强制原子推送main与单个v1.0.1，回读分支、tag及无资产源码Release后另记发布证据。
+
+发布证据（同日追加）：应用源码提交`7a6a804cc021181bb92ad520559263a88ce86fa0`，带注释v1.0.1对象`8259bceca6944ae5646366b79d9cdd895ffed21e`；main与新tag已非强制原子推送。远端v1.0.0对象仍为`d2b0e3ae273eeb32395bd08d7c905955daf7439b`、commit仍23cbc0a，均未覆盖。项目作者/标签署名均为Daymark Contributors及项目邮箱，UTC元数据。
+
+原始[标签发布作业](https://github.com/downdone/daymark/actions/runs/40327015059)在发布步骤失败，单测/元数据已通过；未登录日志不可读，未冒称已定位全部原始异常。保留tag，从main增加明确的tag+40位commit+source_only恢复请求（流程提交6f05095），工具与不可变源码分别checkout；[恢复作业40328034427](https://github.com/downdone/daymark/actions/runs/40328034427)成功。[Daymark1.0.1 Release](https://github.com/downdone/daymark/releases/tag/v1.0.1)已真实公开且Latest，指向7a6a804；正文包含23/25、旧超时、人工/macOS边界及仅源码说明。发布脚本成功响应要求assets为空，页面只有自动生成的源码归档，没有Qt/MinGW/安装包或个人数据。
+
+后续工具修正明确处理webhook的annotated tag对象SHA、显式获取main、发布错误安全注释及共用串行队列；增加对象SHA解析回归，最终发布守卫12项PASS、3.934秒（`release-final-guards.log`），不为修复流水线改动公开应用版本tag。原始失败记录保留，根因未凭日志完全确认。发布规则/恢复入口与本记录继续提交到main；桌面远程CI独立于源码发布，不把Release成功当全部测试成功。无关架构草案仍未提交。
 
 ### UX-41 主框架、字标与侧栏（2026-10-26，IMPLEMENTED；相关最终PASS / 完整门禁FAIL）
 

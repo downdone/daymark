@@ -63,6 +63,14 @@ def validate_tag_checkout(root, tag, revision):
                       cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
         raise ValueError("Release commit must already be reachable from origin/main")
 
+
+def resolve_commit(root, revision):
+    """Webhook SHAs may name an annotated tag object; compare peeled commits."""
+    if not revision or not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise ValueError("Expected an exact source revision")
+    return subprocess.check_output(["git", "rev-parse", "--verify", revision+"^{commit}"],
+                                   cwd=root, text=True).strip()
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     selection = parser.add_mutually_exclusive_group(required=True)
@@ -90,7 +98,7 @@ def main():
         raise ValueError("Invalid repository")
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     expected_revision = os.environ.get("RELEASE_SOURCE_SHA") if request_event else os.environ["GITHUB_SHA"]
-    if revision != expected_revision:
+    if revision != resolve_commit(root, expected_revision):
         raise ValueError("Checkout does not match triggering commit")
     validate_tag_checkout(root, args.tag, revision)
     # Release bodies are outside docs/, so resolve their relative documentation links.
@@ -142,4 +150,3 @@ if __name__ == "__main__":
             message = str(error).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
             print(f"::error title=Source release rejected::{message}", flush=True)
         raise
-

@@ -42,3 +42,5 @@ python scripts/publish-source-release.py --check-current
 ## 已公开标签的发布流程恢复
 
 标签推送成功但Release作业失败时，不移动标签。若修复只涉及发布工具，可在main更新工具，并由用户授权的`.github/release-request.json`明确固定tag、40位commit和source_only；只在该文件变更时启动恢复作业。工具和源码分别checkout，源码从既有tag读取，再校验其注释标签、固定SHA、main可达性及元数据/隐私。这个入口不上传资产、不重写tag或不一致的Release，也不赋予以后自动发布的授权。原始失败记录保留；作业错误以安全注释回报，不能回显token。
+
+发布工具将webhook的完整SHA解析为commit（允许annotated tag对象SHA，但仍校验同一tag及目标commit），显式获取origin/main再判定可达性。所有源码发布入口共用串行队列，避免重复请求竞争创建Release。

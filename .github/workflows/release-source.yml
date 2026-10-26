@@ -3,7 +3,7 @@ on:
   push:
     tags: ['v*']
 concurrency:
-  group: source-release-${{ github.ref }}
+  group: source-releases
   cancel-in-progress: false
 permissions:
   contents: read
@@ -24,6 +24,8 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: python3 scripts/publish-source-release.py --tag "$RELEASE_TAG" --check
+      - name: Fetch publication branch explicitly
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
       - name: Publish source-only GitHub Release
         env:
           RELEASE_TAG: ${{ github.ref_name }}
