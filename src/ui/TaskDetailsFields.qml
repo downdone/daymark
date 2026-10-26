@@ -85,41 +85,25 @@ ColumnLayout {
         return true
     }
     DetailSection {
-        heading: qsTr("分类与标签");symbol: "folder"
-        GridLayout {
-            objectName: root.objectPrefix+"editorAssignmentGrid"
-            Layout.fillWidth: true
-            columns: root.twoColumns ? 2 : 1
-            columnSpacing: 16
-            rowSpacing: 8
-            ColumnLayout {
-                Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
-                Label {text: qsTr("分类");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+        heading: root.inspectorMode ? "" : qsTr("分类与标签");symbol: "folder"
+        ColumnLayout {
+            objectName:root.objectPrefix+"editorAssignmentGrid";Layout.fillWidth:true;spacing:Theme.fieldGap
+            FormRow {
+                label:qsTr("分类")
                 ComboBox {
-                    id: destinationChoice;objectName: root.objectPrefix+"editorDestination"
-                    Layout.fillWidth: true
-                    Accessible.name: qsTr("任务分类")
-                    model: root.destinations.map(item=>item.title).concat(root.creationMode ? [] : [qsTr("新建分类…")])
-                    onActivated: {if(currentIndex>=root.destinations.length){const kind=currentIndex===root.destinations.length ? "project" : "area";currentIndex=root.lastDestinationIndex;root.createCatalogRequested(kind)}else{root.lastDestinationIndex=currentIndex;root.loadHeadings();if(root.parentTaskId){const parent=root.workspace.task(root.parentTaskId);const selected=root.selectedDestination;const parentId=parent.projectId || parent.areaId || "";if(selected.id!==parentId){root.detachedParentTitle=root.parentTaskTitle;root.parentTaskId="";root.parentTaskTitle=""}}root.draftChanged()}}
+                    id:destinationChoice;objectName:root.objectPrefix+"editorDestination";Layout.fillWidth:true
+                    Accessible.name:qsTr("任务分类")
+                    model:root.destinations.map(item=>item.title).concat(root.creationMode ? [] : [qsTr("新建分类…")])
+                    onActivated:{if(currentIndex>=root.destinations.length){const kind=currentIndex===root.destinations.length ? "project" : "area";currentIndex=root.lastDestinationIndex;root.createCatalogRequested(kind)}else{root.lastDestinationIndex=currentIndex;root.loadHeadings();if(root.parentTaskId){const parent=root.workspace.task(root.parentTaskId);const selected=root.selectedDestination;const parentId=parent.projectId || parent.areaId || "";if(selected.id!==parentId){root.detachedParentTitle=root.parentTaskTitle;root.parentTaskId="";root.parentTaskTitle=""}}root.draftChanged()}}
                 }
             }
-            ColumnLayout {
-                objectName: root.objectPrefix+"editorHeadingRow"
-                visible: root.selectedDestination.kind==="project" && root.headings.length>0
-                Layout.fillWidth: true;Layout.preferredWidth: 1;spacing: 4
-                Label {text: qsTr("分类分组");font.pixelSize: Theme.captionSize;color: Theme.secondary}
-                ComboBox {
-                    id: headingChoice;objectName: root.objectPrefix+"editorHeading"
-                    Layout.fillWidth: true
-                    Accessible.name: qsTr("分类分组")
-                    model: [qsTr("无分组")].concat(root.headings.map(item=>item.title))
-                    onActivated: root.draftChanged()
-                }
+            FormRow {
+                objectName:root.objectPrefix+"editorHeadingRow";label:qsTr("分组");visible:root.selectedDestination.kind==="project" && root.headings.length>0
+                ComboBox {id:headingChoice;objectName:root.objectPrefix+"editorHeading";Layout.fillWidth:true;Accessible.name:qsTr("分类分组");model:[qsTr("无分组")].concat(root.headings.map(item=>item.title));onActivated:root.draftChanged()}
             }
         }
-        RowLayout {
-            Layout.fillWidth: true;spacing: 12
-            Label {text: qsTr("标签");Layout.alignment: Qt.AlignTop;Layout.topMargin: 7;font.pixelSize: Theme.captionSize;color: Theme.secondary}
+        FormRow {
+            label: qsTr("标签")
             Flow {
                 id: tagFlow;Layout.fillWidth: true;spacing: 6
                 Repeater {
@@ -148,15 +132,16 @@ ColumnLayout {
         }
         Label {visible:!!root.detachedParentTitle;Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("保存后将移出父任务：%1").arg(root.detachedParentTitle);font.pixelSize:Theme.captionSize;color:Theme.secondary}
         GridLayout {
-            Layout.fillWidth: true;columns: root.twoColumns ? 2 : 1;columnSpacing: 24;rowSpacing: 4
+            Layout.fillWidth: true;columns: root.width>=320*Theme.scale ? 2 : 1;columnSpacing: 12;rowSpacing: 4
             SettingSwitch {id: important;objectName: root.objectPrefix+"editorImportant";Layout.fillWidth: true;Layout.preferredWidth: 1;text: qsTr("特别关注");symbol: "flag";onClicked: root.draftChanged()}
             SettingSwitch {id: pinned;objectName: root.objectPrefix+"editorPinned";Layout.fillWidth: true;Layout.preferredWidth: 1;text: qsTr("置顶显示");symbol: "up";onClicked: root.draftChanged()}
         }
     }
     DetailSection {
-        visible:!root.creationMode;heading: qsTr("任务关系");symbol: "list"
-        Label {text: qsTr("父任务");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+        visible:!root.creationMode;heading: root.inspectorMode ? "" : qsTr("任务关系");symbol: "list"
+        FormRow {label:qsTr("父任务")
         Button {objectName: root.objectPrefix+"parentTaskButton";Layout.fillWidth: true;text: root.parentTaskId ? (root.taskData.parentDeleted ? qsTr("原父任务（已删除）：%1").arg(root.parentTaskTitle) : root.parentTaskTitle) : qsTr("无父任务");onClicked: {parentSearch.clear();root.refreshParentChoices();if(root.inspectorMode)root.parentExpanded=!root.parentExpanded;else parentPicker.open()}}
+        }
         ColumnLayout {
             visible:root.parentExpanded;Layout.fillWidth:true
             TextField {Layout.fillWidth:true;placeholderText:qsTr("搜索父任务…");onTextEdited:{parentSearch.text=text;root.refreshParentChoices()}}

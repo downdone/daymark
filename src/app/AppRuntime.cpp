@@ -1,6 +1,7 @@
 #include "AppRuntime.h"
 #include "Ux34SmokeProbe.h"
 #include "Ux35SmokeProbe.h"
+#include "Ux37SmokeProbe.h"
 #include "SoakRunner.h"
 
 #include <QCoreApplication>
@@ -100,13 +101,14 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto* probe=new QTimer(&m_engine);
         auto ux34=std::make_shared<Ux34SmokeProbe>(m_workspace,mainWindow,screenshotPath);
         auto ux35=std::make_shared<Ux35SmokeProbe>(m_workspace,mainWindow,screenshotPath);
+        auto ux37=std::make_shared<Ux37SmokeProbe>(m_workspace,mainWindow,screenshotPath);
         if(!smokeProfile.isEmpty())activateSmokeWindow(mainWindow);
         auto smokePhase=std::make_shared<int>(0);
         auto smokeCompleted=std::make_shared<bool>(false);
         auto inputClock=std::make_shared<QElapsedTimer>();
         inputClock->start();
         probe->setInterval(60);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,ux34,ux35,smokeProfile,smokePhase,smokeCompleted,inputClock,soakSeconds,soakReport,phase=smokeProfile.isEmpty()?0:436,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragPosition=QPointF(),inlineColumns=QVariantMap(),quickOriginalTask=QVariantMap(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<std::atomic<bool>>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1),wheelFrames=std::make_shared<std::atomic<int>>(0),wheelConnection=std::make_shared<QMetaObject::Connection>()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,ux34,ux35,ux37,smokeProfile,smokePhase,smokeCompleted,inputClock,soakSeconds,soakReport,phase=smokeProfile.isEmpty()?0:436,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragPosition=QPointF(),inlineColumns=QVariantMap(),quickOriginalTask=QVariantMap(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<std::atomic<bool>>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1),wheelFrames=std::make_shared<std::atomic<int>>(0),wheelConnection=std::make_shared<QMetaObject::Connection>()]() mutable {
             *smokePhase=phase;m_verificationPhase=phase;
             bool stallConfigured=false;const int stall=qEnvironmentVariableIntValue("DAYMARK_SMOKE_STALL_PHASE",&stallConfigured);if(stallConfigured && phase==stall)return;
             if(m_workspace.busy())return;
@@ -122,7 +124,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             auto* startDate=mainWindow->findChild<QObject*>(QStringLiteral("editStartDate"));
             auto* editor=mainWindow->findChild<QObject*>(QStringLiteral("taskEditor"));
             if(!input || !editTitle || !startDate || !editor){fail("UI objects");return;}
-            if(phase==436){if(!smokeProfile.isEmpty()){const auto status=smokeProfile==QStringLiteral("continuous")?ux35->advance():ux34->advance();if(status.isEmpty())return;if(status!=QStringLiteral("DONE")){qCritical()<<status;fail("workspace scenario suite");return;}}} else if(phase==0) {
+            if(phase==436){if(!smokeProfile.isEmpty()){const auto status=smokeProfile==QStringLiteral("selection")?ux37->advance():smokeProfile==QStringLiteral("continuous")?ux35->advance():ux34->advance();if(status.isEmpty())return;if(status!=QStringLiteral("DONE")){qCritical()<<status;fail("workspace scenario suite");return;}}} else if(phase==0) {
                 const auto icon=QGuiApplication::windowIcon();
                 if(icon.isNull() || icon.pixmap(16,16).isNull() || icon.pixmap(256,256).isNull()) {fail("application icon resources");return;}
                 // Start-Process -WindowStyle Hidden suppresses the first Win32 show.
@@ -921,6 +923,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 } else if(phase==146)m_workspace.setView(QStringLiteral("today"));
                 else if(phase==147) {
                     m_workspace.setView(QStringLiteral("inbox"));m_workspace.setSearch(m_workspace.task(secondId).value("title").toString());open();notes->setProperty("text",QStringLiteral("短备注"));
+                    // Exercise wheel propagation with an actually overflowing
+                    // body. The collapsed compact inspector now fits this fixture.
+                    mainWindow->setProperty("dateTimeExpanded",true);
                     QMetaObject::invokeMethod(editTitle,"forceActiveFocus");
                     QMetaObject::invokeMethod(mainWindow,"ensureEditorFocus",Q_ARG(QVariant,QVariant::fromValue(editTitle)));
                 } else if(phase==148 || phase==149) {

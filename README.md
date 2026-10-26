@@ -4,11 +4,11 @@ Windows/macOS离线任务管理与日历应用，C++20 + **Qt 6.10.2 / Qt Quick*
 
 **简约而不简单**：记下事情，明确下一步，安心完成；组织方式可选，数据与恢复可靠。[产品哲学](docs/product-philosophy.md)与[全产品体验方案](docs/design/product-experience-review.md)规定功能和界面的取舍。
 
-当前源码按[统一任务系统](docs/design/unified-task-system.md)结合日历与提醒事项：所有内容统一为任务，支持起止时间、循环、周期提醒、真实父子任务与两级分类；分类取代项目/领域，子任务取代检查清单。侧栏删除规划，顶部切换列表/日历，共用详情、完成与编辑记录。导航采用今天、计划、全部、特别关注、完成五个自动视图；父子任务完成、删除、分类移动联动，最近删除按同次操作恢复。分类与标签在右键就近管理。数据库schema9；本轮实现与验证仅以[PROGRESS](docs/PROGRESS.md)为准，下方RC2包描述是历史发行范围，未代表当前源码已重新打包发布。
+当前源码按[统一任务系统](docs/design/unified-task-system.md)结合日历与提醒事项：所有内容统一为任务，支持起止时间、循环、周期提醒、真实父子任务与两级分类；分类取代项目/领域，子任务取代检查清单。侧栏删除规划，顶部切换列表/日历，共用详情、完成与编辑记录。导航采用今天、计划、全部、特别关注、完成五个自动视图；父子任务完成、删除、分类移动联动，最近删除按同次操作恢复。分类与标签在右键就近管理。数据库schema9；本轮实现与验证仅以[PROGRESS](docs/PROGRESS.md)为准，RC2包描述仅为历史发行范围。
 
-当前工程为 **1.0.0-rc.2 Windows V1候选版**：在离线任务、组织、重复提醒、桌面组件、批量操作及数据保护基础上，新增任务议程、本地全天/定时事件、准备/跟进任务关联。范围与升级见[RC2说明](docs/release-notes-v1-rc2.md)、[需求审计](docs/v1-feature-matrix.md)；本地包与校验和见[进度](docs/PROGRESS.md)。
+当前源码版本为 **1.0.0**，对应`v1.0.0`标签；本次仅发布源码，不附Qt运行库或用户数据。[1.0发行说明](docs/release-notes-v1.0.md)列出当前能力和边界，[测试方法](docs/testing-method.md)说明分层、去重及链路覆盖；实际PASS/FAIL/UNVERIFIED只见[进度](docs/PROGRESS.md)。
 
-当前交付以本地Windows候选版本为主，源码已上传GitHub；macOS arm64已完成Debug/Release构建、自动回归和原生合成截图，具体范围见[进度](docs/PROGRESS.md)。真实OS穿透/多屏/层级/焦点和8h稳定性仍需独立验收，UI目标仍需完整体验验收。操作说明见[使用指南](docs/user-guide.md)、[候选版说明](docs/release-notes-v1-rc.md)；[v0.1记录](docs/release-notes-v0.1.md)保留历史范围。
+Windows/macOS是工程目标，当前源码的跨平台CI及物理输入、通知/穿透、多屏/睡眠/8h、独立部署和签名仍需分别验收，不能以1.0版本号或历史测试代替。Qt运行库公开再分发许可未确认，因此Windows便携包暂不公开上传；[RC2记录](docs/release-notes-v1-rc2.md)及[v0.1记录](docs/release-notes-v0.1.md)保留历史。
 
 UI-07统一了主窗、详情、管理弹窗、日历与桌面组件的字体、间距、图标、控件和动作层级。规范见[视觉统一](docs/design/visual-unification.md)，本地预览包与实际验证见[进度](docs/PROGRESS.md)。
 

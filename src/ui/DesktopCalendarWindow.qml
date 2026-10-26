@@ -45,8 +45,8 @@ ApplicationWindow {
         return changed && workspace.view===oldView && workspace.calendarTitle===oldTitle
     }
     ColumnLayout {
-        anchors.fill: parent;anchors.margins: 14
-        spacing: 8
+        anchors.fill: parent;anchors.margins: Theme.panelPadding
+        spacing: Theme.fieldGap
         RowLayout {
             Layout.fillWidth: true
             Label {text: qsTr("日历");font.weight: Font.DemiBold;Layout.fillWidth: true

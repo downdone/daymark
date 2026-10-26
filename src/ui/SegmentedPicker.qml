@@ -9,8 +9,8 @@ Control {
     property bool selectionIsExternal: false
     signal activated(int index)
     Layout.fillWidth: true
-    implicitHeight: row.implicitHeight+6
-    padding: 3
+    implicitHeight: Math.max(Theme.controlHeight,row.implicitHeight+4)
+    padding: 2
     background: Rectangle {radius: Theme.rowRadius;color: Theme.hover}
     function select(index) {
         const next=Math.max(0,Math.min(model.length-1,index))
@@ -37,6 +37,7 @@ Control {
                 required property int index
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
+                implicitHeight: Math.max(28,Theme.bodySize+10)
                 text: modelData
                 checked: picker.currentIndex===index
                 font.weight: checked ? Font.DemiBold : Font.Normal

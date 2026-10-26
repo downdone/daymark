@@ -7,6 +7,7 @@ Control {
     objectName: "taskQuickEditor"
     required property TaskWorkspace workspace
     property bool dirty: false
+    property string relationSymbol: ""
     property bool guardActive: false
     property string titleText: ""
     property string notesText: ""
@@ -40,7 +41,7 @@ Control {
     visible: editing
     readonly property Item completionItem: quickComplete
     readonly property Item titleItem: quickTitle
-    readonly property real textInset: quickComplete.width+8
+    readonly property real textInset: quickComplete.width+16+Math.min(24,16*Theme.scale)
     padding: 0
     topPadding: 4;bottomPadding: 4
     implicitHeight: implicitContentHeight+topPadding+bottomPadding
@@ -56,6 +57,7 @@ Control {
         RowLayout {
             Layout.fillWidth: true;spacing: 8
             IconToolButton {id: quickComplete;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {anchors.centerIn: parent;width: Theme.iconSize;height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.5}} onClicked: root.completeRequested()}
+            AppIcon {name: root.relationSymbol;opacity:root.relationSymbol.length>0 ? 1 : 0;Layout.preferredWidth:Math.min(24,16*Theme.scale);Layout.preferredHeight:Math.min(24,16*Theme.scale)}
             TextField {
                 id: quickTitle;objectName: "quickEditorTitle"
                 Layout.fillWidth: true

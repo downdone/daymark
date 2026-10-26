@@ -11,6 +11,11 @@ ColumnLayout {
     property string endDateValue: ""
     property bool datesEdited: false
     property bool inlinePickers:false
+    property bool compactPresentation:false
+    property bool showTimeControls:true
+    readonly property string startTimeValue:startTime.text
+    readonly property string endTimeValue:endTime.text
+    property bool repeatExpanded:false
     signal pickerRequested(var field,string kind)
     property Item startEndpointHost:null
     property Item endEndpointHost:null
@@ -26,8 +31,8 @@ ColumnLayout {
     property int monthDay: 1
     property int yearMonth: 1
     property int alertMinutes: -1
-    readonly property bool modalOpen: until.pickerVisible || startTime.pickerVisible || endTime.pickerVisible || frequency.popup.visible
-    function closePickers(){until.closePicker();startTime.closePicker();endTime.closePicker();frequency.popup.close()}
+    readonly property bool modalOpen: until.pickerVisible || startTime.pickerVisible || endTime.pickerVisible || frequency.popup.visible || timeType.popup.visible || repeatChoice.popup.visible
+    function closePickers(){until.closePicker();startTime.closePicker();endTime.closePicker();frequency.popup.close();timeType.popup.close();repeatChoice.popup.close()}
     readonly property var frequencies: ["DAILY","WEEKLY","MONTHLY","YEARLY","AFTER_DAYS"]
     signal draftChanged()
     function changed(time) {if(loading)return;if(time)timeDirty=true;else repeatDirty=true;draftChanged()}
@@ -37,7 +42,7 @@ ColumnLayout {
         hadSchedule=!!task.schedule;allDay.checked=s.allDay===undefined ? false : !s.allDay
         startTime.text=s.startTime || "09:00";endTime.text=s.endTime || "10:00";zone.text=s.zone || workspace.systemTimeZone();alertMinutes=s.alertMinutes===undefined ? -1 : s.alertMinutes
         hadRepeat=!!r.active;repeating.checked=hadRepeat;frequency.currentIndex=Math.max(0,frequencies.indexOf(r.frequency || "DAILY"));interval.value=r.interval || 1;until.text=r.end || "";repeatVersion=r.rowVersion || 1;weekdayMask=r.weekdays || 0;monthDay=r.monthDay || 1;yearMonth=r.yearMonth || 1
-        future.checked=false;loading=false;timeDirty=false;repeatDirty=false
+        future.checked=false;repeatExpanded=false;zoneExpanded.checked=false;loading=false;timeDirty=false;repeatDirty=false
     }
     function detailsPatch() {
         const patch={}
@@ -51,8 +56,16 @@ ColumnLayout {
         ComboBox {Layout.fillWidth:true;model:[qsTr("指定提醒时刻"),qsTr("开始时"),qsTr("开始前5分钟"),qsTr("开始前10分钟"),qsTr("开始前30分钟"),qsTr("开始前1小时")];currentIndex:[-1,0,5,10,30,60].indexOf(root.alertMinutes);onActivated:{root.alertMinutes=[-1,0,5,10,30,60][currentIndex];root.changed(true)}}
     }
     ColumnLayout {
-        Layout.fillWidth: true;spacing: 6
-        SettingSwitch {id: allDay;objectName: root.objectPrefix+"AllDay";Layout.fillWidth: true;symbol: "calendar";text: qsTr("指定时间");Accessible.description: qsTr("为同一开始和结束日期指定时间");onClicked: {if(checked)root.dateDefaultsRequested();root.changed(true)}}
+        Layout.fillWidth: true;spacing: Theme.fieldGap
+        SettingSwitch {id: allDay;visible:!root.compactPresentation;objectName: root.objectPrefix+"AllDay";Layout.fillWidth: true;symbol: "calendar";text: qsTr("指定时间");Accessible.description: qsTr("为同一开始和结束日期指定时间");onClicked: {if(checked)root.dateDefaultsRequested();root.changed(true)}}
+        FormRow {
+            visible: root.compactPresentation && root.showTimeControls;label: qsTr("类型")
+            RowLayout {
+                Layout.fillWidth:true;spacing:4
+                ComboBox {id:timeType;Layout.fillWidth:true;Accessible.name:qsTr("全天或指定时间");model:[qsTr("全天"),qsTr("指定时间")];currentIndex:root.hasSpecificTime ? 1 : 0;onActivated:function(index){allDay.checked=index===1;if(allDay.checked)root.dateDefaultsRequested();root.changed(true)}}
+                IconToolButton {visible:root.hasSpecificTime;contentItem:AppIcon{name:zoneExpanded.checked ? "up" : "more"} Accessible.name:qsTr("时区与提前提醒选项");onClicked:zoneExpanded.checked=!zoneExpanded.checked}
+            }
+        }
         GridLayout {
             id: timesGrid
             visible: root.hasSpecificTime
@@ -70,7 +83,7 @@ ColumnLayout {
                 TimeField {id: endTime;objectName: root.objectPrefix+"TimeEnd";inlineMode:root.inlinePickers;onInlinePickerRequested:root.pickerRequested(endTime,"time");Layout.fillWidth: true;timeLabel: qsTr("结束时间");Accessible.name: qsTr("结束时间");onTextEdited: root.changed(true);onTimeChosen: root.changed(true)}
             }
         }
-        CheckBox {id:zoneExpanded;visible:root.hasSpecificTime;text:qsTr("时区与提醒选项");checked: false}
+        CheckBox {id:zoneExpanded;visible:root.hasSpecificTime && !root.compactPresentation;text:qsTr("时区与提醒选项");checked: false}
         RowLayout {
             visible: root.hasSpecificTime && zoneExpanded.checked;Layout.fillWidth: true;spacing: 12
             Label {text: qsTr("时区");font.pixelSize: Theme.captionSize;color: Theme.secondary}
@@ -78,11 +91,25 @@ ColumnLayout {
         }
     }
     ColumnLayout {
-        Layout.fillWidth: true;spacing: 8
-        SettingSwitch {id: repeating;objectName: root.objectPrefix+"Repeating";Layout.fillWidth: true;symbol: "reload";text: qsTr("循环生成任务");Accessible.description: qsTr("按周期生成可独立完成的任务");onClicked: root.changed(false)}
+        Layout.fillWidth: true;spacing: Theme.fieldGap
+        SettingSwitch {id: repeating;visible:!root.compactPresentation;objectName: root.objectPrefix+"Repeating";Layout.fillWidth: true;symbol: "reload";text: qsTr("循环生成任务");Accessible.description: qsTr("按周期生成可独立完成的任务");onClicked: root.changed(false)}
+        FormRow {
+            visible:root.compactPresentation;label:qsTr("重复")
+            RowLayout {
+                Layout.fillWidth:true;spacing:4
+                ComboBox {
+                    id:repeatChoice;objectName:root.objectPrefix+"RepeatChoice";Layout.fillWidth:true;Accessible.name:qsTr("任务重复规则")
+                    model:[qsTr("不重复"),qsTr("每天"),qsTr("每周"),qsTr("每月"),qsTr("每年"),qsTr("自定义…")]
+                    currentIndex:repeating.checked ? Math.min(5,frequency.currentIndex+1) : 0
+                    displayText:repeating.checked && interval.value>1 ? qsTr("每 %1 %2").arg(interval.value).arg([qsTr("天"),qsTr("周"),qsTr("月"),qsTr("年"),qsTr("天（完成后）")][frequency.currentIndex]) : currentText
+                    onActivated:function(index){repeating.checked=index>0;if(index>0 && index<5){frequency.currentIndex=index-1;interval.value=1}root.repeatExpanded=index===5;if(index===5)frequency.currentIndex=Math.min(4,frequency.currentIndex);root.changed(false)}
+                }
+                IconToolButton {visible:repeating.checked;contentItem:AppIcon{name:root.repeatExpanded ? "up" : "more"} Accessible.name:qsTr("自定义重复规则");onClicked:root.repeatExpanded=!root.repeatExpanded}
+            }
+        }
         Label {visible: root.hadRepeat && !repeating.checked;Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("保存将停止循环；本次、历史和单独编辑过的任务保留，未修改的未来任务移除。能在编辑记录中查看此次修改。 ")}
         ColumnLayout {
-            visible: repeating.checked;Layout.fillWidth: true;spacing: 8
+            visible: repeating.checked && (!root.compactPresentation || root.repeatExpanded);Layout.fillWidth: true;spacing: Theme.fieldGap
             ComboBox {id: frequency;objectName: root.objectPrefix+"RepeatFrequency";Layout.fillWidth: true;Accessible.name: qsTr("任务循环周期");model: [qsTr("每天"),qsTr("每周"),qsTr("每月"),qsTr("每年"),qsTr("完成后按天循环")];onActivated: root.changed(false)}
             RowLayout {Layout.fillWidth: true;Label {text: qsTr("每隔")} SpinBox {id: interval;objectName: root.objectPrefix+"RepeatInterval";from: 1;to: 36500;editable: true;Accessible.name: qsTr("任务循环间隔");onValueModified: root.changed(false)} Label {Layout.fillWidth: true;text: [qsTr("天"),qsTr("周"),qsTr("月"),qsTr("年"),qsTr("天")][frequency.currentIndex]}}
             Flow {

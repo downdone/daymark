@@ -367,7 +367,7 @@ Result<Task> TaskService::changeStateOne(const QString& id,qint64 version,const 
 
 Result<void> TaskService::batch(const QList<QPair<QString,qint64>>& selection,const QString& action,const TaskPatch& patch)
 {
-    if(selection.isEmpty() || (action!=QStringLiteral("complete") && action!=QStringLiteral("edit")))
+    if(selection.isEmpty() || (action!=QStringLiteral("complete") && action!=QStringLiteral("reopen") && action!=QStringLiteral("edit")))
         return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));
     return m_repository.atomically([&] {
         QSet<QString> seen;
@@ -378,7 +378,7 @@ Result<void> TaskService::batch(const QList<QPair<QString,qint64>>& selection,co
         auto ordered=selection;std::stable_sort(ordered.begin(),ordered.end(),[&](const auto& a,const auto& b){return depth(a.first)<depth(b.first);});
         for(const auto& item:ordered) {
             const auto current=m_repository.find(item.first);if(!current.ok())return Result<void>{current.error};
-            const auto result=action==QStringLiteral("complete")?changeState(item.first,current.value.rowVersion,action):edit(item.first,current.value.rowVersion,patch);
+            const auto result=action!=QStringLiteral("edit")?changeState(item.first,current.value.rowVersion,action):edit(item.first,current.value.rowVersion,patch);
             if(!result.ok())return Result<void>{result.error};
         }
         return Result<void>{};

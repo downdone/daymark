@@ -1,6 +1,10 @@
 # 文档导航
 
-## 当前入口（2026-10-25）
+## 当前入口（2026-10-26）
+
+任务列表的多选可发现性、父子图标及详情响应复审见[UX-37分析与切片方案](design/task-list-interaction-review.md)；选择、关系及密度的本轮代码映射见文末；详情会话/性能剩余项单独追踪，实际状态见PROGRESS。
+
+用户追加的同屏密度问题扩展为[UX-37D全局桌面密度](design/desktop-density-review.md)：统一侧栏、列表、详情、日历、菜单/选择器、设置及组件的桌面行关系、字级、间距和命中；已作为本轮实现契约，全表面迁移与验证边界见文末和PROGRESS。
 
 [UX-34系统评估与优化方案](design/system-ux-review-2026-10.md)汇总全界面72项评审、证据与纵向实施顺序；[日历v2](design/calendar-workspace-v2.md)定义同任务的日/周时间安排、月分布和年导航；[就近任务面板](design/contextual-task-inspector.md)定义默认详情及展开方式。FR-034/035及[ADR-020](ADR/020-contextual-task-workspace.md)已由用户接受并实施；具体代码与验收映射见[UX-34实现索引](design/ux34-implementation.md)，实际通过范围以PROGRESS为准。
 
@@ -17,6 +21,8 @@
 
 实际状态和平台证据只见[PROGRESS](PROGRESS.md)。本页后续历史文档用于追溯，不恢复已取消的领域/项目、双日程或清单概念；当前契约优先，目标提案与交付事实分开。
 
+测试层级、删减依据、链路责任及fast/ui/full命令见[测试方法](testing-method.md)。
+
 ## 阅读顺序
 
 1. [项目入口](../README.md) → [进度](PROGRESS.md)：先确认实际代码和当前任务。
@@ -28,7 +34,7 @@
 5. [里程碑及任务队列](milestones.md)：依赖、下一批切片、阶段门禁。
 6. [环境与构建](environment.md) → [验证记录](verification-report.md) → [平台矩阵](platform-test-matrix.md)。
 
-实际使用参阅[v0.1使用说明](user-guide.md)、[发行说明](release-notes-v0.1.md)与[第三方记录](third-party-notices.md)。
+实际使用参阅[使用说明](user-guide.md)、[1.0源码发行说明](release-notes-v1.0.md)与[第三方记录](third-party-notices.md)。
 
 本轮核心能力实现与本地发行见 [v0.1交付设计](design/release-v0.1.md)。实际验证仍以PROGRESS及验证报告为准。
 

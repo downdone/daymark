@@ -51,8 +51,8 @@ Window {
         ColumnLayout {
             visible: !widget.controller.mini
             anchors.fill: parent
-            anchors.margins: 10
-            spacing: 8
+            anchors.margins: Theme.panelPadding
+            spacing: Theme.fieldGap
             RowLayout {
                 objectName: "widgetHeader"
                 Layout.fillWidth: true

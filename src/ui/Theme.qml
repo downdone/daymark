@@ -4,7 +4,7 @@ import DaymarkStyle as DS
 QtObject {
     property int mode: 0
     property real scale: 1.0
-    property bool compact: false
+    property bool compact: true
     property bool highContrast: false
     onHighContrastChanged: DS.DesignTokens.highContrast=highContrast
     onModeChanged: DS.DesignTokens.mode=mode
@@ -41,7 +41,7 @@ QtObject {
     readonly property int taskTitleSize: DS.DesignTokens.taskTitle
     readonly property int rowRadius: DS.DesignTokens.rowRadius
     readonly property int bodySize: DS.DesignTokens.body
-    readonly property int listTitleSize: Math.round(13*scale)
+    readonly property int listTitleSize: DS.DesignTokens.listTitle
     readonly property int navigationSize: DS.DesignTokens.navigation
     readonly property int captionSize: DS.DesignTokens.caption
     readonly property int sectionSize: DS.DesignTokens.section
@@ -53,4 +53,12 @@ QtObject {
     readonly property int panelPadding: DS.DesignTokens.panelPadding
     readonly property int panelRadius: DS.DesignTokens.panelRadius
     readonly property int pagePadding: DS.DesignTokens.pagePadding
+    readonly property int controlHeight: DS.DesignTokens.controlHeight
+    readonly property int navigationRowHeight: DS.DesignTokens.navigationRowHeight
+    readonly property int taskRowHeight: DS.DesignTokens.taskRowHeight
+    readonly property int smartTileHeight: DS.DesignTokens.smartTileHeight
+    readonly property int toolbarHeight: DS.DesignTokens.toolbarHeight
+    readonly property int propertyLabelWidth: DS.DesignTokens.propertyLabelWidth
+    readonly property int groupGap: DS.DesignTokens.groupGap
+    readonly property int sectionPadding: DS.DesignTokens.sectionPadding
 }

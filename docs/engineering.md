@@ -74,3 +74,5 @@ UX-35连续月历进一步拆为`CalendarMonthGrid`（共享周/月格绘制与�
 验证场景现分为`qml_startup`（历史436阶段）、`contextual_workspace`（共享详情独立fixture）和`continuous_calendar`（连续月历独立fixture）。全部保留应用45秒watchdog，新增两项另设CTest30秒；旧末段注入卡住仍须45秒退出3。避免将新增场景串入旧长链触发Debug预算，而非通过加长预算解决。
 
 UX-36新建草稿通过`TaskService::draftForScope`只读预填同一范围语义；`createWithDetails`用Repository可组合savepoint同时创建并应用属性，回滚覆盖任务、提醒、循环和编辑记录。QML不得先持久化占位任务再补属性。新增浮窗复用`TaskTimingFields`、`TaskDetailsFields`、`ReminderField`与`TaskInspectorPicker`；多实例通过`objectPrefix`区分控件身份，防止自动化或辅助定位操作到另一隐藏面板。正文Flickable负责键盘焦点/备注光标可见性，只有一条滚动轴。
+
+测试层级、fast/ui/full、等待信号和每项删减的断言去向遵守[测试方法](testing-method.md)；不能删除关键风险用例或增大watchdog预算代替修复不稳定等待。1.0源码发布决策见[ADR-022](ADR/022-test-layers-and-source-release.md)。

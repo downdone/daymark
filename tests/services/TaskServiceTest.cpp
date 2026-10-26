@@ -21,6 +21,28 @@ class TaskServiceTest : public QObject {
         return repo.update(task.value,task.value.rowVersion);
     }
 private slots:
+    void batchReopenPreservesGroupsAndRollsBackWholeSelection() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("batch-reopen.sqlite")).ok());
+        TaskRepository repo(db.connection());FixedClock clock;TaskService service(repo,clock);
+        const auto root=service.create("parent","anytime");QVERIFY(root.ok());
+        const auto child=service.createSubtask("same completion",root.value.id);QVERIFY(child.ok());
+        const auto prior=service.createSubtask("previously completed",root.value.id);QVERIFY(prior.ok());
+        const auto other=service.create("other","anytime");QVERIFY(other.ok());
+        QVERIFY(service.changeState(prior.value.id,prior.value.rowVersion,"complete").ok());
+        QVERIFY(service.changeState(root.value.id,repo.find(root.value.id).value.rowVersion,"complete").ok());
+        QVERIFY(service.changeState(other.value.id,other.value.rowVersion,"complete").ok());
+        const auto before=repo.all().value;
+        QList<QPair<QString,qint64>> selection{{root.value.id,repo.find(root.value.id).value.rowVersion},{other.value.id,repo.find(other.value.id).value.rowVersion},{child.value.id,repo.find(child.value.id).value.rowVersion}};
+        auto stale=selection;--stale.last().second;
+        QCOMPARE(service.batch(stale,"reopen",{}).error.key,QStringLiteral("conflict"));QCOMPARE(repo.all().value,before);
+        QSqlQuery trigger(db.connection());
+        QVERIFY(trigger.exec(QStringLiteral("CREATE TRIGGER reject_batch_reopen BEFORE UPDATE OF status ON tasks WHEN OLD.id='%1' AND NEW.status='OPEN' BEGIN SELECT RAISE(ABORT,'injected reopen failure'); END").arg(other.value.id)));
+        QVERIFY(!service.batch(selection,"reopen",{}).ok());QCOMPARE(repo.all().value,before);
+        QVERIFY(trigger.exec("DROP TRIGGER reject_batch_reopen"));
+        QVERIFY(service.batch(selection,"reopen",{}).ok());
+        for(const auto& id:{root.value.id,child.value.id,other.value.id})QCOMPARE(repo.find(id).value.status,QStringLiteral("OPEN"));
+        QCOMPARE(repo.find(prior.value.id).value.status,QStringLiteral("COMPLETED"));
+    }
     void twoLevelRelationsRejectNewDepthWithoutMutatingData() {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("two-level.sqlite")).ok());TaskRepository repo(db.connection());FixedClock clock;TaskService service(repo,clock);
         const auto root=service.create("root","anytime");QVERIFY(root.ok());const auto child=service.createSubtask("child",root.value.id);QVERIFY(child.ok());const auto other=service.create("other","anytime");QVERIFY(other.ok());const auto before=repo.all().value;

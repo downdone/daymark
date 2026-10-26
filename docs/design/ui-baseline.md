@@ -2,6 +2,8 @@
 
 ## 当前契约与目标边界
 
+UX-37D统一默认紧凑桌面：正文/导航13、列表标题14、详情/工具栏标题16、辅助12 DIP；普通导航32起、智能卡52起、列表36/44起，视觉控件28左右且命中至少32。密度与字号独立，已有舒适模式保留。时段摘要/按需参数、属性标签列及全表面映射见[全局密度契约](desktop-density-review.md)，覆盖下文UX-36中冲突数值；真实验证范围只见PROGRESS。
+
 UX-36将默认桌面密度收敛为正文13、任务标题16、页面标题22、正文边距12 DIP；侧栏200 DIP、条目命中至少32、缩进16。日历上下文标题降为次级文字，列表/日历切换图标固定顶对齐；新增浮窗约400×540内并按内容/窗口缩放，已有任务就近面板约420宽。明确选择200%时优先可读性与滚动，不强求维持默认小窗。见[新增与密度](calendar-creation-and-density.md)；下文旧布局数值为历史目标，冲突以前述新契约为准。
 
 当前业务遵循[产品哲学](../product-philosophy.md)、[UI-30智能范围/整树联动](task-list-context.md)、[UI-32两层任务](compact-navigation-and-subtasks.md)及[UI-33统一时间/动作](shared-task-time-and-actions.md)；分类操作按[UI-28](catalog-and-list-system.md)，共享窗口语言按[UI-31](macos-desktop-language.md)。真实通过范围只见[PROGRESS](../PROGRESS.md)。

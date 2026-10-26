@@ -50,7 +50,7 @@ ColumnLayout {
             owner.forceActiveFocus();
     }
     Keys.onEscapePressed: close()
-    spacing: 8
+    spacing: Theme.groupGap
     RowLayout {
         Layout.fillWidth: true
         WidgetAction {
@@ -73,7 +73,7 @@ ColumnLayout {
         contentWidth: availableWidth
         ColumnLayout {
             width: pickerScroll.availableWidth
-            spacing: 8
+            spacing: Theme.groupGap
             CalendarPicker {
                 id: calendar
                 Layout.fillWidth: true

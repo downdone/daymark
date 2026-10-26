@@ -7,8 +7,9 @@ GridLayout {
     objectName: "desktopFormRow"
     required property string label
     property string detail: ""
-    property real labelWidth: 100*Theme.scale
-    readonly property bool stacked: width<360*Theme.scale
+    property real labelWidth: Theme.propertyLabelWidth
+    property real minimumValueWidth: 180*Theme.scale
+    readonly property bool stacked: width<labelWidth+minimumValueWidth+12
     default property alias controls: valueColumn.data
     Layout.fillWidth: true
     columns: stacked ? 1 : 2
@@ -27,8 +28,8 @@ GridLayout {
         Layout.maximumWidth: row.stacked ? Infinity : row.labelWidth
         Layout.fillWidth: row.stacked
         Layout.alignment: Qt.AlignTop
-        topPadding: row.stacked ? 0 : 8
-        horizontalAlignment: row.stacked ? Text.AlignLeft : Text.AlignRight
+        topPadding: row.stacked ? 0 : Math.max(0,(Theme.controlHeight-font.pixelSize*1.35)/2)
+        horizontalAlignment: Text.AlignLeft
         wrapMode: Text.Wrap
         font.pixelSize: Theme.navigationSize
         color: Theme.secondary

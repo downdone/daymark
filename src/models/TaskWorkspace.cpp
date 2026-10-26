@@ -69,6 +69,15 @@ QVariantMap TaskListModel::taskMap(const Task& stored)
             {"reminderRepeat",t.reminderRepeat},{"reminderEvery",t.reminderEvery},{"reminderZone",t.reminderZone},{"createdAtUtc",t.createdAtUtc},{"updatedAtUtc",t.updatedAtUtc},{"completedAtUtc",t.completedAtUtc},{"recurrenceId",t.recurrenceId},
             {"links",[&]{QVariantList list;for(const auto& link:t.links)list.append(QVariantMap{{"taskId",link.taskId},{"role",link.role}});return list;}()},{"subtaskPending",t.pendingSubtasks}};
 }
+QVariantList TaskListModel::selectionEntries(int first,int last) const
+{
+    QVariantList result;
+    first=std::max(0,first);last=std::min(last,static_cast<int>(m_tasks.size())-1);
+    if(last<first)return result;
+    result.reserve(last-first+1);
+    for(int i=first;i<=last;++i)result.append(QVariantMap{{"taskId",m_tasks[i].id},{"rowVersion",m_tasks[i].rowVersion}});
+    return result;
+}
 void TaskListModel::replace(const QList<Task>& tasks,const QDate& today,int groupRole)
 {
     QHash<QString,QString> headers;QString current;
@@ -415,6 +424,22 @@ QVariantMap TaskWorkspace::catalogImpact(const QString& kind,const QString& id) 
 int TaskWorkspace::batchImpact(const QVariantList& selection,const QString& action) const
 {
     QSet<QString> ids;for(const auto& value:selection)ids.insert(value.toMap().value("taskId").toString());
+    if(action==QStringLiteral("reopen")){
+        QHash<QString,QSet<QString>> groups;
+        for(const auto& value:selection){
+            const auto root=m_taskIndex.constFind(value.toMap().value("taskId").toString());
+            if(root!=m_taskIndex.cend() && !root->completionGroupId.isEmpty())groups[root->completionGroupId].insert(root->id);
+        }
+        for(const auto& task:m_cache){
+            const auto group=groups.constFind(task.completionGroupId);
+            if(group==groups.cend() || !task.deletedAtUtc.isEmpty() || task.status!=QStringLiteral("COMPLETED"))continue;
+            QSet<QString> visited;auto parent=task.parentTaskId;
+            while(!parent.isEmpty() && !visited.contains(parent)){
+                if(group->contains(parent)){ids.insert(task.id);break;}
+                visited.insert(parent);parent=m_taskIndex.value(parent).parentTaskId;
+            }
+        }
+    }
     if(action==QStringLiteral("complete") || action==QStringLiteral("project")){bool changed=true;while(changed){changed=false;for(const auto& task:m_cache)if(task.deletedAtUtc.isEmpty() && ids.contains(task.parentTaskId) && !ids.contains(task.id)){ids.insert(task.id);changed=true;}}}
     return ids.size();
 }
@@ -430,8 +455,8 @@ bool TaskWorkspace::batchTasks(const QVariantList& selection,const QString& acti
         patch.startOn=value.isEmpty()?FieldPatch<QDate>::clear():FieldPatch<QDate>::set(date);
         if(date>m_today)patch.todayFocus=FieldPatch<bool>::set(false);
     } else if(action==QStringLiteral("tags"))patch.tagIds=FieldPatch<QStringList>::set(value.isEmpty()?QStringList{}:value.split(QLatin1Char(','),Qt::SkipEmptyParts));
-    else if(action!=QStringLiteral("complete")){m_error={ErrorCode::ValidationError,QStringLiteral("actionInvalid")};emit stateChanged();return false;}
-    return runCatalog([items,action,patch](TaskWorker& w){return w.service->batch(items,action==QStringLiteral("complete")?action:QStringLiteral("edit"),patch);},QStringLiteral("batch"));
+    else if(action!=QStringLiteral("complete") && action!=QStringLiteral("reopen")){m_error={ErrorCode::ValidationError,QStringLiteral("actionInvalid")};emit stateChanged();return false;}
+    return runCatalog([items,action,patch](TaskWorker& w){return w.service->batch(items,(action==QStringLiteral("complete") || action==QStringLiteral("reopen"))?action:QStringLiteral("edit"),patch);},QStringLiteral("batch"));
 }
 bool TaskWorkspace::undoDelete()
 {
@@ -811,6 +836,12 @@ void TaskWorkspace::setThemeMode(int mode)
     settings.setValue(QStringLiteral("appearance/themeMode"),mode);settings.sync();
     if(settings.status()!=QSettings::NoError){m_error={ErrorCode::PersistenceError,QStringLiteral("settingsWrite")};emit stateChanged();return;}
     m_themeMode=mode;emit stateChanged();
+}
+bool TaskWorkspace::selectionHasStatus(const QVariantList& selection,const QString& status) const
+{
+    if(selection.isEmpty())return false;
+    for(const auto& value:selection){const auto found=m_taskIndex.constFind(value.toMap().value("taskId").toString());if(found==m_taskIndex.cend() || found->status!=status || !found->deletedAtUtc.isEmpty())return false;}
+    return true;
 }
 int TaskWorkspace::taskIndex(const QString& id) const
 {const auto& tasks=m_tasks.items();for(int index=0;index<tasks.size();++index)if(tasks[index].id==id)return index;return -1;}

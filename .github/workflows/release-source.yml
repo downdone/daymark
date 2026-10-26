@@ -1,0 +1,25 @@
+name: Publish source release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check source release metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/publish-source-release.py --tag "$RELEASE_TAG" --check
+      - name: Publish source-only GitHub Release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish-source-release.py --tag "$RELEASE_TAG"

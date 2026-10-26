@@ -40,7 +40,7 @@ ApplicationWindow {
     }
     function activateVerificationCategory(index) {return categories.activateForVerification(index)}
     ColumnLayout {
-        anchors.fill:parent;anchors.margins:16;spacing:10
+        anchors.fill:parent;anchors.margins:Theme.panelPadding;spacing:Theme.groupGap
         SegmentedPicker {
             id: categories
             objectName: "settingsCategories"
@@ -56,7 +56,7 @@ ApplicationWindow {
             Layout.fillHeight: true
             ColumnLayout {
                 width: body.availableWidth-4
-                spacing: 10
+                spacing: Theme.groupGap
                 FormGroup {
                     id: appearance
                     visible: categories.currentIndex===0
@@ -78,13 +78,13 @@ ApplicationWindow {
                     SettingSwitch {showSymbol: false;objectName: "reduceMotionPreference";Layout.fillWidth: true;text: qsTr("减少动态效果");checked:root.workspace.preferences.followSystemAccessibility ? root.workspace.systemAccessibility.reduceMotion : root.workspace.preferences.reduceMotion;onClicked: root.workspace.setPreference("reduceMotion",checked)}
                     SettingSwitch {showSymbol: false;id: contrastPreference;objectName: "highContrastPreference";Layout.fillWidth: true;symbol: "eye";text: qsTr("增强对比度");checked:Theme.highContrast;onClicked: root.workspace.setPreference("highContrast",checked)}
                     Label {Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;visible: Theme.highContrast;text: qsTr("增强文字及边界对比，桌面组件使用实色背景；关闭后恢复原透明度。")}
-                    SettingSwitch {showSymbol: false;Layout.fillWidth: true;symbol: "list";text: qsTr("紧凑任务列表");checked: root.workspace.preferences.compact;onClicked: root.workspace.setPreference("compact",checked)}
+                    SettingSwitch {showSymbol: false;Layout.fillWidth: true;symbol: "list";text: qsTr("紧凑界面");Accessible.description: qsTr("统一导航、列表、表单、菜单和桌面组件的间距，不改变文字大小");checked: root.workspace.preferences.compact;onClicked: root.workspace.setPreference("compact",checked)}
                 }
                 ColumnLayout {
                     id: widgetOptions
                     visible: categories.currentIndex===1
                     Layout.fillWidth: true
-                    spacing: 10
+                    spacing: Theme.groupGap
                     FormGroup {
                         heading: qsTr("显示方式")
                         Flow {
@@ -130,7 +130,7 @@ ApplicationWindow {
                     id: general
                     visible: categories.currentIndex===2
                     Layout.fillWidth: true
-                    spacing: 10
+                    spacing: Theme.groupGap
                     FormGroup {
                         heading: qsTr("启动与关闭")
                         SettingSwitch {showSymbol: false;Layout.fillWidth: true;symbol: "window";text: qsTr("开机启动（当前用户）");enabled: root.startupController.supported;checked: root.startupController.enabled;onClicked: root.startupController.setEnabled(checked)}

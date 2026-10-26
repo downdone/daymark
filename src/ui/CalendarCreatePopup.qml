@@ -54,7 +54,7 @@ Popup {
     y: anchor.y >= 0 ? Math.max(8, Math.min(anchor.y, parent.height - height - 8)) : Math.max(12, (parent.height - height) / 3)
     width: Math.min(400 * Theme.scale, parent.width - 24)
     height: Math.min(parent.height-24,Math.max(320,Math.min(540*Theme.scale,form.implicitHeight+96)))
-    padding: 10
+    padding: Theme.panelPadding
     focus: true
     modal: false
     dim: true
@@ -97,7 +97,7 @@ Popup {
             contentWidth:width;contentHeight:form.implicitHeight;clip:true;boundsBehavior:Flickable.StopAtBounds
             ScrollBar.vertical:ScrollBar{}
             ColumnLayout {
-                id:form;width:scroller.width;spacing:8;enabled:!root.creating
+                id:form;width:scroller.width;spacing:Theme.groupGap;enabled:!root.creating
                 TextField {
                     id:title;objectName:"calendarCreateTitle";Layout.fillWidth:true
                     placeholderText:qsTr("任务标题");Accessible.name:qsTr("新任务标题");font.pixelSize:Theme.taskTitleSize;font.weight:Font.DemiBold
@@ -107,33 +107,39 @@ Popup {
                 TextArea {
                     id:notesField;objectName:"calendarCreateNotes";Layout.fillWidth:true
                     placeholderText:qsTr("添加备注…");Accessible.name:qsTr("新任务备注");wrapMode:TextEdit.Wrap
-                    implicitHeight:Math.max(32,contentHeight+topPadding+bottomPadding)
+                    implicitHeight:Math.max(24,contentHeight+topPadding+bottomPadding)
                     onCursorRectangleChanged:if(activeFocus)Qt.callLater(function(){root.reveal(notesField)})
                     background:Rectangle{color:"transparent"}
                 }
                 DetailSection {
                     heading:qsTr("日期与时间")
-                    RowLayout {
-                        Layout.fillWidth:true
-                        ColumnLayout {
-                            id:startEndpoint;Layout.fillWidth:true;Layout.preferredWidth:1;spacing:4
-                            Label{text:qsTr("开始");font.pixelSize:Theme.captionSize;color:Theme.secondary}
-                            DateField {id:startField;objectName:"calendarCreateStart";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;onInlinePickerRequested:picker.openFor(startField,"date");onTextEdited:timing.changed(true);onDateChosen:timing.changed(true)}
+                    ColumnLayout {
+                        Layout.fillWidth:true;spacing:Theme.fieldGap
+                        FormRow {
+                            label:qsTr("开始");minimumValueWidth:(timing.hasSpecificTime ? 280 : 180)*Theme.scale
+                            GridLayout {
+                                id:startEndpoint;Layout.fillWidth:true;columns:width>=280*Theme.scale ? 2 : 1;columnSpacing:8;rowSpacing:4
+                                DateField {id:startField;objectName:"calendarCreateStart";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;onInlinePickerRequested:picker.openFor(startField,"date");onTextEdited:timing.changed(true);onDateChosen:timing.changed(true)}
+                            }
                         }
-                        ColumnLayout {
-                            id:endEndpoint;Layout.fillWidth:true;Layout.preferredWidth:1;spacing:4
-                            Label{text:qsTr("结束");font.pixelSize:Theme.captionSize;color:Theme.secondary}
-                            DateField {id:endField;objectName:"calendarCreateEnd";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;onInlinePickerRequested:picker.openFor(endField,"date");onTextEdited:timing.changed(true);onDateChosen:timing.changed(true)}
+                        FormRow {
+                            label:qsTr("结束");minimumValueWidth:(timing.hasSpecificTime ? 280 : 180)*Theme.scale
+                            GridLayout {
+                                id:endEndpoint;Layout.fillWidth:true;columns:width>=280*Theme.scale ? 2 : 1;columnSpacing:8;rowSpacing:4
+                                DateField {id:endField;objectName:"calendarCreateEnd";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;onInlinePickerRequested:picker.openFor(endField,"date");onTextEdited:timing.changed(true);onDateChosen:timing.changed(true)}
+                            }
                         }
                     }
                     TaskTimingFields {
-                        id:timing;objectPrefix:"calendarCreate";objectName:"calendarCreateTiming";workspace:root.workspace;Layout.fillWidth:true
+                        id:timing;compactPresentation:true;objectPrefix:"calendarCreate";objectName:"calendarCreateTiming";workspace:root.workspace;Layout.fillWidth:true
                         inlinePickers:true;startEndpointHost:startEndpoint;endEndpointHost:endEndpoint
                         startDateValue:startField.text;endDateValue:endField.text
                         onPickerRequested:function(field,kind){picker.openFor(field,kind)}
                         onDateDefaultsRequested:{if(!startField.text)startField.text=root.date;if(!endField.text)endField.text=startField.text}
                     }
+                    FormRow {label:qsTr("提醒")
                     ReminderField {id:reminder;objectPrefix:"calendarCreate";objectName:"calendarCreateReminder";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;placeholderText:qsTr("添加提醒…");onInlinePickerRequested:picker.openFor(reminder,"reminder")}
+                    }
                 }
                 TaskDetailsFields {id:assignment;objectPrefix:"calendarCreate";objectName:"calendarCreateAssignment";workspace:root.workspace;Layout.fillWidth:true;inspectorMode:true;creationMode:true}
             }

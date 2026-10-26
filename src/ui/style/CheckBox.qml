@@ -3,8 +3,8 @@ import QtQuick.Templates as T
 T.CheckBox {
     id: control
     implicitWidth: contentItem.implicitWidth+leftPadding+rightPadding
-    implicitHeight: Math.max(32,contentItem.implicitHeight+12)
-    padding: 6
+    implicitHeight: Math.max(DesignTokens.controlHeight,contentItem.implicitHeight+(DesignTokens.compact ? 8 : 12))
+    padding: DesignTokens.compact ? 4 : 6
     spacing: 8
     hoverEnabled: true
     font.family: DesignTokens.fontFamily

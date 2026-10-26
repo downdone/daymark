@@ -26,6 +26,8 @@ public:
     void replace(const QList<Task>& tasks,const QDate& today,int groupRole=0);
     const QList<Task>& items() const {return m_tasks;}
     static QVariantMap taskMap(const Task& task);
+    Q_INVOKABLE QString taskIdAt(int row) const { return row>=0 && row<m_tasks.size() ? m_tasks[row].id : QString(); }
+    Q_INVOKABLE QVariantList selectionEntries(int first,int last) const;
 signals:
     void countChanged();
 private:
@@ -167,6 +169,7 @@ public:
     bool taskReorderingAllowed() const;
     Q_INVOKABLE void setTaskChildrenExpanded(const QString& id,bool expanded);
     Q_INVOKABLE int taskIndex(const QString& id) const;
+    Q_INVOKABLE bool selectionHasStatus(const QVariantList& selection,const QString& status) const;
     Q_INVOKABLE bool canMoveTask(const QString& id,int direction) const;
     Q_INVOKABLE bool canDropTask(const QString& source,const QString& target) const;
     Q_INVOKABLE QString dropTaskReason(const QString& source,const QString& target) const;
@@ -292,7 +295,7 @@ private:
     bool m_calendarCompleted=false;
     QVariantList m_taskNotifications;
     QVariantMap m_viewCounts;
-    QVariantMap m_preferences{{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",false},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
+    QVariantMap m_preferences{{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
 };
 

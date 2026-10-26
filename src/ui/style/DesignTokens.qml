@@ -3,7 +3,7 @@ import QtQuick
 QtObject {
     property int mode: 0
     property real scale: 1
-    property bool compact: false
+    property bool compact: true
     property bool highContrast: false
     property SystemPalette systemPalette: SystemPalette {colorGroup: SystemPalette.Active}
     readonly property bool dark: mode===2 || (mode===0 && systemPalette.window.hslLightness<0.5)
@@ -37,17 +37,27 @@ QtObject {
     readonly property string fontFamily: Application.font.family
     readonly property int taskTitle: Math.round(16*scale)
     readonly property int body: Math.round(13*scale)
-    readonly property int navigation: Math.round(12*scale)
+    readonly property int navigation: Math.round(13*scale)
     readonly property int caption: Math.round(12*scale)
     readonly property int section: Math.round(14*scale)
     readonly property int heading: Math.round(16*scale)
     readonly property int title: Math.round(22*scale)
     readonly property int controlHeight: Math.max(32,body+(compact ? 12 : 16))
+    readonly property int controlVisualHeight: Math.max(compact ? 28 : 32,body+10)
+    readonly property int controlInset: Math.max(0,(controlHeight-controlVisualHeight)/2)
+    readonly property int navigationRowHeight: Math.max(32,navigation+12)
+    readonly property int taskRowHeight: Math.max(compact ? 36 : 40,body+16)
+    readonly property int smartTileHeight: Math.max(compact ? 52 : 60,navigation+Math.round(16*scale)+16)
+    readonly property int toolbarHeight: Math.max(compact ? 40 : 44,controlHeight+8)
+    readonly property int propertyLabelWidth: Math.round(72*scale)
+    readonly property int listTitle: Math.round(14*scale)
     readonly property int radius: 6
-    readonly property int rowRadius: 7
+    readonly property int rowRadius: 8
     readonly property int panelRadius: 10
     readonly property int gap: 8
-    readonly property int fieldGap: compact ? 6 : 8
-    readonly property int pagePadding: 12
-    readonly property int panelPadding: 12
+    readonly property int fieldGap: compact ? 4 : 8
+    readonly property int groupGap: compact ? 8 : 12
+    readonly property int sectionPadding: compact ? 4 : 8
+    readonly property int pagePadding: compact ? 12 : 16
+    readonly property int panelPadding: compact ? 12 : 16
 }

@@ -26,6 +26,8 @@ T.Button {
         elide: Text.ElideRight
     }
     background: Rectangle {
+        y: DesignTokens.controlInset
+        height: Math.max(0,control.height-2*DesignTokens.controlInset)
         radius: DesignTokens.radius
         color: !control.enabled ? DesignTokens.sidebar : control.highlighted ? (control.down ? Qt.darker(DesignTokens.accent,1.12) : DesignTokens.accent) : control.down ? DesignTokens.pressed : control.hovered ? DesignTokens.hover : control.flat ? "transparent" : DesignTokens.fieldFill
         border.width: control.visualFocus ? 2 : !control.flat && !control.highlighted ? 1 : 0

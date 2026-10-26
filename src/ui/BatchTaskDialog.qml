@@ -8,7 +8,9 @@ Dialog {
     objectName: "batchTaskDialog"
     required property TaskWorkspace workspace
     property var selection: []
-    readonly property int affectedCount:workspace.batchImpact(selection,["complete","project","start","tags"][action.currentIndex])
+    property int initialAction: 0
+    readonly property var actions: ["complete","project","start","tags","reopen"]
+    readonly property int affectedCount:workspace.batchImpact(selection,actions[action.currentIndex])
     property var tags: []
     readonly property var categories: workspace.categoryTree.filter(item=>item.kind==="project")
     signal committed()
@@ -17,7 +19,7 @@ Dialog {
     width: Math.min(480*Theme.scale,parent.width-32)
     height: Math.min(Math.max(300*Theme.scale,implicitHeight),parent.height-32)
     closePolicy: Popup.NoAutoClose
-    onOpened: {action.currentIndex=0;date.clear();tags=[];project.currentIndex=0}
+    onOpened: {action.currentIndex=initialAction;date.clear();tags=[];project.currentIndex=0}
     Shortcut {sequence: "Escape";enabled: root.visible && !root.workspace.busy && !date.pickerVisible && !action.popup.visible && !project.popup.visible;onActivated: root.close()}
     contentItem: ScrollView {
         implicitHeight: batchFields.implicitHeight
@@ -29,7 +31,7 @@ Dialog {
             Label {Layout.fillWidth: true;wrapMode: Text.Wrap;text: qsTr("已选 %1 项，连同关联子任务实际影响 %2 项。一次提交；任何冲突或验证失败，整批保留原值。").arg(root.selection.length).arg(root.affectedCount)}
             FormGroup {
                 heading: qsTr("选择要修改的内容")
-            ComboBox {id: action;Accessible.name: qsTr("批量操作");Layout.fillWidth: true;model: [qsTr("完成任务"),qsTr("移动到分类"),qsTr("修改开始日"),qsTr("替换标签")]}
+            ComboBox {id: action;Accessible.name: qsTr("批量操作");Layout.fillWidth: true;model: [qsTr("完成任务"),qsTr("移动到分类"),qsTr("修改开始日"),qsTr("替换标签"),qsTr("重新打开任务")]}
             ComboBox {id: project;Accessible.name: qsTr("目标分类");Layout.fillWidth: true;visible: action.currentIndex===1;model: [qsTr("无分类")].concat(root.categories.map(item=>item.path))}
             DateField {id: date;workspace: root.workspace;dateLabel: qsTr("批量开始日期");Layout.fillWidth: true;visible: action.currentIndex===2;placeholderText: qsTr("yyyy-MM-dd，留空清除开始日");Accessible.name: qsTr("批量开始日期")}
             Label {visible: action.currentIndex===3;text: qsTr("替换为所选标签；不选则清除全部标签。")}
@@ -53,7 +55,7 @@ Dialog {
             highlighted: true
             text: qsTr("应用到 %1 项").arg(root.affectedCount)
             enabled: root.selection.length>0 && !root.workspace.busy
-            onClicked: root.workspace.batchTasks(root.selection,["complete","project","start","tags"][action.currentIndex],action.currentIndex===1 ? (project.currentIndex>0 ? root.categories[project.currentIndex-1].id : "") : action.currentIndex===2 ? date.text : root.tags.join(","))
+            onClicked: root.workspace.batchTasks(root.selection,root.actions[action.currentIndex],action.currentIndex===1 ? (project.currentIndex>0 ? root.categories[project.currentIndex-1].id : "") : action.currentIndex===2 ? date.text : root.tags.join(","))
         }
     }
     Connections {target: root.workspace;function onOperationFinished(operation,success){if(operation==="batch" && success){root.close();root.committed()}}}

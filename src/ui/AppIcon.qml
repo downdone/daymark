@@ -53,6 +53,7 @@ Canvas {
         else if(name==="edit") {line([[4,16],[4,21],[9,20],[21,8],[16,3],[4,16]],false);line([[13,6],[18,11]],false)}
         else if(name==="reload" || name==="reset") {p.beginPath();p.arc(12,12,8,0.6,5.4);p.stroke();line([[16,3],[18,7],[13,7]],false)}
         else if(name==="window") {p.strokeRect(3,4,18,16);line([[3,9],[21,9]],false);circle(6,6.5,0.6)}
+        else if(name==="subtask") {line([[5,3],[5,14],[20,14]],false);line([[15,9],[20,14],[15,19]],false)}
         else if(name==="subtasks") {line([[4,4],[12,4]],false);line([[6,8],[6,19],[11,19]],false);line([[6,12],[11,12]],false);line([[15,12],[21,12]],false);line([[15,19],[21,19]],false)}
         else if(name==="list" || name==="batch") {for(let i=0;i<3;i++){p.strokeRect(3,4+6*i,3,3);line([[10,5.5+6*i],[21,5.5+6*i]],false)}}
         else if(name==="export") {line([[4,14],[4,21],[20,21],[20,14]],false);line([[12,16],[12,3]],false);line([[7,8],[12,3],[17,8]],false)}

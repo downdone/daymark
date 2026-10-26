@@ -15,5 +15,7 @@ T.MenuItem {
     contentItem: Text {text: control.text;font: control.font;color: !control.enabled ? DesignTokens.disabledText : control.destructive ? DesignTokens.danger : DesignTokens.text;verticalAlignment: Text.AlignVCenter;wrapMode: Text.Wrap}
     indicator: Text {visible: control.checked;x: 10*DesignTokens.scale;y: (control.height-height)/2;text: "✓";color: DesignTokens.accent;font.pixelSize: DesignTokens.body}
     arrow: Text {visible: !!control.subMenu;text: "›";color: DesignTokens.secondary;anchors.right: parent.right;anchors.rightMargin: 10;anchors.verticalCenter: parent.verticalCenter;font.pixelSize: DesignTokens.body}
-    background: Rectangle {radius: DesignTokens.radius;color: control.down ? DesignTokens.pressed : control.highlighted || control.hovered ? DesignTokens.selected : "transparent";border.width: control.visualFocus ? 2 : 0;border.color: DesignTokens.accent}
+    // Menu owns the active item. An independent hover fill can paint a second
+    // item, including disabled entries, while keyboard/submenu focus is retained.
+    background: Rectangle {objectName: "menuItemSurface";radius: DesignTokens.radius;color: !control.enabled ? "transparent" : control.down ? DesignTokens.pressed : control.highlighted ? DesignTokens.selected : "transparent";border.width: control.enabled && control.visualFocus ? 2 : 0;border.color: DesignTokens.accent}
 }

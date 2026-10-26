@@ -1,5 +1,9 @@
 # 里程碑与可执行任务队列
 
+任务列表下一轮拟按[UX-37复审](design/task-list-interaction-review.md)拆为选择闭环→父子关系及行骨架→详情直接呈现与首帧测量。本轮已授权落实选择、关系、密度及直接呈现；UX-37C会话重构/30次性能矩阵单列后续，不扩大数据库或任务树语义。Windows现有UI/watchdog失败继续作为发布门禁，状态只见PROGRESS。
+
+用户追加的[UX-37D全局密度](design/desktop-density-review.md)作为上述三片共同约束：先标准件/列表详情样板，再同屏导航统一，随后日历与其余表面分片迁移，最后密度/响应/平台矩阵；保持字号、可访问命中和单一草稿。
+
 UX-35/36按[连续月历](design/continuous-month-calendar.md)和[完整新增与桌面密度](design/calendar-creation-and-density.md)追加：只读有限周模型→真实时刻/范围新建→共享字段草稿/事务创建→密度收敛→历史/共享面板/连续月历独立fixture验证。对应FR-036/037；不得通过写占位任务或扩大原watchdog预算简化实现。状态与真实证据仅在PROGRESS。
 
 UX-34按[系统评估](design/system-ux-review-2026-10.md)第6节安排R0可信基线→R1范围/返回→R2统一表达→R3就近编辑→R4月历→R5日周小时轴→R6设置/数据/组件分片→R7年导航和平台验收。FR-034/035已接受实施，代码/验证映射见[实现索引](design/ux34-implementation.md)，设计见[日历v2](design/calendar-workspace-v2.md)、[任务面板](design/contextual-task-inspector.md)及ADR-020；未实施不放占位按钮，不以设计完成替代功能交付。当前状态仅在PROGRESS。

@@ -63,7 +63,7 @@ Item {
         if (!visible || !workspace)
             return;
         const capturedScale = textScale, capturedHeight = list.height;
-        const effectiveReset = reset || placedScale !== capturedScale || placedHeight !== capturedHeight;
+        const effectiveReset = reset || rebuilding || placedScale !== capturedScale || placedHeight !== capturedHeight;
         const generation = ++refreshGeneration;
         const first = list.indexAt(4, list.contentY + 1), row = first >= 0 ? list.itemAtIndex(first) as WeekRow : null;
         const saved = row ? {
@@ -93,9 +93,14 @@ Item {
                 return;
             }
             list.forceLayout();
-            if (effectiveReset || !saved)
-                root.positionAnchor();
-            else {
+            if (effectiveReset || !saved) {
+                if (!root.positionAnchor()) {
+                    // ListView can defer the target delegate during a scale or
+                    // model change. Do not publish a ready viewport at index 0.
+                    anchorPlacementRetry.restart();
+                    return;
+                }
+            } else {
                 const index = root.indexForDate(saved.date);
                 if (index >= 0) {
                     list.positionViewAtIndex(index, ListView.Beginning);
@@ -120,7 +125,19 @@ Item {
             list.forceLayout();
             list.positionViewAtIndex(index, ListView.Beginning);
             list.forceLayout();
+            const row = list.itemAtIndex(index) as WeekRow;
+            if (!row || row.height <= 0 || row.modelData.key !== weeks[index].key || !row.grid.cellForDate(target))
+                return false;
+            // Resolve against the real delegate, not a pre-incubation estimate.
+            list.contentY = row.y;
+            return true;
         }
+        return false;
+    }
+    Timer {
+        id: anchorPlacementRetry
+        interval: 16
+        onTriggered: if(root.visible)root.refresh(true)
     }
     function resetToAnchor() {
         focusAnchor = "";

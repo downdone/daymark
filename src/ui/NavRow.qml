@@ -80,7 +80,7 @@ ItemDelegate {
     Timer {interval:650;running:dropTarget.containsDrag && root.catalogDropAllowed && root.catalogDropPlacement==="inside" && root.hasChildren && !root.branchExpanded;onTriggered:root.expansionRequested(true)}
     Accessible.description:root.catalogDropActive && !root.catalogDropAllowed ? qsTr("此位置不能接收分类；最多支持两级，可拖到上下缘排序。") : ""
     topPadding: 0;bottomPadding: 0
-    implicitHeight: Math.max(32,contentItem.implicitHeight)
+    implicitHeight: Math.max(Theme.navigationRowHeight,contentItem.implicitHeight)
     highlighted: selected
     Accessible.name: detailsText
     contentItem: RowLayout {

@@ -6,8 +6,8 @@ import QtQuick.Layouts
 NavRow {
     id: root
     property color tint: Theme.accent
-    implicitHeight: Math.max(60,contentItem.implicitHeight+12)
-    padding: 6
+    implicitHeight: Math.max(Theme.smartTileHeight,contentItem.implicitHeight+(Theme.compact ? 8 : 12))
+    padding: Theme.compact ? 4 : 6
     Accessible.name: text+qsTr("，%1 项").arg(count)
     contentItem: ColumnLayout {
         spacing: 2

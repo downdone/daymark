@@ -10,7 +10,7 @@ foreach($relative in $required) {
     New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force | Out-Null
     [IO.File]::WriteAllText($path,'synthetic fixture; not a runnable Qt deployment')
 }
-$info=[ordered]@{version='1.0.0-rc.2';sourceRevision=('a'*40);qt='6.10.2';schemaVersion=4;scope='Windows local release candidate';signed=$false}
+$info=[ordered]@{version='1.0.0-rc.2';sourceRevision=('a'*40);qt='6.10.2';schemaVersion=9;scope='Windows local release candidate';signed=$false}
 $info | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
 $entries=@(Get-ChildItem $root -File -Recurse | ForEach-Object {@{path=[IO.Path]::GetRelativePath($root,$_.FullName).Replace('\','/');size=$_.Length;sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
 $manifest=@{version='1.0.0-rc.2';qt='6.10.2';platform='windows-x64';scope='local verification';files=$entries}
@@ -23,6 +23,17 @@ function Expect-Rejection([string]$Case) {
 }
 try {
     Write-Manifest;$null=Assert-DaymarkPackage $root;Write-Output 'PASS: valid synthetic manifest (no native runtime claim)'
+    $info.schemaVersion=4
+    $info | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
+    $metadataEntry=$entries | Where-Object { $_.path -eq 'BUILD-INFO.json' }
+    $metadataEntry.size=(Get-Item (Join-Path $root 'BUILD-INFO.json')).Length
+    $metadataEntry.sha256=(Get-FileHash (Join-Path $root 'BUILD-INFO.json') -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Manifest;Expect-Rejection 'obsolete schema metadata'
+    $info.schemaVersion=9
+    $info | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
+    $metadataEntry.size=(Get-Item (Join-Path $root 'BUILD-INFO.json')).Length
+    $metadataEntry.sha256=(Get-FileHash (Join-Path $root 'BUILD-INFO.json') -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Manifest;$null=Assert-DaymarkPackage $root
     $taskExe=Join-Path $root 'daymark.exe';$original=[IO.File]::ReadAllBytes($taskExe)
     [IO.File]::WriteAllText($taskExe,'tampered');Expect-Rejection 'modified file';[IO.File]::WriteAllBytes($taskExe,$original)
     Move-Item -LiteralPath $taskExe -Destination ($taskExe+'.held');Expect-Rejection 'missing file';Move-Item -LiteralPath ($taskExe+'.held') -Destination $taskExe

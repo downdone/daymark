@@ -1,6 +1,7 @@
 name: Build and test
 on:
   push:
+    branches: ['**'] # Tags reuse the same source; source publication has its own metadata gate.
   pull_request:
   workflow_dispatch:
 permissions:
@@ -30,4 +31,4 @@ jobs:
       - name: Test
         run: ctest --test-dir build/ci -C Release --output-on-failure --no-tests=error
       - name: QML lint
-        run: cmake --build build/ci --config Release --target daymark_qmllint
+        run: cmake --build build/ci --config Release --target daymark_qmllint daymark_style_qmllint
