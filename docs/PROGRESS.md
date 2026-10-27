@@ -6,6 +6,8 @@
 
 本版预发布验证：标准Windows Qt6.10.2 MinGW Release构建PASS（`v1.1.0-build.log`），两目标lint无诊断（`v1.1.0-lint.log`）；CLI输出Daymark 1.1.0，Windows FileVersion/ProductVersion均1.1.0。完整CTest23/25、185.81秒（`v1.1.0-tests.log`），所有核心/数据/独立UI通过；qml_startup与late watchdog分别在阶段324/402达45秒预算，后者未到预设436，保持FAIL，未改预算或断言。发布守卫12/12、源码/版本/隐私预检、90QML视觉源、四主题颜色、702个已跟踪Markdown链接和cached diff检查PASS。纳入116个审查文件，未含无关架构草案、运行库、缓存、日志或用户库；发布范围和平台限制见1.1.0发行说明。GitHub实际结果完成后追加核验记录，不预记发布成功。
 
+发布首轮：版本提交461755b已与annotated tag v1.1.0原子推送，远端tag对象edb89ed2剥离为461755b，版本/标签/main校验PASS。源码发布作业40486074325在annotated类型检查失败，真实远端对象仍正确，未创建Release。定位为Actions checkout产生本地轻量引用；按既有恢复契约修复两个workflow，显式重新fetch原远端tag对象到一次性runner，保留全部annotated/SHA/可达性守卫。恢复请求固定v1.1.0和完整461755b SHA；不改远端tag，不上传二进制。后续真实结果另记。
+
 ### UX-55 全菜单分组（2026-10-27，IMPLEMENTED；关联AUTO-PASS / 完整门禁仍FAIL）
 
 按[全菜单契约](design/menu-system-review.md)审视QML菜单、下拉选择与托盘/原生菜单栏，统一语义分组、动态分隔、命名和快捷键列。复用真实QMenu构造验证及现有UI入口，保留透明组件菜单实体/锚点、草稿/穿透恢复和全部此前变更。先设计后实现；本轮不推送发布，不正常启动私人数据库。标准构建占用已解除，可重试标准输出；原生Shell/首帧未实测不冒充PASS。

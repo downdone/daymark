@@ -37,6 +37,13 @@ jobs:
           path: source-snapshot
           persist-credentials: false
           fetch-depth: 0
+      - name: Fetch immutable remote tag and publication branch
+        working-directory: source-snapshot
+        env:
+          RELEASE_TAG: ${{ steps.request.outputs.tag }}
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git fetch --no-tags --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
       - name: Publish requested immutable source snapshot
         env:
           GH_TOKEN: ${{ github.token }}

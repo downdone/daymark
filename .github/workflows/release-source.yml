@@ -25,7 +25,15 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: python3 scripts/publish-source-release.py --tag "$RELEASE_TAG" --check
       - name: Fetch publication branch explicitly
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        # checkout may synthesize a local lightweight tag at the event commit.
+        # Restore the remote tag object in this disposable runner, never on origin.
         run: git fetch --no-tags origin main:refs/remotes/origin/main
+      - name: Fetch original annotated tag object
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: git fetch --no-tags --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
       - name: Publish source-only GitHub Release
         env:
           RELEASE_TAG: ${{ github.ref_name }}
