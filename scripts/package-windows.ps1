@@ -1,5 +1,5 @@
 #requires -Version 7.0
-param([string]$Version='')
+param([string]$Version='',[switch]$LocalPreview)
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path $PSScriptRoot -Parent
 Import-Module (Join-Path $PSScriptRoot 'PackageValidation.psm1') -Force
@@ -14,7 +14,21 @@ if($LASTEXITCODE -ne 0 -or $changes.Count){throw 'Commit source changes before p
 if(!(Test-Path -LiteralPath "$env:DAYMARK_QT/bin/windeployqt.exe")){throw 'Set DAYMARK_QT to the matching Qt kit.'}
 # Always reconfigure/build/test this committed checkout, rather than attributing a stale binary to HEAD.
 & (Join-Path $PSScriptRoot 'build-windows.ps1') -Preset windows-release
-& (Join-Path $PSScriptRoot 'test-windows.ps1') -Preset windows-release
+$fullTestGatePassed=$true;$knownTestFailures=@();$previewSummary=$null
+if(!$LocalPreview){& (Join-Path $PSScriptRoot 'test-windows.ps1') -Preset windows-release}
+else {
+    $junitPath=Join-Path $projectRoot ('build/package-preview-tests-'+[guid]::NewGuid().ToString('N')+'.xml')
+    Push-Location $projectRoot
+    try {
+        $inventory=(& ctest --preset windows-release --show-only=json-v1 | ConvertFrom-Json)
+        if($LASTEXITCODE -ne 0 -or !@($inventory.tests).Count){throw 'CTest inventory unavailable.'}
+        & ctest --preset windows-release --output-on-failure --output-junit $junitPath
+        $testExit=$LASTEXITCODE
+        $previewSummary=Read-DaymarkPreviewTests $junitPath @($inventory.tests.name)
+        if(($testExit -eq 0) -ne $previewSummary.fullGatePassed){throw 'CTest exit and report disagree.'}
+        $fullTestGatePassed=$previewSummary.fullGatePassed;$knownTestFailures=@($previewSummary.failed)
+    } finally {Pop-Location}
+}
 $executable=Join-Path $projectRoot 'build/windows-release/bin/daymark.exe'
 if(!(Test-Path -LiteralPath $executable)){throw 'Build and test windows-release first.'}
 $stamp=Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -37,13 +51,20 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'docs') -Destination $packageRoot
 $verification=Join-Path $packageRoot 'verification'
 New-Item -ItemType Directory -Path $verification | Out-Null
 foreach($script in @('Test-Package.ps1','PackageValidation.psm1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $script) -Destination $verification}
+$previewNotice=if($LocalPreview){'本地预览包；完整测试门禁通过：'+$fullTestGatePassed+'。已知失败：'+($knownTestFailures -join ', ')+'。详见verification/full-tests.json，不是正式二进制发行。'}else{'完整CTest通过的本地候选；不代表独立干净机或公开再分发许可通过。'}
+if($LocalPreview){$previewSummary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $verification 'full-tests.json') -Encoding utf8}
+$releaseNotes=if(Test-Path -LiteralPath (Join-Path $projectRoot "docs/release-notes-v$Version.md")){"docs/release-notes-v$Version.md"}else{'docs/release-notes-v1-rc2.md'}
 @"
 # Daymark $Version Windows本地候选包
 
 解压后双击daymark.exe。默认数据位于系统应用数据目录，包内没有个人任务数据库。
 
+$previewNotice
+
+构建源码提交：$sourceRevision。版本号沿用当前工程基线；本地包可能包含该版本公开标签之后的改进，以BUILD-INFO.json的sourceRevision为准，不代表改写既有Release。
+
 - [使用指南](docs/user-guide.md)
-- [发行说明/未验证项](docs/release-notes-v1-rc2.md)
+- [发行说明/未验证项]($releaseNotes)
 - [离线校验及升级](docs/delivery-guide.md)
 - [第三方组件/再分发边界](docs/third-party-notices.md)
 
@@ -64,7 +85,8 @@ Prefix=.
 Plugins=.
 QmlImports=qml
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot 'qt.conf') -Encoding ascii
-[ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=9;scope='Windows local release candidate';signed=$false} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
+$packageScope=if($LocalPreview){'Windows local preview candidate'}else{'Windows local release candidate'}
+[ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=9;scope=$packageScope;signed=$false;localPreview=[bool]$LocalPreview;fullTestGatePassed=$fullTestGatePassed;knownTestFailures=@($knownTestFailures)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
 $manifest=Get-ChildItem -LiteralPath $packageRoot -Recurse -File | ForEach-Object {
     [ordered]@{path=[IO.Path]::GetRelativePath($packageRoot,$_.FullName).Replace('\','/');size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
 }

@@ -12,97 +12,112 @@ ApplicationWindow {
     required property TaskWorkspace workspace
     required property WidgetViewModel widgetController
     required property StartupController startupController
-    property int categoryIndex: -1
+    property int categoryIndex: 0
     readonly property var categoryTitles:[qsTr("外观"),qsTr("桌面组件"),qsTr("通用"),qsTr("关于")]
     readonly property var categorySymbols:["eye","window","settings","info"]
     readonly property var categoryDetails:[qsTr("主题、文字与辅助功能"),qsTr("任务小窗、迷你条与桌面日历"),qsTr("启动、提醒与备份"),qsTr("版本与交流反馈")]
-    property real overviewY:0
-    property int lastCategory:0
-    title: (categoryIndex<0 ? qsTr("设置") : categoryTitles[categoryIndex])+qsTr(" · Daymark")
+    property var categoryScroll:[0,0,0,0]
+    property bool restoringScroll:false
+    readonly property real sidebarWidth:Math.min(220,176*Theme.scale)
+    readonly property real availableWidth:width-sidebarWidth-32
+    readonly property real availableHeight:height-64
+    title:qsTr("设置 · Daymark")
     visible:false
     flags:Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.CustomizeWindowHint
     color:Theme.grouped
     font.family:Theme.fontFamily;font.pixelSize:Theme.bodySize
     palette.window:Theme.content;palette.text:Theme.text;palette.windowText:Theme.text;palette.base:Theme.content;palette.buttonText:Theme.text;palette.highlight:Theme.accent
-    readonly property real availableWidth:width-32
-    readonly property real availableHeight:height-64
-    width:Math.min(600*Theme.scale,transientParent ? transientParent.width-32 : 1000)
-    height:Math.min(640*Theme.scale,transientParent ? transientParent.height-32 : 900)
-    function open(){x=transientParent ? transientParent.x+(transientParent.width-width)/2 : x;y=transientParent ? transientParent.y+(transientParent.height-height)/2 : y;show();requestActivate()}
+    minimumWidth:640;minimumHeight:420
+    width:Math.min(860*Theme.scale,Math.max(minimumWidth,transientParent ? transientParent.width-32 : Screen.width-48),Math.max(minimumWidth,Screen.width-48))
+    height:Math.min(680*Theme.scale,Math.max(minimumHeight,transientParent ? transientParent.height-32 : Screen.height-48),Math.max(minimumHeight,Screen.height-48))
+    function open(){x=Math.max(Screen.virtualX,Math.min(transientParent ? transientParent.x+(transientParent.width-width)/2 : x,Screen.virtualX+Screen.width-width));y=Math.max(Screen.virtualY,Math.min(transientParent ? transientParent.y+(transientParent.height-height)/2 : y,Screen.virtualY+Screen.height-height));setVisible(true);requestActivate()}
     function close(){hide();if(transientParent)transientParent.requestActivate()}
     function viewport(){return body.contentItem as Flickable}
+    function focusCategory(){const row=categories.itemAtIndex(categoryIndex) as Button;if(row)row.forceActiveFocus()}
     function setVerificationCategory(index) {
-        const view=viewport();if(categoryIndex<0 && view)overviewY=view.contentY;
-        categoryIndex=Math.max(0,Math.min(3,index));lastCategory=categoryIndex;
-        Qt.callLater(function(){const v=root.viewport();if(v)v.contentY=0;settingsBack.forceActiveFocus()})
+        const next=Math.max(0,Math.min(3,index));if(next===categoryIndex)return
+        const view=viewport(),saved=categoryScroll.slice();if(view)saved[categoryIndex]=view.contentY;categoryScroll=saved
+        restoringScroll=true;categoryIndex=next
     }
-    function showOverview() {
-        categoryIndex=-1;
-        Qt.callLater(function(){const v=root.viewport();if(v)v.contentY=Math.min(root.overviewY,Math.max(0,v.contentHeight-v.height));const row=categories.itemAt(root.lastCategory) as Button;if(row)row.forceActiveFocus()})
-    }
-    function verifyCategory() {
-        if(categoryIndex<0)return overview.visible && overview.width>0 ? "PASS" : "settings overview missing";
-        const selected=categoryIndex===0 ? appearance : categoryIndex===1 ? widgetOptions : categoryIndex===2 ? general : about;
-        if(!selected.visible || selected.width<=0 || selected.height<=0)return "category content missing";
-        if(!settingsBack.visible || settingsHeader.height>=root.height || body.height<80)return "category navigation clipped";
-        if(categoryIndex===2 && (!systemReminders.visible || systemReminders.width<=0))return "system reminder preference missing";
-        return "PASS";
-    }
+    function showOverview(){focusCategory()}
     function activateVerificationCategory(index) {
-        showOverview();const row=categories.itemAt(index) as Button;
-        if(!row)return false;row.clicked();return true;
+        const row=categories.itemAtIndex(index) as Button;if(!row)return false;row.clicked();return true
+    }
+    function navigateCategory(index){setVerificationCategory(index);Qt.callLater(focusCategory)}
+    function verifyCategory() {
+        const selected=categoryIndex===0 ? appearance : categoryIndex===1 ? widgetOptions : categoryIndex===2 ? general : about
+        if(categoryIndex<0 || !selected.visible || selected.width<=0 || selected.height<=0)return "category content missing"
+        if(sidebar.width<148 || settingsHeader.height>=root.height || body.height<80 || contentPane.x<sidebar.width-1)return "split settings navigation clipped"
+        if(categoryIndex===2 && (!systemReminders.visible || systemReminders.width<=0))return "system reminder preference missing"
+        for(let i=0;i<4;++i){const row=categories.itemAtIndex(i) as Button;if(!row || row.checked!==(i===categoryIndex))return "settings sidebar selection mismatch"}
+        return "PASS"
     }
     function reveal(item) {
-        const view=viewport();if(!view || !item)return;
-        let owner=item;while(owner && owner!==pages)owner=owner.parent;
-        if(!owner)return;
-        const at=item.mapToItem(pages,0,0),extent=Math.min(item.height,view.height);
-        if(at.y<view.contentY)view.contentY=Math.max(0,at.y-8);
-        else if(at.y+extent>view.contentY+view.height)view.contentY=Math.min(Math.max(0,view.contentHeight-view.height),at.y+extent-view.height+8);
+        const view=viewport();if(!view || !item)return
+        let owner=item;while(owner && owner!==pages)owner=owner.parent;if(!owner)return
+        restoringScroll=false
+        const at=item.mapToItem(pages,0,0),extent=Math.min(item.height,view.height)
+        if(at.y<view.contentY)view.contentY=Math.max(0,at.y-8)
+        else if(at.y+extent>view.contentY+view.height)view.contentY=Math.min(Math.max(0,view.contentHeight-view.height),at.y+extent-view.height+8)
     }
     Connections {target:root;function onActiveFocusItemChanged(){Qt.callLater(function(){root.reveal(root.activeFocusItem)})}}
-    onClosing:function(event){event.accepted=false;root.close()}
-    Shortcut {sequence:"Escape";enabled:root.visible;onActivated:root.categoryIndex>=0 ? root.showOverview() : root.close()}
-    footer:ToolBar {
-        implicitHeight:settingsFooterRow.implicitHeight+16
-        background:Rectangle{color:Theme.grouped}
-        RowLayout {
-            id:settingsFooterRow;anchors.fill:parent;anchors.margins:8
-            Label {Layout.fillWidth:true;text:root.workspace.errorText ? qsTr("设置未保存，请重试") : qsTr("更改立即保存");font.pixelSize:Theme.captionSize;color:root.workspace.errorText ? Theme.danger : Theme.secondary}
-            Button {text:qsTr("关闭");flat:true;onClicked:root.close()}
-        }
+    Binding {
+        target:root.viewport();property:"contentY";when:root.restoringScroll && !!root.viewport();restoreMode:Binding.RestoreNone
+        value:{const view=root.viewport();return view ? Math.min(root.categoryScroll[root.categoryIndex],Math.max(0,view.contentHeight-view.height)) : 0}
     }
-    ColumnLayout {
-        anchors.fill:parent;anchors.margins:16;spacing:12
-        RowLayout {
-            id:settingsHeader;Layout.fillWidth:true;spacing:8
-            WidgetAction {id:settingsBack;objectName:"settingsBack";visible:root.categoryIndex>=0;symbol:"left";description:qsTr("返回设置");onClicked:root.showOverview()}
-            Label {text:root.categoryIndex<0 ? qsTr("设置") : root.categoryTitles[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:root.categoryIndex<0 ? Theme.titleSize : Theme.headingSize;font.weight:Font.DemiBold;wrapMode:Text.Wrap}
-        }
-        ScrollView {
-            id:body;objectName:"settingsScroll";Layout.fillWidth:true;Layout.fillHeight:true
-            contentWidth:availableWidth;clip:true
+    Connections {target:root.viewport();function onMovementStarted(){root.restoringScroll=false}}
+    onClosing:function(event){event.accepted=false;root.close()}
+    Shortcut {sequence:"Escape";enabled:root.visible;onActivated:root.close()}
+    RowLayout {
+        anchors.fill:parent;spacing:0
+        Rectangle {
+            id:sidebar;objectName:"settingsSidebar";Layout.preferredWidth:root.sidebarWidth;Layout.fillHeight:true;color:Theme.sidebar
+            Rectangle {anchors.right:parent.right;width:1;height:parent.height;color:Theme.separator}
             ColumnLayout {
-                id:pages;width:body.availableWidth;spacing:Theme.blockGap
-                ColumnLayout {
-                    id:overview;objectName:"settingsOverview";visible:root.categoryIndex<0;Layout.fillWidth:true;spacing:Theme.blockGap
-                    SettingsGroup {
-                        heading:qsTr("偏好设置")
-                        Repeater {
-                            id:categories;model:root.categoryTitles
-                            SettingsLink {
-                                required property int index
-                                required property string modelData
-                                objectName:"settingsCategory-"+index
-                                text:modelData;detail:root.categoryDetails[index];symbol:root.categorySymbols[index]
-                                iconColor:index===0 ? Theme.accent : index===1 ? Theme.success : index===2 ? Theme.secondary : Theme.catalogColor("purple")
-                                separator:index<3
-                                onClicked:root.setVerificationCategory(index)
-                            }
+                anchors.fill:parent;anchors.margins:12;spacing:12
+                Label {text:qsTr("设置");font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;Layout.leftMargin:8;Layout.topMargin:6;Layout.fillWidth:true}
+                ListView {
+                    id:categories;objectName:"settingsCategories";Layout.fillWidth:true;Layout.fillHeight:true;clip:true;spacing:4
+                    model:root.categoryTitles;currentIndex:root.categoryIndex;boundsBehavior:Flickable.StopAtBounds
+                    delegate:Button {
+                        id:categoryRow
+                        required property int index
+                        required property string modelData
+                        objectName:"settingsCategory-"+index;width:categories.width
+                        text:modelData;checkable:true;autoExclusive:true;checked:root.categoryIndex===index;activeFocusOnTab:checked
+                        implicitHeight:Math.max(36,categoryLabel.implicitHeight+14);padding:8
+                        Accessible.name:modelData;Accessible.description:root.categoryDetails[index]
+                        onClicked:root.setVerificationCategory(index)
+                        Keys.onPressed:function(event){
+                            if(event.key===Qt.Key_Up){root.navigateCategory(Math.max(0,root.categoryIndex-1));event.accepted=true}
+                            else if(event.key===Qt.Key_Down){root.navigateCategory(Math.min(3,root.categoryIndex+1));event.accepted=true}
+                            else if(event.key===Qt.Key_Home){root.navigateCategory(0);event.accepted=true}
+                            else if(event.key===Qt.Key_End){root.navigateCategory(3);event.accepted=true}
                         }
+                        contentItem:RowLayout {
+                            spacing:8
+                            Rectangle {Layout.preferredWidth:24;Layout.preferredHeight:24;radius:Theme.controlRadius;color:Theme.highContrast ? Theme.hover : Qt.rgba(categoryIcon.ink.r,categoryIcon.ink.g,categoryIcon.ink.b,Theme.dark ? 0.2 : 0.1)
+                                AppIcon {id:categoryIcon;anchors.centerIn:parent;width:16;height:16;name:root.categorySymbols[categoryRow.index];ink:categoryRow.index===0 ? Theme.accent : categoryRow.index===1 ? Theme.success : categoryRow.index===2 ? Theme.secondary : Theme.catalogColor("purple")}
+                            }
+                            Label {id:categoryLabel;text:categoryRow.modelData;Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.bodySize;font.weight:categoryRow.checked ? Font.DemiBold : Font.Normal}
+                        }
+                        background:Rectangle {radius:Theme.rowRadius;color:categoryRow.down ? Theme.pressed : categoryRow.checked ? Theme.selected : categoryRow.hovered ? Theme.hover : "transparent";border.width:categoryRow.visualFocus ? 1 : 0;border.color:Theme.accent}
                     }
-                    Label {text:qsTr("Daymark · 本地保存，无需账号");Layout.fillWidth:true;Layout.leftMargin:12;color:Theme.secondary;font.pixelSize:Theme.captionSize;wrapMode:Text.Wrap}
                 }
+                Label {text:qsTr("本地保存 · 无需账号");Layout.fillWidth:true;Layout.leftMargin:8;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary}
+            }
+        }
+        ColumnLayout {
+            id:contentPane;objectName:"settingsContentPane";Layout.fillWidth:true;Layout.fillHeight:true;Layout.margins:16;spacing:12
+            ColumnLayout {
+                id:settingsHeader;Layout.fillWidth:true;spacing:4
+                Label {objectName:"settingsCategoryTitle";text:root.categoryTitles[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;wrapMode:Text.Wrap}
+                Label {text:root.categoryDetails[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.captionSize;color:Theme.secondary;wrapMode:Text.Wrap}
+            }
+            ScrollView {
+                id:body;objectName:"settingsScroll";Layout.fillWidth:true;Layout.fillHeight:true;contentWidth:availableWidth;clip:true
+                ColumnLayout {
+                    id:pages;width:body.availableWidth;spacing:Theme.blockGap
                 ColumnLayout {
                     id:appearance;visible:root.categoryIndex===0;Layout.fillWidth:true;spacing:Theme.blockGap
                     SettingsGroup {
@@ -206,9 +221,15 @@ ApplicationWindow {
                     }
                 }
                 SettingsAboutPage {id:about;visible:root.categoryIndex===3;Layout.fillWidth:true}
+                }
+            }
+            Label {visible:root.widgetController.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.widgetController.errorText}
+            Label {visible:root.workspace.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.workspace.errorText}
+            RowLayout {
+                Layout.fillWidth:true
+                Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.workspace.errorText ? qsTr("设置未保存，请重试") : qsTr("更改立即保存");font.pixelSize:Theme.captionSize;color:root.workspace.errorText ? Theme.danger : Theme.secondary}
+                Button {objectName:"settingsClose";text:qsTr("关闭");flat:true;onClicked:root.close()}
             }
         }
-        Label {visible:root.widgetController.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.widgetController.errorText}
-        Label {visible:root.workspace.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.workspace.errorText}
     }
 }

@@ -11,6 +11,7 @@
 
 ## 源码快照和二进制门槛
 
+- 用户明确请求的本地预览包可用`./scripts/package-windows.ps1 -LocalPreview`，严格范围见[ADR-024](ADR/024-local-preview-package.md)。仍执行完整CTest并保留全部用例结果，仅容许已记录的两个旧UI探针失败，其他失败/跳过/缺失均阻止打包；默认命令及正式发布要求不变。该参数不授权上传运行库，也不标记RELEASE-READY。
 - 当前仅发布源码；Qt再分发许可待核实，禁止上传含Qt/MinGW运行库的包、SDK、安装包或便携包。源码授权选择不因tag自动成立。
 - 源码快照允许如实披露已有UI时序失败和未验证平台；必须具备可构建、相关链路证据及发行说明中的FAIL/UNVERIFIED边界，不得称RELEASE-READY。源码发布job只证明元数据/源码守卫和Release创建，不取代桌面完整CI。
 - 正式二进制须完整CTest、数据/迁移/备份/故障、UI状态/键盘/缩放、真实平台/辅助技术、干净机/签名及运行库许可等门禁通过；不得加大watchdog预算、删断言或以mock/offscreen代替实测。

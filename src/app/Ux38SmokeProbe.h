@@ -25,6 +25,8 @@ private:
     QString m_screenshot,m_task;
     QString m_shortCategory,m_longCategory;
     int m_stage=0,m_count=0;
+    double m_settingsScroll=0;
+    bool m_settingsHomeSent=false;
     QElapsedTimer m_wait;
 };
 }

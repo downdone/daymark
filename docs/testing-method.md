@@ -1,5 +1,7 @@
 # 测试方法与链路责任（1.0）
 
+UX-56在原desktop_surfaces替换设置导航协议，覆盖侧栏/正文、键盘、切换滚动及原偏好路由，不增加同义CTest。package_validation增加完整JUnit结果集合、已知失败白名单、跳过/缺失/重复及DTD拒绝；默认打包仍要求完整CTest通过。[ADR-024](ADR/024-local-preview-package.md)的显式本地预览始终保留完整结果，另以原生contextual_workspace验证无SDK运行，不将预览称为正式门禁通过。
+
 UX-55不新增CTest：widget_window加入真实托盘QMenu结构、状态同步、输入恢复和最大化保持；可选DAYMARK_TEST_ARTIFACT_DIR仅导出测试菜单截图，不读写用户库。desktop_surfaces样板复用真实菜单，验证全可见/隐藏首组/尾组/中间组/空菜单的分隔；列表/日历复用既有选择/菜单/危险动作链。
 
 UX-52～54保持既有CTest与超时：恢复单测负责最大化隐藏状态，列表链负责文字/命中盒几何，task_workspace补本地锚点星期只读默认，contextual_workspace负责重复草稿到数据库、已有规则周预设及200%可达，desktop_surfaces负责模式切换后的菜单锚点/实体表面和实际文字像素。截图使用临时数据的原入口，不复制一套重复规则服务测试；物理合成器问题必须区分框架证据与桌面观察。

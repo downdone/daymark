@@ -1,6 +1,25 @@
 #requires -Version 7.0
 Set-StrictMode -Version Latest
 
+function Read-DaymarkPreviewTests([string]$JunitPath,[string[]]$ExpectedTests) {
+    if(!$ExpectedTests.Count){throw 'Expected CTest inventory required.'}
+    $settings=[Xml.XmlReaderSettings]::new();$settings.DtdProcessing=[Xml.DtdProcessing]::Prohibit;$settings.XmlResolver=$null
+    $reader=[Xml.XmlReader]::Create($JunitPath,$settings)
+    try {$document=[Xml.XmlDocument]::new();$document.XmlResolver=$null;$document.Load($reader)}finally{$reader.Dispose()}
+    $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $failed=[Collections.Generic.List[string]]::new();$cases=[Collections.Generic.List[object]]::new()
+    foreach($case in $document.SelectNodes('//testcase')) {
+        $name=$case.GetAttribute('name');if(!$name -or !$seen.Add($name)){throw 'Missing or duplicate test result.'}
+        if($case.SelectSingleNode('skipped') -or $case.GetAttribute('status') -eq 'notrun'){throw 'Skipped CTest cannot qualify a preview.'}
+        $failure=$null -ne $case.SelectSingleNode('failure|error')
+        if($failure){$failed.Add($name)}
+        $cases.Add([ordered]@{name=$name;passed=!$failure;seconds=$case.GetAttribute('time')})
+    }
+    if(!$seen.SetEquals($ExpectedTests)){throw 'Incomplete CTest report; preview blocked.'}
+    foreach($name in $failed){if($name -cnotin @('qml_startup','qml_watchdog_late')){throw ('Unexpected CTest failure; preview blocked: '+$name)}}
+    return [ordered]@{format=1;total=$seen.Count;failed=$failed.ToArray();fullGatePassed=$failed.Count -eq 0;cases=$cases.ToArray()}
+}
+
 function Read-PackageJson([string]$Path) {
     $document=[System.Text.Json.JsonDocument]::Parse([IO.File]::ReadAllText($Path))
     try {
@@ -46,7 +65,20 @@ function Assert-DaymarkPackage([string]$PackageDirectory) {
        $manifest.qt -cne '6.10.2' -or $info.qt -cne '6.10.2' -or $manifest.platform -cne 'windows-x64' -or
        $info.schemaVersion -ne 9 -or $info.sourceRevision -notmatch '^[a-f0-9]{40}$' -or
        $info.signed -isnot [bool] -or $info.signed -or $manifest.scope -cne 'local verification' -or
-       $info.scope -cne 'Windows local release candidate'){throw 'Unsupported or inconsistent package metadata.'}
+       $info.scope -cnotin @('Windows local release candidate','Windows local preview candidate')){throw 'Unsupported or inconsistent package metadata.'}
+    if($info.scope -ceq 'Windows local preview candidate') {
+        if(!$info.ContainsKey('localPreview') -or $info.localPreview -isnot [bool] -or !$info.localPreview -or
+           !$info.ContainsKey('fullTestGatePassed') -or $info.fullTestGatePassed -isnot [bool] -or
+           !$info.ContainsKey('knownTestFailures')){throw 'Preview gate evidence missing.'}
+        foreach($name in $info.knownTestFailures){if($name -cnotin @('qml_startup','qml_watchdog_late')){throw 'Unexpected preview failure metadata.'}}
+        if($info.fullTestGatePassed -ne (@($info.knownTestFailures).Count -eq 0)){throw 'Inconsistent preview gate metadata.'}
+        $summaryPath=Join-Path $root 'verification/full-tests.json'
+        if(!(Test-Path -LiteralPath $summaryPath)){throw 'Preview full test summary missing.'}
+        $summary=Read-PackageJson $summaryPath
+        if($summary.fullGatePassed -ne $info.fullTestGatePassed -or
+           (@($summary.failed) -join ',') -cne (@($info.knownTestFailures) -join ',') -or
+           $summary.total -ne @($summary.cases).Count){throw 'Inconsistent preview full test summary.'}
+    }
     $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach($entry in $manifest.files) {
         if($entry.path -isnot [string] -or !$entry.path -or $entry.path -match '(^/|\\|:|(^|/)\.{1,2}(/|$)|//|[ .](/|$))' -or
@@ -103,4 +135,4 @@ function Get-DaymarkRuntimeOrigin([string]$ModuleName,[string]$ModulePath,[strin
     throw ('Runtime DLL outside permitted locations: '+$ModuleName)
 }
 
-Export-ModuleMember -Function Assert-DaymarkPackage,Assert-DaymarkArchive,Get-DaymarkRuntimeOrigin
+Export-ModuleMember -Function Assert-DaymarkPackage,Assert-DaymarkArchive,Get-DaymarkRuntimeOrigin,Read-DaymarkPreviewTests

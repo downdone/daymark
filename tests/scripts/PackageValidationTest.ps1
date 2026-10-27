@@ -22,7 +22,45 @@ function Expect-Rejection([string]$Case) {
     Write-Output "PASS: rejects $Case"
 }
 try {
+    $junit=Join-Path $testRoot 'preview-tests.xml'
+    $inventory=@('task_service','qml_startup','qml_watchdog_late')
+    $known='<testsuite tests="3"><testcase name="task_service" status="run" time="0.1"/><testcase name="qml_startup" status="run"><failure message="known timeout"/></testcase><testcase name="qml_watchdog_late" status="run"><failure message="known timeout"/></testcase></testsuite>'
+    [IO.File]::WriteAllText($junit,$known)
+    $preview=Read-DaymarkPreviewTests $junit $inventory
+    if($preview.fullGatePassed -or $preview.total -ne 3 -or ($preview.failed -join ',') -cne 'qml_startup,qml_watchdog_late'){throw 'Known failure preview scope lost.'}
+    foreach($invalid in @(
+        $known.Replace('<testcase name="task_service" status="run" time="0.1"/>',''),
+        $known.Replace('<testcase name="task_service" status="run" time="0.1"/>','<testcase name="task_service"><skipped/></testcase>'),
+        $known.Replace('<testcase name="task_service" status="run" time="0.1"/>','<testcase name="task_service"><failure/></testcase>'),
+        $known.Replace('name="qml_watchdog_late"','name="qml_startup"'),
+        '<!DOCTYPE testsuite [<!ENTITY external SYSTEM "file:///forbidden">]><testsuite>&external;</testsuite>'
+    )) {
+        [IO.File]::WriteAllText($junit,$invalid)
+        $rejected=$false;try {$null=Read-DaymarkPreviewTests $junit $inventory}catch {$rejected=$true}
+        if(!$rejected){throw 'Preview accepted incomplete, skipped, duplicate, unexpected failure or DTD.'}
+    }
+    [IO.File]::WriteAllText($junit,($known -replace '<failure[^>]*/>',''))
+    if(!(Read-DaymarkPreviewTests $junit $inventory).fullGatePassed){throw 'Passing report classified as failed.'}
+    Write-Output 'PASS: preview requires complete full-test inventory; rejects new failures, skipped/duplicate cases and DTD'
     Write-Manifest;$null=Assert-DaymarkPackage $root;Write-Output 'PASS: valid synthetic manifest (no native runtime claim)'
+    $previewInfo=[ordered]@{};foreach($key in $info.Keys){$previewInfo[$key]=$info[$key]}
+    $previewInfo.scope='Windows local preview candidate';$previewInfo.localPreview=$true
+    $previewInfo.fullTestGatePassed=$false;$previewInfo.knownTestFailures=@($preview.failed)
+    $summaryPath=Join-Path $root 'verification/full-tests.json'
+    $preview | ConvertTo-Json -Depth 6 | Set-Content $summaryPath
+    $previewInfo | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
+    $savedEntries=$manifest.files
+    $manifest.files=@(Get-ChildItem $root -File -Recurse | Where-Object Name -ne 'manifest.json' | ForEach-Object {@{path=[IO.Path]::GetRelativePath($root,$_.FullName).Replace('\','/');size=$_.Length;sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
+    Write-Manifest;$null=Assert-DaymarkPackage $root
+    $previewInfo.fullTestGatePassed=$true
+    $previewInfo | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
+    Expect-Rejection 'preview metadata claiming passed gate with recorded failures'
+    $previewInfo.fullTestGatePassed=$false
+    $previewInfo | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
+    Remove-Item -LiteralPath $summaryPath
+    Expect-Rejection 'preview without full-test evidence'
+    $info | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
+    $manifest.files=$savedEntries;Write-Manifest
     $info.schemaVersion=4
     $info | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
     $metadataEntry=$entries | Where-Object { $_.path -eq 'BUILD-INFO.json' }

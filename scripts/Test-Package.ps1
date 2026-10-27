@@ -19,7 +19,7 @@ $output=Join-Path $reportParentPath ('daymark-package-check-'+[guid]::NewGuid().
 New-Item -ItemType Directory -Path $output | Out-Null
 $environmentNames=@('PATH','QT_QPA_PLATFORM','QT_PLUGIN_PATH','QT_QPA_PLATFORM_PLUGIN_PATH','QML_IMPORT_PATH','QML2_IMPORT_PATH','QT_CONF_PATH')
 $saved=@{};foreach($name in $environmentNames){$saved[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
-$process=$null;$passed=$false;$failure=$null
+$process=$null;$passed=$false;$failure=$null;$smokeArgument=''
 $observed=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 $systemModules=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 $deployedNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -36,7 +36,8 @@ try {
     $process=Start-Process -FilePath $exe -ArgumentList '--version' -WorkingDirectory $package.root -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $output 'version.txt') -RedirectStandardError (Join-Path $output 'version-error.txt')
     if(!$process.WaitForExit(10000)){throw 'Version process timed out.'}
     if($process.ExitCode -ne 0 -or ([IO.File]::ReadAllText((Join-Path $output 'version.txt'))).Trim() -cne ('Daymark '+$package.info.version)){throw 'Executable version differs from package metadata.'}
-    $process=Start-Process -FilePath $exe -ArgumentList '--smoke-test' -WorkingDirectory $package.root -WindowStyle Hidden -PassThru -RedirectStandardError (Join-Path $output 'native.log')
+    $smokeArgument=if($package.info.scope -ceq 'Windows local preview candidate'){'--contextual-workspace-smoke'}else{'--smoke-test'}
+    $process=Start-Process -FilePath $exe -ArgumentList $smokeArgument -WorkingDirectory $package.root -WindowStyle Hidden -PassThru -RedirectStandardError (Join-Path $output 'native.log')
     $elapsed=[Diagnostics.Stopwatch]::StartNew()
     while($true) {
         $process.Refresh();if($process.HasExited){break}
@@ -67,7 +68,7 @@ finally {
     if($null -ne $process -and !$process.HasExited){$process.Kill();$process.WaitForExit()}
     foreach($name in $environmentNames){[Environment]::SetEnvironmentVariable($name,$saved[$name],'Process')}
     [ordered]@{format=1;passed=$passed;failure=$failure;version=$package.info.version;sourceRevision=$package.info.sourceRevision;qt=$package.info.qt;
-        executableSha256=$package.manifest.files.Where({$_.path -ieq 'daymark.exe'})[0].sha256;
+        executableSha256=$package.manifest.files.Where({$_.path -ieq 'daymark.exe'})[0].sha256;probe=$smokeArgument;
         observedModules=@($observed | Sort-Object);windowsSystemModules=@($systemModules | Sort-Object);scope='Local SDK-isolated native smoke; not an independent clean machine';
         cleanMachineVerified=$false;redistributionLicenseVerified=$false;userDataAccessed=$false} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'report.json') -Encoding utf8
 }

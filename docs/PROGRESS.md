@@ -1,6 +1,16 @@
 # Daymark 实施进度
 
-### v1.1.0 构建与源码发布（2026-10-27，LOCAL-VERIFIED；PUBLICATION-PENDING）
+### UX-56 两栏设置、本地便携包与推送（2026-10-27，IN_PROGRESS）
+
+用户要求设置对齐macOS两栏：左一级导航、右具体内容，完成后本地便携包并推送GitHub。按[设计](design/settings-split-navigation.md)替代设置目录/返回模式，保留真实四类设置、即时保存/错误、键盘和200%可达；更新原测试协议。现有v1.1.0标签已公开不移动，包用真实提交SHA标识；本地交付不等于公开上传Qt运行库。先实现/关联测试，再处理阻碍打包的旧完整探针，保持原断言和门禁，不正常打开私人数据库，不纳入无关架构草案。
+
+实现与关联验证：两栏四类入口/标题/分组内容固定，移除目录首页和返回按钮；侧栏单选、上下/Home/End、Tab、Esc关闭及重开分类保持，各页分别恢复滚动。正文继续即时保存、错误保留和穿透恢复；200%时右侧字段堆叠、导航与正文独立按需滚动。Release构建和双目标lint PASS；关联package_validation/contextual_workspace/calendar_interaction/desktop_surfaces/task_list_interaction共5/5、68.05秒（ux56-delivery-tests.log），原预算/断言保持。截图流程退出0、warnings=false（ux56-visual.err），复看浅深/200%外观、组件、通用和关于、滚动后内容；Qt软件渲染仅为布局证据，物理输入/读屏/macOS保持UNVERIFIED。
+
+本地包按ADR-024显式预览：完整CTest始终执行并存机器可读摘要，只容许既有qml_startup/qml_watchdog_late失败，任何其他失败/跳过/缺失阻止打包。默认正式命令未放宽。新解析守卫验证缺失/跳过/未知失败/重复/DTD拒绝；部署仍检查版本、清单、真实SDK隔离模块来源、Qt SBOM及ZIP，不上传二进制。最终完整结果、产物及源码推送核验完成后追加。
+
+v1.1.0发布恢复：annotated重新获取后，403定位为GitHub对旧target_commitish相对main涉及workflow变化的权限检查。按官方API语义，已存在tag不需要该创建提示；工具在请求前后核验远端annotated对象和固定commit，省略target_commitish，不扩大token权限。14项发布守卫通过，attempt3后公开[Release](https://github.com/downdone/daymark/releases/tag/v1.1.0)已成功创建；HTML及展开资产核验200、版本标题/源码声明/完整461755b SHA一致，仅GitHub自带源码zip/tar，无运行库资产（build/v1.1.0-published.json）。tag对象edb89ed2e483e203d92c163f2da364f2983df3dd始终剥离为461755b9fdb440f350c3236961682e9019c1e211，最新两栏设置不回填旧tag。浏览器通路禁用未绕过，未读取凭据。
+
+### v1.1.0 构建与源码发布（2026-10-27，SOURCE-PUBLISHED；二进制非READY）
 
 用户明确授权构建并发布v1.1.0。按发布规则保留既有公开标签、创建新的annotated tag，发布源码快照；沿用运行库许可未确认时仅发布源码的决定，不上传Qt/MinGW二进制。当前origin/main与本地HEAD一致，远端无v1.1.0；纳入此前已验证功能/测试/设计，排除无关code-structure-roadmap草案。CMake/运行版本和发行说明同步至1.1.0，重新构建/完整测试、元数据及隐私预检，再提交推送精确main/tag并核验Actions和Release。已有完整门禁23/25及平台未验如实披露，不抬升为二进制READY，不触及私人库。
 

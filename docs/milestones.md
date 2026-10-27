@@ -1,5 +1,7 @@
 # 里程碑与可执行任务队列
 
+UX-56按[两栏设置](design/settings-split-navigation.md)实施侧栏/正文与键盘/滚动，再验证截图、完整测试、本地便携和源码推送；[ADR-024](ADR/024-local-preview-package.md)仅界定本地预览边界，正式门禁不变。当前状态只维护于PROGRESS。
+
 UX-55全菜单按[语义清单](design/menu-system-review.md)实施共享分隔、入口分组和托盘恢复/设置；实际完成状态与平台限制见PROGRESS。
 
 UX-52～54：按设计契约收束任务行留白/首次呈现、重复预设/结束重复和桌面实体菜单锚点；沿既有切片验证与预算执行，状态和限制只维护于PROGRESS。
