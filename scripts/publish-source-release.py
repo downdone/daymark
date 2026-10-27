@@ -10,6 +10,26 @@ import urllib.request
 from urllib.parse import urljoin
 
 
+def publication_api_error(action, error):
+    """Expose useful permission categories, never raw bodies or credentials."""
+    detail = ""
+    try:
+        message = json.loads(error.read(8192)).get("message", "")
+        for safe_prefix in ("Resource not accessible by integration",
+                            "Resource not accessible by personal access token",
+                            "API rate limit exceeded", "You have exceeded a secondary rate limit",
+                            "Bad credentials", "Repository was archived"):
+            if message.startswith(safe_prefix):
+                detail = "; " + safe_prefix
+                break
+    except (ValueError, AttributeError, TypeError):
+        pass
+    permissions = error.headers.get("X-Accepted-GitHub-Permissions", "") if error.headers else ""
+    if permissions and re.fullmatch(r"[a-z_=;, ]{1,180}", permissions):
+        detail += "; required permissions: " + permissions
+    return RuntimeError(f"Release {action} failed (HTTP {error.code}){detail}")
+
+
 def release_input(root, tag):
     if not re.fullmatch(r"v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", tag):
         raise ValueError("A stable vMAJOR.MINOR.PATCH tag is required")
@@ -122,7 +142,7 @@ def main():
         existing = request(base + "/tags/" + args.tag)
     except urllib.error.HTTPError as error:
         if error.code != 404:
-            raise RuntimeError(f"Release lookup failed (HTTP {error.code})") from None
+            raise publication_api_error("lookup", error) from None
     else:
         if (existing["tag_name"] != args.tag or existing["name"] != f"Daymark {version}"
                 or existing["body"] != notes or existing["target_commitish"] != revision or existing["draft"]
@@ -135,7 +155,7 @@ def main():
             "name": f"Daymark {version}", "body": notes, "draft": False,
             "prerelease": False, "make_latest": "true"})
     except urllib.error.HTTPError as error:
-        raise RuntimeError(f"Release creation failed (HTTP {error.code})") from None
+        raise publication_api_error("creation", error) from None
     if result["tag_name"] != args.tag or result["assets"]:
         raise RuntimeError("Unexpected release response")
     print(result["html_url"])

@@ -4,6 +4,9 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import io
+import json
+from urllib.error import HTTPError
 
 spec = importlib.util.spec_from_file_location("release_metadata", Path(__file__).resolve().parents[1] / "scripts/publish-source-release.py")
 release = importlib.util.module_from_spec(spec)
@@ -11,6 +14,19 @@ spec.loader.exec_module(release)
 
 
 class ReleaseGuards(unittest.TestCase):
+    def test_publication_api_error_only_exposes_safe_categories(self):
+        secret = "synthetic-private-value"
+        for message, expected in (("Resource not accessible by integration", "integration"),
+                                  ("API rate limit exceeded for " + secret, "rate limit"),
+                                  (secret, "HTTP 403")):
+            error = HTTPError("https://api.github.com/", 403, "Forbidden",
+                              {"X-Accepted-GitHub-Permissions": "contents=write"},
+                              io.BytesIO(json.dumps({"message": message}).encode()))
+            detail = str(release.publication_api_error("creation", error))
+            self.assertIn(expected, detail)
+            self.assertIn("contents=write", detail)
+            self.assertNotIn(secret, detail)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
