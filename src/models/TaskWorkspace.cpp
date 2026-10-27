@@ -178,7 +178,7 @@ TaskWorkspace::TaskWorkspace(QObject* parent) : QObject(parent),m_today(m_clock.
         if(operation==QStringLiteral("eventDelete") && success){m_eventUndoId=m_eventDeleteCandidate;m_eventUndoVersion=m_eventDeleteVersion+1;m_eventUndoTimer.start();emit stateChanged();}
         if(success && (operation==QStringLiteral("eventRestore") || operation==QStringLiteral("applyImport"))){m_eventUndoId.clear();m_eventUndoTimer.stop();emit stateChanged();}
     });
-    connect(&m_undoTimer,&QTimer::timeout,this,[this]{m_lastDeleted.clear();emit stateChanged();});
+    connect(&m_undoTimer,&QTimer::timeout,this,[this]{m_lastDeleted.clear();m_lastBatchDeleted.clear();emit stateChanged();});
 }
 TaskWorkspace::~TaskWorkspace()
 {
@@ -261,7 +261,9 @@ void TaskWorkspace::setView(const QString& view)
     if(!view.startsWith(QStringLiteral("project:")) && !view.startsWith(QStringLiteral("area:")) && !view.startsWith(QStringLiteral("tag:"))
        && !QStringList{QStringLiteral("all"),QStringLiteral("scheduled"),QStringLiteral("completed"),QStringLiteral("cancelled"),QStringLiteral("trash"),QStringLiteral("inbox"),QStringLiteral("today"),QStringLiteral("upcoming"),QStringLiteral("anytime"),QStringLiteral("someday"),QStringLiteral("important"),QStringLiteral("repeating"),QStringLiteral("logbook"),QStringLiteral("month"),QStringLiteral("week"),QStringLiteral("day"),QStringLiteral("year")}.contains(view))return;
     if(QStringList{"day","week","month","year"}.contains(view) && m_calendarScale!=view){if(!setPreference(QStringLiteral("calendarScale"),view))return;}
-    if(view==QStringLiteral("year") && m_view!=view)m_calendarDate=m_today;
+    if((view==QStringLiteral("year") && m_view!=view)
+       || (!calendarMode() && m_scope==QStringLiteral("today") && QStringList{"day","week","month"}.contains(view)))
+        m_calendarDate=m_clock.localToday();
     m_view=view;
     if(calendarMode())m_calendarScale=view;else m_scope=view;
     refresh();emit stateChanged();
@@ -308,8 +310,8 @@ void TaskWorkspace::finishTask(const QString& operation,const Result<Task>& resu
         m_info=m_pendingInfo;
         auto it=std::find_if(m_cache.begin(),m_cache.end(),[&](const Task& t){return t.id==result.value.id;});
         if(it==m_cache.end())m_cache.append(result.value);else *it=result.value;
-        if(operation==QStringLiteral("delete")) {m_lastDeleted=result.value.id;m_undoTimer.start();}
-        if(operation==QStringLiteral("restore")) {m_lastDeleted.clear();m_undoTimer.stop();}
+        if(operation==QStringLiteral("delete")) {m_lastDeleted=result.value.id;m_lastBatchDeleted.clear();m_undoTimer.start();}
+        if(operation==QStringLiteral("restore")) {m_lastDeleted.clear();m_lastBatchDeleted.clear();m_undoTimer.stop();}
         refresh();
     }
     emit stateChanged();emit operationFinished(operation,result.ok());
@@ -348,6 +350,16 @@ bool TaskWorkspace::createTask(const QString& title)
 {
     const auto view=calendarMode()?m_scope:m_view;
     return runTask(QStringLiteral("create"),[title,view](TaskWorker& w){return w.service->create(title,view);});
+}
+QVariantMap TaskWorkspace::listDraft() const
+{
+    return TaskListModel::taskMap(TaskService::draftForScope(m_scope,m_today));
+}
+bool TaskWorkspace::createInlineTask(const QString& title,const QString& notes,const QString& planning,const QString& start,const QString& end,bool focus,const QVariantMap& details)
+{
+    TaskPatch patch;
+    if(!prepareTaskPatch({},title,notes,planning,start,end,focus,details,patch))return false;
+    return runTask(QStringLiteral("inlineCreate"),[title,patch](TaskWorker& w){return w.service->createWithDetails(title,patch);});
 }
 bool TaskWorkspace::saveTask(const QString& id,qint64 version,const QString& title,const QString& notes,
                              const QString& planning,const QString& start,const QString& deadline,bool focus)
@@ -439,15 +451,18 @@ QVariantMap TaskWorkspace::catalogImpact(const QString& kind,const QString& id) 
 int TaskWorkspace::batchImpact(const QVariantList& selection,const QString& action) const
 {
     QSet<QString> ids;for(const auto& value:selection)ids.insert(value.toMap().value("taskId").toString());
-    if(action==QStringLiteral("reopen")){
+    if(action==QStringLiteral("reopen") || action==QStringLiteral("restore")){
+        const bool restoring=action==QStringLiteral("restore");
         QHash<QString,QSet<QString>> groups;
         for(const auto& value:selection){
             const auto root=m_taskIndex.constFind(value.toMap().value("taskId").toString());
-            if(root!=m_taskIndex.cend() && !root->completionGroupId.isEmpty())groups[root->completionGroupId].insert(root->id);
+            if(root==m_taskIndex.cend())continue;
+            const auto group=restoring?root->deletionGroupId:root->completionGroupId;
+            if(!group.isEmpty())groups[group].insert(root->id);
         }
         for(const auto& task:m_cache){
-            const auto group=groups.constFind(task.completionGroupId);
-            if(group==groups.cend() || !task.deletedAtUtc.isEmpty() || task.status!=QStringLiteral("COMPLETED"))continue;
+            const auto group=groups.constFind(restoring?task.deletionGroupId:task.completionGroupId);
+            if(group==groups.cend() || (restoring?task.deletedAtUtc.isEmpty():!task.deletedAtUtc.isEmpty() || task.status!=QStringLiteral("COMPLETED")))continue;
             QSet<QString> visited;auto parent=task.parentTaskId;
             while(!parent.isEmpty() && !visited.contains(parent)){
                 if(group->contains(parent)){ids.insert(task.id);break;}
@@ -455,7 +470,7 @@ int TaskWorkspace::batchImpact(const QVariantList& selection,const QString& acti
             }
         }
     }
-    if(action==QStringLiteral("complete") || action==QStringLiteral("project")){bool changed=true;while(changed){changed=false;for(const auto& task:m_cache)if(task.deletedAtUtc.isEmpty() && ids.contains(task.parentTaskId) && !ids.contains(task.id)){ids.insert(task.id);changed=true;}}}
+    if(action==QStringLiteral("complete") || action==QStringLiteral("project") || action==QStringLiteral("delete")){bool changed=true;while(changed){changed=false;for(const auto& task:m_cache)if(task.deletedAtUtc.isEmpty() && ids.contains(task.parentTaskId) && !ids.contains(task.id)){ids.insert(task.id);changed=true;}}}
     return ids.size();
 }
 bool TaskWorkspace::batchTasks(const QVariantList& selection,const QString& action,const QString& value)
@@ -470,11 +485,27 @@ bool TaskWorkspace::batchTasks(const QVariantList& selection,const QString& acti
         patch.startOn=value.isEmpty()?FieldPatch<QDate>::clear():FieldPatch<QDate>::set(date);
         if(date>m_today)patch.todayFocus=FieldPatch<bool>::set(false);
     } else if(action==QStringLiteral("tags"))patch.tagIds=FieldPatch<QStringList>::set(value.isEmpty()?QStringList{}:value.split(QLatin1Char(','),Qt::SkipEmptyParts));
-    else if(action!=QStringLiteral("complete") && action!=QStringLiteral("reopen")){m_error={ErrorCode::ValidationError,QStringLiteral("actionInvalid")};emit stateChanged();return false;}
-    return runCatalog([items,action,patch](TaskWorker& w){return w.service->batch(items,(action==QStringLiteral("complete") || action==QStringLiteral("reopen"))?action:QStringLiteral("edit"),patch);},QStringLiteral("batch"));
+    else if(action==QStringLiteral("important")){if(value!=QStringLiteral("0") && value!=QStringLiteral("1")){m_error={ErrorCode::ValidationError,QStringLiteral("actionInvalid")};emit stateChanged();return false;}patch.important=FieldPatch<bool>::set(value==QStringLiteral("1"));}
+    else if(action!=QStringLiteral("complete") && action!=QStringLiteral("reopen") && action!=QStringLiteral("delete") && action!=QStringLiteral("restore")){m_error={ErrorCode::ValidationError,QStringLiteral("actionInvalid")};emit stateChanged();return false;}
+    auto deleted=std::make_shared<QVariantList>();
+    return runCatalog([items,action,patch,deleted](TaskWorker& w){
+        return w.repository->atomically([&] {
+            const auto command=QStringList{"complete","reopen","delete","restore"}.contains(action)?action:QStringLiteral("edit");
+            const auto result=w.service->batch(items,command,patch);if(!result.ok() || action!=QStringLiteral("delete"))return result;
+            QSet<QString> groups;
+            for(const auto& item:items){const auto task=w.repository->find(item.first);if(!task.ok())return Result<void>{task.error};groups.insert(task.value.deletionGroupId);}
+            const auto all=w.repository->all();if(!all.ok())return Result<void>{all.error};
+            for(const auto& task:all.value)if(!task.deletedAtUtc.isEmpty() && !task.deletionGroupId.isEmpty() && groups.contains(task.deletionGroupId))deleted->append(QVariantMap{{"taskId",task.id},{"rowVersion",task.rowVersion}});
+            return Result<void>{};
+        });
+    },QStringLiteral("batch"),[this,action,deleted]{
+        if(action==QStringLiteral("delete")){m_lastDeleted.clear();m_lastBatchDeleted=*deleted;m_undoTimer.start();emit stateChanged();}
+        else if(action==QStringLiteral("restore")){m_lastBatchDeleted.clear();m_lastDeleted.clear();m_undoTimer.stop();emit stateChanged();}
+    });
 }
 bool TaskWorkspace::undoDelete()
 {
+    if(!m_lastBatchDeleted.isEmpty())return batchTasks(m_lastBatchDeleted,QStringLiteral("restore"),{});
     for(const auto& task:m_cache) if(task.id==m_lastDeleted)return changeState(task.id,task.rowVersion,QStringLiteral("restore"));
     return false;
 }
@@ -811,7 +842,7 @@ bool TaskWorkspace::runTransfer(const QString& operation,std::function<Result<QS
                 self->m_info=result.value;
                 if(operation==QStringLiteral("previewImport"))self->m_importSummary=result.value;
                 if(operation==QStringLiteral("applyImport")){
-                    self->m_importSummary.clear();self->m_lastDeleted.clear();
+                    self->m_importSummary.clear();self->m_lastDeleted.clear();self->m_lastBatchDeleted.clear();
                     QSettings settings(QFileInfo(self->m_path).dir().filePath(QStringLiteral("ui.ini")),QSettings::IniFormat);
                     self->m_sundayFirst=settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool();
                     self->m_themeMode=qBound(0,settings.value(QStringLiteral("appearance/themeMode"),0).toInt(),2);

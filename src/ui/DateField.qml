@@ -47,7 +47,7 @@ TextField {
         if(event.key===Qt.Key_Down && (event.modifiers & Qt.AltModifier)) {openPicker();event.accepted=true}
         else if(event.key===Qt.Key_Down && pickerVisible){if(inlineMode)calendarFocusRequested();else calendar.focusSelectedDay();event.accepted=true}
     }
-    TapHandler {enabled:field.readOnly || field.iconOnly;onTapped: field.openPicker()}
+    TapHandler {enabled:field.readOnly && !field.iconOnly;onTapped:function(point){if(point.position.x<field.width-calendarButton.width)field.openPicker()}}
     IconToolButton {
         id: calendarButton
         anchors.right: parent.right
@@ -55,6 +55,7 @@ TextField {
         width: field.iconOnly ? field.width : Math.max(32,Theme.bodySize+16)
         height: field.iconOnly ? field.height : field.height-4
         Accessible.name: qsTr("选择%1").arg(field.dateLabel)
+        background:Rectangle {radius:field.iconOnly ? height/2 : Theme.controlRadius;color:calendarButton.down ? Theme.pressed : calendarButton.hovered ? Theme.hover : "transparent";border.width:calendarButton.visualFocus ? 1 : 0;border.color:Theme.accent}
         contentItem: AppIcon {name: field.symbol}
         onClicked: field.pickerVisible ? field.closePicker() : field.openPicker()
     }

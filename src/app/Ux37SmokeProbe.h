@@ -19,10 +19,12 @@ private:
     bool capture(const QString& name) const;
     TaskWorkspace& m_workspace;
     QPointer<QQuickWindow> m_window;
-    QString m_screenshot,m_parent;
+    QString m_screenshot,m_parent,m_tag,m_createdTag;
     QStringList m_ids;
     QVariantMap m_columns;
     int m_stage=0;
+    int m_firstInspectorPhase=0;
+    bool m_inlineDateOpened=false;
     QElapsedTimer m_wait,m_clock,m_presentClock;
     qint64 m_panelFrameMs=-1;
     bool m_awaitingPanelFrame=false;

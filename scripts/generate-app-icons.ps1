@@ -9,11 +9,11 @@ New-Item -ItemType Directory -Force -Path $destination | Out-Null
 $svg=@'
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
   <title>Daymark</title>
-  <rect x="8" y="8" width="240" height="240" rx="56" fill="#315db5"/>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="#0063cf"/>
   <rect x="52" y="61" width="152" height="151" rx="24" fill="#fff"/>
-  <path d="M52 102H204" stroke="#315db5" stroke-width="12"/>
+  <path d="M52 102H204" stroke="#0063cf" stroke-width="10"/>
   <path d="M88 48V74M168 48V74" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
-  <path d="M88 153L115 180L171 127" fill="none" stroke="#315db5" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 153L115 180L171 127" fill="none" stroke="#0063cf" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 '@
 [IO.File]::WriteAllText((Join-Path $destination 'daymark.svg'),$svg+"`n")
@@ -27,7 +27,7 @@ function New-RoundedPath([single]$x,[single]$y,[single]$w,[single]$h,[single]$r)
 }
 $master=[Drawing.Bitmap]::new(1024,1024)
 $graphics=[Drawing.Graphics]::FromImage($master)
-$blue=[Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml('#315db5'))
+$blue=[Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml('#0063cf'))
 $white=[Drawing.SolidBrush]::new([Drawing.Color]::White)
 try {
     $graphics.SmoothingMode=[Drawing.Drawing2D.SmoothingMode]::AntiAlias
@@ -35,7 +35,7 @@ try {
     $background=New-RoundedPath 8 8 240 240 56
     $paper=New-RoundedPath 52 61 152 151 24
     try {$graphics.FillPath($blue,$background);$graphics.FillPath($white,$paper)}finally{$background.Dispose();$paper.Dispose()}
-    $header=[Drawing.Pen]::new($blue,12)
+    $header=[Drawing.Pen]::new($blue,10)
     try {$graphics.DrawLine($header,52,102,204,102)}finally{$header.Dispose()}
     $rings=[Drawing.Pen]::new($white,16);$rings.StartCap='Round';$rings.EndCap='Round'
     try {$graphics.DrawLine($rings,88,48,88,74);$graphics.DrawLine($rings,168,48,168,74)}finally{$rings.Dispose()}

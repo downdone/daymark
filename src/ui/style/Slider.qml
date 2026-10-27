@@ -16,7 +16,7 @@ T.Slider {
         x: control.leftPadding+control.visualPosition*(control.availableWidth-width)
         y: (control.height-height)/2
         implicitWidth: 20;implicitHeight: 20
-        radius: 10
+        radius: width/2
         color: control.pressed ? DesignTokens.selected : DesignTokens.surface
         border.width: control.visualFocus ? 3 : 2
         border.color: control.enabled ? DesignTokens.accent : DesignTokens.border

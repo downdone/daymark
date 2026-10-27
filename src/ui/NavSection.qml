@@ -36,8 +36,8 @@ ColumnLayout {
         Keys.onPressed: function(event){if(event.key===Qt.Key_Menu || (event.key===Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))){root.optionsRequested();event.accepted=true}}
         contentItem: RowLayout {
             spacing: 6
-            Label {text: root.title;font.pixelSize: Theme.captionSize;font.weight: Font.DemiBold;color: root.containsSelection && !root.expanded ? Theme.accent : Theme.secondary;elide: Text.ElideRight}
-            Rectangle {visible: root.containsSelection && !root.expanded;implicitWidth: 5;implicitHeight: 5;radius: 3;color: Theme.accent}
+            Label {text: root.title;font.pixelSize: Theme.sectionSize;font.weight: Font.DemiBold;color: root.containsSelection && !root.expanded ? Theme.accent : Theme.secondary;elide: Text.ElideRight}
+            Rectangle {visible: root.containsSelection && !root.expanded;implicitWidth: 5;implicitHeight: 5;radius: width/2;color: Theme.accent}
             AppIcon {name: root.expanded ? "down" : "right";implicitWidth: 10;implicitHeight: 10;ink: Theme.secondary}
             Item {Layout.fillWidth:true}
         }

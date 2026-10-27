@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Templates as T
 T.ComboBox {
     id: control
+    property var separatorBefore: []
     implicitWidth: Math.max(140,implicitContentWidth+leftPadding+rightPadding)
     implicitHeight: Math.max(DesignTokens.controlHeight,implicitContentHeight+12)
     leftPadding: 10
@@ -25,18 +26,18 @@ T.ComboBox {
         verticalAlignment: TextInput.AlignVCenter
         clip: true
     }
-    indicator: Canvas {
+    indicator: Glyph {
         x: control.width-width-10
         y: (control.height-height)/2
-        width: 14;height: 14
-        property color ink: control.enabled ? DesignTokens.secondary : DesignTokens.disabledText
-        onInkChanged: requestPaint()
-        onPaint: {const c=getContext("2d");c.reset();c.strokeStyle=ink;c.lineWidth=1.7;c.lineCap="round";c.lineJoin="round";c.beginPath();c.moveTo(3,5);c.lineTo(7,9);c.lineTo(11,5);c.stroke()}
+        width:Math.min(24,14*DesignTokens.scale);height:width
+        name:"down";ink:control.enabled ? DesignTokens.secondary : DesignTokens.disabledText
     }
     background: FieldSurface {focused: control.visualFocus;hovered: control.hovered || control.down;enabledField: control.enabled}
     delegate: MenuItem {
         required property int index
         required property var model
+        objectName:control.objectName+"-option-"+index
+        groupStart: index>0 && control.separatorBefore.indexOf(index)>=0
         width: control.width
         text: control.textRole ? model[control.textRole] : model.modelData
         checkable: true
@@ -62,6 +63,6 @@ T.ComboBox {
             highlightMoveDuration: 0
             boundsBehavior: Flickable.StopAtBounds
         }
-        background: Rectangle {radius: DesignTokens.panelRadius;color: DesignTokens.surface;border.color: DesignTokens.border}
+        background: Rectangle {radius: DesignTokens.menuRadius;color: DesignTokens.surface;border.color: DesignTokens.border}
     }
 }

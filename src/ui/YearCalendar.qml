@@ -14,19 +14,48 @@ ScrollView {
     property string wantedDate: ""
     property string selectedDate: ""
     property string selectedMonth: ""
+    property bool revealPending: false
+    property bool revealWithFocus: false
+    readonly property real monthHeadingHeight: Math.max(32, Theme.headingSize + 12)
+    readonly property var pinnedMonths: {
+        const flick = contentItem as Flickable;
+        if (!flick || flick.contentY <= 0)
+            return [];
+        const result = [];
+        for (let i = 0; i < monthCells.count; i++) {
+            const month = monthCells.itemAt(i) as MonthView;
+            if (month && month.y < flick.contentY && month.y + month.height > flick.contentY)
+                result.push({month: month.modelData.month, x: month.x, width: month.width});
+        }
+        return result;
+    }
     signal dateHighlighted(string date)
     signal anchorRequested(string date)
     signal daySelected(string date)
     signal monthSelected(string date)
     contentWidth: availableWidth
+    contentHeight: yearGrid.implicitHeight
     clip: true
+    function reveal(date, takeFocus) {
+        wantedDate = date;
+        selectedMonth = "";
+        revealPending = true;
+        revealWithFocus = !!takeFocus;
+        Qt.callLater(applyReveal);
+    }
     function moveFocus(date, offset, months) {
         wantedDate = months ? workspace.shiftCalendarScale(date, offset, "month") : workspace.shiftDate(date, offset);
         if (wantedDate.slice(0, 4) !== anchorDate.slice(0, 4))
             anchorRequested(wantedDate);
-        Qt.callLater(focusWanted);
+        reveal(wantedDate, true);
     }
     function focusWanted() {
+        reveal(wantedDate, true);
+    }
+    function applyReveal() {
+        const flick = contentItem as Flickable;
+        if (!revealPending || !visible || !flick || flick.height <= 0 || yearGrid.implicitHeight <= 0)
+            return;
         for (let m = 0; m < monthCells.count; m++) {
             const month = monthCells.itemAt(m) as MonthView;
             if (!month)
@@ -34,12 +63,13 @@ ScrollView {
             const item = month.dateItem(wantedDate);
             if (!item)
                 continue;
-            item.forceActiveFocus();
-            const flick = contentItem as Flickable;
-            if (flick) {
-                const y = item.mapToItem(flick.contentItem, 0, 0).y;
-                flick.contentY = Math.max(0, Math.min(y - 40, Math.max(0, flick.contentHeight - flick.height)));
-            }
+            if (month.height <= 0 || item.height <= 0)
+                return;
+            const y = month.height <= flick.height ? month.y - 8 : item.mapToItem(flick.contentItem, 0, 0).y - monthHeadingHeight - 8;
+            flick.contentY = Math.max(0, Math.min(y, Math.max(0, flick.contentHeight - flick.height)));
+            revealPending = false;
+            if (revealWithFocus)
+                item.forceActiveFocus();
             return;
         }
     }
@@ -47,8 +77,10 @@ ScrollView {
         const next=workspace.calendarMonthsFor(anchorDate);
         if(JSON.stringify(next)!==JSON.stringify(months))months=next;
     }
-    onAnchorDateChanged: refresh()
-    Component.onCompleted: refresh()
+    onAnchorDateChanged: {refresh();reveal(anchorDate, false)}
+    onAvailableHeightChanged: if(revealPending)Qt.callLater(applyReveal)
+    onContentHeightChanged: if(revealPending)Qt.callLater(applyReveal)
+    Component.onCompleted: {refresh();reveal(anchorDate, false)}
     Connections {
         target: root.workspace
         function onStateChanged() {
@@ -84,7 +116,7 @@ ScrollView {
         palette.buttonText: modelData.inMonth ? Theme.text : Theme.secondary
         font.pixelSize: Theme.captionSize
         Accessible.name: modelData.date
-        onClicked: {root.selectedDate=modelData.date;root.dateHighlighted(modelData.date)}
+        onClicked: root.dateHighlighted(modelData.date)
         onDoubleClicked: root.daySelected(modelData.date)
         Keys.onReturnPressed: root.daySelected(modelData.date)
         Keys.onLeftPressed: root.moveFocus(modelData.date, -1, false)
@@ -149,14 +181,38 @@ ScrollView {
         }
     }
     GridLayout {
+        id: yearGrid
         width: root.availableWidth
+        onImplicitHeightChanged: if(root.revealPending)Qt.callLater(root.applyReveal)
         columns: Math.max(1, Math.min(4, Math.floor(width / (240 * Theme.scale))))
         columnSpacing: 24
         rowSpacing: 24
         Repeater {
             id: monthCells
             model: root.months
+            onItemAdded: if(root.revealPending)Qt.callLater(root.applyReveal)
             MonthView {}
         }
+    }
+    // A clipped month heading must not leave a dense year viewport anonymous.
+    Item {
+        parent: root
+        z: 2
+        width: root.availableWidth;height: root.monthHeadingHeight
+        visible: root.pinnedMonths.length > 0
+        Rectangle {anchors.fill: parent;color: Theme.content}
+        MouseArea {anchors.fill: parent} // Do not activate a date hidden by the heading.
+        Repeater {
+            model: root.pinnedMonths
+            Label {
+                required property var modelData
+                objectName: "calendarPinnedMonth-" + modelData.month
+                x: modelData.x;width: modelData.width;height: root.monthHeadingHeight
+                text: modelData.month + qsTr("月")
+                font.pixelSize: Theme.headingSize
+                horizontalAlignment: Text.AlignHCenter;verticalAlignment: Text.AlignVCenter
+            }
+        }
+        Rectangle {anchors.bottom: parent.bottom;width: parent.width;height: 1;color: Theme.separator}
     }
 }

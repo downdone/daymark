@@ -16,9 +16,13 @@ private slots:
         QTemporaryDir dir;const auto path=dir.filePath(QStringLiteral("windows.ini"));
         QSettings settings(path,QSettings::IniFormat);const QRect mainGeometry(20,20,1000,650);settings.setValue(QStringLiteral("main/geometry"),mainGeometry);settings.sync();
         QWindow calendar;calendar.setGeometry(30,30,500,500);
-        {WindowStateStore state(&calendar,path,nullptr,QStringLiteral("desktopCalendar"),QSize(420,480));state.save();}
+        {WindowStateStore state(&calendar,path,nullptr,QStringLiteral("desktopCalendar"),QSize(420,480));calendar.resize(620,540);state.save();}
         settings.sync();QCOMPARE(settings.value(QStringLiteral("main/geometry")).toRect(),mainGeometry);
         const auto saved=settings.value(QStringLiteral("desktopCalendar/geometry")).toRect();QVERIFY(saved.isValid());QVERIFY(saved.width()>=420);QVERIFY(saved.height()>=480);
+        QWindow restored;
+        WindowStateStore restoredState(&restored,path,nullptr,QStringLiteral("desktopCalendar"),QSize(420,480));
+        QCOMPARE(restored.geometry(),saved);
+        QCOMPARE(restored.size(),QSize(620,540).boundedTo(QGuiApplication::primaryScreen()->availableGeometry().size()));
     }
     void coalescesBurstAndCancelsOnDestruction() {
         int calls=0;
@@ -60,6 +64,21 @@ private slots:
         const auto normal=window.geometry();window.setWindowState(Qt::WindowMinimized);state.normalize();state.save();
         QCOMPARE(window.windowState(),Qt::WindowMinimized);QVERIFY(!window.isVisible());
         settings.sync();QCOMPARE(settings.value(QStringLiteral("main/geometry")).toRect(),normal);
+    }
+    void maximizedRestoreDoesNotExposeUnpreparedWindows() {
+        QTemporaryDir dir;const auto path=dir.filePath("ui.ini");
+        QSettings settings(path,QSettings::IniFormat);
+        for(const auto& key:{QStringLiteral("main"),QStringLiteral("desktopCalendar")}){
+            settings.setValue(key+"/geometry",QRect(10,10,900,600));settings.setValue(key+"/maximized",true);
+        }
+        settings.sync();
+        for(const auto& key:{QStringLiteral("main"),QStringLiteral("desktopCalendar")}){
+            QWindow window;QSignalSpy visible(&window,&QWindow::visibleChanged);
+            WindowStateStore store(&window,path,nullptr,key,QSize(420,480));
+            QVERIFY(!window.isVisible());QCOMPARE(visible.count(),0);QCOMPARE(window.windowState(),Qt::WindowMaximized);
+            window.setVisible(true);QVERIFY(window.isVisible());QCOMPARE(window.windowState(),Qt::WindowMaximized);
+            window.setVisible(false);
+        }
     }
     void destroyedWindowIsSafe() {
         QTemporaryDir dir;auto* window=new QWindow;WindowStateStore state(window,dir.filePath(QStringLiteral("ui.ini")));

@@ -21,6 +21,7 @@ Popup {
     readonly property string notes: notesField.text
     readonly property string startOn: startField.text
     readonly property string endOn: endField.text
+    readonly property var timelineSelection: timing.hasSpecificTime ? workspace.timeRangeDraft({startDate:startField.text,endDate:endField.text,startTime:timing.startTimeValue,endTime:timing.endTimeValue,zone:timing.timeZoneValue}) : ({valid:false})
     signal submitted(string title)
     function detailsPatch() {
         const patch=Object.assign(assignment.detailsPatch(),timing.detailsPatch());
@@ -31,7 +32,7 @@ Popup {
         return patch;
     }
     function finish() {
-        if(creating)return false;
+        if(creating || draftCatalog.visible || timing.rangePickerVisible)return false;
         if(!title.text.trim()){close();return false;}
         submitted(title.text);
         return creating;
@@ -51,11 +52,11 @@ Popup {
         target:root.hostWindow
         function onActiveFocusItemChanged(){Qt.callLater(function(){if(root.hostWindow)root.reveal(root.hostWindow.activeFocusItem)})}
     }
-    x: manualPosition.x>=0 ? Math.max(8,Math.min(manualPosition.x,parent.width-width-8)) : anchor.x >= 0 ? Math.max(8, Math.min(anchor.x, parent.width - width - 8)) : Math.max(12, (parent.width - width) / 2)
-    y: manualPosition.y>=0 ? Math.max(8,Math.min(manualPosition.y,parent.height-height-8)) : anchor.y >= 0 ? Math.max(8, Math.min(anchor.y, parent.height - height - 8)) : Math.max(12, (parent.height - height) / 3)
-    width: Math.min(400 * Theme.scale, parent.width - 24)
-    height: Math.min(parent.height-24,Math.max(320,Math.min(540*Theme.scale,form.implicitHeight+96)))
-    padding: Theme.panelPadding
+    x: manualPosition.x>=0 ? Math.max(16,Math.min(manualPosition.x,parent.width-width-16)) : anchor.x >= 0 ? Math.max(16,Math.min(anchor.x+width+30<parent.width ? anchor.x+14 : anchor.x-width-14,parent.width-width-16)) : Math.max(16, (parent.width - width) / 2)
+    y: manualPosition.y>=0 ? Math.max(16,Math.min(manualPosition.y,parent.height-height-16)) : anchor.y >= 0 ? Math.max(16, Math.min(anchor.y-28, parent.height-height-16)) : Math.max(16, (parent.height-height)/3)
+    width: Math.min(408 * Theme.scale, parent.width - 32)
+    height: Math.min(parent.height-32,Math.max(240,form.implicitHeight+createHeader.implicitHeight+topPadding+bottomPadding+18+(createError.visible ? createError.implicitHeight+8 : 0)))
+    padding: 16
     focus: true
     modal: false
     dim: true
@@ -65,7 +66,7 @@ Popup {
         MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton | Qt.RightButton;onClicked:root.finish()}
     }
     Shortcut {
-        sequence: "Escape";enabled:root.visible && !root.creating
+        sequence: "Escape";enabled:root.visible && !root.creating && !assignment.tagPickerVisible && !draftCatalog.visible && !timing.modalOpen
         onActivated:picker.active ? picker.close() : root.finish()
     }
     onOpened: {
@@ -81,14 +82,21 @@ Popup {
         picker.close();scroller.contentY=0;title.forceActiveFocus();
     }
     onClosed: {picker.close();timing.closePickers();startField.closePicker();endField.closePicker();reminder.closePicker();}
-    background: Rectangle {radius:Theme.panelRadius;color:Theme.grouped;border.color:Theme.separator}
+    CatalogCreateDialog {
+        id: draftCatalog;objectName: "calendarCreateCatalogDialog";objectPrefix: "calendarDraft"
+        parent: Overlay.overlay;anchors.centerIn: parent;workspace: root.workspace
+        onCreated: function(kind,id) {assignment.applyCreated(kind,id)}
+    }
+    background: PopoverSurface {attached:root.manualPosition.x<0 && root.anchor.x>=0;sourcePoint:Qt.point(root.anchor.x-root.x,root.anchor.y-root.y)}
     contentItem: ColumnLayout {
+        objectName:"popoverFieldGroup"
         spacing: 6
         RowLayout {
+            id:createHeader
             Layout.fillWidth:true
             Label {
                 objectName: "calendarCreateDragHandle"
-                text:qsTr("新任务");font.pixelSize:Theme.bodySize;font.weight:Font.DemiBold;Layout.fillWidth:true;Layout.preferredHeight:Theme.controlHeight;verticalAlignment:Text.AlignVCenter
+                text:qsTr("新任务");color:Theme.secondary;font.pixelSize:Theme.captionSize;font.weight:Font.Normal;Layout.fillWidth:true;Layout.preferredHeight:Theme.controlHeight;verticalAlignment:Text.AlignVCenter
                 MouseArea {
                     anchors.fill:parent;cursorShape:Qt.SizeAllCursor;preventStealing:true
                     property point origin
@@ -97,10 +105,10 @@ Popup {
                     onPositionChanged:function(mouse){if(pressed){const at=mapToItem(root.parent,mouse.x,mouse.y);root.manualPosition=Qt.point(popupOrigin.x+at.x-origin.x,popupOrigin.y+at.y-origin.y)}}
                 }
             }
-            Button {text:qsTr("取消");enabled:!root.creating;onClicked:root.discard()}
+            Button {text:qsTr("取消");flat:true;enabled:!root.creating;onClicked:root.discard()}
             Button {objectName:"calendarCreateSubmit";text:root.creating ? qsTr("正在添加…") : qsTr("添加");highlighted:true;enabled:root.validDraft && !!title.text.trim() && !root.creating;onClicked:{root.submitted(title.text)}}
         }
-        Label {visible:!!root.workspace.errorText;Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.workspace.errorText;color:Theme.danger;font.pixelSize:Theme.captionSize}
+        Label {id:createError;visible:!!root.workspace.errorText;Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.workspace.errorText;color:Theme.danger;font.pixelSize:Theme.captionSize}
         TaskInspectorPicker {id:picker;objectPrefix:"calendarCreate";workspace:root.workspace;visible:active;Layout.fillWidth:true;Layout.fillHeight:true}
         Flickable {
             id:scroller
@@ -109,32 +117,34 @@ Popup {
             contentWidth:width;contentHeight:form.implicitHeight;clip:true;boundsBehavior:Flickable.StopAtBounds
             ScrollBar.vertical:ScrollBar{}
             ColumnLayout {
-                id:form;width:scroller.width;spacing:Theme.groupGap;enabled:!root.creating
+                id:form;width:scroller.width;spacing:4;enabled:!root.creating
                 TextField {
                     id:title;objectName:"calendarCreateTitle";Layout.fillWidth:true
                     placeholderText:qsTr("任务标题");Accessible.name:qsTr("新任务标题");font.pixelSize:Theme.taskTitleSize;font.weight:Font.DemiBold
-                    background:Rectangle{color:"transparent"}
+                    leftPadding:0;rightPadding:0
+                    background:Rectangle{color:"transparent";radius:Theme.controlRadius;border.width:title.activeFocus && Theme.highContrast ? 1 : 0;border.color:Theme.accent}
                     onAccepted:if(text.trim() && root.validDraft){root.submitted(text)}
                 }
                 TextArea {
                     id:notesField;objectName:"calendarCreateNotes";Layout.fillWidth:true
                     placeholderText:qsTr("添加备注…");Accessible.name:qsTr("新任务备注");wrapMode:TextEdit.Wrap
                     implicitHeight:Math.max(24,contentHeight+topPadding+bottomPadding)
+                    leftPadding:0;rightPadding:0
                     onCursorRectangleChanged:if(activeFocus)Qt.callLater(function(){root.reveal(notesField)})
                     background:Rectangle{color:"transparent"}
                 }
                 DetailSection {
-                    heading:qsTr("日期与时间")
+                    plain:true;heading:""
                     ColumnLayout {
                         Layout.fillWidth:true;spacing:Theme.fieldGap
-                        FormRow {
+                        FormRow {contextual:true;
                             label:qsTr("开始");minimumValueWidth:(timing.hasSpecificTime ? 280 : 180)*Theme.scale
                             GridLayout {
                                 id:startEndpoint;Layout.fillWidth:true;columns:width>=280*Theme.scale ? 2 : 1;columnSpacing:8;rowSpacing:4
                                 DateField {id:startField;objectName:"calendarCreateStart";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;onInlinePickerRequested:picker.openFor(startField,"date");onTextEdited:timing.changed(true);onDateChosen:timing.changed(true)}
                             }
                         }
-                        FormRow {
+                        FormRow {contextual:true;
                             label:qsTr("结束");minimumValueWidth:(timing.hasSpecificTime ? 280 : 180)*Theme.scale
                             GridLayout {
                                 id:endEndpoint;Layout.fillWidth:true;columns:width>=280*Theme.scale ? 2 : 1;columnSpacing:8;rowSpacing:4
@@ -148,12 +158,13 @@ Popup {
                         startDateValue:startField.text;endDateValue:endField.text
                         onPickerRequested:function(field,kind){picker.openFor(field,kind)}
                         onDateDefaultsRequested:{if(!startField.text)startField.text=root.date;if(!endField.text)endField.text=startField.text}
+                        onRangeDatesChosen:function(first,last){startField.text=first;endField.text=last}
                     }
-                    FormRow {label:qsTr("提醒")
+                    FormRow {contextual:true;label:qsTr("提醒")
                     ReminderField {id:reminder;objectPrefix:"calendarCreate";objectName:"calendarCreateReminder";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;placeholderText:qsTr("添加提醒…");onInlinePickerRequested:picker.openFor(reminder,"reminder")}
                     }
                 }
-                TaskDetailsFields {id:assignment;objectPrefix:"calendarCreate";objectName:"calendarCreateAssignment";workspace:root.workspace;Layout.fillWidth:true;inspectorMode:true;creationMode:true}
+                TaskDetailsFields {id:assignment;objectPrefix:"calendarCreate";objectName:"calendarCreateAssignment";workspace:root.workspace;Layout.fillWidth:true;inspectorMode:true;creationMode:true;onCreateCatalogRequested:function(kind){draftCatalog.showFor(kind)}}
             }
         }
     }

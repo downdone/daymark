@@ -19,7 +19,7 @@ NavRow {
                 AppIcon {anchors.centerIn: parent;width: Math.min(20,14*Theme.scale);height: width;name: root.symbol;ink: Theme.accentText}
             }
             Item {Layout.fillWidth: true}
-            Label {text: root.count;font.pixelSize: Math.round(16*Theme.scale);font.weight: Font.DemiBold;color: (root.selected || root.taskDropActive) ? root.tint : Theme.text}
+            Label {text: root.count;font.pixelSize: Theme.headingSize;font.weight: Font.DemiBold;color: (root.selected || root.taskDropActive) ? root.tint : Theme.text}
         }
         Label {objectName:"smartNavigationTitle";text: root.text;font.pixelSize: Theme.captionSize;font.weight: root.selected ? Font.DemiBold : Font.Normal;color: (root.selected || root.taskDropActive) ? root.tint : Theme.text;Layout.fillWidth: true;elide: Text.ElideRight}
     }

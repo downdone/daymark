@@ -12,7 +12,7 @@ T.Dialog {
     header: Text {
         visible: control.title.length>0
         text: control.title
-        font.pixelSize: DesignTokens.body+2
+        font.pixelSize: DesignTokens.heading
         font.weight: Font.DemiBold
         color: DesignTokens.text
         padding: DesignTokens.panelPadding

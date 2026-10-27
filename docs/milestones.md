@@ -1,5 +1,21 @@
 # 里程碑与可执行任务队列
 
+UX-55全菜单按[语义清单](design/menu-system-review.md)实施共享分隔、入口分组和托盘恢复/设置；实际完成状态与平台限制见PROGRESS。
+
+UX-52～54：按设计契约收束任务行留白/首次呈现、重复预设/结束重复和桌面实体菜单锚点；沿既有切片验证与预算执行，状态和限制只维护于PROGRESS。
+
+UX-49～51按[定位与集合恢复](design/inspector-position-and-trash-selection.md)→[列表轴线](design/list-layout-and-editing-rhythm.md)→[双击原行草稿](design/list-double-click-draft.md)执行；延续同一编辑器/事务，列表和上下文探针各守本身预算，不增加重复套件。真实状态只见PROGRESS。
+
+UX-48先按[全局规则](design/global-visual-system.md)更新共享视觉源，再迁移专用页面/组件、补全矢量与文字样式样板，执行构建/lint/完整CTest尝试及跨表面截图QA；实际状态只维护PROGRESS。
+
+UX-47按[设置与页签契约](design/settings-navigation-and-inspector-tabs.md)整理设置目录/子页和任务内容页签，沿用原持久化及草稿门；完成证据见PROGRESS。
+
+UX-46按[就近面板精修](design/contextual-popover-polish.md)先外壳/属性行规则→新增样板→共享详情/时段小窗→构建/lint/既有UI入口与截图矩阵；保持紧凑高度、可访问命中和草稿链。状态仅见PROGRESS。
+
+UX-45按[直接时段与批量整理](design/direct-time-range-picker.md)推进今天入口/只读时间映射→就近范围小窗与日期任务拖选→旗标/集合删除事务→临时库、真实QML操作与浅深200%验收；不改变schema或放宽旧watchdog，状态仅见PROGRESS。
+
+UX-44按[年定位、标签菜单与尺寸](design/year-tags-and-calendar-sizing.md)推进布局后定位及月份语境→共享就近标签菜单→独立日历缩放/键盘→复用现有测试入口验证；不新增重复CTest套件，状态仅见PROGRESS。
+
 UX-41按[主框架与字标](design/sidebar-and-wordmark.md)依次移除应用内菜单/设置入口补齐→原创字标→侧栏样板与大字→临时库回归、像素绘制及原生截图；不新增重复CTest入口，平台门禁仍独立。状态仅见PROGRESS。
 
 

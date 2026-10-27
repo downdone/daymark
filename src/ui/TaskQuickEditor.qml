@@ -7,6 +7,7 @@ Control {
     objectName: "taskQuickEditor"
     required property TaskWorkspace workspace
     property bool dirty: false
+    property bool creationMode: false
     property bool guardActive: false
     property string titleText: ""
     property string notesText: ""
@@ -22,7 +23,12 @@ Control {
     property string destinationId: ""
     readonly property bool multilineNotes: notesText.indexOf("\n")>=0
     readonly property var hostWindow: Window.window
-    readonly property bool pickerVisible: quickStart.pickerVisible || quickEnd.pickerVisible || reminder.pickerVisible || tagPicker.visible || destinationPicker.visible
+    property bool timeRangeOpen: false
+    property string timeSummary: ""
+    readonly property bool pickerVisible: timeRangeOpen || quickStart.pickerVisible || quickEnd.pickerVisible || reminder.pickerVisible || tagPicker.visible || destinationPicker.visible
+    signal timeRangeRequested(Item source)
+    property bool important: false
+    signal importantEdited(bool value)
     signal titleEdited(string value)
     signal notesEdited(string value)
     signal startEdited(string value)
@@ -39,13 +45,22 @@ Control {
     property bool editing: false
     visible: editing
     readonly property Item completionItem: quickComplete
+    readonly property Item completionInk: quickCompletionMark
+    readonly property real defaultTitleTopInset: Math.max(0,(Math.max(32,Theme.iconSize+12)-titleMetrics.height)/2)
+    property real titleTopInset: defaultTitleTopInset
+    readonly property real titleInkCenter: contentItem.y+quickHeader.y+quickTextStack.y+quickTitle.y+quickTitle.topPadding+(quickTitle.height-quickTitle.topPadding-quickTitle.bottomPadding)/2
+    FontMetrics {id:titleMetrics;font:quickTitle.font}
     readonly property Item titleItem: quickTitle
+    function inspectorSourcePoint(target) {
+        return quickTitle.mapToItem(target,Math.min(quickTitle.width,quickTitle.contentWidth),quickTitle.topPadding+(quickTitle.height-quickTitle.topPadding-quickTitle.bottomPadding)/2)
+    }
     readonly property Item notesItem: quickNotes
-    readonly property real textInset: quickComplete.width+8
+    readonly property Item toolsItem: quickActions
+    readonly property real textInset: quickComplete.width+Theme.listTextGap
     padding: 0
     topPadding: 0;bottomPadding: 4
     implicitHeight: implicitContentHeight+topPadding+bottomPadding
-    function open(){editing=true;Qt.callLater(focusTitle)}
+    function open(){editing=true;Qt.callLater(function(){focusTitle();if(root.creationMode)quickTitle.selectAll()})}
     function close(){fullNotes.keepOpen=false;hideNotesTooltip.stop();fullNotes.close();quickStart.closePicker();quickEnd.closePicker();reminder.closePicker();tagPicker.close();destinationPicker.close();editing=false}
     function focusTitle(){quickTitle.forceActiveFocus();focusRequested(quickTitle)}
     function verifyLayout(){return editing && visible && width>0 && height<=170*Theme.scale && quickTitle.font.pixelSize===Theme.listTitleSize && quickNotes.font.pixelSize===Theme.captionSize ? "PASS" : "inline geometry editing="+editing+" width="+width+" height="+height+" implicit="+implicitHeight+" scale="+Theme.scale+" fonts="+quickTitle.font.pixelSize+","+quickNotes.font.pixelSize}
@@ -56,12 +71,16 @@ Control {
         spacing: 2
         enabled: !root.workspace.busy || root.workspace.backgroundBusy
         RowLayout {
-            Layout.fillWidth: true;spacing: 8
-            IconToolButton {id: quickComplete;hintEnabled: false;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {anchors.centerIn: parent;width: Math.min(24,18*Theme.scale);height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.25}} onClicked: root.completeRequested()}
+            id:quickHeader
+            Layout.fillWidth: true;spacing: Theme.listTextGap
+            IconToolButton {id: quickComplete;Layout.alignment:Qt.AlignTop;enabled:!root.creationMode;hintEnabled: false;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {id:quickCompletionMark;anchors.horizontalCenter:parent.horizontalCenter;y:root.titleInkCenter-quickComplete.y-quickComplete.topPadding-height/2;width: Math.min(24,18*Theme.scale);height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.25}} onClicked: root.completeRequested()}
+            ColumnLayout {id:quickTextStack;Layout.fillWidth:true;Layout.alignment:Qt.AlignTop;spacing:1
             TextField {
                 id: quickTitle;objectName: "quickEditorTitle"
                 Layout.fillWidth: true
                 font.pixelSize: Theme.listTitleSize;font.weight: Font.Normal
+                implicitHeight: contentHeight+topPadding+bottomPadding
+                topPadding:root.titleTopInset;bottomPadding:0;verticalAlignment:TextInput.AlignTop
                 leftPadding: 0;rightPadding: 0;background: Item {}
                 Accessible.name: qsTr("任务标题")
                 onTextEdited: root.titleEdited(text)
@@ -69,15 +88,12 @@ Control {
                 onActiveFocusChanged: if(activeFocus)root.focusRequested(quickTitle)
             }
             Binding {target: quickTitle;property: "text";value: root.titleText}
-            IconToolButton {objectName: "quickEditorDetails";contentItem: AppIcon {name: "info"} Accessible.name: qsTr("完整任务详情");onClicked: root.detailsRequested()}
-            IconToolButton {objectName: "saveQuickEditor";visible:root.dirty;contentItem: AppIcon {name: "check";ink: Theme.accent} Accessible.name: qsTr("保存并收起，%1+Enter").arg(Qt.platform.os==="osx" ? "⌘" : "Ctrl");onClicked: root.saveRequested()}
-        }
         TextField {
             id: quickNotes;objectName: "quickEditorNotes"
-            Layout.fillWidth: true;Layout.leftMargin: root.textInset
+            Layout.fillWidth: true
             font.pixelSize: Theme.captionSize;color: Theme.secondary
-            implicitHeight: Math.max(24,contentHeight+4)
-            padding: 2;leftPadding: 0;readOnly: root.multilineNotes
+            implicitHeight: Math.max(20,contentHeight)
+            padding: 0;verticalAlignment:TextInput.AlignTop;readOnly: root.multilineNotes
             placeholderText: qsTr("添加备注…")
             Accessible.name: root.multilineNotes ? qsTr("多行备注摘要，点击在详情编辑") : qsTr("一行备注")
             background: Item {}
@@ -103,43 +119,50 @@ Control {
             TapHandler {enabled: root.multilineNotes;onTapped: root.detailsRequested()}
         }
         Binding {target: quickNotes;property: "text";value: root.multilineNotes ? root.notesText.split("\n")[0]+"…" : root.notesText}
+            }
+            IconToolButton {id:quickDetails;objectName: "quickEditorDetails";Layout.alignment:Qt.AlignTop;contentItem:Item {implicitWidth:Theme.iconSize;implicitHeight:Theme.iconSize;AppIcon{name:"info";width:Theme.iconSize;height:width;x:(parent.width-width)/2;y:root.titleInkCenter-quickDetails.y-quickDetails.topPadding-height/2}} Accessible.name: qsTr("完整任务详情");onClicked: root.detailsRequested()}
+            IconToolButton {objectName: "saveQuickEditor";Layout.alignment:Qt.AlignTop;visible:root.dirty;contentItem: AppIcon {name: "check";ink: Theme.accent} Accessible.name: qsTr("保存并收起，%1+Enter").arg(Qt.platform.os==="osx" ? "⌘" : "Ctrl");onClicked: root.saveRequested()}
+        }
         Flow {
+            id:quickActions;objectName:"quickEditorActions"
             Layout.fillWidth: true;Layout.leftMargin: root.textInset;spacing: 6
+            ActionButton {objectName:"quickTimeRange";symbol:"clock";text:root.timeSummary || qsTr("时段");Accessible.name:qsTr("设置具体时段：%1").arg(text);onClicked:root.timeRangeRequested(this)}
             DateField {
                 id: quickStart;objectName: "quickEditorStart"
-                workspace: root.workspace;iconOnly: false;dateLabel: qsTr("开始：%1").arg(text || qsTr("未设置"))
-                width: (text ? 116 : 104)*Theme.scale;height: Math.max(32,Theme.captionSize+14);implicitWidth: width
+                workspace: root.workspace;dateLabel: qsTr("开始：%1").arg(text || qsTr("未设置"))
+                width: text ? 116*Theme.scale : height;height: Math.max(32,Theme.captionSize+14);implicitWidth: width
                 font.pixelSize: Theme.captionSize
-                readOnly: true;activeFocusOnTab: false;color: Theme.secondary;leftPadding: 8;placeholderText: qsTr("添加日期")
-                background: Rectangle {radius: 6;border.width: quickStart.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickStart.text ? Theme.selected : Theme.hover}
+                iconOnly:!text;readOnly: true;activeFocusOnTab: false;color: iconOnly ? "transparent" : Theme.secondary;leftPadding: 8;placeholderText: ""
+                background: Rectangle {radius: height/2;border.width: quickStart.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickStart.text ? Theme.selected : Theme.hover}
                 onDateChosen: root.startEdited(text)
                 onActiveFocusChanged: if(activeFocus)root.focusRequested(quickStart)
             }
             Binding {target: quickStart;property: "text";value: root.startOn}
             DateField {
                 id: quickEnd;objectName: "quickEditorDeadline"
-                workspace: root.workspace;iconOnly: false;dateLabel: qsTr("结束日期：%1").arg(text || qsTr("未设置"));symbol: "calendar"
-                width: (text ? 116 : 104)*Theme.scale;height: Math.max(32,Theme.captionSize+14);implicitWidth: width
+                workspace: root.workspace;iconOnly: !text;dateLabel: qsTr("结束日期：%1").arg(text || qsTr("未设置"));symbol: "upcoming"
+                width: text ? 116*Theme.scale : height;height: Math.max(32,Theme.captionSize+14);implicitWidth: width
                 font.pixelSize: Theme.captionSize
-                readOnly: true;activeFocusOnTab: false;color: Theme.secondary;leftPadding: 8;placeholderText: qsTr("结束日期")
-                background: Rectangle {radius: 6;border.width: quickEnd.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickEnd.text ? Theme.selected : Theme.hover}
+                readOnly: true;activeFocusOnTab: false;color: iconOnly ? "transparent" : Theme.secondary;leftPadding: 8;placeholderText: ""
+                background: Rectangle {radius: height/2;border.width: quickEnd.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickEnd.text ? Theme.selected : Theme.hover}
                 onDateChosen: root.deadlineEdited(text)
                 onActiveFocusChanged: if(activeFocus)root.focusRequested(quickEnd)
             }
             Binding {target: quickEnd;property: "text";value: root.deadlineOn}
             IconToolButton {
                 id: tagButton
+                objectName: "quickTagButton"
                 width: Math.max(32,Theme.iconSize+12);height: width
-                background: Rectangle {radius: 6;color: tagButton.down ? Theme.pressed : tagButton.hovered ? Theme.hover : root.tagIds.length>0 ? Theme.selected : Theme.hover;border.width: tagButton.visualFocus ? 1 : 0;border.color: Theme.accent}
+                background: Rectangle {radius: height/2;color: tagButton.down ? Theme.pressed : tagButton.hovered ? Theme.hover : root.tagIds.length>0 ? Theme.selected : Theme.hover;border.width: tagButton.visualFocus ? 1 : 0;border.color: Theme.accent}
                 contentItem: AppIcon {name: "tag";ink: root.tagIds.length>0 ? Theme.accent : Theme.secondary}
                 Accessible.name: qsTr("选择标签，已选%1个").arg(root.tagIds.length)
-                onClicked: tagPicker.open()
-                CatalogPicker {id: tagPicker;heading: qsTr("标签");options: root.tags;multiple: true;selectedIds: root.tagIds;heightLimit: root.hostWindow ? root.hostWindow.height-32 : 440;y: tagButton.height+4;onSelected: function(kind,id,checked){root.tagEdited(id,checked)};onCreateRequested: function(kind){root.createCatalogRequested(kind)}}
+                onClicked: tagPicker.popup(tagButton,0,tagButton.height)
+                TagMenu {id: tagPicker;objectName:"quickTagMenu";options: root.tags;selectedIds: root.tagIds;onSelected: function(id,checked){root.tagEdited(id,checked)};onCreateRequested: root.createCatalogRequested("tag")}
             }
             IconToolButton {
                 id: destinationButton
                 width: Math.max(32,Theme.iconSize+12);height: width
-                background: Rectangle {radius: 6;color: destinationButton.down ? Theme.pressed : destinationButton.hovered ? Theme.hover : root.destinationId ? Theme.selected : Theme.hover;border.width: destinationButton.visualFocus ? 1 : 0;border.color: Theme.accent}
+                background: Rectangle {radius: height/2;color: destinationButton.down ? Theme.pressed : destinationButton.hovered ? Theme.hover : root.destinationId ? Theme.selected : Theme.hover;border.width: destinationButton.visualFocus ? 1 : 0;border.color: Theme.accent}
                 contentItem: AppIcon {name: "folder";ink: root.destinationId ? Theme.accent : Theme.secondary}
                 Accessible.name: qsTr("选择分类")
                 onClicked: destinationPicker.open()
@@ -149,13 +172,14 @@ Control {
                 id: reminder;objectName: "quickEditorReminder";workspace: root.workspace;iconOnly: true;commitTask: false
                 width: Math.max(32,Theme.iconSize+12);height: width;implicitWidth: width
                 readOnly: true;activeFocusOnTab: false;color: "transparent";leftPadding: 0;placeholderText: ""
-                background: Rectangle {radius: 6;border.width: reminder.activeFocus ? 1 : 0;border.color: Theme.accent;color: reminder.text ? Theme.selected : Theme.hover}
+                background: Rectangle {radius: height/2;border.width: reminder.activeFocus ? 1 : 0;border.color: Theme.accent;color: reminder.text ? Theme.selected : Theme.hover}
                 onReminderChosen: {root.reminderCycleEdited(repeatFrequency,repeatInterval);root.reminderEdited(text)}
                 onActiveFocusChanged: if(activeFocus)root.focusRequested(reminder)
             }
             Binding {target: reminder;property: "text";value: root.reminderText}
             Binding {target: reminder;property: "repeatFrequency";value: root.reminderRepeat}
             Binding {target: reminder;property: "repeatInterval";value: root.reminderEvery}
+            IconToolButton {id:importantButton;objectName:"quickImportant";Accessible.name:checked ? qsTr("取消特别关注") : qsTr("特别关注");checkable:true;checked:root.important;background:Rectangle {radius:height/2;color:importantButton.checked ? Theme.selected : importantButton.down ? Theme.pressed : Theme.hover;border.width:importantButton.visualFocus ? 1 : 0;border.color:Theme.accent} contentItem:AppIcon{name:"flag";ink:root.important ? Theme.catalogColor("orange") : Theme.secondary} onClicked:root.importantEdited(checked)}
         }
         Label {Layout.fillWidth: true;Layout.leftMargin: root.textInset;visible: text.length>0;text: root.workspace.errorText;color: Theme.danger;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize}
     }

@@ -1,6 +1,9 @@
 #include "models/WidgetViewModel.h"
 #include "platform/common/QtWindowPlatform.h"
 #include "platform/common/NativeWindowLayer.h"
+#include "platform/common/DesktopTray.h"
+#include <QAction>
+#include <QDir>
 
 #include <QSignalSpy>
 #include <QWindow>
@@ -28,9 +31,49 @@ public:
     WindowResult startMove(QWindow*) override { return {WindowError::MoveUnsupported}; }
 };
 
+// Command routing fixture, not evidence of a native shell tray.
+class TrayCommandWindow final : public QWindow {
+    Q_OBJECT
+public:
+    QVariant newTaskScope,openedTool;
+    Q_INVOKABLE void newTask(const QVariant& scope) {newTaskScope=scope;}
+    Q_INVOKABLE void openTool(const QVariant& tool) {openedTool=tool;}
+};
+
 class WidgetWindowTest : public QObject {
     Q_OBJECT
 private slots:
+    void trayCommandsAreGroupedAndRecoveryTracksState()
+    {
+        QTemporaryDir dir;QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;TrayCommandWindow main;
+        window.resize(340,360);model.configureSettings(dir.filePath("tray.ini"));QVERIFY(model.attachWindow(&window));
+        DesktopTray tray(model,&main);auto* menu=tray.contextMenu();QVERIFY(menu);
+        QStringList order;bool previousRule=true;
+        for(auto* action:menu->actions()){
+            if(action->isSeparator()){QVERIFY(!previousRule);order.append("|");previousRule=true;}
+            else {order.append(action->objectName());previousRule=false;}
+        }
+        QVERIFY(!previousRule);
+        QCOMPARE(order,QStringList({"trayShowMain","trayNewTask","|","trayToggleWidget","|","trayClickThrough","trayRestoreInput","trayResetWidget","|","traySettings","|","trayQuit"}));
+        auto action=[&](const char* id){return menu->findChild<QAction*>(QString::fromLatin1(id));};
+        QVERIFY(!action("trayRestoreInput")->isEnabled());QVERIFY(!action("trayClickThrough")->isChecked());
+        QCOMPARE(action("trayToggleWidget")->text(),QString::fromUtf8("显示任务组件"));
+        action("trayToggleWidget")->trigger();QVERIFY(model.visible());QCOMPARE(action("trayToggleWidget")->text(),QString::fromUtf8("隐藏任务组件"));
+        action("trayToggleWidget")->trigger();QVERIFY(!model.visible());
+        // Exercise commands without claiming the shell icon exists on offscreen.
+        model.setTrayAvailable(true);QVERIFY(model.setClickThrough(true));
+        QVERIFY(action("trayClickThrough")->isChecked());QVERIFY(action("trayRestoreInput")->isEnabled());
+        const auto artifacts=qEnvironmentVariable("DAYMARK_TEST_ARTIFACT_DIR");
+        if(!artifacts.isEmpty()){
+            QVERIFY(QDir().mkpath(artifacts));menu->popup(QPoint(20,20));QTest::qWait(30);
+            QVERIFY(menu->grab().save(QDir(artifacts).filePath("tray-grouped-input-recovery.png")));menu->hide();
+        }
+        action("trayRestoreInput")->trigger();QVERIFY(!model.clickThrough());QVERIFY(!action("trayClickThrough")->isChecked());QVERIFY(!action("trayRestoreInput")->isEnabled());
+        main.setWindowState(Qt::WindowMaximized);action("trayShowMain")->trigger();QVERIFY(main.isVisible());QCOMPARE(main.windowState(),Qt::WindowMaximized);
+        action("trayNewTask")->trigger();QCOMPARE(main.newTaskScope.toString(),QStringLiteral("inbox"));
+        action("traySettings")->trigger();QCOMPARE(main.openedTool.toString(),QStringLiteral("settings"));
+        main.hide();model.setVisible(false);
+    }
     void desktopLayerPersistsAndSurvivesWindowChanges()
     {
         QTemporaryDir dir;QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;

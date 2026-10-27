@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -197,10 +198,13 @@ Item {
                     width: dayCell.availableWidth
                     height: dayCell.markerLineHeight
                     verticalAlignment: Text.AlignVCenter
-                    leftPadding: 6
+                    readonly property bool hasSymbol:!modelData.eventId || modelData.recurring
+                    readonly property real symbolSize:Math.min(18,12*Theme.scale)
+                    leftPadding:hasSymbol ? 10+symbolSize : 6
+                    AppIcon {x:6;y:(marker.height-height)/2;width:marker.symbolSize;height:width;visible:marker.hasSymbol;name:marker.modelData.eventId ? "reload" : marker.modelData.taskStatus==="COMPLETED" ? "check" : marker.modelData.kind==="deadline" ? "flag" : "circle";ink:marker.color}
                     background: Rectangle {
                         color: root && root.selectedTaskId===(marker.modelData.taskId || marker.modelData.eventId) ? Theme.accent : Theme.primaryFill
-                        radius: 4
+                        radius: Theme.eventRadius
                         Rectangle {
                             width: 3
                             height: parent.height
@@ -208,7 +212,7 @@ Item {
                             color: marker.modelData.kind === "deadline" ? Theme.danger : Theme.accent
                         }
                     }
-                    text: (modelData.eventId ? (modelData.recurring ? "↻ " : "") : modelData.taskStatus === "COMPLETED" ? "✓ " : modelData.kind === "deadline" ? qsTr("结束 · ") : "○ ") + (modelData.timeLabel && !modelData.allDay ? modelData.timeLabel.split("–")[0].split(" ").pop() + " " : "") + modelData.title
+                    text: (modelData.kind==="deadline" ? qsTr("结束 · ") : "") + (modelData.timeLabel && !modelData.allDay ? modelData.timeLabel.split("–")[0].split(" ").pop() + " " : "") + modelData.title
                     font.strikeout: modelData.taskStatus === "COMPLETED"
                     elide: Text.ElideRight
                     font.pixelSize: Theme.captionSize
@@ -339,9 +343,9 @@ Item {
                 y: (firstDay ? firstDay.y : 0) + 4 + Math.max(28, Math.ceil(Theme.bodySize * 1.65)) + 1 + modelData.lane * (Math.ceil(Theme.captionSize * 1.5) + 2)
                 width: modelData.span * cellWidth - (modelData.startsHere ? 4 : 0) - (modelData.endsHere ? 4 : 0)
                 height: Math.ceil(Theme.captionSize * 1.5)
-                topLeftRadius: modelData.startsHere ? 5 : 0
+                topLeftRadius: modelData.startsHere ? Theme.eventRadius : 0
                 bottomLeftRadius: topLeftRadius
-                topRightRadius: modelData.endsHere ? 5 : 0
+                topRightRadius: modelData.endsHere ? Theme.eventRadius : 0
                 bottomRightRadius: topRightRadius
                 color: root && root.selectedTaskId===(modelData.taskId || modelData.eventId) ? Theme.accent : Theme.primaryFill
                 activeFocusOnTab: true
@@ -360,16 +364,17 @@ Item {
                 Text {
                     id: bandTitle
                     anchors.fill: parent
-                    anchors.leftMargin: 6
+                    anchors.leftMargin:band.taskRange || band.modelData.recurring ? 10+Math.min(18,12*Theme.scale) : 6
                     anchors.rightMargin: 4
                     textFormat: Text.PlainText
-                    text: (band.taskRange ? "○ " : band.modelData.recurring ? "↻ " : "") + band.modelData.title
+                    text: band.modelData.title
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.captionSize
                     color: root && root.selectedTaskId===(band.modelData.taskId || band.modelData.eventId) ? Theme.accentText : Theme.primaryInk
                     verticalAlignment: Text.AlignVCenter
                     elide: Text.ElideRight
                 }
+                AppIcon {x:6;y:(band.height-height)/2;width:Math.min(18,12*Theme.scale);height:width;visible:band.taskRange || band.modelData.recurring;name:band.taskRange ? "circle" : "reload";ink:bandTitle.color}
                 ToolTip.visible: !Theme.hintsBlocked && band.visible && root && root.visible && bandTitle.truncated && bandHover.hovered && !root.draggingMarker
                 ToolTip.delay: Theme.hintDelay
                 ToolTip.timeout: Theme.hintTimeout
@@ -410,7 +415,7 @@ Item {
                     enabled: band.taskRange
                     onTapped: rangeMenu.popup()
                 }
-                Menu {
+                DS.Menu {
                     id: rangeMenu
                     MenuItem {
                         text: qsTr("调整开始日期…")

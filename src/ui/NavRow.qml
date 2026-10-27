@@ -91,11 +91,11 @@ ItemDelegate {
         Item {
             Layout.preferredWidth: root.iconBadge ? 26 : Math.min(24,16*Theme.scale)
             Layout.preferredHeight: root.iconBadge ? 26 : Math.min(24,16*Theme.scale)
-            Rectangle {anchors.fill: parent;visible: root.iconBadge;radius: 7;color: root.selected || root.taskDropActive ? Theme.primaryFill : Theme.content}
+            Rectangle {anchors.fill: parent;visible: root.iconBadge;radius: Theme.controlRadius;color: root.selected || root.taskDropActive ? Theme.primaryFill : Theme.content}
             AppIcon {anchors.centerIn: parent;name: root.symbol;ink: root.selected || root.taskDropActive ? Theme.accent : root.symbolColor;implicitWidth: Math.min(22,16*Theme.scale);implicitHeight: implicitWidth}
         }
         Label { id: navText;objectName: "navigationLabel";HoverHandler {id: navTextHover} font.weight: root.selected ? Font.DemiBold : Font.Normal;text: root.catalogDropActive && root.catalogDropAllowed && root.catalogDropPlacement==="inside" ? qsTr("移入：%1").arg(root.text) : root.text; color: Theme.text; font.pixelSize: Theme.navigationSize; Layout.fillWidth: true; elide: Text.ElideRight }
-        Rectangle {visible: root.ancestorSelected;implicitWidth: 5;implicitHeight: 5;radius: 3;color: Theme.accent}
+        Rectangle {visible: root.ancestorSelected;implicitWidth: 5;implicitHeight: 5;radius: width/2;color: Theme.accent}
         WidgetAction {visible: root.showCatalogActions;opacity: root.hovered || root.activeFocus ? 1 : 0;symbol: "more";description: qsTr("%1 的选项").arg(root.text);hintText:qsTr("分类或标签选项");onClicked: root.optionsRequested(root.width,root.height)}
         Label { visible: root.count>=0; text: root.count; color: Theme.secondary; font.pixelSize: Theme.captionSize }
     }

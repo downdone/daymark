@@ -8,6 +8,44 @@ using namespace daymark;
 class Ux34WorkspaceTest:public QObject {
     Q_OBJECT
 private slots:
+    void todayListCalendarEntryAndExplicitBrowsing() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("today-entry.sqlite"));QVERIFY(daymark::test::awaitIdle(w,true));
+        for(const auto& scale:{"day","week","month"}) {
+            w.setView("today");w.selectCalendarDate("1998-05-12");w.setView(scale);
+            QCOMPARE(w.calendarDate(),w.dateOffset(0));QCOMPARE(w.scope(),QString("today"));
+            w.stepCalendar(-1);const auto browsed=w.calendarDate();w.clearError();QCOMPARE(w.calendarDate(),browsed);
+        }
+        w.setView("all");w.selectCalendarDate("1998-05-12");w.setView("day");QCOMPARE(w.calendarDate(),QString("1998-05-12"));
+        w.setScope("today");QCOMPARE(w.calendarDate(),QString("1998-05-12"));
+    }
+    void rangeDraftUsesZoneMidnightAndRejectsInvalidTimeWithoutWrites() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("range-preview.sqlite"));QVERIFY(daymark::test::awaitIdle(w,true));
+        const auto count=w.tasks()->rowCount();const auto date=w.calendarDate();
+        auto midnight=w.timeRangeDraft({{"zone","UTC"},{"startDate","2026-10-27"},{"startMinute",1425},{"endMinute",1440}});
+        QVERIFY(midnight.value("valid").toBool());QCOMPARE(midnight.value("endDate").toString(),QString("2026-10-28"));QCOMPARE(midnight.value("endTime").toString(),QString("00:00"));
+        auto exact=w.timeRangeDraft({{"zone","UTC"},{"startDate","2026-10-27"},{"endDate","2026-10-27"},{"startTime","09:07"},{"endTime","09:43"}});
+        QVERIFY(exact.value("valid").toBool());QCOMPARE(exact.value("duration").toInt(),36);
+        const auto local=QDateTime(QDate(2026,10,27),QTime(9,7),QTimeZone::UTC).toLocalTime();
+        QCOMPARE(exact.value("displayDate").toString(),local.date().toString(Qt::ISODate));
+        QCOMPARE(exact.value("displayMinute").toLongLong(),local.date().startOfDay(QTimeZone::systemTimeZone()).secsTo(local)/60);
+        QVERIFY(!w.timeRangeDraft({{"zone","UTC"},{"startDate","2026-10-27"},{"startMinute",600},{"endMinute",599}}).value("valid").toBool());
+        QVERIFY(!w.timeRangeDraft({{"zone","bad-zone"}}).value("valid").toBool());
+        if(QTimeZone("America/New_York").isValid()) {
+            QCOMPARE(w.timeRangePreview("2026-03-08","America/New_York",{}).value("minutes").toInt(),1380);
+            QCOMPARE(w.timeRangePreview("2026-11-01","America/New_York",{}).value("minutes").toInt(),1500);
+            for(const auto& local:{QString("2026-03-08 02:30"),QString("2026-11-01 01:30")})
+                QVERIFY(!w.timeRangeDraft({{"zone","America/New_York"},{"startDate",local.left(10)},{"endDate",local.left(10)},{"startTime",local.mid(11)},{"endTime","04:00"}}).value("valid").toBool());
+        }
+        QCOMPARE(w.tasks()->rowCount(),count);QCOMPARE(w.calendarDate(),date);QVERIFY(!w.busy());
+    }
+    void rangeBackgroundExcludesEditedTaskWithoutChangingScope() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("range-background.sqlite"));QVERIFY(daymark::test::awaitIdle(w,true));
+        QVERIFY(w.createForTime("own",w.dateOffset(0),540));QVERIFY(daymark::test::awaitIdle(w));const auto id=w.tasks()->items().first().id;
+        w.setView("important");
+        QCOMPARE(w.timeRangePreview(w.dateOffset(0),w.systemTimeZone(),{}).value("blocks").toList().size(),1);
+        QCOMPARE(w.timeRangePreview(w.dateOffset(0),w.systemTimeZone(),id).value("blocks").toList().size(),0);
+        QCOMPARE(w.scope(),QString("important"));QVERIFY(!w.task(id).value("important").toBool());
+    }
     void yearEntryReturnsToTodayAndScopeChangesKeepNavigation() {
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("year.sqlite"));QVERIFY(daymark::test::awaitIdle(w,true));
         w.setView("month");w.selectCalendarDate("1998-05-12");w.setView("year");QCOMPARE(w.calendarDate(),w.dateOffset(0));

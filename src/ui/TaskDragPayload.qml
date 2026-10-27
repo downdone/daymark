@@ -10,7 +10,7 @@ Item {
     height: 32 * Theme.scale
     Rectangle {
         anchors.fill: parent
-        radius: 5
+        radius: Theme.rowRadius
         color: Theme.selected
         border.color: Theme.accent
     }

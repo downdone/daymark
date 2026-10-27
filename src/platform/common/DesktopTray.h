@@ -10,6 +10,7 @@ class DesktopTray final : public QObject {
 public:
     DesktopTray(WidgetViewModel& widget,QWindow* mainWindow,QObject* parent=nullptr);
     bool notify(const QString& title,const QString& message);
+    QMenu* contextMenu() {return &m_menu;}
 private:
     WidgetViewModel& m_widget;
     QPointer<QWindow> m_mainWindow;

@@ -21,6 +21,56 @@ class TaskServiceTest : public QObject {
         return repo.update(task.value,task.value.rowVersion);
     }
 private slots:
+    void batchRestoreIsAtomicAndPreservesOlderDeletions() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("batch-restore.sqlite")).ok());
+        TaskRepository repo(db.connection());FixedClock clock;TaskService service(repo,clock);
+        const auto root=service.create("parent","anytime").value;
+        const auto child=service.createSubtask("child",root.id).value;
+        const auto prior=service.createSubtask("older deletion",root.id).value;
+        const auto other=service.create("independent","anytime").value;
+        QVERIFY(service.changeState(prior.id,prior.rowVersion,"delete").ok());
+        QVERIFY(service.batch({{root.id,root.rowVersion},{other.id,other.rowVersion}},"delete").ok());
+        const auto before=repo.all().value;
+        QList<QPair<QString,qint64>> selected;
+        for(const auto& id:{child.id,root.id,other.id})selected.append({id,repo.find(id).value.rowVersion});
+        auto stale=selected;++stale.last().second;
+        QCOMPARE(service.batch(stale,"restore").error.key,QStringLiteral("conflict"));QCOMPARE(repo.all().value,before);
+        QSqlQuery trigger(db.connection());
+        QVERIFY(trigger.exec(QStringLiteral("CREATE TRIGGER reject_restore BEFORE UPDATE OF deleted_at_utc ON tasks WHEN OLD.id='%1' AND NEW.deleted_at_utc IS NULL BEGIN SELECT RAISE(ABORT,'injected restore failure'); END").arg(other.id)));
+        QVERIFY(!service.batch(selected,"restore").ok());QCOMPARE(repo.all().value,before);
+        QVERIFY(trigger.exec("DROP TRIGGER reject_restore"));QVERIFY(service.batch(selected,"restore").ok());
+        for(const auto& id:{root.id,child.id,other.id})QVERIFY(repo.find(id).value.deletedAtUtc.isEmpty());
+        QCOMPARE(repo.find(child.id).value.parentTaskId,root.id);
+        QVERIFY(!repo.find(prior.id).value.deletedAtUtc.isEmpty());
+        QVERIFY(!service.batch({{other.id,repo.find(other.id).value.rowVersion}},"restore").ok());
+    }
+    void batchDeleteDeduplicatesTreesAndRollsBackBeforeUndo() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("batch-delete.sqlite")).ok());
+        TaskRepository repo(db.connection());FixedClock clock;TaskService service(repo,clock);
+        const auto root=service.create("parent","anytime").value;
+        const auto child=service.createSubtask("child",root.id).value;
+        const auto prior=service.createSubtask("previously deleted",root.id).value;
+        const auto other=service.create("other","anytime").value;
+        QVERIFY(service.changeState(prior.id,prior.rowVersion,"delete").ok());
+        const auto oldDeletion=repo.find(prior.id).value;
+        QList<QPair<QString,qint64>> selection{{child.id,repo.find(child.id).value.rowVersion},{root.id,repo.find(root.id).value.rowVersion},{other.id,repo.find(other.id).value.rowVersion}};
+        const auto before=repo.all().value;
+        auto stale=selection;++stale.last().second;
+        QVERIFY(!service.batch(stale,"delete").ok());QCOMPARE(repo.all().value,before);
+        QSqlQuery trigger(db.connection());
+        QVERIFY(trigger.exec(QStringLiteral("CREATE TRIGGER reject_batch_delete BEFORE UPDATE OF deleted_at_utc ON tasks WHEN OLD.id='%1' AND NEW.deleted_at_utc IS NOT NULL BEGIN SELECT RAISE(ABORT,'injected delete failure'); END").arg(other.id)));
+        QVERIFY(!service.batch(selection,"delete").ok());QCOMPARE(repo.all().value,before);
+        QVERIFY(trigger.exec("DROP TRIGGER reject_batch_delete"));
+        QVERIFY(service.batch(selection,"delete").ok());
+        QCOMPARE(repo.find(child.id).value.rowVersion,child.rowVersion+1);
+        QCOMPARE(repo.find(child.id).value.deletionGroupId,repo.find(root.id).value.deletionGroupId);
+        QCOMPARE(repo.find(prior.id).value.deletionGroupId,oldDeletion.deletionGroupId);
+        QList<QPair<QString,qint64>> restore;
+        for(const auto& id:{root.id,child.id,other.id}){const auto task=repo.find(id).value;QVERIFY(!task.deletedAtUtc.isEmpty());restore.append({id,task.rowVersion});}
+        QVERIFY(service.batch(restore,"restore").ok());
+        for(const auto& id:{root.id,child.id,other.id})QVERIFY(repo.find(id).value.deletedAtUtc.isEmpty());
+        QCOMPARE(repo.find(prior.id).value.deletedAtUtc,oldDeletion.deletedAtUtc);
+    }
     void batchReopenPreservesGroupsAndRollsBackWholeSelection() {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("batch-reopen.sqlite")).ok());
         TaskRepository repo(db.connection());FixedClock clock;TaskService service(repo,clock);

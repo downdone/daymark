@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import DaymarkStyle as DS
 ApplicationWindow {
     id: calendar
     objectName: "desktopCalendarWindow"
@@ -10,6 +11,7 @@ ApplicationWindow {
     signal taskAction(string taskId,string action)
     signal completeTask(string taskId,real version,string action)
     signal timeMoveRequested(string taskId,real version,string date,int minute,string edge)
+    signal timeRangeRequested(string taskId,real version,var range)
     signal dateMoveRequested(string taskId,real version,string from,string date,string edge)
     width: 760;height: 720
     minimumWidth: 420;minimumHeight: 480
@@ -32,6 +34,7 @@ ApplicationWindow {
     }
     readonly property bool dragging: page.timelineDragging
     function calendarCommand(action){page.command(action)}
+    Shortcut {sequence:"Ctrl+Shift+F";enabled:calendar.active && !page.modalOpen && !calendar.workspace.busy && !!page.selectedTaskId;onActivated:calendar.taskAction(page.selectedTaskId,"important")}
     function protectClose(action) {
         if(!page.protectClose(action))return false
         workspace.setPreference("desktopCalendarVisible",true);requestActivate();return true
@@ -56,19 +59,20 @@ ApplicationWindow {
                 DragHandler {target: null;onActiveChanged: if(active)calendar.startSystemMove()}
             }
             WidgetAction {symbol: "pin";description: checked ? qsTr("取消日历置顶") : qsTr("日历置顶");checked: calendar.workspace.preferences.desktopCalendarTopmost;Accessible.checkable: true;Accessible.checked: checked;onClicked: calendar.workspace.setPreference("desktopCalendarTopmost",!checked)}
-            WidgetAction {symbol: "settings";description: qsTr("日历透明度与位置");onClicked: options.open()
-                Menu {
+            WidgetAction {id:calendarOptions;objectName:"desktopCalendarOptions";symbol: "settings";description: qsTr("日历透明度与位置");onClicked: options.popupAt(calendarOptions)
+                DS.Menu {
                         popupType: Popup.Window
                     id: options
+                    objectName:"desktopCalendarOptionsMenu"
                     MenuItem {text: qsTr("背景透明度 %1%").arg(calendar.workspace.preferences.desktopCalendarOpacity);enabled: false}
                     MenuItem {text: qsTr("100% · 实色");onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",100)}
                     MenuItem {text: "90%";onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",90)}
                     MenuItem {text: "70%";onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",70)}
                     MenuItem {text: "50%";onTriggered: calendar.workspace.setPreference("desktopCalendarOpacity",50)}
-                    MenuSeparator {}
+                    DS.MenuSeparator {}
                     MenuItem {objectName:"calendarDesktopPinned";text:qsTr("固定在桌面");checkable:true;checked:calendar.workspace.preferences.desktopCalendarPinned;onTriggered:calendar.workspace.setPreference("desktopCalendarPinned",!calendar.workspace.preferences.desktopCalendarPinned)}
                     MenuItem {text:qsTr("保持置顶");checkable:true;checked:calendar.workspace.preferences.desktopCalendarTopmost;onTriggered:calendar.workspace.setPreference("desktopCalendarTopmost",!calendar.workspace.preferences.desktopCalendarTopmost)}
-                    MenuSeparator {}
+                    DS.MenuSeparator {}
                     MenuItem {text: qsTr("重置位置");onTriggered: calendar.resetPosition()}
                 }
             }
@@ -83,10 +87,11 @@ ApplicationWindow {
             onOpenTask: function(taskId){calendar.openTask(taskId)}
             onTaskAction:function(taskId,action){calendar.taskAction(taskId,action)}
             onTimeMoveRequested:function(id,version,date,minute,edge){calendar.timeMoveRequested(id,version,date,minute,edge)}
+            onTimeRangeRequested:function(id,version,range){calendar.timeRangeRequested(id,version,range)}
             onDateMoveRequested:function(id,version,from,date,edge){calendar.dateMoveRequested(id,version,from,date,edge)}
             onCompleteTask: function(taskId,version,action){calendar.completeTask(taskId,version,action)}
         }
         Label {visible: calendar.workspace.errorText.length>0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: calendar.workspace.errorText;color: Theme.danger}
     }
-    MouseArea {anchors.right: parent.right;anchors.bottom: parent.bottom;width: 16;height: 16;cursorShape: Qt.SizeFDiagCursor;onPressed: calendar.startSystemResize(Qt.RightEdge|Qt.BottomEdge)}
+    WindowResizeHandles {anchors.fill: parent;targetWindow: calendar}
 }

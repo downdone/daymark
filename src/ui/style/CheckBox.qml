@@ -18,7 +18,7 @@ T.CheckBox {
         color: !control.enabled ? DesignTokens.border : control.checked || control.checkState===Qt.PartiallyChecked ? DesignTokens.accent : control.hovered ? DesignTokens.hover : DesignTokens.surface
         border.color: control.visualFocus ? DesignTokens.accent : DesignTokens.outline
         border.width: control.visualFocus ? 2 : 1
-        Text {anchors.centerIn: parent;text: control.checkState===Qt.PartiallyChecked ? "−" : "✓";visible: control.checked || control.checkState===Qt.PartiallyChecked;color: DesignTokens.accentText;font.pixelSize: Math.round(14*DesignTokens.scale);font.bold: true}
+        Glyph {anchors.centerIn:parent;width:parent.width-4;height:width;name:control.checkState===Qt.PartiallyChecked ? "minus" : "check";visible:control.checked || control.checkState===Qt.PartiallyChecked;ink:DesignTokens.accentText}
     }
     contentItem: Text {text: control.text;font: control.font;color: control.enabled ? DesignTokens.text : DesignTokens.disabledText;leftPadding: control.indicator.width+control.spacing;verticalAlignment: Text.AlignVCenter;wrapMode: Text.Wrap}
 }

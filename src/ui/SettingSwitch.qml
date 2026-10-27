@@ -35,5 +35,5 @@ T.Switch {
             color: Theme.dark && control.checked ? Theme.accentText : Theme.content
         }
     }
-    background: Rectangle {radius: 8;color: control.down || control.hovered ? Theme.hover : "transparent";border.width: control.visualFocus ? 2 : 0;border.color: Theme.accent}
+    background: Rectangle {radius: Theme.rowRadius;color: control.down || control.hovered ? Theme.hover : "transparent";border.width: control.visualFocus ? 2 : 0;border.color: Theme.accent}
 }

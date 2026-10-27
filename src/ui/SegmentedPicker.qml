@@ -11,7 +11,7 @@ Control {
     Layout.fillWidth: true
     implicitHeight: Math.max(Theme.controlHeight,row.implicitHeight+4)
     padding: 2
-    background: Rectangle {radius: Theme.rowRadius;color: Theme.hover}
+    background: Rectangle {radius: Theme.menuRadius;color: Theme.hover}
     function select(index) {
         const next=Math.max(0,Math.min(model.length-1,index))
         if(selectionIsExternal && next===currentIndex)return
@@ -48,7 +48,7 @@ Control {
                 onClicked: picker.select(index)
                 Keys.onLeftPressed: {picker.select(index-1);const item=segments.itemAt(Math.max(0,index-1)) as Button;if(item)item.forceActiveFocus()}
                 Keys.onRightPressed: {picker.select(index+1);const item=segments.itemAt(Math.min(picker.model.length-1,index+1)) as Button;if(item)item.forceActiveFocus()}
-                background: Rectangle {radius: 6;color: segment.checked ? Theme.content : segment.hovered ? Theme.selected : "transparent";border.width: segment.visualFocus ? 2 : segment.checked ? 1 : 0;border.color: segment.visualFocus ? Theme.accent : Theme.separator}
+                background: Rectangle {radius: Theme.controlRadius;color: segment.down ? Theme.pressed : segment.checked ? Theme.content : segment.hovered ? Theme.selected : "transparent";border.width: segment.visualFocus || Theme.highContrast && segment.checked ? 1 : 0;border.color: segment.visualFocus ? Theme.accent : Theme.secondary}
             }
         }
     }

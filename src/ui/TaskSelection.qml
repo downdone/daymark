@@ -16,8 +16,9 @@ QtObject {
     }
     function contains(id) {return membership[id]===true}
     function entry(id) {
-        const task=workspace.task(id)
-        return task.taskId ? {taskId:id,rowVersion:task.rowVersion} : null
+        const index=workspace.taskIndex(id)
+        const entries=workspace.tasks.selectionEntries(index,index)
+        return entries.length ? entries[0] : null
     }
     function single(id) {
         const task=entry(id)

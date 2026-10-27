@@ -9,5 +9,5 @@ T.ItemDelegate {
     hoverEnabled: true
     font.pixelSize: DesignTokens.body
     contentItem: Text {text: control.text;font: control.font;color: control.enabled ? DesignTokens.text : DesignTokens.disabledText;elide: Text.ElideRight;verticalAlignment: Text.AlignVCenter}
-    background: Rectangle {radius: DesignTokens.radius;color: control.highlighted ? DesignTokens.selected : control.down ? DesignTokens.pressed : control.hovered ? DesignTokens.hover : "transparent";border.width: control.visualFocus ? 2 : 0;border.color: DesignTokens.accent}
+    background: Rectangle {radius: DesignTokens.radius;color: control.highlighted ? DesignTokens.selected : control.down ? DesignTokens.pressed : control.hovered ? DesignTokens.hover : "transparent";border.width: control.visualFocus ? 1 : 0;border.color: DesignTokens.accent}
 }

@@ -1,8 +1,24 @@
 # 测试方法与链路责任（1.0）
 
+UX-55不新增CTest：widget_window加入真实托盘QMenu结构、状态同步、输入恢复和最大化保持；可选DAYMARK_TEST_ARTIFACT_DIR仅导出测试菜单截图，不读写用户库。desktop_surfaces样板复用真实菜单，验证全可见/隐藏首组/尾组/中间组/空菜单的分隔；列表/日历复用既有选择/菜单/危险动作链。
+
+UX-52～54保持既有CTest与超时：恢复单测负责最大化隐藏状态，列表链负责文字/命中盒几何，task_workspace补本地锚点星期只读默认，contextual_workspace负责重复草稿到数据库、已有规则周预设及200%可达，desktop_surfaces负责模式切换后的菜单锚点/实体表面和实际文字像素。截图使用临时数据的原入口，不复制一套重复规则服务测试；物理合成器问题必须区分框架证据与桌面观察。
+
+UX-49～51复用task_list_interaction验证首开/箭头/拖动、最近删除集合恢复及父子/原行几何；接近预算的列表链不再塞入新建流程。contextual_workspace新增真实空白双击、模板全选/未改和改回零写、只改备注、外点提交、Esc、失败修正和大字草稿/已有ID保护；工作区验证只读范围默认与创建失败零残留，task_service验证恢复整批CAS和注入回滚。保持原30秒UI预算、原断言和临时库，不新增重复CTest。
+
+UX-48增加无依赖静态守卫`python scripts/check-ui-style.py`（macOS用python3），拒绝QML局部数字字号/旧bold声明及未定义图标；不增加CTest套件。字体角色/半径层级放既有样式库，desktop_surfaces追加实际矢量像素、主题刷新/大字检查；既有五UI入口覆盖跨表面交互，完整CTest仍按真实结果记录。
+
+UX-47沿用desktop_surfaces覆盖设置四页真实进入/返回与焦点、主题/备份偏好保存、支持/数据路由和深色200%；task_list_interaction覆盖内容页签指针/键盘与原草稿保存门，calendar_interaction保留关于及桌面偏好同步。不新增CTest入口，macOS/读屏/物理输入仍独立记录。
+
 2026-10-26。目标是用最少的重复准备和等待证明不同风险，不以测试数量、相似截图或单项PASS替代用户操作链。当前真实结果见[PROGRESS](PROGRESS.md)，规格以PRD和ADR为准。
 
 ## 分层与唯一责任
+
+[UX-46](design/contextual-popover-polish.md)仅在现有calendar_interaction增加面板字段样式作用域、焦点及浅深/增强对比200%验证；原任务详情高度、同草稿迁移、日期/拖动/保存/批量动作继续由原UI五入口承担。不新增同义套件，不以样式属性替代截图复看。
+
+[UX-45](design/direct-time-range-picker.md)将树批删/恢复原子性、冲突和注入失败交给task_service，批量撤销实际分组/版本与原删除隔离交给task_workspace；时区、DST、午夜及只读背景由ux34_workspace负责。calendar_interaction验证日期任务拖选安排和共享时段小窗；task_list_interaction验证旗标键、集合删除及输入保护。复用现有入口，不为每个按钮新建一套同义测试。
+
+[UX-44](design/year-tags-and-calendar-sizing.md)复用calendar_interaction检查真实年视口/固定月份标题、独立窗口键盘尺寸及新建草稿标签；task_list_interaction检查菜单勾选/分隔/新建/取消/两形态保存及200%来源按钮和菜单边界；system_recovery检查独立尺寸恢复。不新增同义套件，不以offscreen命中检查代替系统拖边、DPI/多屏或读屏。
 
 | 层/CTest标签 | 保留入口 | 负责的风险 | 上层不再重复什么 |
 |---|---|---|---|

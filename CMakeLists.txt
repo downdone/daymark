@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 1.0.2 LANGUAGES CXX)
-set(DAYMARK_VERSION "1.0.2")
+project(Daymark VERSION 1.1.0 LANGUAGES CXX)
+set(DAYMARK_VERSION "1.1.0")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,6 +14,7 @@ find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickContro
 qt_standard_project_setup(REQUIRES 6.10)
 
 set(DAYMARK_STYLE_FILES
+    src/ui/style/Label.qml src/ui/style/Glyph.qml src/ui/style/IconPaths.qml
     src/ui/style/ScrollView.qml src/ui/style/ScrollPhysics.qml src/ui/style/FieldSurface.qml
     src/ui/style/DesignTokens.qml src/ui/style/Button.qml src/ui/style/ToolButton.qml
     src/ui/style/TextField.qml src/ui/style/TextArea.qml src/ui/style/CheckBox.qml
@@ -27,6 +28,7 @@ foreach(style_file IN LISTS DAYMARK_STYLE_FILES)
     set_source_files_properties("${style_file}" PROPERTIES QT_RESOURCE_ALIAS "${style_name}")
 endforeach()
 set_source_files_properties(src/ui/style/DesignTokens.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+set_source_files_properties(src/ui/style/IconPaths.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 qt_add_qml_module(daymark_style STATIC URI DaymarkStyle VERSION 6.0
     OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/DaymarkStyle"
     RESOURCE_PREFIX /qt/qml IMPORTS QtQuick.Controls.Basic/auto QML_FILES ${DAYMARK_STYLE_FILES})
@@ -113,8 +115,8 @@ target_sources(daymark PRIVATE src/platform/common/SystemEventFilter.h src/platf
 qt_add_qml_module(daymark
     URI Daymark
     VERSION 1.0
-    QML_FILES src/ui/TaskSelection.qml src/ui/BrandWordmark.qml src/ui/SettingsAboutPage.qml src/ui/TaskRowSummary.qml
-    QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/WidgetTaskRow.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
+    QML_FILES src/ui/TaskSelection.qml src/ui/BrandWordmark.qml src/ui/SettingsAboutPage.qml src/ui/TaskRowSummary.qml src/ui/TagMenu.qml src/ui/WindowResizeHandles.qml src/ui/TimeRangePicker.qml src/ui/PopoverSurface.qml
+    QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/WidgetTaskRow.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/SettingsGroup.qml src/ui/SettingsRow.qml src/ui/SettingsToggle.qml src/ui/SettingsLink.qml src/ui/InspectorTabs.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
     QML_FILES src/ui/CalendarMonthStream.qml src/ui/CalendarMonthGrid.qml src/ui/ListViewportState.qml src/ui/CalendarDateMoveDialog.qml src/ui/CalendarCreatePopup.qml src/ui/UnscheduledTasksPanel.qml src/ui/TaskDragGesture.qml src/ui/TaskDragPayload.qml src/ui/TaskInspectorPicker.qml src/ui/CalendarTimeline.qml src/ui/YearCalendar.qml src/ui/TaskEditorSession.qml src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES ${DAYMARK_WINDOW_SOURCES} ${DAYMARK_WORKSPACE_SOURCES} src/platform/common/StartupController.h src/platform/common/StartupController.cpp
         src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp
@@ -197,9 +199,9 @@ if(BUILD_TESTING)
     target_link_libraries(test_single_instance PRIVATE Qt6::Core Qt6::Network Qt6::Test)
     add_test(NAME single_instance COMMAND test_single_instance)
     set_tests_properties(single_instance PROPERTIES TIMEOUT 20)
-    qt_add_executable(test_widget_window tests/integration/WidgetWindowTest.cpp ${DAYMARK_WINDOW_SOURCES})
+    qt_add_executable(test_widget_window tests/integration/WidgetWindowTest.cpp src/platform/common/DesktopTray.cpp src/platform/common/DesktopTray.h ${DAYMARK_WINDOW_SOURCES})
     target_include_directories(test_widget_window PRIVATE src)
-    target_link_libraries(test_widget_window PRIVATE daymark_window_platform Qt6::Core Qt6::Gui Qt6::Qml Qt6::Test)
+    target_link_libraries(test_widget_window PRIVATE daymark_window_platform Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml Qt6::Test)
     add_test(NAME widget_window COMMAND test_widget_window)
     set_tests_properties(widget_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20)
     add_test(NAME qml_startup COMMAND daymark --smoke-test)

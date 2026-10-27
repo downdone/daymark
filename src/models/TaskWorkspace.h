@@ -12,6 +12,7 @@
 #include <QPointer>
 #include <memory>
 #include <QWindow>
+#include <QTimeZone>
 
 namespace daymark {
 class QtWindowPlatform;
@@ -119,12 +120,14 @@ public:
     QString errorText() const;
     bool validationError() const {return m_error.code==ErrorCode::ValidationError;}
     QString infoText() const { return m_info; }
-    bool canUndo() const { return !m_lastDeleted.isEmpty(); }
+    bool canUndo() const { return !m_lastDeleted.isEmpty() || !m_lastBatchDeleted.isEmpty(); }
     QVariantList catalog() const;
     QVariantList navigationCatalog() const;
     QVariantList categoryTree() const;
     QVariantList calendarDays() const;
     Q_INVOKABLE QVariantMap timelineFor(const QString& anchor,bool week,bool scoped=true) const;
+    Q_INVOKABLE QVariantMap timeRangePreview(const QString& date,const QString& zone,const QString& omittedTask) const;
+    Q_INVOKABLE QVariantMap timeRangeDraft(const QVariantMap& values) const;
     Q_INVOKABLE QVariantList calendarWeeksFor(const QString& anchor,int before=1,int after=2,bool scoped=true) const;
     Q_INVOKABLE QVariantList calendarMonthsFor(const QString& anchor) const;
     Q_INVOKABLE QString shiftCalendarScale(const QString& anchor,int offset,const QString& scale) const;
@@ -132,7 +135,7 @@ public:
     Q_INVOKABLE bool moveTaskTime(const QString& id,qint64 version,const QString& date,int minute,const QString& edge);
     Q_INVOKABLE QString defaultReminderLocal() const;
     Q_INVOKABLE QString reminderPreview(const QString& local,const QString& frequency,int interval) const;
-    Q_INVOKABLE QString minuteLabel(const QString& date,int minute) const;
+    Q_INVOKABLE QString minuteLabel(const QString& date,int minute,const QString& zoneId=QString()) const;
     Q_INVOKABLE bool moveTaskDate(const QString& id,qint64 version,const QString& from,const QString& date,const QString& edge=QStringLiteral("move"));
     Q_INVOKABLE QVariantList unscheduledFor(bool scoped=true)const;
     Q_INVOKABLE QVariantList calendarDaysFor(const QString& anchor,bool week,bool scoped=false) const;
@@ -162,6 +165,7 @@ public:
     Q_INVOKABLE bool moveCalendar(const QString& id,qint64 version,const QString& kind,const QString& date);
     QVariantList recurrenceRules() const;
     Q_INVOKABLE QString recurrencePreview(const QVariantMap& values) const;
+    Q_INVOKABLE int recurrenceWeekdayMask(const QString& anchor) const;
     Q_INVOKABLE bool saveRecurrence(const QVariantMap& rule);
     Q_INVOKABLE bool stopRecurrence(const QString& id,qint64 version,bool removeFuture);
     QVariantList notifications() const;
@@ -215,6 +219,8 @@ public:
     Q_INVOKABLE bool requestCalendarRange(const QString& anchor);
     Q_INVOKABLE bool requestCalendarSpan(const QString& from,const QString& through);
     Q_INVOKABLE bool createTask(const QString& title);
+    Q_INVOKABLE QVariantMap listDraft() const;
+    Q_INVOKABLE bool createInlineTask(const QString& title,const QString& notes,const QString& planning,const QString& start,const QString& end,bool focus,const QVariantMap& details);
     Q_INVOKABLE bool saveTask(const QString& id,qint64 version,const QString& title,const QString& notes,
                              const QString& planning,const QString& start,const QString& deadline,bool focus);
     Q_INVOKABLE bool saveTaskWithDetails(const QString& id,qint64 version,const QString& title,const QString& notes,
@@ -256,6 +262,8 @@ signals:
     void reminderReady(const QString& title,const QString& message);
 private:
     QVariantList m_taskEditHistory;
+    QVariantList m_lastBatchDeleted;
+    QVariantMap timelineInZone(const QString& anchor,bool week,bool scoped,const QTimeZone& zone,const QString& omittedTask) const;
     QString m_historyTaskId;
     bool m_historyLoading=false;
     bool appendDetailsPatch(const QString& id,const QVariantMap& details,TaskPatch& patch);

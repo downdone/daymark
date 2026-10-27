@@ -18,6 +18,13 @@ ColumnLayout {
     signal presentationRequested(string date, string scale)
     signal timeMoveRequested(string taskId, real version, string date, int minute, string edge)
     signal dateMoveRequested(string taskId, real version, string from, string date, string edge)
+    signal timeRangeRequested(string taskId,real version,var range)
+    property var rangeTask: ({})
+    property string rangeError: ""
+    TimeRangePicker {
+        id: taskRangePicker;objectPrefix:panel.independent ? "desktopAssign" : "calendarAssign";workspace:panel.workspace
+        onSelected:function(range){panel.timeRangeRequested(panel.rangeTask.taskId,panel.rangeTask.rowVersion,range)}
+    }
     signal creationRequested(string date, int minute, int duration, point anchor)
     property string filterIdentity: ""
     readonly property string selectionContext: (independent ? anchorDate : workspace.scope+"/"+workspace.calendarDate+"/"+filterIdentity)+"/"+calendarScale
@@ -43,11 +50,12 @@ ColumnLayout {
     readonly property bool canvasReturn: !!hostWindow && !!hostWindow.activeFocusItem && (hostWindow.activeFocusItem===panel || hostWindow.activeFocusItem===timelineView || hostWindow.activeFocusItem.objectName.indexOf("calendarDay-")===0)
     property string previousScale: "month"
     function selectEntry(entry,source,date) {
+        rangeError="";
         selectedTaskId=entry.taskId || entry.eventId || "";selectedEntry=entry;selectedMinute=-1
         if(date)selectedDate=date
-        if(source){selectedAnchor=source.mapToItem(panel.Window.window.contentItem,source.width,0);source.forceActiveFocus()}
+        if(source){selectedAnchor=source.mapToItem(panel.Window.window.contentItem,source.width,source.height/2);source.forceActiveFocus()}
     }
-    function clearSelection() {selectedTaskId="";selectedEntry=({});selectedMinute=-1}
+    function clearSelection() {selectedTaskId="";selectedEntry=({});selectedMinute=-1;rangeError=""}
     function editSelected() {if(selectedTaskId){taskAnchor=selectedAnchor;openTask(selectedTaskId)}}
     function requestNew() {if(modalOpen)return;const minute=selectedMinute>=0 ? selectedMinute : (calendarScale==="day" || calendarScale==="week" ? 540 : -1);selectedTaskId="";openCreate(selectedDate,minute,-1,selectedAnchor.x>=0 ? selectedAnchor : undefined)}
     function command(action) {
@@ -103,6 +111,7 @@ ColumnLayout {
             const today=workspace.dateOffset(0)
             if(independent){if(!workspace.setPreference("desktopCalendarScale",value))return;anchorDate=today;selectedDate=today;independentScale=value;weekMode=false}
             else presentationRequested(today,value)
+            Qt.callLater(function(){const year=yearLoader.item as YearCalendar;if(year)year.reveal(today,false)})
             return
         }
         if(independent){if(!workspace.setPreference("desktopCalendarScale",value))return;if(calendarScale==="month" && value!=="month")anchorDate=selectedDate;independentScale=value;weekMode=value==="week"}
@@ -134,6 +143,8 @@ ColumnLayout {
         refreshUnscheduled();
     }
     function step(offset) {
+        if(calendarScale==="year" && offset===0)
+            Qt.callLater(function(){const year=yearLoader.item as YearCalendar;if(year)year.reveal(panel.workspace.dateOffset(0),false)})
         if (calendarScale === "month" && monthGrid.visibleMonth) {
             const base=monthGrid.navigationMonth || (independent ? anchorDate : workspace.calendarDate);
             const date = offset === 0 ? workspace.dateOffset(0) : workspace.shiftCalendarScale(base, offset, "month");
@@ -146,7 +157,7 @@ ColumnLayout {
     }
     property point taskAnchor: Qt.point(0, 0)
     function inspectAt(id, item) {
-        taskAnchor = item.mapToItem(panel.Window.window.contentItem, item.width, 0);
+        taskAnchor = item.mapToItem(panel.Window.window.contentItem, item.width, item.height/2);
         openTask(id);
     }
     signal openTask(string taskId)
@@ -159,7 +170,7 @@ ColumnLayout {
             events: []
         })
     readonly property bool compact: width < 800 * Theme.scale
-    readonly property bool modalOpen: jumpDialog.visible || moveDialog.visible || unscheduled.visible || createPopup.visible || taskMenu.visible || displayMenu.visible
+    readonly property bool modalOpen: jumpDialog.visible || moveDialog.visible || unscheduled.visible || createPopup.visible || taskMenu.visible || displayMenu.visible || taskRangePicker.visible
     property bool agendaVisible: false
     onAgendaVisibleChanged: if (!agendaVisible)
         Qt.callLater(resetGridScroll)
@@ -397,7 +408,7 @@ ColumnLayout {
         }
     }
     function openCreate(date, minute, endMinute, at) {
-        const anchor = at || panel.mapToItem(Overlay.overlay, panel.width / 2, 32);
+        const anchor = at || calendarNewAction.mapToItem(Overlay.overlay, calendarNewAction.width/2, calendarNewAction.height);
         const duration = endMinute > minute ? endMinute - minute : 60;
         if (independent)
             beginCreate(date, minute, duration, anchor);
@@ -426,7 +437,7 @@ ColumnLayout {
         Layout.minimumWidth: 0
         text: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
         font.pixelSize: Theme.headingSize
-        font.bold: true
+        font.weight: Font.DemiBold
         elide: Text.ElideRight
     }
     GridLayout {
@@ -444,7 +455,7 @@ ColumnLayout {
                 Layout.minimumWidth: 0
                 text: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
                 font.pixelSize: Theme.headingSize
-                font.bold: true
+                font.weight: Font.DemiBold
                 Layout.fillWidth: true
                 elide: Text.ElideRight
             }
@@ -484,6 +495,7 @@ ColumnLayout {
                 onClicked: panel.step(1)
             }
             WidgetAction {
+                id:calendarNewAction
                 symbol: "plus"
                 description: qsTr("新建任务")
                 onClicked: panel.requestNew()
@@ -493,13 +505,14 @@ ColumnLayout {
                 symbol: "more"
                 description: qsTr("日历显示与操作")
                 onClicked: displayMenu.open()
-                Menu {
-                    id: displayMenu
+                DS.Menu {
+                    id: displayMenu;objectName:"calendarDisplayMenu"
                     MenuItem {
                         objectName: "calendarJump"
                         text: qsTr("跳转日期…")
                         onTriggered: panel.openDateJump()
                     }
+                    DS.MenuSeparator {}
                     MenuItem {
                         text: qsTr("未安排任务（%1）").arg(panel.unscheduledItems.length)
                         onTriggered: unscheduled.open()
@@ -514,7 +527,7 @@ ColumnLayout {
                                 panel.showAgenda();
                         }
                     }
-                    MenuSeparator {}
+                    DS.MenuSeparator {}
                     MenuItem {
                         visible: panel.calendarScale !== "year"
                         text: qsTr("已完成任务")
@@ -528,8 +541,9 @@ ColumnLayout {
                         checked: panel.workspace.sundayFirst
                         onTriggered: panel.workspace.sundayFirst = checked
                     }
+                    DS.MenuSeparator {}
                     MenuItem {
-                        text: qsTr("桌面日历")
+                        text: qsTr("显示桌面日历")
                         visible: !panel.independent
                         onTriggered: panel.desktopRequested()
                     }
@@ -546,8 +560,12 @@ ColumnLayout {
         sourceComponent: CalendarTimeline {
             workspace: panel.workspace
             timeline: panel.timelineData
-            creationSelection:createPopup.visible && panel.newMinute>=0 ? ({date:panel.newDate,minute:panel.newMinute,duration:panel.newDuration}) : ({})
+            creationSelection:createPopup.visible && createPopup.timelineSelection.valid && panel.timelineData.days.some(day=>day.date===createPopup.timelineSelection.displayDate) ? ({date:createPopup.timelineSelection.displayDate,minute:createPopup.timelineSelection.displayMinute,duration:createPopup.timelineSelection.duration}) : ({})
             selectedId: panel.selectedTaskId
+            enabled:!panel.workspace.busy || panel.workspace.backgroundBusy
+            onSelectionCleared:panel.clearSelection()
+            onRangePickerRequested:function(entry,source){panel.rangeTask=entry;taskRangePicker.openFor(source,{taskId:entry.taskId,startDate:entry.date,endDate:entry.date,zone:panel.timelineData.zone})}
+            onRangeAssignmentRequested:function(id,version,date,first,last){const range=panel.workspace.timeRangeDraft({startDate:date,startMinute:first,endMinute:last,zone:panel.timelineData.zone});panel.rangeError=range.valid ? "" : range.error;if(range.valid)panel.timeRangeRequested(id,version,range)}
             slotSelectionActive: panel.selectedMinute>=0
             onTaskSelected: function(entry,source){panel.selectEntry(entry,source,entry.date)}
             onSlotSelected: function(date,minute,at){panel.clearSelection();panel.selectedDate=date;panel.selectedMinute=minute;panel.selectedAnchor=panel.timelineView.mapToItem(panel.Window.window.contentItem,at.x,at.y)}
@@ -584,6 +602,7 @@ ColumnLayout {
         Layout.fillHeight: true
         sourceComponent: YearCalendar {
             workspace: panel.workspace
+            selectedDate: panel.selectedDate
             onAnchorRequested: function (date) {
                 panel.jumpToDate(date);
             }
@@ -597,35 +616,16 @@ ColumnLayout {
             }
         }
     }
-    Menu {
+    DS.Menu {
         id: taskMenu
-        MenuItem {
-            text: qsTr("任务详情…")
-            onTriggered: panel.openTask(panel.contextTask.taskId)
-        }
-        MenuItem {
-            text: panel.contextTask.pinned ? qsTr("取消置顶") : qsTr("置顶")
-            onTriggered: panel.taskAction(panel.contextTask.taskId, "pin")
-        }
-        MenuItem {
-            text: panel.contextTask.important ? qsTr("取消特别关注") : qsTr("特别关注")
-            onTriggered: panel.taskAction(panel.contextTask.taskId, "important")
-        }
-        MenuItem {
-            text: qsTr("取消提醒")
-            visible: !!panel.contextTask.remindAtUtc
-            onTriggered: panel.taskAction(panel.contextTask.taskId, "reminderClear")
-        }
-        MenuItem {
-            text: panel.contextTask.taskStatus === "OPEN" ? qsTr("完成任务") : qsTr("重新打开")
-            onTriggered: panel.taskAction(panel.contextTask.taskId, panel.contextTask.taskStatus === "OPEN" ? "complete" : "reopen")
-        }
-        MenuSeparator {}
-        DS.MenuItem {
-            text: qsTr("删除任务…")
-            destructive: true
-            onTriggered: panel.taskAction(panel.contextTask.taskId, "delete")
-        }
+        MenuItem {text:qsTr("任务详情");onTriggered:panel.openTask(panel.contextTask.taskId)}
+        MenuItem {text:panel.contextTask.taskStatus==="OPEN" ? qsTr("完成任务") : qsTr("重新打开");onTriggered:panel.taskAction(panel.contextTask.taskId,panel.contextTask.taskStatus==="OPEN" ? "complete" : "reopen")}
+        DS.MenuSeparator {}
+        MenuItem {text:panel.contextTask.pinned ? qsTr("取消置顶") : qsTr("置顶");onTriggered:panel.taskAction(panel.contextTask.taskId,"pin")}
+        MenuItem {text:panel.contextTask.important ? qsTr("取消特别关注") : qsTr("特别关注");onTriggered:panel.taskAction(panel.contextTask.taskId,"important")}
+        MenuItem {text:qsTr("取消提醒");visible:!!panel.contextTask.remindAtUtc;onTriggered:panel.taskAction(panel.contextTask.taskId,"reminderClear")}
+        DS.MenuSeparator {}
+        DS.MenuItem {text:qsTr("删除任务…");destructive:true;onTriggered:panel.taskAction(panel.contextTask.taskId,"delete")}
     }
     ScrollView {
         id: body
@@ -782,7 +782,7 @@ ColumnLayout {
                 Label {
                     text: panel.selectedDate + qsTr(" · 当天议程")
                     font.pixelSize: Theme.sectionSize
-                    font.bold: true
+                    font.weight: Font.DemiBold
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
                 }
@@ -898,10 +898,10 @@ ColumnLayout {
     }
     Label {
         Layout.fillWidth: true
-        visible: panel.workspace.errorText.length > 0
+        visible: panel.rangeError.length>0 || panel.workspace.errorText.length > 0
         wrapMode: Text.Wrap
         color: Theme.danger
-        text: panel.workspace.errorText
+        text: panel.rangeError || panel.workspace.errorText
     }
     Item {
         visible: false

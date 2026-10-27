@@ -25,6 +25,16 @@ Window {
     onMiniModeChanged: if(active)Qt.callLater(function(){if(widget.controller.mini)miniSummary.forceActiveFocus();else if(todayList.count>0)todayList.forceActiveFocus();else addTask.forceActiveFocus()})
     function verifyMenu() {
         if(!widgetMenu.visible)return "closed"
+        if(widgetMenu.verifyGrouping()!=="PASS")return widgetMenu.verifyGrouping()
+        const source=controller.mini ? miniMore : widgetMore
+        if(widgetMenu.anchorItem!==source || widgetMenu.parent!==source)return "stale menu anchor"
+        const background=widgetMenu.background as Rectangle
+        if(widgetMenu.opacity!==1 || !background || background.color.a!==1)return "translucent menu surface"
+        if(widgetMenu.menuWindow!==widget && widgetMenu.menuWindow.color.a!==1)return "translucent menu window"
+        const at=source.mapToGlobal(source.width,source.height)
+        const edge=widgetMenu.contentItem.mapToGlobal(widgetMenu.contentItem.width+widgetMenu.rightPadding,-widgetMenu.topPadding)
+        const expectedRight=Math.max(Screen.virtualX+6,Math.min(at.x-widgetMenu.width,Screen.virtualX+Screen.width-widgetMenu.width-6))+widgetMenu.width
+        if(Math.abs(edge.x-expectedRight)>8 || Math.abs(edge.y-at.y-4)>8)return "menu is detached from button "+at+" / "+edge+" expectedRight="+expectedRight+" menuWidth="+widgetMenu.width+" screen="+Screen.virtualX+","+Screen.width
         for(let i=0;i<widgetMenu.count;i++) {
             const item=widgetMenu.itemAt(i) as MenuItem
             if(item && item.text){if(item.width<item.implicitWidth-1)return "clipped item "+i;const label=item.contentItem as Text;if(item.font.pixelSize!==Theme.bodySize || !label || label.font.pixelSize!==Theme.bodySize || label.font.weight!==Font.Normal)return "menu font mismatch "+i;if(label.lineCount!==1)return "unexpected menu wrap "+i}
@@ -32,7 +42,7 @@ Window {
         return "PASS"
     }
     function hintForVerification() {const tip=miniSummary.ToolTip.toolTip;return {visible:tip ? tip.visible && tip.parent===miniSummary : false,text:tip ? tip.text : ""}}
-    function openVerificationMenu() {widgetMenu.open()}
+    function openVerificationMenu() {widgetMenu.popupAt(controller.mini ? miniMore : widgetMore)}
     function closeVerificationMenu() {widgetMenu.close()}
     function verifyLayout() {
         if(controller.mini) {
@@ -84,21 +94,23 @@ Window {
                     WidgetAction {objectName: "widgetPin";symbol: "pin";checked: widget.controller.alwaysOnTop;Accessible.checkable: true;Accessible.checked: checked;description: checked ? qsTr("取消置顶") : qsTr("置顶组件");onClicked: widget.controller.setAlwaysOnTop(!widget.controller.alwaysOnTop)}
                     WidgetAction {objectName: "widgetCollapse";symbol: "up";description: qsTr("收起为迷你条");onClicked: widget.controller.setMini(true)}
                     WidgetAction {
+                        id:widgetMore
                         objectName: "widgetMore";description: qsTr("组件菜单");hintText: qsTr("调整组件外观与行为")
-                        onClicked: widgetMenu.open()
-                        Menu {
+                        onClicked: widget.openVerificationMenu()
+                        DS.Menu {
                             id: widgetMenu
                             objectName: "widgetMenu"
                             popupType: Popup.Window
-                            x: parent.width-width;y: parent.height
                             MenuItem {text: qsTr("打开主窗口");onTriggered: widget.openMainRequested()}
-                            MenuSeparator {}
+                            DS.MenuSeparator {}
                             MenuItem {objectName:"widgetDesktopPinnedMenu";text:qsTr("固定在桌面");checkable:true;checked:widget.controller.desktopPinned;onTriggered:widget.controller.setDesktopPinned(!widget.controller.desktopPinned)}
                             MenuItem {text:qsTr("保持置顶");checkable:true;checked:widget.controller.alwaysOnTop;onTriggered:widget.controller.setAlwaysOnTop(!widget.controller.alwaysOnTop)}
+                            DS.MenuSeparator {}
                             MenuItem {text: qsTr("锁定位置与大小");checkable: true;checked: widget.controller.locked;onTriggered: widget.controller.setLocked(checked)}
                             MenuItem {text: qsTr("鼠标穿透（托盘/主窗恢复）");enabled: widget.controller.trayAvailable;onTriggered: widget.controller.setClickThrough(true)}
+                            DS.MenuSeparator {}
                             MenuItem {text: qsTr("外观与组件设置…");onTriggered: widget.settingsRequested()}
-                            MenuSeparator {}
+                            DS.MenuSeparator {}
                             MenuItem {text: qsTr("隐藏组件");onTriggered: widget.controller.setVisible(false)}
                         }
                     }
@@ -182,7 +194,7 @@ Window {
                     ToolTip.text: widget.errorMessage || widget.workspace.firstTodayTitle
                 }
                 WidgetAction {objectName: "widgetExpand";symbol: "down";description: qsTr("展开任务组件");onClicked: widget.controller.setMini(false)}
-                WidgetAction {id:miniMore;objectName:"miniMore";symbol:"more";description:qsTr("组件菜单");onClicked:widgetMenu.popup(miniMore,0,miniMore.height)}
+                WidgetAction {id:miniMore;objectName:"miniMore";symbol:"more";description:qsTr("组件菜单");onClicked:widget.openVerificationMenu()}
             }
             MouseArea {
                 anchors.right: parent.right;anchors.bottom: parent.bottom

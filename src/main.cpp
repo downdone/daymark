@@ -8,10 +8,14 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QIcon>
+#include <QFontDatabase>
 
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
+    auto interfaceFont=QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+    interfaceFont.setPixelSize(13);
+    app.setFont(interfaceFont);
     QCoreApplication::setApplicationName(QStringLiteral("Daymark"));
     QCoreApplication::setOrganizationName(QStringLiteral("Daymark"));
     QCoreApplication::setApplicationVersion(QStringLiteral(DAYMARK_VERSION));
@@ -22,7 +26,7 @@ int main(int argc, char* argv[])
     QQuickStyle::setFallbackStyle(QStringLiteral("Basic"));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Daymark 1.0 — offline tasks and calendar"));
+    parser.setApplicationDescription(QStringLiteral("Daymark %1 — offline tasks and calendar").arg(QCoreApplication::applicationVersion()));
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addOption({QStringLiteral("smoke-test"), QStringLiteral("Check QML startup and exit without user data access.")});
@@ -50,7 +54,9 @@ int main(int argc, char* argv[])
     // The offscreen plugin has no Windows system-font integration. Use the
     // installed UI font for synthetic layout tests; native users keep the OS font.
     if(verification && QGuiApplication::platformName()==QStringLiteral("offscreen"))
-        app.setFont(QFont(QStringLiteral("Segoe UI")));
+    {
+        auto font=app.font();font.setFamily(QStringLiteral("Segoe UI"));app.setFont(font);
+    }
 #endif
     if(verification) {
         qInstallMessageHandler([](QtMsgType,const QMessageLogContext&,const QString& message){

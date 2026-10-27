@@ -74,7 +74,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
 
     auto* widgetWindow = m_engine.rootObjects().first()->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
     m_widget.configureSettings(QDir(directory).filePath(QStringLiteral("ui.ini")));
-    if (!m_widget.attachWindow(widgetWindow) || !m_widget.setVisible(m_widget.initialVisible())) {
+    if (!m_widget.attachWindow(widgetWindow)) {
         if (!smokeTest)
             QMessageBox::critical(nullptr, QObject::tr("Daymark 组件启动失败"), m_widget.errorText());
         return false;
@@ -101,6 +101,16 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         if(mainWindow) {mainWindow->showNormal();mainWindow->requestActivate();}
     });
     m_workspace.start(QDir(directory).filePath(QStringLiteral("daymark.sqlite")));
+    // Restore geometry and load appearance before exposing either window. The
+    // QML root stays hidden while the composition root prepares its first scene.
+    QTimer::singleShot(0,&m_engine,[this,mainWindow,smokeTest,activate=!smokeProfile.isEmpty()]{
+        if(!m_widget.setVisible(m_widget.initialVisible())){
+            if(!smokeTest)QMessageBox::critical(nullptr,QObject::tr("Daymark 组件启动失败"),m_widget.errorText());
+            QCoreApplication::exit(1);return;
+        }
+        mainWindow->setVisible(true);
+        if(activate)activateSmokeWindow(mainWindow);
+    });
     m_systemEvents=std::make_unique<SystemEventFilter>([this]{m_workspace.refreshClock();m_widget.normalizeGeometry();if(m_mainState)m_mainState->normalize();});
     QObject::connect(qGuiApp,&QGuiApplication::applicationStateChanged,&m_workspace,[this](Qt::ApplicationState state){if(state==Qt::ApplicationActive)m_systemEvents->requestRefresh();});
 
@@ -111,7 +121,6 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto ux37=std::make_shared<Ux37SmokeProbe>(m_workspace,mainWindow,screenshotPath);
         auto ux38=std::make_shared<Ux38SmokeProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath);
         auto ux39=std::make_shared<Ux39SmokeProbe>(m_workspace,mainWindow,screenshotPath);
-        if(!smokeProfile.isEmpty())activateSmokeWindow(mainWindow);
         auto smokePhase=std::make_shared<int>(0);
         auto smokeCompleted=std::make_shared<bool>(false);
         auto inputClock=std::make_shared<QElapsedTimer>();

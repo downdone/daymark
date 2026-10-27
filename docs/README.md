@@ -1,6 +1,26 @@
 # 文档导航
 
-## 当前入口（2026-10-26）
+[UX-55全菜单](design/menu-system-review.md)梳理任务/日历/侧栏/桌面与托盘菜单分组、动态分隔和快捷键列；验证以PROGRESS为准。
+
+[UX-52行内留白与启动](design/row-insets-and-startup-presentation.md)、[UX-53重复周期](design/repeat-choice-popover.md)、[UX-54桌面菜单](design/desktop-menu-anchoring.md)定义自然文字块、准备后呈现、预设/结束重复和实体菜单锚点；真实验证见PROGRESS。
+
+[UX-51双击原行草稿](design/list-double-click-draft.md)定义列表空白双击新增、模板全选、未改取消/已改原子建立及错误保留；验证见PROGRESS。
+
+[UX-50列表布局与编辑节奏](design/list-layout-and-editing-rhythm.md)定义父子缩进、浏览/简易编辑的统一文字轴、核心工具及详情内容轴；真实状态见PROGRESS。
+
+[UX-49详情位置与最近删除](design/inspector-position-and-trash-selection.md)定义首次定位、来源箭头、手柄拖动及已删除任务的集合恢复；验证以PROGRESS为准。
+
+[UX-48全局视觉系统](design/global-visual-system.md)统一全表面的排版角色、色彩、密度、布局/圆角/线框与原创矢量图标；覆盖矩阵和实际验证以PROGRESS为准。
+
+[UX-47设置与详情页签](design/settings-navigation-and-inspector-tabs.md)分离分组目录导航与行内选项，统一设置子页与任务内容页签；实际证据见PROGRESS。
+
+## 当前入口（2026-10-27）
+
+[UX-46就近面板精修](design/contextual-popover-polish.md)统一新增、详情和时段小窗的外壳/锚点、轻量属性行及标题层级，普通数据表单保持明确框线；证据见PROGRESS。
+
+[UX-45直接排期与批量整理](design/direct-time-range-picker.md)定义今天入口、就近日时间轴选时段、选中日期任务直接拖选排期、特别关注快捷键及批量软删/撤销；状态与验证见PROGRESS。
+
+[UX-44年定位、标签菜单与尺寸](design/year-tags-and-calendar-sizing.md)修订年入口的真实可见区域、共享就近标签菜单及独立日历八方向/键盘调尺寸；实施证据见PROGRESS。
 
 [UX-43提醒事项式列表](design/reminders-list-refinement.md)统一完成圆/标题/备注文字轴，以缩进表达父子，去除重复图标列与0/N堆叠；主列表与原行编辑共享对齐，真实验证见PROGRESS。
 
@@ -46,7 +66,7 @@
 5. [里程碑及任务队列](milestones.md)：依赖、下一批切片、阶段门禁。
 6. [环境与构建](environment.md) → [验证记录](verification-report.md) → [平台矩阵](platform-test-matrix.md)。
 
-实际使用参阅[使用说明](user-guide.md)、[1.0.1源码发行说明](release-notes-v1.0.1.md)与[发布规则](release-policy.md)与[第三方记录](third-party-notices.md)。
+实际使用参阅[使用说明](user-guide.md)、[1.1.0源码发行说明](release-notes-v1.1.0.md)与[发布规则](release-policy.md)与[第三方记录](third-party-notices.md)。
 
 本轮核心能力实现与本地发行见 [v0.1交付设计](design/release-v0.1.md)。实际验证仍以PROGRESS及验证报告为准。
 

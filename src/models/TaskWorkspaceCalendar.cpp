@@ -163,12 +163,21 @@ QVariantList TaskWorkspace::calendarMonthsFor(const QString& anchor) const
 }
 QVariantMap TaskWorkspace::timelineFor(const QString& anchor,bool week,bool scoped) const
 {
-    auto from=QDate::fromString(anchor,Qt::ISODate);if(!from.isValid())return {};if(week)from=CalendarService::days({},from,true,m_sundayFirst).first().date;
-    const int count=week?7:1;const auto zone=QTimeZone::systemTimeZone();const auto selected=scoped?calendarSelection():m_cache;
+    return timelineInZone(anchor,week,scoped,QTimeZone::systemTimeZone(),{});
+}
+QVariantMap TaskWorkspace::timeRangePreview(const QString& date,const QString& zone,const QString& omittedTask) const
+{
+    return timelineInZone(date,false,false,QTimeZone(zone.toUtf8()),omittedTask);
+}
+QVariantMap TaskWorkspace::timelineInZone(const QString& anchor,bool week,bool scoped,const QTimeZone& zone,const QString& omittedTask) const
+{
+    auto from=QDate::fromString(anchor,Qt::ISODate);if(!from.isValid() || !zone.isValid())return {};if(week)from=CalendarService::days({},from,true,m_sundayFirst).first().date;
+    const int count=week?7:1;auto selected=scoped?calendarSelection():m_cache;
+    if(!omittedTask.isEmpty())selected.removeIf([&](const Task& task){return task.id==omittedTask;});
     const auto dates=calendarDaysFor(from.toString(Qt::ISODate),true,scoped);QHash<QString,QVariantMap> dateMap;for(const auto& value:dates){const auto map=value.toMap();dateMap.insert(map.value("date").toString(),map);}
     QVariantList days,blocks,clusters;QHash<QString,int> clusterIndex;int maximum=0;
     for(int i=0;i<count;++i){const auto date=from.addDays(i);const auto start=date.startOfDay(zone),end=date.addDays(1).startOfDay(zone);const int minutes=start.secsTo(end)/60;maximum=qMax(maximum,minutes);QVariantList ticks,entries;for(int at=0;at<minutes;at+=60){const auto time=start.addSecs(at*60);ticks.append(QVariantMap{{"minute",at},{"label",time.toString(minutes==1440?QStringLiteral("HH:mm"):QStringLiteral("HH:mm t"))}});}const auto map=dateMap.value(date.toString(Qt::ISODate));entries=map.value("entries").toList();for(const auto& value:map.value("events").toList())if(value.toMap().value("allDay").toBool())entries.append(value);
-        days.append(QVariantMap{{"date",date.toString(Qt::ISODate)},{"title",QLocale(QLocale::Chinese).toString(date,week?QStringLiteral("d日 ddd"):QStringLiteral("M月d日 dddd"))},{"today",date==m_today},{"minutes",minutes},{"nowMinute",start.secsTo(m_clock.nowUtc())/60.0},{"ticks",ticks},{"entries",entries}});
+        days.append(QVariantMap{{"date",date.toString(Qt::ISODate)},{"title",QLocale(QLocale::Chinese).toString(date,week?QStringLiteral("d日 ddd"):QStringLiteral("M月d日 dddd"))},{"today",date==m_clock.nowUtc().toTimeZone(zone).date()},{"minutes",minutes},{"nowMinute",start.secsTo(m_clock.nowUtc())/60.0},{"ticks",ticks},{"entries",entries}});
     }
     for(const auto& block:CalendarService::timeBlocks(selected,from,count,zone,m_calendarCompleted)){auto map=TaskListModel::taskMap(block.task);map.insert("date",block.date.toString(Qt::ISODate));map.insert("cluster",QString::number(block.cluster));map.insert("day",from.daysTo(block.date));map.insert("startMinute",block.startMinute);map.insert("endMinute",block.endMinute);map.insert("lane",block.lane);map.insert("laneCount",block.laneCount);map.insert("continuesBefore",block.continuesBefore);map.insert("continuesAfter",block.continuesAfter);map.insert("timeLabel",CalendarService::timeSummary(block.task,m_today,zone));map.insert("shortTimeLabel",(block.continuesBefore?QStringLiteral("← "):QString())+block.task.schedule->startUtc.toTimeZone(zone).time().toString(QStringLiteral("HH:mm"))+QStringLiteral("–")+block.task.schedule->endUtc.toTimeZone(zone).time().toString(QStringLiteral("HH:mm"))+(block.continuesAfter?QStringLiteral(" →"):QString()));blocks.append(map);
         const auto key=QString::number(block.cluster);
@@ -176,6 +185,35 @@ QVariantMap TaskWorkspace::timelineFor(const QString& anchor,bool week,bool scop
         else {const int index=clusterIndex.value(key);auto group=clusters[index].toMap();group.insert("endMinute",qMax(group.value("endMinute").toDouble(),block.endMinute));auto items=group.value("items").toList();items.append(map);group.insert("items",items);clusters[index]=group;}
     }
     return {{"days",days},{"blocks",blocks},{"clusters",clusters},{"minutes",maximum},{"from",from.toString(Qt::ISODate)},{"zone",QString::fromUtf8(zone.id())}};
+}
+QVariantMap TaskWorkspace::timeRangeDraft(const QVariantMap& values) const
+{
+    const QTimeZone zone(values.value(QStringLiteral("zone")).toString().toUtf8());
+    auto invalid=[](const QString& message){return QVariantMap{{"valid",false},{"error",message}};};
+    if(!zone.isValid())return invalid(tr("时区无效，请先修正时区。"));
+    QString startDate=values.value("startDate").toString(),endDate=values.value("endDate").toString();
+    QString startTime=values.value("startTime").toString(),endTime=values.value("endTime").toString();
+    if(values.contains("startMinute")) {
+        const auto date=QDate::fromString(startDate,Qt::ISODate);
+        const auto midnight=date.startOfDay(zone),next=date.addDays(1).startOfDay(zone);
+        bool firstOk=false,lastOk=false;
+        const int first=values.value("startMinute").toInt(&firstOk),last=values.value("endMinute").toInt(&lastOk);
+        if(!date.isValid() || !midnight.isValid() || !next.isValid() || !firstOk || !lastOk || first<0 || last<=first || last>midnight.secsTo(next)/60)
+            return invalid(tr("请选择有效的开始和结束时间。"));
+        const auto start=midnight.addSecs(first*60),end=midnight.addSecs(last*60);
+        startDate=start.date().toString(Qt::ISODate);endDate=end.date().toString(Qt::ISODate);
+        startTime=start.time().toString(QStringLiteral("HH:mm"));endTime=end.time().toString(QStringLiteral("HH:mm"));
+    }
+    const auto first=EventService::localInstant(startDate+QLatin1Char(' ')+startTime,QString::fromUtf8(zone.id()));
+    const auto last=EventService::localInstant(endDate+QLatin1Char(' ')+endTime,QString::fromUtf8(zone.id()));
+    if(!first.ok() || !last.ok())return invalid(tr("日期或时间无效，或该时刻因夏令时不存在或不唯一。请调整后重试。"));
+    if(last.value<=first.value)return invalid(tr("结束时间需要晚于开始时间。"));
+    const auto midnight=QDate::fromString(startDate,Qt::ISODate).startOfDay(zone);
+    const auto displayStart=first.value.toLocalTime();
+    return {{"valid",true},{"startDate",startDate},{"endDate",endDate},{"startTime",startTime},{"endTime",endTime},
+            {"zone",QString::fromUtf8(zone.id())},{"minute",midnight.secsTo(first.value)/60},{"duration",first.value.secsTo(last.value)/60},
+            {"displayDate",displayStart.date().toString(Qt::ISODate)},
+            {"displayMinute",displayStart.date().startOfDay(QTimeZone::systemTimeZone()).secsTo(first.value)/60}};
 }
 QString TaskWorkspace::systemTimeZone() const{return QString::fromUtf8(QTimeZone::systemTimeZoneId());}
 QString TaskWorkspace::defaultReminderLocal() const
@@ -189,9 +227,9 @@ QString TaskWorkspace::reminderPreview(const QString& local,const QString& frequ
     const auto next=ReminderSchedule::nextAfter(anchor,frequency,interval,zone,m_clock.nowUtc());
     return next.isValid()?tr("下次提醒：%1").arg(next.toLocalTime().toString(QStringLiteral("yyyy-M-d HH:mm"))):tr("此规则没有有效的下次提醒。");
 }
-QString TaskWorkspace::minuteLabel(const QString& date,int minute) const
+QString TaskWorkspace::minuteLabel(const QString& date,int minute,const QString& zoneId) const
 {
-    const auto day=QDate::fromString(date,Qt::ISODate);const auto zone=QTimeZone::systemTimeZone();if(!day.isValid())return {};
+    const auto day=QDate::fromString(date,Qt::ISODate);const auto zone=zoneId.isEmpty()?QTimeZone::systemTimeZone():QTimeZone(zoneId.toUtf8());if(!day.isValid() || !zone.isValid())return {};
     const auto start=day.startOfDay(zone);return start.addSecs(minute*60).toString(start.secsTo(day.addDays(1).startOfDay(zone))==86400?QStringLiteral("HH:mm"):QStringLiteral("HH:mm t"));
 }
 QVariantMap TaskWorkspace::eventMap(const CalendarEvent& e) const
@@ -282,6 +320,11 @@ QString TaskWorkspace::shiftCalendar(const QString& anchor,int offset,bool week)
 {
     const auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid())return {};
     return (offset==0?m_clock.localToday():(week?date.addDays(offset*7):date.addMonths(offset))).toString(Qt::ISODate);
+}
+int TaskWorkspace::recurrenceWeekdayMask(const QString& anchor) const
+{
+    const auto date=QDate::fromString(anchor,Qt::ISODate);
+    return 1<<((date.isValid()?date:m_today).dayOfWeek()-1);
 }
 QString TaskWorkspace::recurrencePreview(const QVariantMap& values) const
 {

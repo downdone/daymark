@@ -16,6 +16,54 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void repeatWeekdayUsesLocalCalendarAnchor() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("repeat-anchor.sqlite"));QVERIFY(daymark::test::awaitIdle(w));
+        QCOMPARE(w.recurrenceWeekdayMask("2026-10-27"),2);
+        QCOMPARE(w.recurrenceWeekdayMask("2026-11-01"),64);
+        QCOMPARE(w.recurrenceWeekdayMask(""),1<<(QDate::fromString(w.dateOffset(0),Qt::ISODate).dayOfWeek()-1));
+    }
+    void inlineListDraftIsReadOnlyAndCreationIsAtomic() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("inline-draft.sqlite"));QVERIFY(daymark::test::awaitIdle(w));
+        w.setView("today");const auto today=w.listDraft();QCOMPARE(today.value("startOn").toString(),w.dateOffset(0));QCOMPARE(w.tasks()->rowCount(),0);
+        QVERIFY(w.saveCatalog({{"kind","project"},{"title","draft category"}}));QVERIFY(daymark::test::awaitIdle(w));const auto id=w.categoryTree().first().toMap().value("id").toString();
+        w.setView("project:"+id);const auto draft=w.listDraft();QCOMPARE(draft.value("projectId").toString(),id);QCOMPARE(w.tasks()->rowCount(),0);
+        QVERIFY(w.createInlineTask("invalid draft","notes","ACTIVE","","",false,{{"projectId",id},{"schedule",QVariantMap{{"allDay",true},{"startDate","2026-10-22"},{"endDate","2026-10-20"}}}}));
+        QVERIFY(daymark::test::awaitIdle(w));QVERIFY(!w.errorText().isEmpty());QCOMPARE(w.tasks()->rowCount(),0);
+        QVERIFY(w.createInlineTask("new inline task","all fields together",draft.value("planningState").toString(),draft.value("startOn").toString(),draft.value("deadlineOn").toString(),false,{{"projectId",id},{"important",true}}));
+        QVERIFY(daymark::test::awaitIdle(w));QVERIFY(w.errorText().isEmpty());QCOMPARE(w.tasks()->rowCount(),1);
+        const auto task=w.tasks()->items().first();QCOMPARE(task.title,"new inline task");QCOMPARE(task.notes,"all fields together");QCOMPARE(task.projectId,id);QVERIFY(task.important);
+    }
+    void batchFlagsAndDeleteUndoPreserveUnselectedTasks() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("batch-actions.sqlite"));QVERIFY(daymark::test::awaitIdle(w,true));w.setView("all");
+        auto idFor=[&](const QString& title){for(const auto& task:w.tasks()->items())if(task.title==title)return task.id;return QString();};
+        QVERIFY(w.createTask("batch parent"));QVERIFY(daymark::test::awaitIdle(w));const auto parent=idFor("batch parent");
+        QVERIFY(w.createSubtask("live child",parent));QVERIFY(daymark::test::awaitIdle(w));const auto child=idFor("live child");
+        QVERIFY(w.createSubtask("old deleted child",parent));QVERIFY(daymark::test::awaitIdle(w));const auto prior=idFor("old deleted child");
+        QVERIFY(w.createTask("independent"));QVERIFY(daymark::test::awaitIdle(w));const auto other=idFor("independent");
+        QVERIFY(!parent.isEmpty() && !child.isEmpty() && !prior.isEmpty() && !other.isEmpty());
+        QVERIFY(w.changeState(prior,w.task(prior).value("rowVersion").toLongLong(),"delete"));QVERIFY(daymark::test::awaitIdle(w));
+        QVERIFY(w.batchTasks({w.task(parent),w.task(other)},"important","1"));QVERIFY(daymark::test::awaitIdle(w));
+        QVERIFY(w.task(parent).value("important").toBool() && w.task(other).value("important").toBool());QVERIFY(!w.task(child).value("important").toBool());
+        const QVariantList selection{w.task(parent),w.task(child),w.task(other)};QCOMPARE(w.batchImpact(selection,"delete"),3);
+        QVERIFY(w.batchTasks(selection,"delete",{}));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(w.errorText().isEmpty());QVERIFY(w.canUndo());QCOMPARE(w.tasks()->rowCount(),0);
+        QVERIFY(w.undoDelete());QVERIFY(daymark::test::awaitIdle(w));QVERIFY(w.errorText().isEmpty());QVERIFY(!w.canUndo());QCOMPARE(w.tasks()->rowCount(),3);
+        w.setView("trash");QCOMPARE(w.tasks()->rowCount(),1);QCOMPARE(w.tasks()->items().first().id,prior);
+        w.setView("all");
+        QVERIFY(w.batchTasks({w.task(parent),w.task(other)},"delete",{}));QVERIFY(daymark::test::awaitIdle(w));
+        SqliteDatabase external;QVERIFY(external.open(dir.filePath("batch-actions.sqlite")).ok());QSqlQuery changed(external.connection());
+        changed.prepare("UPDATE tasks SET row_version=row_version+1 WHERE id=?");changed.addBindValue(parent);QVERIFY(changed.exec());
+        QVERIFY(w.undoDelete());QVERIFY(daymark::test::awaitIdle(w));QVERIFY(!w.errorText().isEmpty());QVERIFY(w.canUndo());
+        w.setView("trash");QCOMPARE(w.tasks()->rowCount(),4);
+        qint64 deletedVersion=0;for(const auto& task:w.tasks()->items())if(task.id==other)deletedVersion=task.rowVersion;
+        QVERIFY(deletedVersion>0);QVERIFY(w.changeState(other,deletedVersion,"restore"));QVERIFY(daymark::test::awaitIdle(w));
+        QVERIFY(w.errorText().isEmpty());QVERIFY(!w.canUndo());QCOMPARE(w.tasks()->rowCount(),3);
+        QVariantList restoreParent;
+        for(const auto& entry:w.tasks()->selectionEntries(0,w.tasks()->rowCount()-1))if(entry.toMap().value("taskId")==parent)restoreParent.append(entry);
+        QCOMPARE(restoreParent.size(),1);QVERIFY(w.task(parent).isEmpty());QCOMPARE(w.batchImpact(restoreParent,"restore"),2);
+        QVERIFY(w.batchTasks(restoreParent,"restore",{}));QVERIFY(daymark::test::awaitIdle(w));
+        QVERIFY(w.errorText().isEmpty());QCOMPARE(w.tasks()->rowCount(),1);QCOMPARE(w.tasks()->items().first().id,prior);
+        w.setView("all");QCOMPARE(w.tasks()->rowCount(),3);QCOMPARE(w.task(child).value("parentTaskId").toString(),parent);
+    }
     void calendarKeepsScopeAndIgnoresTreeVisibility() {
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("calendar-scope.sqlite"));QVERIFY(daymark::test::awaitIdle(w));
         QVERIFY(w.saveCatalog({{"kind","project"},{"title","A"}}));QVERIFY(daymark::test::awaitIdle(w));const auto category=w.categoryTree().first().toMap();

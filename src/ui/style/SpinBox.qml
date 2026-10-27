@@ -28,12 +28,12 @@ T.SpinBox {
         x: control.width-width
         implicitWidth: DesignTokens.controlHeight;implicitHeight: DesignTokens.controlHeight
         color: control.up.pressed ? DesignTokens.pressed : "transparent"
-        Text {anchors.centerIn: parent;text: "+";font.pixelSize: DesignTokens.heading;color: control.enabled && control.value<control.to ? DesignTokens.accent : DesignTokens.disabledText}
+        Glyph {anchors.centerIn:parent;width:16;height:16;name:"plus";ink:control.enabled && control.value<control.to ? DesignTokens.accent : DesignTokens.disabledText}
     }
     down.indicator: Rectangle {
         implicitWidth: DesignTokens.controlHeight;implicitHeight: DesignTokens.controlHeight
         color: control.down.pressed ? DesignTokens.pressed : "transparent"
-        Text {anchors.centerIn: parent;text: "−";font.pixelSize: DesignTokens.heading;color: control.enabled && control.value>control.from ? DesignTokens.accent : DesignTokens.disabledText}
+        Glyph {anchors.centerIn:parent;width:16;height:16;name:"minus";ink:control.enabled && control.value>control.from ? DesignTokens.accent : DesignTokens.disabledText}
     }
     background: FieldSurface {focused: control.activeFocus;hovered: control.hovered;enabledField: control.enabled}
 }

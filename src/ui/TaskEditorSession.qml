@@ -10,4 +10,11 @@ QtObject {
     property string savingTaskId: ""
     property bool expanded: false
     property point anchor: Qt.point(0, 0)
+    property point sourcePoint: Qt.point(-1, -1)
+    property Item sourceRow: null
+    property string sourceId: ""
+    property bool sourceFromList: true
+    property bool hasSource: false
+    property bool sourceLocated: false
+    property bool positionedManually: false
 }

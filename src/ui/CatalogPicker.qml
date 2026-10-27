@@ -46,7 +46,7 @@ Popup {
                 checked: root.selectedIds.indexOf(modelData.id)>=0
                 contentItem: RowLayout {
                     Label {text: option.text;Layout.fillWidth: true;elide: Text.ElideRight}
-                    Label {text: "✓";visible: option.checked;color: DS.DesignTokens.accent}
+                    AppIcon {name:"check";visible:option.checked;ink:DS.DesignTokens.accent;Layout.preferredWidth:16;Layout.preferredHeight:16}
                 }
                 onClicked: {root.selected(modelData.kind || "tag",modelData.id,checked);if(!root.multiple)root.close()}
             }

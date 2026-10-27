@@ -1,5 +1,11 @@
 # Things 3与Apple UI/UX调研
 
+UX-48图形机制补核：[Qt 6.10 Shape](https://doc.qt.io/qt-6.10/qml-qtquick-shapes-shape.html)区分RHI的Geometry/Curve与软件QPainter渲染，Curve可请求高质量抗锯齿，软件后端仍由Qt选择SoftwareRenderer。Daymark保留两条后端，软件路径加小范围有界层处理嵌套滚动裁剪，并用真实像素与截图验证；离屏结果不宣称原生GPU/DPI完成。
+
+UX-48依据[HIG Layout](https://developer.apple.com/design/human-interface-guidelines/layout)的对齐/适应性、[Color](https://developer.apple.com/design/human-interface-guidelines/color)的语义与浅深高对比配套、[Labels](https://developer.apple.com/design/human-interface-guidelines/labels)的系统字体与文字层级，以及[Apple Fonts](https://developer.apple.com/documentation/technologyoverviews/fonts)的系统API与禁止打包系统字体说明。Daymark使用Qt平台GeneralFont及自己的矢量图形/数值，不采用Apple专有字体或符号资产；实施规则见[全局系统](global-visual-system.md)。
+
+UX-47补核（2026-10-27）：[Apple Settings](https://developer.apple.com/design/human-interface-guidelines/settings)用于影响整体体验的偏好；[Lists and tables](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables)以设置列表表达层级并以chevron进入下一层；[Segmented controls](https://developer.apple.com/design/human-interface-guidelines/segmented-controls)表达紧密相关选项。Daymark将四类设置迁为分组目录，任务详情保留独立内容页签，数值/色彩为自主设计，见[UX-47](settings-navigation-and-inspector-tabs.md)。
+
 调研日期：2026-10-22。对象：Things for Mac为主，Apple桌面HIG为原则参考；移动端交互仅用于解释，不直接搬到Windows。产出是Daymark设计依据，不是Things客户端体验测试或像素复刻报告。
 
 ## 1. 方法与证据边界
@@ -115,4 +121,13 @@ Apple现行Design principles列出Purpose、Agency、Responsibility、Familiarit
 
 ## UX-41 侧栏与品牌参考
 
+
 [Apple Sidebars](https://developer.apple.com/design/human-interface-guidelines/sidebars)、[The menu bar](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar)用于平台入口关系；[小米官方2021Q1材料](https://ir.mi.com/static-files/9f0e2af7-4564-4540-a52f-b85ab64ef6d0)确认视觉参考对象。Daymark没有采用小米资产/字体或宣称字形符合其内部标准，而是自行定义圆弧、笔画及留白，见[UX-41](sidebar-and-wordmark.md)。Qt图形机制见[Shape 6.10文档](https://doc.qt.io/qt-6.10/qml-qtquick-shapes-shape.html)，实际固定构建仍为6.10.2，平台兼容修正以PROGRESS证据为准。
+
+## UX-44 菜单与可调整窗口
+
+UX-44补核（2026-10-27）：[Pop-up buttons](https://developer.apple.com/design/human-interface-guidelines/pop-up-buttons)针对互斥选择，明确建议多选及命令使用[Pull-down buttons](https://developer.apple.com/design/human-interface-guidelines/pull-down-buttons)；[Windows](https://developer.apple.com/design/human-interface-guidelines/windows)要求内容适应尺寸并优先平台窗口交互。Daymark据此将多标签实现为就近勾选命令菜单、底部分组新建，独立日历调用Qt系统缩放，项目值及无框组件边界见[UX-44](year-tags-and-calendar-sizing.md)，不把自定token当Apple规定。
+
+### UX-55菜单来源（2026-10-27）
+
+[Apple Menus](https://developer.apple.com/design/human-interface-guidelines/menus)提出相关操作成组、以分隔区分、慎用子菜单，标签清楚表达动作与状态；图标应服务识别，同组视觉处理一致。[Pop-up buttons](https://developer.apple.com/design/human-interface-guidelines/pop-up-buttons)用于同一属性的选择。Daymark据此定义[独立菜单契约](menu-system-review.md)，组顺序、9 DIP分隔占位、快捷键列及托盘分区是项目选择，非Apple量化要求。Windows托盘QMenu和macOS原生菜单保留平台样式与角色。

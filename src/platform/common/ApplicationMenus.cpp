@@ -40,7 +40,9 @@ ApplicationMenus::ApplicationMenus(std::function<void(const QString&)> command)
     };
     auto* application=m_bar->addMenu(QObject::tr("Daymark"));
     add(application,QObject::tr("关于Daymark"),QStringLiteral("about"),{},QAction::AboutRole);
+    application->addSeparator();
     add(application,QObject::tr("设置…"),QStringLiteral("settings"),QKeySequence::Preferences,QAction::PreferencesRole);
+    application->addSeparator();
     add(application,QObject::tr("退出Daymark"),QStringLiteral("quit"),QKeySequence::Quit,QAction::QuitRole);
     auto* file=m_bar->addMenu(QObject::tr("文件"));
     add(file,QObject::tr("新建任务"),QStringLiteral("new"),QKeySequence::New);
@@ -59,6 +61,7 @@ ApplicationMenus::ApplicationMenus(std::function<void(const QString&)> command)
     };
     auto* edit=m_bar->addMenu(QObject::tr("编辑"));
     for(const auto& definition:editing){
+        if(QString::fromLatin1(definition.id)==QStringLiteral("cut") || QString::fromLatin1(definition.id)==QStringLiteral("selectAll"))edit->addSeparator();
         auto* item=edit->addAction(definition.title);
         item->setObjectName(QStringLiteral("native-edit-")+QString::fromLatin1(definition.id));
         const QKeySequence shortcut(definition.key);
@@ -77,6 +80,7 @@ ApplicationMenus::ApplicationMenus(std::function<void(const QString&)> command)
     auto* window=m_bar->addMenu(QObject::tr("窗口"));
     add(window,QObject::tr("主窗口"),QStringLiteral("main"));
     add(window,QObject::tr("显示/隐藏侧栏"),QStringLiteral("sidebar"));
+    window->addSeparator();
     add(window,QObject::tr("桌面日历"),QStringLiteral("desktopCalendar"));
     auto* help=m_bar->addMenu(QObject::tr("帮助"));
     add(help,QObject::tr("键盘与使用提示"),QStringLiteral("help"));

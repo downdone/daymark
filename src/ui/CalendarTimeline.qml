@@ -5,7 +5,32 @@ import QtQuick.Layouts
 
 ColumnLayout {
     id: root
-    objectName: "calendarTimeline"
+    property string objectPrefix: ""
+    objectName: objectPrefix + "calendarTimeline"
+    property bool rangeSelectionMode: false
+    readonly property var dateTaskToSchedule: {
+        if(rangeSelectionMode || !selectedId)return null;
+        for(const day of timeline.days)for(const entry of day.entries || [])
+            if((entry.taskId || entry.eventId)===selectedId)return Object.assign({date:day.date},entry);
+        return null;
+    }
+    signal rangeAssignmentRequested(string taskId,real version,string date,int first,int last)
+    signal rangePickerRequested(var entry,Item source)
+    signal selectionCleared()
+    property string creationLabel: qsTr("新任务 · 未保存")
+    property real initialMinute: -1
+    property bool initialPositionPending: true
+    function revealMinute(minute) {
+        const flick=scroll.contentItem as Flickable;
+        if(flick)flick.contentY=Math.max(0,Math.min(minute*minuteHeight-scroll.availableHeight/3,Math.max(0,grid.height-scroll.availableHeight)));
+    }
+    function positionInitially() {
+        if(!initialPositionPending || !visible || timeline.days.length===0 || scroll.availableHeight<=0)return;
+        const today=timeline.days.find(day=>day.today);
+        revealMinute(initialMinute>=0 ? initialMinute : today ? today.nowMinute : 480);
+        initialPositionPending=false;
+    }
+    onTimelineChanged: if(initialPositionPending)Qt.callLater(positionInitially)
     Layout.minimumWidth: 0
     implicitWidth: 640
     implicitHeight: 480
@@ -39,7 +64,7 @@ ColumnLayout {
     readonly property real gutter: Math.max(56, 44 * Theme.scale)
     property point taskAnchor: Qt.point(0, 0)
     function inspectAt(id, item) {
-        taskAnchor = item.mapToItem(root.Window.window.contentItem, item.width, 0);
+        taskAnchor = item.mapToItem(root.Window.window.contentItem, item.width, item.height/2);
         openTask(id);
     }
     signal timeMoveRequested(string taskId, real version, string date, int minute, string edge)
@@ -86,6 +111,7 @@ ColumnLayout {
         if (value.edge === "create") {
             const first = Math.min(value.startMinute, value.minute), last = Math.max(value.startMinute, value.minute);
             const at = grid.mapToItem(root, value.pointerX, value.pointerY);
+            if(value.moved && value.assignTaskId){rangeAssignmentRequested(value.assignTaskId,value.assignVersion,value.date,first,Math.max(first+15,last));return;}
             chooseSlot(value.date,first,at);
             if(value.moved)createRequested(value.date,first,at.x,at.y,Math.max(first+15,last));
         } else if (value.moved)
@@ -114,6 +140,7 @@ ColumnLayout {
         }
     }
     RowLayout {
+        visible: !root.rangeSelectionMode
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         spacing: 0
@@ -148,7 +175,7 @@ ColumnLayout {
                 Button {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    objectName: "calendarDayHeader-"+dayHeader.modelData.date
+                    objectName: root.objectPrefix+"calendarDayHeader-"+dayHeader.modelData.date
                     text: root.timeline.days.length>1 ? Number(dayHeader.modelData.date.slice(8)) : dayHeader.modelData.title
                     horizontalPadding: root.timeline.days.length>1 ? 0 : 8
                     font.pixelSize: root.timeline.days.length>1 ? Theme.headingSize : Theme.bodySize
@@ -162,7 +189,9 @@ ColumnLayout {
                 Repeater {
                     model: dayHeader.modelData.entries.slice(0, 3)
                     Button {
+                        id: dateTaskButton
                         required property var modelData
+                        objectName:root.objectPrefix+"calendarDateTask-"+(modelData.taskId || modelData.eventId)
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         implicitHeight: Math.max(24, Theme.captionSize + 8)
@@ -171,8 +200,9 @@ ColumnLayout {
                         text: modelData.title
                         Accessible.name: modelData.title + qsTr("，日期任务")
                         background: Rectangle {
-                            radius: 4
-                            color: Theme.primaryFill
+                            radius: Theme.eventRadius
+                            color: root.selectedId===(dateTaskButton.modelData.taskId || dateTaskButton.modelData.eventId) ? Theme.selected : Theme.primaryFill
+                            border.width: root.selectedId===(dateTaskButton.modelData.taskId || dateTaskButton.modelData.eventId) ? 1 : 0;border.color:Theme.accent
                         }
                         onClicked: root.taskSelected(Object.assign({date:dayHeader.modelData.date},modelData),this)
                         onDoubleClicked: root.inspectAt(modelData.taskId || modelData.eventId,this)
@@ -187,6 +217,7 @@ ColumnLayout {
                     text: qsTr("另有 %1 项").arg(dayHeader.modelData.entries.length - 3)
                     onClicked: root.activeCluster = {
                         title: qsTr("日期任务"),
+                        dateTasks: true,date:dayHeader.modelData.date,
                         items: dayHeader.modelData.entries
                     }
                 }
@@ -196,22 +227,25 @@ ColumnLayout {
             }
         }
     }
+    RowLayout {
+        visible: !!root.dateTaskToSchedule;Layout.fillWidth:true
+        Label {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.accent;text:root.dateTaskToSchedule ? qsTr("为“%1”拖选时段").arg(root.dateTaskToSchedule.title) : ""}
+        ActionButton {objectName:root.objectPrefix+"dateTaskChooseRange";symbol:"clock";text:qsTr("选择时段…");onClicked:root.rangePickerRequested(root.dateTaskToSchedule,this)}
+        WidgetAction {symbol:"close";description:qsTr("取消安排此任务");onClicked:root.selectionCleared()}
+    }
     ScrollView {
         id: scroll
         implicitHeight: 320
         implicitWidth: 400
-        objectName: "calendarTimelineScroll"
+        objectName: root.objectPrefix+"calendarTimelineScroll"
         visible: !root.activeCluster
         Layout.fillWidth: true
         Layout.fillHeight: true
         clip: true
         contentWidth: availableWidth
         contentHeight: grid.height
-        Component.onCompleted: Qt.callLater(function () {
-            const flick = scroll.contentItem as Flickable;
-            if (flick)
-                flick.contentY = Math.min(8 * 60 * root.minuteHeight, Math.max(0, grid.height - scroll.availableHeight));
-        })
+        Component.onCompleted: Qt.callLater(root.positionInitially)
+        onAvailableHeightChanged: if(root.initialPositionPending)Qt.callLater(root.positionInitially)
         Item {
             id: grid
             width: scroll.availableWidth
@@ -223,7 +257,7 @@ ColumnLayout {
                     id: day
                     required property var modelData
                     required property int index
-                    objectName: "calendarTimelineDay-" + modelData.date
+                    objectName: root.objectPrefix+"calendarTimelineDay-" + modelData.date
                     x: root.gutter + index * grid.dayWidth
                     width: grid.dayWidth
                     height: modelData.minutes * root.minuteHeight
@@ -238,6 +272,8 @@ ColumnLayout {
                             const at = mapToItem(grid, mouse.x, mouse.y), minute = Math.max(0, Math.min(day.modelData.minutes - 15, Math.round(mouse.y / root.minuteHeight / 15) * 15));
                             root.preview = {
                                 taskId: "__create",
+                                assignTaskId: root.dateTaskToSchedule ? root.dateTaskToSchedule.taskId : "",
+                                assignVersion: root.dateTaskToSchedule ? root.dateTaskToSchedule.rowVersion : 0,
                                 edge: "create",
                                 date: day.modelData.date,
                                 minute: minute,
@@ -291,7 +327,7 @@ ColumnLayout {
                         width: root.gutter - 6
                         horizontalAlignment: Text.AlignRight
                         text: parent.modelData.label
-                        font.pixelSize: Math.max(10, Theme.captionSize - 1)
+                        font.pixelSize: Theme.footnoteSize
                         color: Theme.secondary
                         y: -implicitHeight / 2
                         elide: Text.ElideRight
@@ -310,12 +346,13 @@ ColumnLayout {
                     id: block
                     required property var modelData
                     visible: modelData.laneCount <= root.maximumLanes
-                    objectName: "calendarTimeBlock-" + modelData.taskId
+                    objectName: root.objectPrefix+"calendarTimeBlock-" + modelData.taskId
+                    enabled: !root.rangeSelectionMode
                     x: root.gutter + modelData.day * grid.dayWidth + modelData.lane * grid.dayWidth / modelData.laneCount + 2
                     y: modelData.startMinute * root.minuteHeight
                     width: Math.max(12, grid.dayWidth / modelData.laneCount - 4)
                     height: Math.max(24, (modelData.endMinute - modelData.startMinute) * root.minuteHeight)
-                    radius: 5
+                    radius: Theme.eventRadius
                     color: root.selectedId === modelData.taskId ? Theme.accent : Theme.primaryFill
                     border.width: activeFocus ? 1 : 0
                     border.color: Theme.accent
@@ -351,7 +388,7 @@ ColumnLayout {
                         Label {
                             width: parent.width
                             text: block.modelData.shortTimeLabel
-                            font.pixelSize: Math.max(10, Theme.captionSize - 1)
+                            font.pixelSize: Theme.footnoteSize
                             color: root.selectedId===block.modelData.taskId ? Theme.accentText : Theme.primaryInk
                             elide: Text.ElideRight
                             visible: block.height > 40
@@ -417,7 +454,8 @@ ColumnLayout {
                 model: root.timeline.clusters || []
                 Button {
                     required property var modelData
-                    objectName: "calendarOverlap-" + modelData.key
+                    objectName: root.objectPrefix+"calendarOverlap-" + modelData.key
+                    enabled: !root.rangeSelectionMode
                     visible: modelData.laneCount > root.maximumLanes
                     x: root.gutter + modelData.day * grid.dayWidth + 2
                     y: modelData.startMinute * root.minuteHeight
@@ -433,7 +471,7 @@ ColumnLayout {
                 x: root.gutter+Math.max(0,root.timeline.days.findIndex(day=>day.date===root.selectedSlot.date))*grid.dayWidth+2
                 y: (root.selectedSlot.minute || 0)*root.minuteHeight
                 width: grid.dayWidth-4;height:60*root.minuteHeight
-                color:Theme.hover;border.color:Theme.separator;radius:4
+                color:Theme.hover;border.color:Theme.separator;radius:Theme.eventRadius
             }
             Rectangle {
                 visible:!!root.creationSelection.date
@@ -441,8 +479,8 @@ ColumnLayout {
                 y:(root.creationSelection.minute || 0)*root.minuteHeight
                 width:grid.dayWidth-4
                 height:Math.max(32,(root.creationSelection.duration || 60)*root.minuteHeight)
-                color:Theme.selected;border.color:Theme.accent;radius:4
-                Label {anchors.fill:parent;anchors.margins:6;text:qsTr("新任务 · 未保存");color:Theme.accent;font.pixelSize:Theme.captionSize;elide:Text.ElideRight}
+                color:Theme.selected;border.color:Theme.accent;radius:Theme.eventRadius
+                Label {anchors.fill:parent;anchors.margins:6;text:root.creationLabel;color:Theme.accent;font.pixelSize:Theme.captionSize;elide:Text.ElideRight}
             }
             Rectangle {
                 visible: root.preview.edge === "create" && !!root.preview.moved
@@ -465,7 +503,7 @@ ColumnLayout {
                     anchors.right: parent.right
                     anchors.bottom: parent.top
                     padding: 4
-                    text: (root.preview.date || "") + " · " + root.workspace.minuteLabel(root.preview.date || "", root.preview.minute || 0)
+                    text: (root.preview.date || "") + " · " + root.workspace.minuteLabel(root.preview.date || "", root.preview.minute || 0, root.timeline.zone || "")
                     background: Rectangle {
                         color: Theme.content
                         border.color: Theme.accent
@@ -501,7 +539,10 @@ ColumnLayout {
                 required property var modelData
                 width: ListView.view.width
                 text: modelData.title + (modelData.shortTimeLabel ? " · " + modelData.shortTimeLabel : "")
-                onClicked: root.inspectAt(modelData.taskId, this)
+                onClicked: {
+                    if(root.activeCluster.dateTasks){const entry=Object.assign({date:root.activeCluster.date},modelData);root.activeCluster=null;root.taskSelected(entry,root);root.forceActiveFocus();}
+                    else root.inspectAt(modelData.taskId,this);
+                }
             }
         }
     }

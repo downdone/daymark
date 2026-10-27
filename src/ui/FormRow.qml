@@ -7,13 +7,14 @@ GridLayout {
     objectName: "desktopFormRow"
     required property string label
     property string detail: ""
-    property real labelWidth: Theme.propertyLabelWidth
+    property bool contextual: false
+    property real labelWidth: contextual ? 56*Theme.scale : Theme.propertyLabelWidth
     property real minimumValueWidth: 180*Theme.scale
     readonly property bool stacked: width<labelWidth+minimumValueWidth+12
     default property alias controls: valueColumn.data
     Layout.fillWidth: true
     columns: stacked ? 1 : 2
-    columnSpacing: 12
+    columnSpacing: contextual ? 8 : 12
     rowSpacing: 4
     function verifyLayout() {
         if(width<=0 || height<=0 || valueColumn.width<=0 || valueColumn.height<=0)return "empty form row"
@@ -29,7 +30,7 @@ GridLayout {
         Layout.fillWidth: row.stacked
         Layout.alignment: Qt.AlignTop
         topPadding: row.stacked ? 0 : Math.max(0,(Theme.controlHeight-font.pixelSize*1.35)/2)
-        horizontalAlignment: Text.AlignLeft
+        horizontalAlignment: row.contextual && !row.stacked ? Text.AlignRight : Text.AlignLeft
         wrapMode: Text.Wrap
         font.pixelSize: Theme.navigationSize
         color: Theme.secondary

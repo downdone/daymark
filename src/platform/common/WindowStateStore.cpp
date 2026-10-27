@@ -8,7 +8,7 @@ WindowStateStore::WindowStateStore(QWindow* window,const QString& path,QObject* 
     m_timer.setSingleShot(true);m_timer.setInterval(500);connect(&m_timer,&QTimer::timeout,this,[this]{save();});
     const auto geometry=m_settings.value(m_key+QStringLiteral("/geometry"),window->geometry()).toRect();
     window->setGeometry(QRect(geometry.topLeft(),geometry.size().expandedTo(m_minimum)));normalize();m_normal=window->geometry();
-    if(m_settings.value(m_key+QStringLiteral("/maximized"),false).toBool())window->showMaximized();
+    if(m_settings.value(m_key+QStringLiteral("/maximized"),false).toBool())window->setWindowState(Qt::WindowMaximized);
     auto changed=[this]{if(m_window && m_window->windowState()==Qt::WindowNoState)m_normal=m_window->geometry();m_timer.start();};
     connect(window,&QWindow::xChanged,this,changed);connect(window,&QWindow::yChanged,this,changed);
     connect(window,&QWindow::widthChanged,this,changed);connect(window,&QWindow::heightChanged,this,changed);connect(window,&QWindow::windowStateChanged,this,changed);

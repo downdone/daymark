@@ -9,6 +9,7 @@ ItemDelegate {
     function openVerificationMenu() {menu.open()}
     function closeVerificationMenu() {menu.close()}
     function verifyMenuHighlight() {
+        if(menu.verifyGrouping()!=="PASS")return menu.verifyGrouping()
         let active=0
         for(let i=0;i<menu.count;i++) {
             const item=menu.itemAt(i) as MenuItem
@@ -49,7 +50,7 @@ ItemDelegate {
     property bool showSeparator: true
     property bool deleted: false
     property bool smartView: false
-    readonly property real treeGutter: smartView || !workspace.tasks.hasHierarchy ? 0 : 32
+    readonly property real treeGutter: smartView || !workspace.tasks.hasHierarchy ? 0 : Theme.hierarchyGutter+Math.max(0,Theme.iconSize+12-32)
     property string completionText: ""
     signal subtaskRequested()
     signal restoreRequested()
@@ -135,18 +136,17 @@ ItemDelegate {
     signal dragStateChanged(bool active)
     signal menuRequested()
     signal moveToViewRequested(string view)
-    Menu {
+    DS.Menu {
         id: menu;objectName: "taskContext-"+root.taskId
         onAboutToShow: root.menuRequested()
-        MenuItem {text: qsTr("编辑详情…");onTriggered: root.editRequested()}
-        MenuItem {objectName: "taskMenuPin-"+root.taskId;text: root.pinned ? qsTr("取消置顶") : qsTr("置顶");onTriggered: root.pinRequested(!root.pinned)}
-        MenuItem {objectName: "taskMenuImportant-"+root.taskId;text: root.important ? qsTr("取消特别关注") : qsTr("特别关注");onTriggered: root.importantRequested(!root.important)}
-        MenuItem {objectName: "taskMenuCancelReminder-"+root.taskId;text: qsTr("取消提醒");visible: root.hasReminder;onTriggered: root.cancelReminderRequested()}
-        MenuSeparator {}
+        MenuItem {text: qsTr("任务详情");onTriggered: root.editRequested()}
         MenuItem {objectName: "taskMenuState-"+root.taskId;text: root.isDone ? qsTr("重新打开") : qsTr("完成任务");onTriggered: root.completeRequested()}
-        MenuItem {text: qsTr("上移");visible: root.canReorder && root.canMoveUp;onTriggered: root.moveRequested(-1)}
-        MenuItem {text: qsTr("下移");visible: root.canReorder && root.canMoveDown;onTriggered: root.moveRequested(1)}
-        Menu {
+        DS.MenuSeparator {}
+        MenuItem {objectName: "taskMenuPin-"+root.taskId;text: root.pinned ? qsTr("取消置顶") : qsTr("置顶");onTriggered: root.pinRequested(!root.pinned)}
+        DS.MenuItem {objectName: "taskMenuImportant-"+root.taskId;text: root.important ? qsTr("取消特别关注") : qsTr("特别关注");shortcutText:Qt.platform.os==="osx" ? "⇧⌘F" : "Ctrl+Shift+F";onTriggered: root.importantRequested(!root.important)}
+        MenuItem {objectName: "taskMenuCancelReminder-"+root.taskId;text: qsTr("取消提醒");visible: root.hasReminder;onTriggered: root.cancelReminderRequested()}
+        DS.MenuSeparator {}
+        DS.Menu {
             objectName:"taskMenuMove-"+root.taskId;title: qsTr("移到");enabled: !root.isDone
             MenuItem {text: qsTr("收集箱");onTriggered: root.moveToViewRequested("inbox")}
             MenuItem {text: qsTr("今天");onTriggered: root.moveToViewRequested("today")}
@@ -154,7 +154,10 @@ ItemDelegate {
         }
         MenuItem {text: root.evening ? qsTr("安排到今天") : qsTr("安排到今晚");visible: root.inToday && !root.isDone;onTriggered: root.eveningRequested(!root.evening)}
         MenuItem {text: qsTr("清除日期安排");visible: root.canActivate;onTriggered: root.activateRequested()}
-        MenuSeparator {}
+        DS.MenuSeparator {}
+        MenuItem {text: qsTr("上移");visible: root.canReorder && root.canMoveUp;onTriggered: root.moveRequested(-1)}
+        MenuItem {text: qsTr("下移");visible: root.canReorder && root.canMoveDown;onTriggered: root.moveRequested(1)}
+        DS.MenuSeparator {}
         DS.MenuItem {objectName: "taskMenuDelete-"+root.taskId;text: qsTr("删除任务…");destructive: true;onTriggered: root.deleteRequested()}
     }
     function placeDrag(x,y){const at=mapToItem(dragProxy.parent,x,y);dragProxy.x=at.x-12;dragProxy.y=at.y-dragOriginY}
@@ -166,11 +169,11 @@ ItemDelegate {
     onDraggingChanged: dragStateChanged(dragging)
     z: dragging ? 100 : 0
     Keys.onEscapePressed: function(event){if(dragging || dragArmed)finishDrag(false);else event.accepted=false}
-    Keys.onPressed: function(event){if(!root.deleted && (event.key===Qt.Key_Menu || (event.key===Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier)))){root.contextRequested(width/2,height/2);event.accepted=true}}
+    Keys.onPressed: function(event){if(event.key===Qt.Key_Menu || (event.key===Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))){root.contextRequested(width/2,height/2);event.accepted=true}}
     TapHandler {acceptedButtons:Qt.LeftButton;acceptedModifiers:Qt.MetaModifier;enabled:Qt.platform.os==="osx" && root.expanded && !root.deleted;onTapped:function(point){root.contextRequested(point.position.x,point.position.y)}}
     TapHandler {acceptedButtons: Qt.RightButton;enabled: !root.deleted && root.expanded;onTapped: function(point){root.contextRequested(point.position.x,point.position.y)}}
     MouseArea {
-        id: holdArea;objectName: "taskHoldDrag";anchors.fill: parent;enabled: !root.expanded && !root.deleted
+        id: holdArea;objectName: "taskHoldDrag";anchors.fill: parent;enabled: !root.expanded
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         pressAndHoldInterval: 350;preventStealing: root.dragArmed;cursorShape: root.dragArmed ? Qt.ClosedHandCursor : Qt.ArrowCursor
         onPressed: function(mouse){root.heldPress=false;if(mouse.button===Qt.RightButton || (Qt.platform.os==="osx" && (mouse.modifiers & Qt.MetaModifier))){root.contextRequested(mouse.x,mouse.y);return}root.dragOriginX=mouse.x;root.dragOriginY=mouse.y}
@@ -194,7 +197,7 @@ ItemDelegate {
     Item {
         id: dragProxy;z: 1000;width: Math.min(root.width,360*Theme.scale);height: root.height
         Drag.active: root.dragging;Drag.source: root;Drag.hotSpot.x: 12;Drag.hotSpot.y: root.dragOriginY;Drag.supportedActions: Qt.MoveAction
-        Rectangle {anchors.fill: parent;visible: root.dragging;color: Theme.content;radius: 12;border.color: Theme.accent;opacity: 0.95
+        Rectangle {anchors.fill: parent;visible: root.dragging;color: Theme.content;radius: Theme.groupRadius;border.color: Theme.accent;opacity: 0.95
             Text {anchors.fill: parent;anchors.margins: 12;text: root.title;font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize;color: Theme.text;elide: Text.ElideRight;verticalAlignment: Text.AlignVCenter}
         }
     }
@@ -207,14 +210,19 @@ ItemDelegate {
     }
     Rectangle {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:2;color:Theme.accent;visible:dropZone.containsDrag && dropZone.allowed}
     DS.ToolTip {contextualFeedback:true;delay:0;timeout:-1;visible:dropZone.containsDrag && !dropZone.allowed && !!dropZone.sourceTask;text:dropZone.sourceTask ? root.workspace.dropTaskReason(dropZone.sourceTask.taskId,root.taskId) : ""}
-    padding: Theme.compact ? 2 : 4
-    leftPadding: 6+Math.min(8,taskDepth)*24
+    readonly property real titleTopInset: summary.titleTopInset
+    padding: Theme.compact ? (summary.supportingText ? 4 : 2) : 6
+    leftPadding: Theme.listInset+Math.min(8,taskDepth)*Theme.hierarchyIndent
     rightPadding: 10
     function columnPositions() {
         const completion=expanded ? inlineEditor.completionItem : completionAction
         const titleItem=expanded ? inlineEditor.titleItem : summary.titleItem
         const notesItem=expanded ? inlineEditor.notesItem : summary.notesItem
-        return {completion:completion.mapToItem(root,0,0).x,title:titleItem.mapToItem(root,0,0).x,notes:notesItem.mapToItem(root,0,0).x,separator:rowSeparator.x,depth:taskDepth}
+        const ink=expanded ? inlineEditor.completionInk : completionMark
+        return {completion:completion.mapToItem(root,0,0).x,title:titleItem.mapToItem(root,0,0).x,notes:notesItem.mapToItem(root,0,0).x,separator:rowSeparator.x,depth:taskDepth,indent:Theme.hierarchyIndent,completionCenterY:ink.mapToItem(root,0,ink.height/2).y,titleCenterY:inspectorSourcePoint(root).y,tools:expanded ? inlineEditor.toolsItem.mapToItem(root,0,0).x : titleItem.mapToItem(root,0,0).x,contentTop:summary.mapToItem(root,0,0).y,contentBottom:height-summary.mapToItem(root,0,summary.height).y}
+    }
+    function inspectorSourcePoint(target) {
+        return expanded ? inlineEditor.inspectorSourcePoint(target) : summary.inspectorSourcePoint(target)
     }
     implicitHeight: Math.max(Theme.taskRowHeight,contentItem.implicitHeight+topPadding+bottomPadding)
     function verifyGeometry() {
@@ -229,11 +237,14 @@ ItemDelegate {
         RowLayout {
         Layout.fillWidth: true
         visible: !root.expanded
-        spacing: 8
+        spacing: Theme.listTextGap
         Item {
-            visible:root.treeGutter>0;Layout.preferredWidth: 24;Layout.preferredHeight: 32
+            visible:root.treeGutter>0;Layout.preferredWidth: root.treeGutter-Theme.listTextGap;Layout.preferredHeight: Math.max(32,Theme.iconSize+12)
+            Layout.alignment:Qt.AlignTop
             WidgetAction {
+                id:branchAction;hintEnabled:false
                 anchors.centerIn: parent;visible: !root.smartView && root.visibleChildCount>0
+                contentItem:Item {implicitWidth:Theme.iconSize;implicitHeight:Theme.iconSize;AppIcon {name:branchAction.symbol;width:Theme.iconSize;height:width;x:(parent.width-width)/2;y:summary.titleCenterY-branchAction.topPadding-height/2}}
                 objectName: "taskChildren-"+root.taskId
                 symbol: root.childrenExpanded ? "down" : "right"
                 description: (root.childrenExpanded ? qsTr("收起 %1 个子任务") : qsTr("展开 %1 个子任务")).arg(root.visibleChildCount)
@@ -241,9 +252,13 @@ ItemDelegate {
             }
         }
         CheckBox {
+            id:selectionCheck
             visible: root.selectionMode;Layout.preferredWidth: Math.max(32,Theme.iconSize+12);Layout.preferredHeight: Math.max(32,Theme.iconSize+12)
+            Layout.alignment:Qt.AlignTop
             checked: root.selectedForBatch;Accessible.name: qsTr("选择任务：")+root.title;onClicked: root.selectionRequested()
             MouseArea {anchors.fill: parent;onClicked: function(mouse){if(mouse.modifiers & (Qt.ShiftModifier | Qt.ControlModifier))root.selectionGestureRequested(mouse.modifiers);else root.selectionRequested()}}
+            Binding {target:selectionCheck.indicator;property:"x";value:(selectionCheck.width-selectionCheck.indicator.width)/2}
+            Binding {target:selectionCheck.indicator;property:"y";value:summary.titleCenterY-selectionCheck.indicator.height/2}
         }
         IconToolButton {
             id: completionAction
@@ -258,7 +273,9 @@ ItemDelegate {
             contentItem: Item {
                 implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize
                 Rectangle {
-                    anchors.centerIn: parent
+                    id:completionMark
+                    anchors.horizontalCenter:parent.horizontalCenter
+                    y:summary.titleCenterY-completionAction.topPadding-height/2
                     width: Math.min(24,18*Theme.scale);height: width;radius: width/2
                     color: (root.isDone || root.removingAfterCompletion) ? Theme.accent : "transparent"
                     border.color: (root.isDone || root.removingAfterCompletion) ? Theme.accent : Theme.secondary
@@ -270,6 +287,7 @@ ItemDelegate {
         TaskRowSummary {
             id: summary
             Layout.fillWidth: true
+            Layout.alignment:Qt.AlignTop
             taskId: root.taskId;title: root.title;notes: root.notes;metadataText: root.metadataText
             done: root.isDone || root.removingAfterCompletion;overdue: root.isOverdue
             showSubtasks: root.subtaskTotal>0 && !root.deleted && (root.smartView || !root.childrenExpanded || !root.workspace.preferences.listShowSubtasks)
@@ -283,8 +301,9 @@ ItemDelegate {
             opacity: root.canDrag && !root.selectionMode && (root.hovered || root.activeFocus || root.dragArmed) ? 1 : 0
             Accessible.ignored: !root.canDrag
             Layout.preferredWidth: 28;Layout.preferredHeight: 32
+            Layout.alignment:Qt.AlignTop
             Accessible.name: qsTr("拖动排序或拖到导航栏移动任务")
-            AppIcon {anchors.centerIn: parent;name: "grip"}
+            AppIcon {name: "grip";width:Theme.iconSize;height:width;x:(parent.width-width)/2;y:summary.titleCenterY-height/2}
             MouseArea {
                 id: handleArea;objectName: "taskDragHandle";anchors.fill: parent;enabled: root.canDrag && !root.selectionMode;cursorShape: root.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                 preventStealing: true
@@ -295,11 +314,13 @@ ItemDelegate {
             }
         }
         IconToolButton {
+            id:detailsAction
+            Layout.alignment:Qt.AlignTop
             objectName: "taskDetails-"+root.taskId
             opacity: !root.selectionMode && (root.hovered || root.highlighted || root.activeFocus || activeFocus) ? 1 : 0
             Accessible.ignored: root.selectionMode
             enabled: !root.selectionMode
-            contentItem: AppIcon {name: root.deleted ? "undo" : "info"}
+            contentItem:Item {implicitWidth:Theme.iconSize;implicitHeight:Theme.iconSize;AppIcon {name:root.deleted ? "undo" : "info";width:Theme.iconSize;height:width;x:(parent.width-width)/2;y:summary.titleCenterY-detailsAction.topPadding-height/2}}
             Accessible.name: (root.deleted ? qsTr("恢复任务：") : qsTr("打开任务详情："))+root.title
             hintText: root.deleted ? qsTr("恢复任务") : qsTr("编辑任务详情")
             onClicked: {if(root.deleted)root.restoreRequested();else root.editRequested()}
@@ -311,9 +332,9 @@ ItemDelegate {
     background: Rectangle {
         opacity: root.dragging ? 0.5 : 1
         radius: Theme.rowRadius
-        color: root.selectionMode ? (root.selectedForBatch ? Theme.selected : root.hovered ? Theme.hover : "transparent") : root.expanded ? "transparent" : root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"
+        color: root.selectionMode ? (root.selectedForBatch ? Theme.selected : root.hovered ? Theme.hover : "transparent") : root.expanded ? Theme.grouped : root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"
         border.width: root.visualFocus || root.dragArmed ? 1 : 0;border.color: Theme.accent
         Rectangle {visible: dropZone.containsDrag && !root.dragging;height: 2;width: parent.width;anchors.top: parent.top;color: Theme.accent}
-        Rectangle {id:rowSeparator;objectName: "taskRowSeparator";visible: root.showSeparator;height: 1;x: root.leftPadding+root.treeGutter+completionAction.width+8;width: Math.max(0,parent.width-x-root.rightPadding);anchors.bottom: parent.bottom;color: Theme.separator}
+        Rectangle {id:rowSeparator;objectName: "taskRowSeparator";visible: root.showSeparator && !root.expanded;height: 1;x: root.leftPadding+root.treeGutter+completionAction.width+Theme.listTextGap;width: Math.max(0,parent.width-x-root.rightPadding);anchors.bottom: parent.bottom;color: Theme.separator}
     }
 }

@@ -45,12 +45,22 @@ QtObject {
     readonly property int rowRadius: DS.DesignTokens.rowRadius
     readonly property int bodySize: DS.DesignTokens.body
     readonly property int listTitleSize: DS.DesignTokens.listTitle
+    readonly property int listInset: DS.DesignTokens.listInset
+    readonly property int hierarchyGutter: DS.DesignTokens.hierarchyGutter
+    readonly property int hierarchyIndent: DS.DesignTokens.hierarchyIndent
+    readonly property int listTextGap: DS.DesignTokens.listTextGap
     readonly property int navigationSize: DS.DesignTokens.navigation
     readonly property int captionSize: DS.DesignTokens.caption
+    readonly property int footnoteSize: DS.DesignTokens.footnote
     readonly property int sectionSize: DS.DesignTokens.section
     readonly property int headingSize: DS.DesignTokens.heading
     readonly property int titleSize: DS.DesignTokens.title
-    readonly property int iconSize: Math.round(Math.min(24,18*scale))
+    readonly property int iconSize: DS.DesignTokens.iconSize
+    readonly property int controlRadius: DS.DesignTokens.radius
+    readonly property int groupRadius: DS.DesignTokens.groupRadius
+    readonly property int menuRadius: DS.DesignTokens.menuRadius
+    readonly property int eventRadius: DS.DesignTokens.eventRadius
+    readonly property int blockGap: DS.DesignTokens.blockGap
     readonly property int gap: DS.DesignTokens.gap
     readonly property int fieldGap: DS.DesignTokens.fieldGap
     readonly property int panelPadding: DS.DesignTokens.panelPadding

@@ -16,8 +16,10 @@ ColumnLayout {
     property bool infoExpanded: false
     property bool inspectorMode:false
     property bool creationMode:false
-    property bool tagExpanded:false
+    readonly property bool tagPickerVisible: tagMenu.visible
     property bool parentExpanded:false
+    readonly property bool importantValue: important.checked
+    function setImportant(value){if(important.checked!==value){important.checked=value;draftChanged()}}
     property string detachedParentTitle:""
     readonly property var destinations: [{kind:"",id:"",title:qsTr("收集箱")}].concat(workspace.categoryTree.map(item=>({kind:item.kind,id:item.id,title:item.path,depth:item.depth,parentTitle:item.parentTitle})))
     readonly property var selectedDestination: destinations[destinationChoice.currentIndex] || destinations[0]
@@ -35,7 +37,7 @@ ColumnLayout {
     signal focusRequested(Item item)
     spacing: Theme.fieldGap
     function loadTask(item) {
-        taskData=item;parentExpanded=false;tagExpanded=false;detachedParentTitle=""
+        taskData=item;parentExpanded=false;tagMenu.close();detachedParentTitle=""
         projects=workspace.catalogOf("project");areas=workspace.catalogOf("area");tags=workspace.catalogOf("tag")
         relatedEvents=creationMode ? [] : workspace.eventsForTask(item.taskId).concat((item.links || []).map(link=>Object.assign({},workspace.task(link.taskId),{eventId:link.taskId})).filter(link=>!!link.taskId))
         tagIds=item.tagIds.slice()
@@ -85,10 +87,11 @@ ColumnLayout {
         return true
     }
     DetailSection {
+        plain:root.inspectorMode
         heading: root.inspectorMode ? "" : qsTr("分类与标签");symbol: "folder"
         ColumnLayout {
             objectName:root.objectPrefix+"editorAssignmentGrid";Layout.fillWidth:true;spacing:Theme.fieldGap
-            FormRow {
+            FormRow {contextual:root.inspectorMode;
                 label:qsTr("分类")
                 ComboBox {
                     id:destinationChoice;objectName:root.objectPrefix+"editorDestination";Layout.fillWidth:true
@@ -97,37 +100,28 @@ ColumnLayout {
                     onActivated:{if(currentIndex>=root.destinations.length){const kind=currentIndex===root.destinations.length ? "project" : "area";currentIndex=root.lastDestinationIndex;root.createCatalogRequested(kind)}else{root.lastDestinationIndex=currentIndex;root.loadHeadings();if(root.parentTaskId){const parent=root.workspace.task(root.parentTaskId);const selected=root.selectedDestination;const parentId=parent.projectId || parent.areaId || "";if(selected.id!==parentId){root.detachedParentTitle=root.parentTaskTitle;root.parentTaskId="";root.parentTaskTitle=""}}root.draftChanged()}}
                 }
             }
-            FormRow {
+            FormRow {contextual:root.inspectorMode;
                 objectName:root.objectPrefix+"editorHeadingRow";label:qsTr("分组");visible:root.selectedDestination.kind==="project" && root.headings.length>0
                 ComboBox {id:headingChoice;objectName:root.objectPrefix+"editorHeading";Layout.fillWidth:true;Accessible.name:qsTr("分类分组");model:[qsTr("无分组")].concat(root.headings.map(item=>item.title));onActivated:root.draftChanged()}
             }
         }
-        FormRow {
+        FormRow {contextual:root.inspectorMode;
             label: qsTr("标签")
-            Flow {
-                id: tagFlow;Layout.fillWidth: true;spacing: 6
-                Repeater {
-                    model: root.inspectorMode ? root.tags.filter(item=>root.tagIds.indexOf(item.id)>=0).slice(0,4) : root.tags
-                    CheckBox {
-                        required property var modelData
-                        width: Math.min(implicitWidth,tagFlow.width)
-                        text: modelData.title
-                        checked: root.tagIds.indexOf(modelData.id)>=0
-                        onClicked: {
-                            root.toggleTag(modelData.id,checked)
-                        }
-                    }
+            ActionButton {
+                id: tagButton;objectName: root.objectPrefix+"editorTags"
+                Layout.fillWidth: true;symbol: "tag";contentAlignment:Qt.AlignLeft
+                text: root.tags.filter(item=>root.tagIds.indexOf(item.id)>=0).map(item=>item.title).join("、") || qsTr("选择标签…")
+                Accessible.name: qsTr("选择标签，已选%1个：%2").arg(root.tagIds.length).arg(text)
+                ToolTip.visible: hovered && textTruncated && !down && !Theme.hintsBlocked
+                ToolTip.delay: Theme.hintDelay;ToolTip.timeout: Theme.hintTimeout
+                ToolTip.text: text
+                onClicked: tagMenu.popup(tagButton,0,tagButton.height)
+                TagMenu {
+                    id: tagMenu;objectName: root.objectPrefix+"editorTagMenu"
+                    options: root.tags;selectedIds: root.tagIds
+                    onSelected: function(id, checked) {root.toggleTag(id, checked)}
+                    onCreateRequested: root.createCatalogRequested("tag")
                 }
-                ActionButton {symbol:"tag";text:root.tagExpanded ? qsTr("收起标签") : qsTr("选择标签…");onClicked:root.tagExpanded=!root.tagExpanded}
-                ActionButton {objectName: root.objectPrefix+"newTagHere";visible:!root.creationMode;symbol: "plus";text: qsTr("新建标签");onClicked: root.createCatalogRequested("tag")}
-            }
-        }
-        ColumnLayout {
-            visible:root.tagExpanded;Layout.fillWidth:true
-            TextField {id:tagSearch;Layout.fillWidth:true;placeholderText:qsTr("搜索标签…")}
-            ListView {Layout.fillWidth:true;Layout.preferredHeight:Math.min(240,Math.max(40,count*36));clip:true;model:root.tags.filter(item=>!tagSearch.text || item.title.toLowerCase().indexOf(tagSearch.text.toLowerCase())>=0)
-                delegate:CheckBox {required property var modelData;width:ListView.view.width;text:modelData.title;checked:root.tagIds.indexOf(modelData.id)>=0;onClicked:root.toggleTag(modelData.id,checked)}
-                ScrollBar.vertical:ScrollBar{}
             }
         }
         Label {visible:!!root.detachedParentTitle;Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("保存后将移出父任务：%1").arg(root.detachedParentTitle);font.pixelSize:Theme.captionSize;color:Theme.secondary}
@@ -138,9 +132,9 @@ ColumnLayout {
         }
     }
     DetailSection {
-        visible:!root.creationMode;heading: root.inspectorMode ? "" : qsTr("任务关系");symbol: "list"
-        FormRow {label:qsTr("父任务")
-        Button {objectName: root.objectPrefix+"parentTaskButton";Layout.fillWidth: true;text: root.parentTaskId ? (root.taskData.parentDeleted ? qsTr("原父任务（已删除）：%1").arg(root.parentTaskTitle) : root.parentTaskTitle) : qsTr("无父任务");onClicked: {parentSearch.clear();root.refreshParentChoices();if(root.inspectorMode)root.parentExpanded=!root.parentExpanded;else parentPicker.open()}}
+        plain:root.inspectorMode;visible:!root.creationMode;heading: root.inspectorMode ? "" : qsTr("任务关系");symbol: "list"
+        FormRow {contextual:root.inspectorMode;label:qsTr("父任务")
+        Button {objectName: root.objectPrefix+"parentTaskButton";flat:root.inspectorMode;Layout.fillWidth: true;text: root.parentTaskId ? (root.taskData.parentDeleted ? qsTr("原父任务（已删除）：%1").arg(root.parentTaskTitle) : root.parentTaskTitle) : qsTr("无父任务");onClicked: {parentSearch.clear();root.refreshParentChoices();if(root.inspectorMode)root.parentExpanded=!root.parentExpanded;else parentPicker.open()}}
         }
         ColumnLayout {
             visible:root.parentExpanded;Layout.fillWidth:true

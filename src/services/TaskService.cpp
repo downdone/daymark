@@ -367,17 +367,19 @@ Result<Task> TaskService::changeStateOne(const QString& id,qint64 version,const 
 
 Result<void> TaskService::batch(const QList<QPair<QString,qint64>>& selection,const QString& action,const TaskPatch& patch)
 {
-    if(selection.isEmpty() || (action!=QStringLiteral("complete") && action!=QStringLiteral("reopen") && action!=QStringLiteral("edit")))
+    if(selection.isEmpty() || (action!=QStringLiteral("complete") && action!=QStringLiteral("reopen") && action!=QStringLiteral("edit") && action!=QStringLiteral("delete") && action!=QStringLiteral("restore")))
         return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));
     return m_repository.atomically([&] {
         QSet<QString> seen;
         // Validate the entire user's snapshot before our own cascades increment descendants.
-        for(const auto& item:selection){if(seen.contains(item.first))return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));seen.insert(item.first);const auto current=m_repository.find(item.first);if(!current.ok())return Result<void>{current.error};if(current.value.rowVersion!=item.second)return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));}
+        for(const auto& item:selection){if(seen.contains(item.first))return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));seen.insert(item.first);const auto current=m_repository.find(item.first);if(!current.ok())return Result<void>{current.error};if(current.value.rowVersion!=item.second)return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));if((action==QStringLiteral("delete") && !current.value.deletedAtUtc.isEmpty()) || (action==QStringLiteral("restore") && current.value.deletedAtUtc.isEmpty()))return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));}
         const auto snapshot=m_repository.all();if(!snapshot.ok())return Result<void>{snapshot.error};QHash<QString,QString> parents;for(const auto& task:snapshot.value)parents.insert(task.id,task.parentTaskId);
         auto depth=[&](const QString& id){int value=0;QSet<QString> ancestors;auto parent=parents.value(id);while(!parent.isEmpty() && !ancestors.contains(parent)){ancestors.insert(parent);++value;parent=parents.value(parent);}return value;};
         auto ordered=selection;std::stable_sort(ordered.begin(),ordered.end(),[&](const auto& a,const auto& b){return depth(a.first)<depth(b.first);});
         for(const auto& item:ordered) {
             const auto current=m_repository.find(item.first);if(!current.ok())return Result<void>{current.error};
+            // An earlier selected ancestor already applied this tree command.
+            if((action==QStringLiteral("delete") && !current.value.deletedAtUtc.isEmpty()) || (action==QStringLiteral("restore") && current.value.deletedAtUtc.isEmpty()))continue;
             const auto result=action!=QStringLiteral("edit")?changeState(item.first,current.value.rowVersion,action):edit(item.first,current.value.rowVersion,patch);
             if(!result.ok())return Result<void>{result.error};
         }
