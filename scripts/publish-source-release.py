@@ -30,6 +30,20 @@ def publication_api_error(action, error):
     return RuntimeError(f"Release {action} failed (HTTP {error.code}){detail}")
 
 
+def source_release_payload(tag, version, notes):
+    # The already verified immutable tag owns the source identity. An obsolete
+    # target_commitish hint can require workflows:write even for an existing tag.
+    return {"tag_name": tag, "name": f"Daymark {version}", "body": notes,
+            "draft": False, "prerelease": False, "make_latest": "true"}
+
+
+def validate_release_record(record, tag, version, notes):
+    if (record["tag_name"] != tag or record["name"] != f"Daymark {version}"
+            or record["body"] != notes or record["draft"] or record["prerelease"]
+            or record["assets"]):
+        raise ValueError("An incompatible release exists; it was not modified")
+
+
 def release_input(root, tag):
     if not re.fullmatch(r"v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", tag):
         raise ValueError("A stable vMAJOR.MINOR.PATCH tag is required")
@@ -138,26 +152,29 @@ def main():
         with urllib.request.urlopen(req, timeout=30) as response:
             return json.load(response)
 
+    remote_ref_url = f"https://api.github.com/repos/{repository}/git/ref/tags/{args.tag}"
+    expected_tag = subprocess.check_output(["git", "rev-parse", "refs/tags/"+args.tag],
+                                           cwd=root, text=True).strip()
+    def verify_remote_tag():
+        remote = request(remote_ref_url)["object"]
+        if remote.get("type") != "tag" or remote.get("sha") != expected_tag:
+            raise ValueError("Remote annotated tag differs from verified source; no tag was changed")
+    verify_remote_tag()
     try:
         existing = request(base + "/tags/" + args.tag)
     except urllib.error.HTTPError as error:
         if error.code != 404:
             raise publication_api_error("lookup", error) from None
     else:
-        if (existing["tag_name"] != args.tag or existing["name"] != f"Daymark {version}"
-                or existing["body"] != notes or existing["target_commitish"] != revision or existing["draft"]
-                or existing["prerelease"] or existing["assets"]):
-            raise ValueError("An incompatible release already exists; it was not modified")
+        validate_release_record(existing, args.tag, version, notes)
         print(existing["html_url"])
         return
     try:
-        result = request(base, {"tag_name": args.tag, "target_commitish": revision,
-            "name": f"Daymark {version}", "body": notes, "draft": False,
-            "prerelease": False, "make_latest": "true"})
+        result = request(base, source_release_payload(args.tag, version, notes))
     except urllib.error.HTTPError as error:
         raise publication_api_error("creation", error) from None
-    if result["tag_name"] != args.tag or result["assets"]:
-        raise RuntimeError("Unexpected release response")
+    validate_release_record(result, args.tag, version, notes)
+    verify_remote_tag()
     print(result["html_url"])
 
 

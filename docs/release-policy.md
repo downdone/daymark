@@ -46,3 +46,5 @@ python scripts/publish-source-release.py --check-current
 发布工具将webhook的完整SHA解析为commit（允许annotated tag对象SHA，但仍校验同一tag及目标commit），显式获取origin/main再判定可达性。所有源码发布入口共用串行队列，避免重复请求竞争创建Release。
 
 Actions checkout可能在一次性runner中把事件标签落成本地轻量引用。发布前显式重新获取远端完整标签对象：`git fetch --no-tags --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"`，这里的force仅替换CI本地引用，不写远端。随后仍强制检查annotated类型、固定commit和main可达性；不得放宽守卫或移动公开标签。标签入口与恢复入口采用同一准备步骤。
+
+创建Release前后还通过GitHub API核对远端tag对象与已校验的本地annotated对象一致。对已存在的tag，不发送仅用于新建标签的`target_commitish`提示；Release来源以tag对象/剥离commit为准，不以该创建提示字段为准。这样不需要给短期GITHUB_TOKEN扩大Workflows写权限。官方字段及权限语义见[GitHub Release API](https://docs.github.com/en/rest/releases/releases#create-a-release)。已有Release仍须名称、正文、tag、非草稿状态和无资产全部匹配，不静默修改。

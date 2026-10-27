@@ -14,6 +14,16 @@ spec.loader.exec_module(release)
 
 
 class ReleaseGuards(unittest.TestCase):
+    def test_existing_tag_is_authoritative_not_creation_hint(self):
+        payload=release.source_release_payload("v1.1.0", "1.1.0", "only source")
+        self.assertNotIn("target_commitish", payload)
+        record=dict(payload, assets=[], target_commitish="main")
+        release.validate_release_record(record, "v1.1.0", "1.1.0", "only source")
+        for changed in ({"tag_name":"v1.0.1"},{"body":"different notes"},{"draft":True},
+                        {"prerelease":True},{"assets":[{"name":"runtime.dll"}]}):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                release.validate_release_record(dict(record,**changed),"v1.1.0","1.1.0","only source")
+
     def test_publication_api_error_only_exposes_safe_categories(self):
         secret = "synthetic-private-value"
         for message, expected in (("Resource not accessible by integration", "integration"),
