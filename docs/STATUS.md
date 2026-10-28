@@ -18,13 +18,14 @@
 | 测试数量 | 25 个 CTest（分层见[测试方法](testing-method.md)） |
 | Windows MinGW Release/Debug | 25/25 通过（本机实测） |
 | Windows MSVC（CI） | 构建、测试、QML lint 通过 |
-| macOS（CI） | 构建通过；测试见下「已知问题」 |
+| macOS（CI，`macos-15`） | 构建、测试、QML lint 通过 |
 | QML lint | `daymark_qmllint`、`daymark_style_qmllint` 通过 |
+
+CI 双平台全绿：[run 40675789819](https://github.com/downdone/daymark/actions/runs/40675789819)（2026-10-28）。
 
 ## 已知问题
 
-- macOS CI 的 CTest 仍有失败项。CI 会把失败测试名以 workflow 注解公开（`scripts/report-ctest-failures.py`），修复后更新本页。
-- macOS 物理输入、读屏、通知、穿透、多屏/睡眠、干净机部署与签名未验收。
+- 平台专属门禁仍未验收：macOS 物理输入、读屏、通知、穿透、多屏/睡眠、干净机部署与签名。CI 通过不等于这些门禁通过。
 
 ## 报告规则
 
