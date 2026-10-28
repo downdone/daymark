@@ -1435,11 +1435,16 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             if(phase<437)return;
             // Occluded native windows may not receive frames to finish ListView
             // incubation. Complete the synthetic view before reporting/teardown.
+            // Bound the retries: each pass only incubates for 5ms, so a platform that
+            // keeps queuing delegates (macOS here) would otherwise spin until the stall
+            // guard fires and the whole run is reported as timed out at phase 437.
+            static int incubationPasses=0;
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
                 controller->incubateFor(5);
-                // Let creation-triggered queued bindings settle before checking again.
-                --phase;return;
+                if(++incubationPasses<150){--phase;return;}
+                qCritical()<<"Incubation still pending after"<<incubationPasses<<"passes:"<<controller->incubatingObjectCount();
             }
+            incubationPasses=0;
             int visibleWindows = 0;
             for (auto* window : QGuiApplication::allWindows()) {
                 if (qobject_cast<QQuickWindow*>(window) && window->isVisible()
