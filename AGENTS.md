@@ -52,6 +52,6 @@
 - 未经用户授权执行账号登录、Git 推送、上传用户数据、商业软件数据抓取。
 - 假定 macOS WidgetKit 与 QML Window 是同一个系统机制。
 
-## 当前第一阶段
+## 当前阶段
 
-先按 `START_CODEX_PROMPT.md` 执行 M0 及可用工程基础，不提前做云同步/AI/移动端。
+按 `docs/milestones.md` 的执行队列推进；当前状态见 `docs/STATUS.md`。不提前做云同步/AI/移动端（同步服务仅有设计，见 ADR-026）。
