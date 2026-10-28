@@ -29,11 +29,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4
+      # Official open-source Qt builds (LGPLv3) from the Qt download server.
+      # The aqt version is pinned so the CI install path stays reproducible; the
+      # `opensource` user flag (aqt default) selects the community archives rather
+      # than any commercially licensed package.
+      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
         with:
           version: '6.10.2'
           arch: ${{ matrix.arch }}
           cache: true
+          aqtversion: '==3.3.0'
+      - name: Record Qt licence basis
+        shell: bash
+        run: |
+          echo "Qt kit: ${{ matrix.arch }} 6.10.2 (open-source/LGPLv3 archives via aqtinstall)"
+          echo "Qt install root: ${QT_ROOT_DIR:-$Qt6_DIR}"
+          ls "${QT_ROOT_DIR:-$Qt6_DIR}/LICENSES" 2>/dev/null | head -20 || true
       - name: Configure
         run: cmake -S . -B build/ci -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build

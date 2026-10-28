@@ -6,4 +6,4 @@
 
 manifest.json 记录逐文件 SHA256，ZIP 随附 .sha256 校验文件；校验和不能代替可信签名。完整使用指南和开发校验器保留在源码仓库，未复制进运行包。
 
-第三方及运行库边界见 THIRD-PARTY-NOTICES.md 和 qt-sbom。当前包仅供本地使用；公开再分发许可、签名、独立干净机和 macOS 尚未核实。
+第三方及运行库边界见 THIRD-PARTY-NOTICES.md 和 qt-sbom。当前包仅供本地验证；签名、独立干净机验收和 macOS 尚未核实。

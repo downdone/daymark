@@ -8,7 +8,7 @@ Windows/macOS离线任务管理与日历应用，C++20 + **Qt 6.10.2 / Qt Quick*
 
 当前源码版本为 **1.1.0**；版本提交与远端标签/发布分别记录，不覆盖已有版本。本轮不附Qt运行库或用户数据。[1.1.0发行说明](docs/release-notes-v1.1.0.md)列出变化和边界，[测试方法](docs/testing-method.md)说明分层、去重及链路覆盖；实际PASS/FAIL/UNVERIFIED只见[进度](docs/PROGRESS.md)。
 
-Windows/macOS是工程目标，当前源码的跨平台CI及物理输入、通知/穿透、多屏/睡眠/8h、独立部署和签名仍需分别验收，不能以1.0版本号或历史测试代替。Qt运行库公开再分发许可未确认，因此Windows便携包暂不公开上传；[RC2记录](docs/release-notes-v1-rc2.md)及[v0.1记录](docs/release-notes-v0.1.md)保留历史。
+Windows/macOS是工程目标，当前源码的跨平台CI及物理输入、通知/穿透、多屏/睡眠/8h、独立部署和签名仍需分别验收，不能以1.0版本号或历史测试代替。Qt 按 LGPLv3 动态链接使用（[ADR-027](docs/ADR/027-open-source-qt-ci.md)），公开分发的二进制须由开源 Kit 构建；[RC2记录](docs/release-notes-v1-rc2.md)及[v0.1记录](docs/release-notes-v0.1.md)保留历史。
 
 UI-07统一了主窗、详情、管理弹窗、日历与桌面组件的字体、间距、图标、控件和动作层级。规范见[视觉统一](docs/design/visual-unification.md)，本地预览包与实际验证见[进度](docs/PROGRESS.md)。
 
@@ -18,7 +18,7 @@ UI-07统一了主窗、详情、管理弹窗、日历与桌面组件的字体、
 2. 按 [环境与构建](docs/environment.md) 设置DAYMARK_QT及Windows的DAYMARK_MINGW。
 3. Windows运行 `./scripts/build-windows.ps1`、`./scripts/test-windows.ps1`、`./scripts/run-windows.ps1`。
 4. macOS运行 `bash scripts/build-macos.sh`；已验证范围和本机工具环境见[环境与构建](docs/environment.md)。
-5. Windows Release构建测试后，`./scripts/package-windows.ps1`生成带运行库的本地验证包并在不含SDK的PATH下验证。公开再分发许可见[第三方说明](docs/third-party-notices.md)。
+5. Windows Release构建测试后，`./scripts/package-windows.ps1`生成带运行库的本地验证包并在不含SDK的PATH下验证。Qt 许可与再分发条件见[第三方说明](docs/third-party-notices.md)。
 
 ## 项目资料
 

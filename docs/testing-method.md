@@ -102,7 +102,7 @@ ctest --preset macos-release -L '^ui$'
 ctest --preset macos-release # 发布完整
 ```
 
-真实Windows包：PowerShell 7运行`scripts/Test-Package.ps1`；真实macOS签名/公证与平台矩阵另验。此轮仅发源码，未满足再分发许可的Qt运行库不上传。
+真实Windows包：PowerShell 7运行`scripts/Test-Package.ps1`；真实macOS签名/公证与平台矩阵另验。Qt 许可与再分发条件见[第三方说明](third-party-notices.md)与[ADR-027](ADR/027-open-source-qt-ci.md)。
 
 ## 以后增加测试的准则
 

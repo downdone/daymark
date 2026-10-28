@@ -10,4 +10,4 @@ UI保留显式保存与草稿保护（ADR-009）；UI/UX基准继续作为目标
 
 预备CI使用actions/checkout v4（MIT）与install-qt-action v4（MIT），均固定到已核对的提交；只用于安装指定Qt和双平台构建。可替代方案为用户自备Qt运行已有原生脚本。依据：[安装Action](https://github.com/jurplel/install-qt-action)、[Qt 6.10部署文档](https://doc.qt.io/qt-6.10/deployment.html)。当前未推送、未运行CI，不标远程平台PASS。
 
-本机Qt工具仍输出许可服务版本诊断；不绕过许可检查，不修改系统许可配置。本地包可供当前机器验证，公开再分发前必须单独确认Qt运行库许可及第三方声明；本轮不宣称商业SDK的再分发授权已核实。
+本地包可供当前机器验证；公开再分发前须单独确认 Qt 运行库许可及第三方声明。该待办已由 [ADR-027](027-open-source-qt-ci.md) 落实为「CI 与发布二进制使用开源 Qt（LGPLv3）」。

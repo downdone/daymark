@@ -1,18 +1,35 @@
-# 第三方组件与本地包说明
+# 第三方组件与许可说明
 
-Daymark v0.1及1.0.0-rc.1运行时使用Qt 6.10.2：Core、Gui、Qml、Quick、QuickControls2、Widgets、Sql、Network及其QML运行模块。SQLite由Qt的QSQLITE插件提供，未引入云SDK、遥测或额外业务依赖。MinGW运行时为libgcc、libstdc++、winpthread，随本地Windows包复制所需DLL。
+## 运行时组件
 
-图标由本项目QPainter/QML绘制或使用系统字体中的基础字符，字体由操作系统提供；未复制Things、Apple字体或SF Symbols资源。
+Daymark 使用 Qt 6.10.2：Core、Gui、Qml、Quick、QuickControls2、Widgets、Sql、Network 及其 QML 运行模块。SQLite 由 Qt 的 QSQLITE 插件提供，未引入云 SDK、遥测或额外业务依赖。Windows 包另含 MinGW 运行时 libgcc、libstdc++、winpthread。
 
-本轮按照用户“先交付本地版本”生成本机验证包。构建机Qt安装含商业许可协议，工具存在许可服务版本诊断；未修改许可配置或绕过检查。**公开再分发许可尚未核实，本地包不代表已获公开分发授权。** 源码没有附带Qt SDK。包内附本机Qt SBOM便于后续逐项核对，SBOM存在不代表许可审查已完成。
+图标由本项目 QPainter/QML 绘制，或使用操作系统提供的字体字符；未复制 Things、Apple 字体或 SF Symbols 资源。UX-41 的 daymark 字标由本项目以 QML 矢量路径独立绘制，不捆绑外部字体资源。
 
-Qt支持多种许可选项，具体模块及再分发条件必须按实际选择的许可确认，参考[Qt许可说明](https://doc.qt.io/qt-6/licensing.html)、[Qt 6.10部署](https://doc.qt.io/qt-6.10/deployment.html)。本项目尚未替用户指定源码开放许可。
+## Qt 许可
 
-预备CI中的actions/checkout和install-qt-action为MIT许可，仅用于构建；具体提交与采用理由见ADR-011。CI本轮未推送运行。
+本项目按 **LGPLv3 动态链接**使用 Qt：不修改 Qt 源码、不静态链接 Qt 库，用户可替换 Qt 共享库。公开分发二进制时须随包提供 LGPLv3 文本、Qt 版权声明及对应 Qt 源码的获取方式。
 
-UI-12增加Daymark原创日历勾选应用标识，SVG/PNG/ICO/ICNS均由仓库脚本与系统Drawing API生成，无下载素材或新增运行时依赖。与项目源码一并维护，不将资产生成视为公开许可已完成。
+许可依据与部署条件见 [Qt 许可说明](https://doc.qt.io/qt-6/licensing.html)、[Qt 6.10 部署](https://doc.qt.io/qt-6.10/deployment.html)。本项目尚未替用户指定源码开放许可。
 
-2026-10-26：用户确认许可仍待核实，1.0.0仅发布源码；未上传含Qt运行库的二进制包，不因版本升级或公开源码作出新的许可授权。
+## 构建与 CI
 
+CI 的 `desktop` 作业只从 Qt 官方开源归档安装 Qt 6.10.2（aqtinstall 默认 `opensource` 通道，社区版 LGPLv3/GPLv3），并在构建日志回显 Kit 路径与 `LICENSES` 目录以便审计；决策与后果见 [ADR-027](ADR/027-open-source-qt-ci.md)。发布二进制必须由该开源 Kit 构建。
 
-UX-41的daymark字标由本项目独立绘制为QML矢量路径，不捆绑外部字体或小米字标资源。使用已有Qt 6.10.2的QtQuick.Shapes模块，公开运行库再分发状态不变；品牌参考不构成第三方资产许可。
+构建期 Actions 均为 MIT 许可，仅用于构建与测试，不进入产品运行时：
+
+- `actions/checkout`（MIT）
+- `jurplel/install-qt-action`（MIT）
+- `aqtinstall`（MIT，由上述 Action 调用）
+
+## 本地验证包
+
+本地预览包用于本机验证，不是已签名或已通过再分发审查的正式发行。包内附 Qt SBOM（`qt-sbom/*.spdx.json`）便于逐项核对；SBOM 存在不代表许可审查已完成。校验和不能代替可信签名。
+
+构建包时使用的 SDK 由开发者自行提供，其版本与许可配置不进入仓库；仓库与发布产物不包含 Qt SDK 或工具链。
+
+## 资产
+
+UI-12 增加 Daymark 原创日历勾选应用标识，SVG/PNG/ICO/ICNS 均由仓库脚本与系统 Drawing API 生成，无下载素材或新增运行时依赖。生成流程记录在仓库中，不视为公开许可已完成。
+
+品牌参考不构成第三方资产许可；Things 仅作交互原则参考，未复制其图标、字体或二进制资源。

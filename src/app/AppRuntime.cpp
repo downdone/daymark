@@ -123,11 +123,20 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto ux39=std::make_shared<Ux39SmokeProbe>(m_workspace,mainWindow,screenshotPath);
         auto smokePhase=std::make_shared<int>(0);
         auto smokeCompleted=std::make_shared<bool>(false);
+        // Progress stamp for the stall guard. A loaded or software-rendered runner
+        // legitimately spends far longer than 45s on 437 phases, so the guard must
+        // bound the time without *progress*, not the total run time.
+        auto smokeProgress=std::make_shared<std::atomic<qint64>>(-1);
+        auto smokeProgressPhase=std::make_shared<int>(-1);
         auto inputClock=std::make_shared<QElapsedTimer>();
         inputClock->start();
         probe->setInterval(60);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,ux34,ux35,ux37,ux38,ux39,smokeProfile,smokePhase,smokeCompleted,inputClock,soakSeconds,soakReport,phase=smokeProfile.isEmpty()?0:436,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragPosition=QPointF(),inlineColumns=QVariantMap(),quickOriginalTask=QVariantMap(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<std::atomic<bool>>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1),wheelFrames=std::make_shared<std::atomic<int>>(0),wheelConnection=std::make_shared<QMetaObject::Connection>()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,ux34,ux35,ux37,ux38,ux39,smokeProfile,smokePhase,smokeCompleted,smokeProgress,smokeProgressPhase,inputClock,soakSeconds,soakReport,phase=smokeProfile.isEmpty()?0:436,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragPosition=QPointF(),inlineColumns=QVariantMap(),quickOriginalTask=QVariantMap(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<std::atomic<bool>>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1),wheelFrames=std::make_shared<std::atomic<int>>(0),wheelConnection=std::make_shared<QMetaObject::Connection>()]() mutable {
             *smokePhase=phase;m_verificationPhase=phase;
+            // A tick that keeps waiting on the same phase (busy worker, injected stall,
+            // or a scene that never settles) is *no* progress: only a phase change
+            // restamps the stall guard.
+            if(phase!=*smokeProgressPhase){*smokeProgressPhase=phase;*smokeProgress=inputClock->elapsed();}
             bool stallConfigured=false;const int stall=qEnvironmentVariableIntValue("DAYMARK_SMOKE_STALL_PHASE",&stallConfigured);if(stallConfigured && phase==stall)return;
             if(m_workspace.busy())return;
             if(phase==100 || phase==106 || phase==241 || phase==405 || phase==429){
@@ -223,7 +232,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 if(phase==22)m_workspace.setTextScale(2.0);
                 if(phase==24){m_workspace.setTextScale(1.0);m_workspace.setThemeMode(1);}
                 if(!QMetaObject::invokeMethod(mainWindow,"showVerificationPage",Q_ARG(QVariant,QVariant(pages[phase-12])),Q_ARG(QVariant,QVariant(taskId)))){fail("feature pages");return;}
-            } else if(phase>=202) {
+            } else if(phase>=202 && phase<=271) {
                 auto* quick=mainWindow->findChild<QObject*>(QStringLiteral("taskQuickEditor"));
                 auto* reminder=mainWindow->findChild<QObject*>(QStringLiteral("editorReminder"));
                 auto* guard=mainWindow->findChild<QObject*>(QStringLiteral("unsavedChangesDialog"));
@@ -495,7 +504,10 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
 
                 } else if(phase==271) {
                     if(find("sidebarPlanning")){fail("retired planning group remains in sidebar");return;}QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("recurrence"))));
-                } else if(phase>=272 && phase<=308) {
+                }
+                if(phase>=272 && phase<=308) {
+                    // Window 272..308: own chain block keeps MSVC nesting under its limit.
+                    // Phases 307/308 keep their original (skipped) siblings below.
                     auto verifyPage=[&]{mainWindow->grabWindow();QVariant result;const bool called=QMetaObject::invokeMethod(mainWindow,"verifyWorkspacePage",Q_RETURN_ARG(QVariant,result));if(!called || result.toString()!=QStringLiteral("PASS")){qCritical()<<"Workspace page:"<<result;capture(QStringLiteral("workspace-page-failure"));}return called && result.toString()==QStringLiteral("PASS");};
                     auto openPage=[&](const QString& name){QMetaObject::invokeMethod(mainWindow,"openTool",Q_ARG(QVariant,QVariant(name)));};
                     auto* ruleGuard=find("unsavedChangesDialog");
@@ -982,7 +994,18 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                         if(!capture(QStringLiteral("scroll-short-notes-focus"))){fail("short notes focus capture");return;}
                     } else {
                         QObject::disconnect(*wheelConnection);
-                        if(flick->property("contentY").toDouble()<=1){qCritical()<<"Wheel geometry"<<flick->property("contentY")<<flick->property("contentHeight")<<flick->property("height")<<qobject_cast<QQuickItem*>(notes)->mapToScene(QPointF(0,0))<<mainWindow->activeFocusItem()<<mainWindow->property("editorManualScroll");fail("notes wheel must scroll outer body");return;}
+                        // Wheel motion is animated by the Flickable's own physics, so the
+                        // offset advances over subsequent frames rather than inside the
+                        // callback that delivered the event. Wait for the scene to settle
+                        // instead of sampling once - the single-sample version failed
+                        // intermittently on software-rendered (offscreen) runs.
+                        if(flick->property("contentY").toDouble()<=1) {
+                            static QElapsedTimer wheelSettle;
+                            if(!wheelSettle.isValid())wheelSettle.start();
+                            mainWindow->requestUpdate();
+                            if(wheelSettle.elapsed()<2000)return;
+                            qCritical()<<"Wheel geometry"<<flick->property("contentY")<<flick->property("contentHeight")<<flick->property("height")<<qobject_cast<QQuickItem*>(notes)->mapToScene(QPointF(0,0))<<mainWindow->activeFocusItem()<<mainWindow->property("editorManualScroll");fail("notes wheel must scroll outer body");return;
+                        }
                         QMetaObject::invokeMethod(target,"forceActiveFocus");
                         if(target->property("wheelEnabled").toBool() || target->property("currentIndex").toInt()!=0){fail("combo wheel policy");return;}
                     }
@@ -1440,9 +1463,22 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             probe->stop();
         });
         probe->start();
-        // Capturing every surface adds synchronous GPU readbacks; keep the
-        // ordinary/package probe at 45s and give screenshot runs a bounded 120s.
-        QTimer::singleShot(screenshotPath.isEmpty() ? 45000 : 120000,&m_engine,[smokePhase,smokeCompleted]{if(*smokeCompleted)return;qCritical()<<"UI smoke timeout at phase"<<*smokePhase;QCoreApplication::exit(3);});
+        // The 45s guard bounds a *stall*, not the total run: capturing every surface
+        // adds synchronous readbacks, and loaded/software-rendered CI runners need
+        // well over 45s for all 437 phases. Screenshot runs keep their larger budget.
+        const qint64 stallBudget=screenshotPath.isEmpty() ? 45000 : 120000;
+        auto* guard=new QTimer(&m_engine);
+        guard->setInterval(250);
+        QObject::connect(guard,&QTimer::timeout,&m_engine,[smokePhase,smokeCompleted,smokeProgress,inputClock,stallBudget]{
+            if(*smokeCompleted)return;
+            // start() may not have ticked yet; measure from the clock start then.
+            const qint64 last=*smokeProgress;
+            const qint64 stalled=last<0 ? inputClock->elapsed() : inputClock->elapsed()-last;
+            if(stalled<stallBudget)return;
+            qCritical()<<"UI smoke timeout at phase"<<*smokePhase;
+            QCoreApplication::exit(3);
+        });
+        guard->start();
     }
     return true;
 }
