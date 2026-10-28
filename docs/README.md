@@ -1,5 +1,7 @@
 # 文档导航
 
+[UX-58空间稳定与滚动槽](design/stable-layout-and-scroll.md)将按钮锚点、共享宽度、内容预算和独立滚动槽落实到详情、日历及小窗/Mini；通用规则纳入[原则P-15～17](principles.md)，实际证据见PROGRESS。
+
 [UX-57详情尺寸](design/inspector-size-control.md)修复窄窗/大字强制展开覆盖收起动作，定义同草稿切换及居中可读内容列；实际构建/打包与平台验证见PROGRESS。
 
 [UX-56两栏设置](design/settings-split-navigation.md)以稳定一级侧栏和右侧分组内容替代设置目录/返回，保留即时保存、键盘及各分类滚动。包的本地预览与正式门禁区分见[ADR-024](ADR/024-local-preview-package.md)；实际结果见PROGRESS。

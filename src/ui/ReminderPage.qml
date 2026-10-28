@@ -32,7 +32,7 @@ Page {
             delegate: ItemDelegate {
                 id: record
                 required property var modelData
-                width: reminders.width
+                width: reminders.width-Theme.scrollGutter
                 onClicked: {const id=modelData.taskId || modelData.eventId;if(root.workspace.task(id).taskId)root.openTask(id);else{root.unavailableTitle=modelData.title;root.unavailableTime=root.workspace.localReminder(modelData.firedAt);recordDetails.open()}}
                 Accessible.name: modelData.title
                 contentItem: ColumnLayout {

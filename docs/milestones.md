@@ -1,5 +1,7 @@
 # 里程碑与可执行任务队列
 
+UX-58按[稳定空间契约](design/stable-layout-and-scroll.md)定义P-15～17，再迁移详情/同类滚动表面、循环控件、日历工具栏和组件几何，验证坐标关系、浅深/大字及真实构建。当前状态只维护于PROGRESS。
+
 UX-57按[详情尺寸控制](design/inspector-size-control.md)先修复强制展开、收紧内容关系，再验证同会话/键盘/缩放及打本地便携包；平台状态和测试证据只维护于PROGRESS。
 
 UX-56按[两栏设置](design/settings-split-navigation.md)实施侧栏/正文与键盘/滚动，再验证截图、完整测试、本地便携和源码推送；[ADR-024](ADR/024-local-preview-package.md)仅界定本地预览边界，正式门禁不变。当前状态只维护于PROGRESS。

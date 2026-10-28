@@ -15,9 +15,10 @@ Dialog {
     closePolicy: Popup.NoAutoClose
     Shortcut {sequence: "Escape";enabled: root.visible && !root.workspace.busy && !replaceFirst.visible && !replaceSecond.visible;onActivated: root.close()}
     contentItem: ScrollView {
+        id:toolsScroll
         clip: true
     ColumnLayout {
-        width: root.availableWidth-12
+        width: toolsScroll.availableWidth
         spacing: Theme.fieldGap
         enabled: !root.workspace.busy
         FormGroup {

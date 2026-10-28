@@ -76,4 +76,5 @@ QtObject {
     readonly property int sectionPadding: compact ? 4 : 8
     readonly property int pagePadding: compact ? 12 : 16
     readonly property int panelPadding: compact ? 12 : 16
+    readonly property int scrollGutter: 18
 }

@@ -56,12 +56,12 @@ ColumnLayout {
         hadSchedule=!!task.schedule;allDay.checked=s.allDay===undefined ? false : !s.allDay
         startTime.text=s.startTime || "09:00";endTime.text=s.endTime || "10:00";zone.text=s.zone || workspace.systemTimeZone();alertMinutes=s.alertMinutes===undefined ? -1 : s.alertMinutes
         hadRepeat=!!r.active;repeating.checked=hadRepeat;frequency.currentIndex=Math.max(0,frequencies.indexOf(r.frequency || "DAILY"));interval.value=r.interval || 1;until.text=r.end || "";repeatVersion=r.rowVersion || 1;weekdayMask=r.weekdays || 0;monthDay=r.monthDay || 1;yearMonth=r.yearMonth || 1
-        future.checked=false;repeatExpanded=false;zoneExpanded.checked=false;loading=false;timeDirty=false;repeatDirty=false
+        repeatExpanded=false;zoneExpanded.checked=false;loading=false;timeDirty=false;repeatDirty=false
     }
     function detailsPatch() {
         const patch={}
         if(timeDirty || (datesEdited && hadSchedule))patch.schedule=hasSpecificTime ? {allDay:false,startDate:startDateValue,endDate:endDateValue,startTime:startTime.text,endTime:endTime.text,zone:zone.text,alertMinutes:alertMinutes} : null
-        if(repeatDirty || future.checked){if(hadRepeat)patch.repeatVersion=repeatVersion;patch.repeat=repeating.checked ? {frequency:frequencies[frequency.currentIndex],interval:interval.value,end:until.text,rowVersion:repeatVersion,weekdays:weekdayMask,monthDay:monthDay,yearMonth:yearMonth} : null}
+        if(repeatDirty){if(hadRepeat)patch.repeatVersion=repeatVersion;patch.repeat=repeating.checked ? {frequency:frequencies[frequency.currentIndex],interval:interval.value,end:until.text,rowVersion:repeatVersion,weekdays:weekdayMask,monthDay:monthDay,yearMonth:yearMonth} : null}
         return patch
     }
     spacing: Theme.fieldGap
@@ -171,8 +171,7 @@ ColumnLayout {
             DateField {id: until;parent:root.compactPresentation ? repeatEndHost : repeatControls;objectName: root.objectPrefix+"RepeatUntil";inlineMode:root.inlinePickers && !root.compactPresentation;onInlinePickerRequested:root.pickerRequested(until,"date");Layout.fillWidth: true;workspace: root.workspace;dateLabel: qsTr("结束重复");placeholderText: qsTr("永不");onTextEdited: root.changed(false);onDateChosen: root.changed(false)}
             Label {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary;text:root.workspace.recurrencePreview({anchor:root.startDateValue || root.workspace.dateOffset(0),frequency:root.frequencies[frequency.currentIndex],interval:interval.value,weekdays:root.weekdayMask,end:until.text})}
         }
-        SettingSwitch {id: future;objectName: root.objectPrefix+"RepeatFuture";visible: root.hadRepeat && repeating.checked;Layout.fillWidth: true;symbol: "reload";text: qsTr("后续任务沿用本次属性");onClicked: root.draftChanged()}
-        Label {visible: root.hadRepeat && repeating.checked && (root.repeatDirty || future.checked);Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("将更新后续未修改任务；历史和单独编辑项保留。")}
+        Label {visible: root.hadRepeat && repeating.checked && root.repeatDirty;Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color:Theme.secondary;text:qsTr("将更新后续未修改任务；历史和单独编辑项保留。")}
     }
     Item {
     visible:false
@@ -191,8 +190,8 @@ ColumnLayout {
         contentItem:ColumnLayout {
             spacing:12
             Label {text:qsTr("自定义重复");font.weight:Font.DemiBold;Layout.fillWidth:true}
-            ScrollView {Layout.fillWidth:true;Layout.fillHeight:true;implicitHeight:repeatControls.implicitHeight;clip:true
-                ColumnLayout {id:repeatPopupBody;width:repeatOptions.availableWidth;spacing:Theme.fieldGap}
+            ScrollView {id:repeatScroll;Layout.fillWidth:true;Layout.fillHeight:true;implicitHeight:repeatControls.implicitHeight;clip:true
+                ColumnLayout {id:repeatPopupBody;width:repeatScroll.availableWidth;spacing:Theme.fieldGap}
             }
             RowLayout {Layout.fillWidth:true;Item {Layout.fillWidth:true} Button {objectName:root.objectPrefix+"CancelRepeatOptions";text:qsTr("取消");onClicked:root.finishRepeatOptions(false)} Button {objectName:root.objectPrefix+"ApplyRepeatOptions";text:qsTr("完成");highlighted:true;onClicked:root.finishRepeatOptions(true)}}
         }

@@ -24,11 +24,12 @@ Dialog {
     onOpened: {action.currentIndex=initialAction;date.clear();tags=[];project.currentIndex=0}
     Shortcut {sequence: "Escape";enabled: root.visible && !root.workspace.busy && !date.pickerVisible && !action.popup.visible && !project.popup.visible;onActivated: root.close()}
     contentItem: ScrollView {
+        id:batchScroll
         implicitHeight: batchFields.implicitHeight
         clip: true
         ColumnLayout {
             id: batchFields
-            width: root.availableWidth-12
+            width: batchScroll.availableWidth
             spacing: Theme.fieldGap
             Label {objectName:"batchImpactSummary";Layout.fillWidth: true;wrapMode: Text.Wrap;text:root.restoring ? qsTr("恢复所选任务及同次删除的关联子任务，共 %1 项。单独删除的其他任务保留；任何冲突或失败，整批保持原状。").arg(root.affectedCount) : root.deleting ? qsTr("将 %1 项选中任务及关联子任务，共 %2 项移到最近删除。可撤销本次删除；其他任务保留。").arg(root.selection.length).arg(root.affectedCount) : qsTr("已选 %1 项，连同关联子任务实际影响 %2 项。一次提交；任何冲突或验证失败，整批保留原值。").arg(root.selection.length).arg(root.affectedCount)}
             FormGroup {

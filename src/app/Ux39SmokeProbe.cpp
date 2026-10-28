@@ -67,7 +67,20 @@ QString Ux39SmokeProbe::advance() {
     auto dayClick=[&](int minute,bool twice){auto* day=item("calendarTimelineDay-2026-10-26");if(!day)return false;const QPointF at=day->mapToScene(QPointF(day->width()*0.6,minute*0.8));QList<QEvent::Type> types={QEvent::MouseMove,QEvent::MouseButtonPress,QEvent::MouseButtonRelease};if(twice)types.append({QEvent::MouseButtonPress,QEvent::MouseButtonDblClick,QEvent::MouseButtonRelease});for(const auto type:types){QMouseEvent event(type,at,m_window->mapToGlobal(at),type==QEvent::MouseMove?Qt::NoButton:Qt::LeftButton,type==QEvent::MouseButtonRelease?Qt::NoButton:Qt::LeftButton,Qt::NoModifier);event.setTimestamp(m_clock.elapsed()+m_sequence++);QCoreApplication::sendEvent(m_window,&event);}return true;};
     if(m_stage==0){m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_window->resize(1280,800);m_window->show();m_window->requestActivate();m_workspace.setView("all");m_workspace.createForTime(QStringLiteral("日历操作验收"),"2026-10-26",540);}
     else if(m_stage==1){m_task=m_workspace.tasks()->items().first().id;m_before=m_workspace.task(m_task);m_workspace.selectCalendarDate("2026-10-26");m_workspace.setView("month");}
-    else if(m_stage==2){m_window->grabWindow();auto* marker=item("calendarTaskMark-"+m_task);if(!marker || !find(m_window,"calendarMonthGrid")->property("layoutReady").toBool() || marker->mapToScene(QPointF()).y()<0 || marker->mapToScene(QPointF()).y()>m_window->height()){if(m_wait.elapsed()<1800)return {};return fail("month marker not in settled viewport");}click(marker);}
+    else if(m_stage==2){
+        m_window->grabWindow();
+        if(m_toolbarPhase<5){
+            if(m_wait.elapsed()<120)return {};
+            auto* picker=item("calendarScalePicker");if(!picker)return fail("scale picker missing");
+            const QRectF rect(picker->mapToScene(QPointF()),picker->size());
+            if(m_toolbarPhase==0)m_toolbarRect=rect;
+            if(qAbs(rect.x()-m_toolbarRect.x())>1 || qAbs(rect.y()-m_toolbarRect.y())>1 || qAbs(rect.width()-m_toolbarRect.width())>1 || qAbs(rect.height()-m_toolbarRect.height())>1)return fail("day/week/month/year picker moves with content");
+            if(!capture(QStringLiteral("stable-toolbar-%1").arg(m_toolbarPhase)))return fail("toolbar capture");
+            if(m_toolbarPhase<4){const int next[]={0,1,3,2};click(item(QStringLiteral("calendarScalePicker-segment-%1").arg(next[m_toolbarPhase])));if(m_toolbarPhase==3)m_workspace.selectCalendarDate("2026-10-26");}
+            ++m_toolbarPhase;m_wait.restart();return {};
+        }
+        auto* marker=item("calendarTaskMark-"+m_task);if(!marker || !find(m_window,"calendarMonthGrid")->property("layoutReady").toBool() || marker->mapToScene(QPointF()).y()<0 || marker->mapToScene(QPointF()).y()>m_window->height()){if(m_wait.elapsed()<1800)return {};return fail("month marker not in settled viewport");}click(marker);
+    }
     else if(m_stage==3){if(panel->property("selectedTaskId")!=m_task || editor->property("visible").toBool() || m_workspace.task(m_task)!=m_before || !capture("month-selected")){qCritical()<<"Month select"<<panel->property("selectedTaskId")<<m_task<<editor->property("visible")<<(m_workspace.task(m_task)==m_before);return fail("single click selects without editing or writes");}click(item("calendarTaskMark-"+m_task),true);}
     else if(m_stage==4){if(!editor->property("visible").toBool() || m_window->property("editId")!=m_task)return fail("double click edits same identity");auto* notes=item("editTaskNotes");notes->forceActiveFocus();key(m_window,Qt::Key_Delete);if(m_workspace.task(m_task).value("taskStatus")!="OPEN")return fail("typing Delete deleted task");invoke(m_window,"returnFromDetails");}
     else if(m_stage==5){focus();key(m_window,Qt::Key_1,Qt::ControlModifier);}

@@ -79,7 +79,7 @@ private slots:
         QTemporaryDir dir;QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;
         window.setGeometry(80,100,360,240);model.configureSettings(dir.filePath("ui.ini"));QVERIFY(model.attachWindow(&window));
         const auto geometry=window.geometry();QVERIFY(model.setDesktopPinned(true));QVERIFY(model.desktopPinned());QVERIFY(!model.alwaysOnTop());QCOMPARE(window.geometry(),geometry);QVERIFY(!model.visible());
-        QVERIFY(model.setMini(true));QVERIFY(model.desktopPinned());QCOMPARE(window.size(),QSize(260,48));QVERIFY(model.setMini(false));QCOMPARE(window.geometry(),geometry);
+        QVERIFY(model.setMini(true));QVERIFY(model.desktopPinned());QCOMPARE(window.size(),QSize(geometry.width(),48));QVERIFY(model.setMini(false));QCOMPARE(window.geometry(),geometry);
         model.setTrayAvailable(true);QVERIFY(model.setClickThrough(true));QVERIFY(model.desktopPinned());QVERIFY(model.setClickThrough(false));
         QVERIFY(model.setVisible(true));QCoreApplication::processEvents();
         if(QGuiApplication::platformName()=="offscreen")QVERIFY(!nativeWindowLayerMatches(&window,WindowLayer::Desktop));
@@ -128,7 +128,7 @@ private slots:
         QVERIFY(!model.visible());
         QVERIFY(model.alwaysOnTop());
         QVERIFY(model.setMini(true));
-        QCOMPARE(window.size(), QSize(260, 48));
+        QCOMPARE(window.size(), QSize(400, 48));
         QCOMPARE(window.position(), QPoint(80, 100));
         QVERIFY(!model.visible());
         QVERIFY(model.setAlwaysOnTop(false));
@@ -156,9 +156,10 @@ private slots:
         QVERIFY(model.setMini(true));
         QVERIFY(model.visible());
         QVERIFY(model.setAlwaysOnTop(true));
-        QCOMPARE(window.size(), QSize(260, 48));
+        QCOMPARE(window.size(), QSize(340, 48));
+        window.resize(420,48);
         QVERIFY(model.setMini(false));
-        QCOMPARE(window.size(), QSize(340, 190));
+        QCOMPARE(window.size(), QSize(420, 190));
         QVERIFY(window.close());
         QVERIFY(!model.visible());
         QVERIFY(!changes.isEmpty());
@@ -187,7 +188,7 @@ private slots:
         platform.rejectResize = true;
         QVERIFY(!model.setMini(false));
         QVERIFY(model.mini());
-        QCOMPARE(window.size(), QSize(260, 48));
+        QCOMPARE(window.size(), QSize(340, 48));
         platform.rejectResize = false;
         QVERIFY(model.setMini(false));
         QCOMPARE(window.size(), QSize(340, 190));

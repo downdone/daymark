@@ -141,7 +141,7 @@ ColumnLayout {
             TextField {Layout.fillWidth:true;placeholderText:qsTr("搜索父任务…");onTextEdited:{parentSearch.text=text;root.refreshParentChoices()}}
             Button {text:qsTr("移出父任务");visible:!!root.parentTaskId;onClicked:{root.parentTaskId="";root.parentTaskTitle="";root.draftChanged();root.parentExpanded=false}}
             ListView {Layout.fillWidth:true;Layout.preferredHeight:Math.min(220,Math.max(40,count*36));clip:true;model:root.parentChoices
-                delegate:ItemDelegate {required property var modelData;width:ListView.view.width;text:modelData.title;onClicked:{const parent=root.workspace.task(modelData.id);root.selectDestination(parent.projectId ? "project" : parent.areaId ? "area" : "",parent.projectId || parent.areaId || "",parent.headingId || "");root.parentTaskId=modelData.id;root.parentTaskTitle=modelData.title;root.detachedParentTitle="";root.draftChanged();root.parentExpanded=false}}
+                delegate:ItemDelegate {required property var modelData;width:ListView.view.width-Theme.scrollGutter;text:modelData.title;onClicked:{const parent=root.workspace.task(modelData.id);root.selectDestination(parent.projectId ? "project" : parent.areaId ? "area" : "",parent.projectId || parent.areaId || "",parent.headingId || "");root.parentTaskId=modelData.id;root.parentTaskTitle=modelData.title;root.detachedParentTitle="";root.draftChanged();root.parentExpanded=false}}
                 ScrollBar.vertical:ScrollBar{}
             }
             Button {text:qsTr("收起");onClicked:root.parentExpanded=false}
@@ -156,7 +156,7 @@ ColumnLayout {
                 Button {text: qsTr("无父任务");onClicked: {root.parentTaskId="";root.parentTaskTitle="";root.draftChanged();parentPicker.close()}}
                 ListView {
                     Layout.fillWidth: true;Layout.fillHeight: true;clip: true;model: root.parentChoices
-                    delegate: ItemDelegate {required property var modelData;width: ListView.view.width;text: modelData.title;highlighted: root.parentTaskId===modelData.id;onClicked: {root.parentTaskId=modelData.id;root.parentTaskTitle=modelData.title;const parent=root.workspace.task(modelData.id);root.selectDestination(parent.projectId ? "project" : parent.areaId ? "area" : "",parent.projectId || parent.areaId || "",parent.headingId || "");root.draftChanged();parentPicker.close()}}
+                    delegate: ItemDelegate {required property var modelData;width: ListView.view.width-Theme.scrollGutter;text: modelData.title;highlighted: root.parentTaskId===modelData.id;onClicked: {root.parentTaskId=modelData.id;root.parentTaskTitle=modelData.title;const parent=root.workspace.task(modelData.id);root.selectDestination(parent.projectId ? "project" : parent.areaId ? "area" : "",parent.projectId || parent.areaId || "",parent.headingId || "");root.draftChanged();parentPicker.close()}}
                 }
             }
         }

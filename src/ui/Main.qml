@@ -988,7 +988,7 @@ ApplicationWindow {
                 focus: true
                 highlightFollowsCurrentItem: !quickEditor.editing && !mainWindow.draggedTaskRow
                 footer:Item {
-                    width:taskList.width
+                    width:taskList.width-Theme.scrollGutter
                     height:mainWindow.newInlineDraft && quickEditor.editing ? quickEditor.implicitHeight+4 : 0
                     visible:height>0
                     Rectangle {anchors.fill:parent;radius:Theme.rowRadius;color:Theme.grouped}
@@ -1036,7 +1036,7 @@ ApplicationWindow {
                     id: taskRow
                     workspace:mainWindow.taskWorkspace
                     required property int index
-                    width: taskList.width
+                    width: taskList.width-Theme.scrollGutter
                     showSeparator: index<taskList.count-1
                     showCategory: !mainWindow.taskWorkspace.scope.startsWith("project:")
                     smartView: mainWindow.taskWorkspace.smartView
@@ -1151,7 +1151,7 @@ ApplicationWindow {
         x: mainWindow.inspectorExpanded ? mainWindow.sidebarWidth+12 : Math.max(mainWindow.sidebarWidth+12,Math.min(mainWindow.width-width-12,editorSession.positionedManually ? editorSession.anchor.x : sourceX))
         y: mainWindow.inspectorExpanded ? 12 : Math.max(12,Math.min(mainWindow.height-height-12,editorSession.positionedManually ? editorSession.anchor.y : sourceY))
         width: mainWindow.inspectorExpanded ? mainWindow.width-mainWindow.sidebarWidth-24 : Math.min(420*Theme.scale,mainWindow.width-mainWindow.sidebarWidth-24)
-        height: mainWindow.inspectorExpanded ? mainWindow.height-24 : Math.min(mainWindow.height-24,Math.max(240,Math.min(520*Theme.scale,mainWindow.editorTab===1 ? subtasks.contentHeight+160 : editorFields.implicitHeight+editorHeader.implicitHeight+(editorTabs.visible ? editorTabs.implicitHeight : 0)+32+(editorError.visible ? editorError.implicitHeight : 0))))
+        height: mainWindow.inspectorExpanded ? mainWindow.height-24 : Math.min(mainWindow.height-24,Math.max(240,inspectorPicker.active ? 520*Theme.scale : mainWindow.editorTab===1 ? subtasks.contentHeight+160 : editorFields.implicitHeight+editorHeader.implicitHeight+(editorTabs.visible ? editorTabs.implicitHeight+8 : 0)+32+(parentTaskBack.visible ? parentTaskBack.implicitHeight+4 : 0)+(editorError.visible ? editorError.implicitHeight+8 : 0)))
         padding: 0
         function open() {visible=true}
         function verifyLeafDetails() {
@@ -1225,6 +1225,7 @@ ApplicationWindow {
             model: [qsTr("详情"),mainWindow.editorIsSubtask ? qsTr("已有下级") : qsTr("子任务")];currentIndex: mainWindow.editorTab;onActivated: function(index){mainWindow.selectEditorTab(index)}
         }
         ActionButton {
+            id:parentTaskBack
             objectName: "returnToParentSubtasks";visible: mainWindow.editorReturnTaskId.length>0 && mainWindow.editorTab===0
             Layout.leftMargin: editor.bodyInset;Layout.rightMargin: editor.bodyInset;Layout.bottomMargin: 4
             symbol: "left";text: qsTr("%1 · 子任务").arg(mainWindow.taskWorkspace.task(mainWindow.editorReturnTaskId).title || qsTr("父任务"));font.pixelSize: Theme.captionSize
@@ -1253,7 +1254,7 @@ ApplicationWindow {
                         readonly property string taskId: modelData.taskId
                         objectName: "subtaskEntry-"+taskId
                         enabled: !mainWindow.taskWorkspace.busy || mainWindow.taskWorkspace.backgroundBusy
-                        width: subtasks.width;implicitHeight: Math.max(40,contentItem.implicitHeight+4)
+                        width: subtasks.width-Theme.scrollGutter;implicitHeight: Math.max(40,contentItem.implicitHeight+4)
                         leftPadding: 0;rightPadding: 0;topPadding: 2;bottomPadding: 2
                         Accessible.name: qsTr("打开子任务详情：%1").arg(modelData.title)
                         onClicked: mainWindow.openSubtask(taskId)
@@ -1278,17 +1279,15 @@ ApplicationWindow {
                     Connections {target: mainWindow;function onEditorRootIdChanged(){subtasks.refresh()}}
                 }
             }
+        Item {
+            id:editorViewport;visible:mainWindow.editorTab===0;Layout.fillWidth:true;Layout.fillHeight:true
+            Layout.leftMargin:editor.bodyInset;Layout.rightMargin:editor.bodyInset;Layout.bottomMargin:12
         Flickable {
             DS.ScrollPhysics {target: editorScroll}
             id: editorScroll
             visible: mainWindow.editorTab===0
-            Layout.fillWidth: true
+            anchors.fill:parent;anchors.rightMargin:Theme.scrollGutter
             objectName: "taskEditorScroll"
-            Layout.leftMargin: editor.bodyInset
-            Layout.rightMargin: editor.bodyInset
-            Layout.preferredWidth: editor.bodyWidth
-            Layout.alignment: Qt.AlignHCenter
-            Layout.fillHeight: true
             contentWidth: width
             contentHeight: editorFields.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
@@ -1300,12 +1299,14 @@ ApplicationWindow {
                 target: null
                 blocking: false
                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                onWheel: function(event) {mainWindow.editorManualScroll=true;editorFocusDelay.stop();event.accepted=false}
+                onWheel: function(event) {if(editorScroll.contentHeight<=editorScroll.height+1){event.accepted=true;return}mainWindow.editorManualScroll=true;editorFocusDelay.stop();event.accepted=false}
             }
             onContentHeightChanged: if(editor.visible)editorFocusDelay.restart()
             ScrollBar.vertical: ScrollBar {
                 objectName: "editorScrollBar"
-                x: editorScroll.width-width
+                parent:editorViewport
+                x: editorViewport.width-width;y:editorScroll.y;height:editorScroll.height
+                opacity:editorScroll.visible ? 1 : 0;enabled:editorScroll.visible
                 policy: ScrollBar.AsNeeded
             }
             ColumnLayout {
@@ -1419,6 +1420,7 @@ ApplicationWindow {
             }
         }
         }
+        }
 
         }
     }
@@ -1430,8 +1432,8 @@ ApplicationWindow {
         background:Rectangle{color:Theme.content;radius:Theme.panelRadius;border.color:Theme.separator}
         contentItem:ColumnLayout {
             RowLayout {Layout.fillWidth:true;WidgetAction{symbol:"left";description:qsTr("返回任务详情");onClicked:taskHistoryDialog.close()} Label{Layout.fillWidth:true;text:qsTr("编辑记录");font.weight:Font.DemiBold}}
-            ScrollView {Layout.fillWidth:true;Layout.fillHeight:true;clip:true
-                ColumnLayout {width:taskHistoryDialog.availableWidth-12;spacing:12
+            ScrollView {id:historyScroll;Layout.fillWidth:true;Layout.fillHeight:true;clip:true
+                ColumnLayout {width:historyScroll.availableWidth;spacing:12
                     Label{text:qsTr("创建于 %1").arg(mainWindow.taskWorkspace.localReminder(extraFields.taskData.createdAtUtc || ""));Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.secondary}
                     Label{visible:mainWindow.taskWorkspace.historyLoading;text:qsTr("正在读取…")}
                     Label{visible:!mainWindow.taskWorkspace.historyLoading && mainWindow.taskWorkspace.taskEditHistory.length===0;text:qsTr("尚无编辑记录")}

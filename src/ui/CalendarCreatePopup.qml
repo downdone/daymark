@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import DaymarkStyle as DS
 
 // A not-yet-persisted draft. Existing task field components own input semantics;
 // TaskService commits every attribute in a single transaction.
@@ -110,12 +111,14 @@ Popup {
         }
         Label {id:createError;visible:!!root.workspace.errorText;Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.workspace.errorText;color:Theme.danger;font.pixelSize:Theme.captionSize}
         TaskInspectorPicker {id:picker;objectPrefix:"calendarCreate";workspace:root.workspace;visible:active;Layout.fillWidth:true;Layout.fillHeight:true}
+        Item {id:createViewport;visible:!picker.active;Layout.fillWidth:true;Layout.fillHeight:true
         Flickable {
             id:scroller
+            DS.ScrollPhysics {target:scroller}
             objectName:"calendarCreateScroll"
-            visible:!picker.active;Layout.fillWidth:true;Layout.fillHeight:true
+            anchors.fill:parent;anchors.rightMargin:Theme.scrollGutter
             contentWidth:width;contentHeight:form.implicitHeight;clip:true;boundsBehavior:Flickable.StopAtBounds
-            ScrollBar.vertical:ScrollBar{}
+            ScrollBar.vertical:ScrollBar{parent:createViewport;x:createViewport.width-width;y:scroller.y;height:scroller.height}
             ColumnLayout {
                 id:form;width:scroller.width;spacing:4;enabled:!root.creating
                 TextField {
@@ -167,5 +170,6 @@ Popup {
                 TaskDetailsFields {id:assignment;objectPrefix:"calendarCreate";objectName:"calendarCreateAssignment";workspace:root.workspace;Layout.fillWidth:true;inspectorMode:true;creationMode:true;onCreateCatalogRequested:function(kind){draftCatalog.showFor(kind)}}
             }
         }
+    }
     }
 }

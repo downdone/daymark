@@ -37,9 +37,10 @@ Popup {
         spacing: 10
         Label {text: root.item.kind==="tag" ? qsTr("编辑标签") : qsTr("编辑分类");font.weight: Font.DemiBold;font.pixelSize: Theme.bodySize}
         ScrollView {
+            id:editScroll
             Layout.fillWidth: true;Layout.fillHeight: true;implicitHeight: fields.implicitHeight;clip: true
             ColumnLayout {
-                id: fields;width: root.availableWidth;spacing: 8;enabled: !root.workspace.busy || root.workspace.backgroundBusy
+                id: fields;width: editScroll.availableWidth;spacing: 8;enabled: !root.workspace.busy || root.workspace.backgroundBusy
                 FormRow {
                     label: qsTr("名称");labelWidth: 64*Theme.scale
                     TextField {id: name;objectName: "catalogEditName";Layout.fillWidth: true;Accessible.name: qsTr("名称");onTextEdited: root.dirty=true;onAccepted: if(save.enabled)save.clicked()}

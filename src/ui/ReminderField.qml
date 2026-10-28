@@ -56,9 +56,10 @@ TextField {
         contentItem: ColumnLayout {
             spacing: 8
             ScrollView {
+                id:reminderScroll
                 Layout.fillWidth: true;Layout.fillHeight: true;implicitHeight: fields.implicitHeight;clip: true
                 ColumnLayout {
-                    id: fields;width: picker.availableWidth;spacing: 8
+                    id: fields;width: reminderScroll.availableWidth;spacing: 8
                     Label {text: qsTr("提醒 · 本地时间");font.weight: Font.DemiBold}
                     Label {visible: field.commitTask;Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("完成后保存此提醒和当前任务修改。")}
                     DateField {id: date;objectName: field.objectPrefix+"reminderPickerDate";Layout.fillWidth: true;workspace: field.workspace;inlineMode:true;dateLabel: qsTr("提醒日期")}

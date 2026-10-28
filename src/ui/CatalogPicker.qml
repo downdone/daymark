@@ -40,7 +40,7 @@ Popup {
             delegate: ItemDelegate {
                 id: option
                 required property var modelData
-                width: choices.width
+                width: choices.width-Theme.scrollGutter
                 text: modelData.path || modelData.title
                 checkable: true
                 checked: root.selectedIds.indexOf(modelData.id)>=0

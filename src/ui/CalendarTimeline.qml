@@ -142,6 +142,7 @@ ColumnLayout {
     RowLayout {
         visible: !root.rangeSelectionMode
         Layout.fillWidth: true
+        Layout.rightMargin: scroll.rightPadding
         Layout.minimumWidth: 0
         spacing: 0
         Label {

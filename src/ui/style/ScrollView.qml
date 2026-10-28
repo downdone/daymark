@@ -8,6 +8,7 @@ T.ScrollView {
     implicitWidth: 240
     implicitHeight: implicitContentHeight+topPadding+bottomPadding
     contentWidth: availableWidth
+    rightPadding: DesignTokens.scrollGutter
     clip: true
     wheelEnabled: physics.overflowing
     property ScrollPhysics scrolling: ScrollPhysics {id: physics;target: control.contentItem as Flickable}

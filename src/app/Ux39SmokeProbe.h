@@ -4,6 +4,7 @@
 #include <QVariantMap>
 #include <QPointF>
 #include <QEvent>
+#include <QRectF>
 class QQuickWindow;
 class QQuickItem;
 namespace daymark {
@@ -23,6 +24,8 @@ private:
     QString m_screenshot,m_task,m_savedView;
     double m_viewMinute=0;
     int m_stage=0;
+    int m_toolbarPhase=0;
+    QRectF m_toolbarRect;
     QElapsedTimer m_wait,m_clock;
     quint64 m_sequence=0;
     QVariantMap m_before;

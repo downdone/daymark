@@ -16,9 +16,10 @@ Dialog {
     standardButtons: Dialog.Cancel
     function showFor(date,which) {field=which;selectedDate=date;month=workspace.datePicker(date,0);open()}
     contentItem: ScrollView {
+        id:dateScroll
         clip: true
         ColumnLayout {
-            width: root.availableWidth-12
+            width: dateScroll.availableWidth
             RowLayout {
                 IconToolButton {contentItem: AppIcon {name: "left"} Accessible.name: qsTr("上月"); onClicked: root.month=root.workspace.datePicker(root.month.anchor,-1) }
                 Label { text: root.month.title; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }

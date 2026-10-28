@@ -27,8 +27,9 @@ Dialog {
     function create(){pending=workspace.saveCatalog({kind:kind,title:name.text,colorKey:kind==="tag" ? colorChoice.keys[colorChoice.currentIndex] : "neutral",parentId:kind==="project" && parentChoice.currentIndex>0 ? roots[parentChoice.currentIndex-1].id : ""});}
     Shortcut {sequence: "Escape";enabled: root.visible && !root.workspace.busy;onActivated: root.close()}
     contentItem: ScrollView {
+        id:createScroll
         implicitHeight: fields.implicitHeight;clip: true
-        ColumnLayout {id: fields;width: root.availableWidth-12;spacing: 10
+        ColumnLayout {id: fields;width: createScroll.availableWidth;spacing: 10
         RowLayout {
             Layout.fillWidth: true;spacing: 10
             Rectangle {implicitWidth: 36;implicitHeight: 36;radius: Theme.menuRadius;color: Theme.primaryFill

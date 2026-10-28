@@ -67,7 +67,7 @@ Dialog {
         clip: true
         ColumnLayout {
             id:galleryContent
-            width: gallery.availableWidth-12
+            width: galleryScroll.availableWidth
             spacing: Theme.fieldGap
             SectionLabel {text: qsTr("操作层级")}
             Flow {

@@ -15,7 +15,7 @@ Window {
     objectName: "widgetWindow"
     width: 340;height: 360
     minimumWidth: 260
-    minimumHeight: controller.mini ? Math.max(48,Theme.controlHeight+12) : Math.max(190,header.implicitHeight+footer.implicitHeight+(widgetError.visible ? widgetError.implicitHeight : 0)+2*Theme.panelPadding+4*Theme.fieldGap+48)
+    minimumHeight: controller.mini ? Math.max(48,Theme.controlHeight+2*Theme.panelPadding) : Math.max(190,header.implicitHeight+footer.implicitHeight+(widgetError.visible ? widgetError.implicitHeight : 0)+2*Theme.panelPadding+4*Theme.fieldGap+48)
     x: 80;y: 80;visible: false;color: "transparent"
     title: qsTr("Daymark 今日任务")
     readonly property string errorMessage: workspace.errorText || controller.errorText
@@ -91,10 +91,11 @@ Window {
                         }
                         DragHandler {id: headerDrag;target: null;enabled: !widget.controller.locked;onActiveChanged: if(active)widget.controller.startMove();cursorShape: Qt.OpenHandCursor}
                     }
-                    WidgetAction {objectName: "widgetPin";symbol: "pin";checked: widget.controller.alwaysOnTop;Accessible.checkable: true;Accessible.checked: checked;description: checked ? qsTr("取消置顶") : qsTr("置顶组件");onClicked: widget.controller.setAlwaysOnTop(!widget.controller.alwaysOnTop)}
-                    WidgetAction {objectName: "widgetCollapse";symbol: "up";description: qsTr("收起为迷你条");onClicked: widget.controller.setMini(true)}
+                    WidgetAction {Layout.alignment:Qt.AlignTop;objectName: "widgetPin";symbol: "pin";checked: widget.controller.alwaysOnTop;Accessible.checkable: true;Accessible.checked: checked;description: checked ? qsTr("取消置顶") : qsTr("置顶组件");onClicked: widget.controller.setAlwaysOnTop(!widget.controller.alwaysOnTop)}
+                    WidgetAction {Layout.alignment:Qt.AlignTop;objectName: "widgetCollapse";symbol: "up";description: qsTr("收起为迷你条");onClicked: widget.controller.setMini(true)}
                     WidgetAction {
                         id:widgetMore
+                        Layout.alignment:Qt.AlignTop
                         objectName: "widgetMore";description: qsTr("组件菜单");hintText: qsTr("调整组件外观与行为")
                         onClicked: widget.openVerificationMenu()
                         DS.Menu {
@@ -151,7 +152,7 @@ Window {
                         Keys.onSpacePressed: {const row=currentItem as WidgetTaskRow;if(row)row.complete()}
                         delegate: WidgetTaskRow {
                             required property int index
-                            width: todayList.width
+                            width: todayList.width-Theme.scrollGutter
                             workspace: widget.workspace
                             reduceMotion: widget.reduceMotion
                             highlighted: todayList.activeFocus && todayList.currentIndex===index
@@ -171,7 +172,7 @@ Window {
             }
             RowLayout {
                 visible: widget.controller.mini
-                anchors.fill: parent;anchors.margins: 6
+                anchors.fill: parent;anchors.margins: Theme.panelPadding
                 spacing: 2
                 ToolButton {
                     id: miniSummary
@@ -193,8 +194,8 @@ Window {
                     ToolTip.timeout: Theme.hintTimeout
                     ToolTip.text: widget.errorMessage || widget.workspace.firstTodayTitle
                 }
-                WidgetAction {objectName: "widgetExpand";symbol: "down";description: qsTr("展开任务组件");onClicked: widget.controller.setMini(false)}
-                WidgetAction {id:miniMore;objectName:"miniMore";symbol:"more";description:qsTr("组件菜单");onClicked:widget.openVerificationMenu()}
+                WidgetAction {Layout.alignment:Qt.AlignTop;objectName: "widgetExpand";symbol: "down";description: qsTr("展开任务组件");onClicked: widget.controller.setMini(false)}
+                WidgetAction {Layout.alignment:Qt.AlignTop;id:miniMore;objectName:"miniMore";symbol:"more";description:qsTr("组件菜单");onClicked:widget.openVerificationMenu()}
             }
             MouseArea {
                 anchors.right: parent.right;anchors.bottom: parent.bottom

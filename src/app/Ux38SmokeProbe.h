@@ -2,6 +2,8 @@
 #include <QElapsedTimer>
 #include <QPointer>
 #include <QString>
+#include <QRect>
+#include <QPointF>
 class QQuickItem;
 class QQuickWindow;
 namespace daymark {
@@ -27,6 +29,8 @@ private:
     int m_stage=0,m_count=0;
     double m_settingsScroll=0;
     bool m_settingsHomeSent=false;
+    QRect m_widgetModeGeometry;
+    QPointF m_widgetModeCollapse,m_widgetModeMore;
     QElapsedTimer m_wait;
 };
 }

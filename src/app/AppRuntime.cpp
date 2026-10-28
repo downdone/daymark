@@ -934,7 +934,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     std::function<void(QQuickItem*)> countBodies=[&](QQuickItem* item){if(!item || !item->isVisible())return;if(item->inherits("QQuickFlickable"))++scrollingBodies;for(auto* child:item->childItems())countBodies(child);};
                     countBodies(qobject_cast<QQuickItem*>(editor));
                     const auto fieldTop=newStep->mapToScene(QPointF(0,0)).y();const auto viewportTop=scroll->mapToScene(QPointF(0,0)).y();
-                    if(scrollingBodies!=1 || !flick || flick->property("contentHeight").toDouble()<=flick->property("height").toDouble() || fieldTop<viewportTop-1 || fieldTop+newStep->height()>viewportTop+scroll->height()+1){qCritical()<<"phase"<<phase<<"bodies"<<scrollingBodies<<"top"<<fieldTop<<viewportTop<<"scroll"<<flick->property("contentY")<<flick->property("contentHeight")<<flick->property("height")<<"focus"<<mainWindow->activeFocusItem()<<newStep->hasActiveFocus();fail("single editor scroll and visible keyboard focus");return;}
+                    const bool overflow=flick && flick->property("contentHeight").toDouble()>flick->property("height").toDouble()+1;
+                    auto* editorBar=mainWindow->findChild<QQuickItem*>(QStringLiteral("editorScrollBar"));
+                    if(scrollingBodies!=1 || !flick || flick->property("interactive").toBool()!=overflow || (!overflow && (!editorBar || editorBar->isVisible() || qAbs(flick->property("contentY").toDouble())>1)) || fieldTop<viewportTop-1 || fieldTop+newStep->height()>viewportTop+scroll->height()+1){qCritical()<<"phase"<<phase<<"bodies"<<scrollingBodies<<"top"<<fieldTop<<viewportTop<<"scroll"<<flick->property("contentY")<<flick->property("contentHeight")<<flick->property("height")<<"focus"<<mainWindow->activeFocusItem()<<newStep->hasActiveFocus();fail("single editor scroll and visible keyboard focus");return;}
                     if(phase==140){if(!capture(QStringLiteral("unified-fields"))){fail("unified fields capture");return;}mainWindow->resize(880,580);}
                     else if(phase==141){if(!capture(QStringLiteral("unified-page"))){fail("unified page capture");return;}m_workspace.setTextScale(2);}
                     else if(phase==142){if(!capture(QStringLiteral("unified-page-200"))){fail("large unified page capture");return;}m_workspace.setTextScale(1);mainWindow->resize(1440,900);}
@@ -949,7 +951,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 else if(phase==147) {
                     m_workspace.setView(QStringLiteral("inbox"));m_workspace.setSearch(m_workspace.task(secondId).value("title").toString());open();notes->setProperty("text",QStringLiteral("短备注"));
                     // Exercise wheel propagation with an actually overflowing
-                    // body. The collapsed compact inspector now fits this fixture.
+                    // body at a constrained height; natural-height panels may fit
+                    // these short fields in a taller window.
+                    mainWindow->resize(1120,580);
                     mainWindow->setProperty("dateTimeExpanded",true);
                     QMetaObject::invokeMethod(editTitle,"forceActiveFocus");
                     QMetaObject::invokeMethod(mainWindow,"ensureEditorFocus",Q_ARG(QVariant,QVariant::fromValue(editTitle)));

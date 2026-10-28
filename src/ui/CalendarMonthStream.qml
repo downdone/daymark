@@ -324,6 +324,7 @@ Item {
         id: list
         objectName: "continuousMonthList"
         anchors.fill: parent
+        anchors.rightMargin:Theme.scrollGutter
         clip: true
         model: root.weeks
         delegate: WeekRow {}
@@ -331,6 +332,7 @@ Item {
         reuseItems: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {
+            parent:root;x:root.width-width;y:list.y;height:list.height
             policy: ScrollBar.AsNeeded
         }
         DS.ScrollPhysics {

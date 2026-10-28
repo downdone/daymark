@@ -432,7 +432,7 @@ ColumnLayout {
     property bool agendaCreating: false
     property var creationCloseAction:null
     Label {
-        visible: panel.compact && panel.calendarScale!=="month"
+        visible: panel.compact
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         text: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
@@ -451,7 +451,7 @@ ColumnLayout {
             Layout.minimumWidth: 0
             spacing: 4
             Label {
-                visible: !panel.compact && panel.calendarScale!=="month"
+                visible: !panel.compact
                 Layout.minimumWidth: 0
                 text: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
                 font.pixelSize: Theme.headingSize
@@ -471,7 +471,7 @@ ColumnLayout {
                     panel.setScale(["day", "week", "month", "year"][index]);
                 }
             }
-            Item {Layout.fillWidth: true;visible: panel.compact || panel.calendarScale==="month"}
+            Item {Layout.fillWidth: true;visible: panel.compact}
         }
         RowLayout {
             Layout.alignment: Qt.AlignRight
@@ -629,6 +629,7 @@ ColumnLayout {
     }
     ScrollView {
         id: body
+        rightPadding:panel.compact && panel.agendaVisible ? Theme.scrollGutter : 0
         contentHeight: panel.compact && panel.agendaVisible ? calendarColumns.implicitHeight : availableHeight
         visible: panel.calendarScale === "month"
         Layout.fillWidth: true
@@ -822,7 +823,7 @@ ColumnLayout {
                     delegate: Item {
                         id: agendaRow
                         required property var modelData
-                        width: agenda.width
+                        width: agenda.width-Theme.scrollGutter
                         height: rowContent.implicitHeight + 8
                         ColumnLayout {
                             id: rowContent

@@ -11,6 +11,7 @@
 #include <QDebug>
 #include <QImage>
 #include <QtMath>
+#include <QLineF>
 namespace daymark {
 Ux38SmokeProbe::Ux38SmokeProbe(TaskWorkspace& workspace,WidgetViewModel& controller,QQuickWindow* main,QQuickWindow* widget,QString screenshot)
     :m_workspace(workspace),m_controller(controller),m_main(main),m_widget(widget),m_screenshot(std::move(screenshot)){m_wait.start();}
@@ -77,16 +78,16 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==1){if(!calendar->isVisible() || !m_widget->isVisible() || !layout() || list->property("interactive").toBool() || !capture(m_widget,"empty"))return fail("empty state and coexistence");m_workspace.createForTime(QStringLiteral("讨论方案与下一步安排"),m_workspace.dateOffset(0),540);}
     else if(m_stage==2){if(m_workspace.todayTasks()->rowCount()!=1)return fail("today fixture");m_task=m_workspace.todayTasks()->items().first().id;m_workspace.createSubtask(QStringLiteral("准备评审材料"),m_task);}
     else if(m_stage==3){auto* row=find(m_widget,"widgetTask-"+m_task);if(!row || row->property("summary").toString().isEmpty() || row->property("subtaskTotal").toInt()!=1 || !layout() || !capture(m_widget,"today-light") || !capture(calendar,"calendar-light"))return fail("shared schedule and relationship");click("widgetPin");}
-    else if(m_stage==4){if(m_controller.alwaysOnTop())return fail("unpin");click("widgetCollapse");}
-    else if(m_stage==5){if(!m_controller.mini() || !layout() || !capture(m_widget,"mini-light"))return fail("mini summary");click("widgetMiniSummary");}
+    else if(m_stage==4){if(m_controller.alwaysOnTop())return fail("unpin");m_widgetModeGeometry=m_widget->geometry();m_widgetModeCollapse=qobject_cast<QQuickItem*>(find(m_widget,"widgetCollapse"))->mapToScene(QPointF());m_widgetModeMore=qobject_cast<QQuickItem*>(find(m_widget,"widgetMore"))->mapToScene(QPointF());click("widgetCollapse");}
+    else if(m_stage==5){if(!m_controller.mini() || !layout() || !capture(m_widget,"mini-light"))return fail("mini summary");const auto expand=qobject_cast<QQuickItem*>(find(m_widget,"widgetExpand"))->mapToScene(QPointF()),more=qobject_cast<QQuickItem*>(find(m_widget,"miniMore"))->mapToScene(QPointF());if(m_widget->width()!=m_widgetModeGeometry.width() || m_widget->position()!=m_widgetModeGeometry.topLeft() || QLineF(expand,m_widgetModeCollapse).length()>1 || QLineF(more,m_widgetModeMore).length()>1)return fail("Mini preserves width, position and action slots");click("widgetMiniSummary");}
     else if(m_stage==6){if(m_controller.mini() || m_widget->size()!=QSize(340,360))return fail("single click restores floating geometry");m_controller.setLocked(true);m_controller.setMini(true);}
     else if(m_stage==7){expandWithKey(Qt::Key_Space);}
     else if(m_stage==8){if(m_controller.mini() || !m_controller.errorText().isEmpty())return fail("locked mini keyboard expansion");m_controller.setLocked(false);m_workspace.setTextScale(2);m_widget->resize(260,190);auto* row=find(m_widget,"widgetTask-"+m_task);row->setProperty("rowVersion",row->property("rowVersion").toLongLong()-1);QMetaObject::invokeMethod(row,"complete");}
     else if(m_stage==9){auto* row=find(m_widget,"widgetTask-"+m_task);if(!layout() || !row || row->property("completing").toBool() || m_workspace.errorText().isEmpty() || !find(m_widget,"widgetError")->property("visible").toBool())return fail("stale completion preserves row and error");m_controller.setMini(true);}
     else if(m_stage==10){if(m_widget->property("errorMessage").toString().isEmpty() || !capture(m_widget,"mini-error"))return fail("mini error retained");expandWithKey(Qt::Key_Return);}
     else if(m_stage==11){if(m_controller.mini())return fail("Return expansion");m_workspace.clearError();find(m_widget,"widgetTask-"+m_task)->setProperty("rowVersion",m_workspace.task(m_task).value("rowVersion"));}
-    else if(m_stage==12){m_completedRow=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_task));m_count=m_workspace.todayTasks()->rowCount();click("widgetComplete-"+m_task);}
-    else if(m_stage==13){if(m_workspace.todayTasks()->rowCount()>=m_count || (m_completedRow && !m_completedRow->property("removing").toBool()) || !capture(m_widget,"completion-feedback"))return fail("successful completion and feedback");}
+    else if(m_stage==12){m_completedRow=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_task));m_count=m_workspace.todayTasks()->rowCount();if(!capture(m_widget,"completion-before"))return fail("completion source capture");click("widgetComplete-"+m_task);}
+    else if(m_stage==13){m_widget->grabWindow();if(m_workspace.todayTasks()->rowCount()>=m_count || (m_completedRow && !m_completedRow->property("removing").toBool()) || !capture(m_widget,"completion-feedback"))return fail("successful completion and feedback");}
     else if(m_stage==14){if(m_wait.elapsed()<250)return {};if(m_completedRow)return fail("completion releases visual row");m_workspace.setPreference("reduceMotion",true);}
     else if(m_stage>=15 && m_stage<=25){m_workspace.createTask(QStringLiteral("今日行动 %1：桌面任务验收").arg(m_stage-14));}
     else if(m_stage==26){if(!list->property("interactive").toBool() || !capture(m_widget,"scrollable"))return fail("one overflowing scroll region");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_widget->resize(340,440);}

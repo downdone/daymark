@@ -75,7 +75,7 @@ bool WidgetViewModel::setMini(bool mini)
     if (mini == m_mini)
         return accept({});
     const auto floatingSize = mini ? m_window->size() : m_floatingSize;
-    if (!accept(m_platform.resize(m_window, mini ? QSize{260, 48} : floatingSize)))
+    if (!accept(m_platform.resize(m_window,QSize{m_window->width(),mini ? 48 : floatingSize.height()})))
         return false;
     if (mini)
         m_floatingSize = floatingSize;
@@ -159,7 +159,7 @@ void WidgetViewModel::resetPosition()
 void WidgetViewModel::saveSettings()
 {
     if(!m_settings || !m_window)return;
-    m_settings->setValue(QStringLiteral("widget/floatingSize"),m_mini?m_floatingSize:m_window->size());
+    m_settings->setValue(QStringLiteral("widget/floatingSize"),QSize(m_window->width(),m_mini?m_floatingSize.height():m_window->height()));
     m_settings->setValue(QStringLiteral("widget/position"),m_window->position());
     m_settings->setValue(QStringLiteral("widget/mini"),m_mini);
     m_settings->setValue(QStringLiteral("widget/visible"),visible());

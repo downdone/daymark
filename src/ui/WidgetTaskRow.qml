@@ -77,6 +77,7 @@ ItemDelegate {
         ColumnLayout {
             Layout.fillWidth: true;Layout.minimumWidth: 0
             spacing: 2
+            HoverHandler {id: textHover}
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 4
@@ -104,7 +105,7 @@ ItemDelegate {
             }
         }
     }
-    ToolTip.visible: !Theme.hintsBlocked && hovered && !down && !completing && (titleLabel.truncated || summaryLabel.truncated)
+    ToolTip.visible: !Theme.hintsBlocked && textHover.hovered && !down && !completing && (titleLabel.truncated || summaryLabel.truncated)
     ToolTip.delay: Theme.hintDelay
     ToolTip.timeout: Theme.hintTimeout
     ToolTip.text: title+(summary.length ? "\n"+summary : "")

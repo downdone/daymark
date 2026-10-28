@@ -74,11 +74,12 @@ TextField {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle {color: Theme.content;border.color: Theme.separator;radius: Theme.panelRadius}
         contentItem: ScrollView {
+            id:dateScroll
             clip: true
             implicitHeight: calendar.implicitHeight
             CalendarPicker {
                 id: calendar
-                width: picker.availableWidth
+                width: dateScroll.availableWidth
                 workspace: field.workspace
                 month: field.month
                 selectedDate: field.text
