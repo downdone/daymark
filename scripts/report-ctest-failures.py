@@ -60,6 +60,7 @@ def failure_context(path):
         r'Stale completion state.{0,200}',
         r'List title axes.{0,200}',
         r'Wheel geometry.{0,200}',
+        r'Desktop layout.{0,200}',
     ):
         found.extend(m.strip() for m in re.findall(pattern, text))
     return found[:12]
