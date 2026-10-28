@@ -1,8 +1,16 @@
 # Daymark 实施进度
 
-### UX-60 本地便携包与源码推送（2026-10-28，IN_PROGRESS）
+### UX-60 本地便携包与源码推送（2026-10-28，LOCAL-PREVIEW已交付 / SOURCE-PUSH已核验）
 
 用户授权构建便携包并推送GitHub。先同步远端、审查此前本地提交与当前排版改动，提交明确文件，排除无关架构草案及构建/数据/日志；使用项目身份与UTC元数据。保持工程1.1.0和既有公开tag，以真实提交SHA区分本地预览；按ADR-024/025重新Release构建、完整CTest、最小运行负载、SDK隔离原生探针/模块来源、清单与ZIP/SHA校验。仅允许两个已知长链失败，其他失败阻止出包；本地交付运行包，遵守先前未确认Qt公开再分发许可时只推源码的决定。打包及推送真实结果后续追加，不预记成功，不访问私人库或覆盖旧包。
+
+源码提交`580d505c66ee317a326f4ac18c040e5e579593ec`，18个本轮文件；此前7个本地提交随本轮非强制推送origin/main，远端完整SHA已核验为580d505。8个待推提交的身份和64个变更路径历史隐私审计通过；发布守卫14/14、当前源码/版本/隐私、文字/图标词表、四主题颜色、文档与cached diff检查通过。保持公开v1.1.0原tag对象与461755b目标，不新建Release或上传运行库。GitHub Build and test作业40630321400已触发，查询时in_progress，不将触发等同CI通过；本条校验记录作为后续纯文档提交同步。
+
+package-windows -LocalPreview重新标准Qt6.10.2 Release构建并执行完整CTest23/25、193.00秒（build/ux60-delivery-portable.log）；contextual 27.09、continuous 5.73、calendar 11.87、desktop 13.96、task list 26.88秒通过。仅qml_startup/late watchdog旧长链失败，原预算/断言保持，包内TEST-RESULTS.json和BUILD-INFO明确fullTestGatePassed=false及两个失败，不称正式发行READY。
+
+交付`dist/Daymark-1.1.0-windows-x64-local-20261028-120533.zip`，38,935,840字节；SHA256 `408cf454ddf339a36f720053d78abb84732c470fb5678d745a0cf0ed880775f5`，同名.sha256侧车与ZIP每文件检查通过。213文件、104,086,538解压字节；开发docs/verification/qmltooling/generic/.qmltypes为0，保留运行依赖、简明说明、第三方/SBOM和小型版本/测试/完整性元数据，原build符号与旧包不覆盖。
+
+SDK隔离包内原生contextual 75场景退出0、visible windows=2、warnings=false；37个实际部署模块均来自包，Qt6Core/qwindows/qsqlite均观察到，包内exe SHA256 `edbfcd02be912aee86260b719985347beaca537c757c00d87a6ecb58099ecdc6`（build/daymark-package-check-fe88226659b74ebfb585fbdabdcea926/report.json）。无关架构草案临时移入忽略build后已按原SHA256恢复。只本地交付运行库；未正常打开私人任务库，macOS/读屏/物理输入/干净机与既有额外原生大字图标失败保持上一节边界。
 
 ### UX-60 全局字体与比例留白（2026-10-28，IMPLEMENTED；关联AUTO-PASS / 完整门禁FAIL）
 
