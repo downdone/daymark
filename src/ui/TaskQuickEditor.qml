@@ -102,6 +102,7 @@ Control {
             Timer {id: hideNotesTooltip;interval: 250;onTriggered: if(!quickNotes.hovered && !notesTooltipHover.hovered)fullNotes.keepOpen=false}
             ToolTip {
                 id: fullNotes;objectName: "quickNotesTooltip"
+                enabled: true // Explicit selectable notes-preview exception.
                 property bool keepOpen: false
                 visible: !Theme.hintsBlocked && !root.guardActive && !root.pickerVisible && root.visible && (root.multilineNotes || quickNotes.contentWidth>quickNotes.width-quickNotes.leftPadding-quickNotes.rightPadding+1) && (quickNotes.hovered || notesTooltipHover.hovered || keepOpen) && root.notesText.length>0
                 delay: Theme.hintDelay;timeout: -1

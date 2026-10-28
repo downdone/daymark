@@ -803,22 +803,18 @@ ApplicationWindow {
             spacing: Theme.fieldGap
             RowLayout {
                 id: pageToolbar
-                readonly property real reservedHeight: mainWindow.calendarVisible ? Theme.toolbarHeight : Math.max(Theme.toolbarHeight,Theme.titleSize*1.3+Theme.captionSize*1.6+2)
+                readonly property real reservedHeight: Math.max(Theme.controlHeight,pageHeading.implicitHeight)
                 Layout.minimumHeight: reservedHeight;Layout.maximumHeight: reservedHeight
                 WidgetAction {objectName: "returnFromWorkspacePage";visible: mainWindow.toolPageVisible;symbol: "left";description: qsTr("返回之前的内容");onClicked: mainWindow.returnToContent()}
-                RowLayout {
-                    id: contentViewSwitch;objectName: "contentViewSwitch";visible: !mainWindow.toolPageVisible;spacing: 2;Layout.alignment:Qt.AlignTop
-                    WidgetAction {objectName: "showListView";symbol: "list";description: qsTr("列表视图");checked: !mainWindow.calendarVisible;onClicked: if(mainWindow.calendarVisible)mainWindow.changeView(mainWindow.taskWorkspace.scope)}
-                    WidgetAction {objectName: "showCalendarView";symbol: "calendar";description: qsTr("日历视图");checked: mainWindow.calendarVisible;enabled: ["trash","logbook","completed","cancelled"].indexOf(mainWindow.taskWorkspace.scope)<0;onClicked: if(!mainWindow.calendarVisible)mainWindow.changeView(mainWindow.taskWorkspace.calendarScale)}
-
-                }
                 ColumnLayout {
+                    id:pageHeading
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop
-                    spacing: 2
+                    spacing: Theme.textLineGap
                     Label {
+                    id:pageTitleLabel
                     text: mainWindow.taskContentVisible && search.text.trim().length > 0 ? qsTr("搜索结果") : mainWindow.currentViewTitle()
-                    font.pixelSize: Theme.titleSize
+                    font.pixelSize: Theme.pageTitleSize
                     color: !mainWindow.taskContentVisible ? Theme.text : mainWindow.taskWorkspace.view==="today" ? Theme.accent : mainWindow.taskWorkspace.view==="scheduled" ? Theme.danger : mainWindow.taskWorkspace.view==="important" ? Theme.catalogColor("orange") : mainWindow.taskWorkspace.view==="completed" ? Theme.secondary : Theme.text
                     elide: Text.ElideRight
                     font.weight: Font.DemiBold
@@ -831,30 +827,44 @@ ApplicationWindow {
                         text: !mainWindow.taskContentVisible ? "" : search.text.trim().length>0 ? (mainWindow.taskWorkspace.view==="trash" ? qsTr("搜索最近删除 · %1 项结果") : mainWindow.taskWorkspace.view==="completed" ? qsTr("搜索已完成 · %1 项结果") : mainWindow.taskWorkspace.view==="cancelled" ? qsTr("搜索已取消 · %1 项结果") : mainWindow.taskWorkspace.view==="logbook" ? qsTr("搜索已完成与已取消 · %1 项结果") : qsTr("全局任务搜索 · %1 项结果")).arg(mainWindow.taskWorkspace.tasks.count) : mainWindow.taskWorkspace.view==="today" ? mainWindow.taskWorkspace.localToday+qsTr(" · 待办 %1 · 完成 %2").arg(mainWindow.taskWorkspace.todayTasks.count).arg(mainWindow.taskWorkspace.completedToday) : ""
                     }
                 }
+                RowLayout {
+                id:headerActions;Layout.alignment:Qt.AlignTop
+                Layout.topMargin:Math.max(0,(pageTitleLabel.implicitHeight-implicitHeight)/2)
+                spacing:Theme.gap
                 Button {visible:mainWindow.taskContentVisible && ["completed","cancelled"].indexOf(mainWindow.taskWorkspace.view)>=0;flat:true;text:mainWindow.taskWorkspace.view==="completed" ? qsTr("查看已取消") : qsTr("查看已完成");onClicked:mainWindow.changeView(mainWindow.taskWorkspace.view==="completed" ? "cancelled" : "completed")}
-                WidgetAction {objectName: "openReminderHistory";symbol: "bell";description: qsTr("提醒记录");checked: mainWindow.toolPage==="notifications";onClicked: mainWindow.openTool("notifications")}
                 BusyIndicator { running: mainWindow.taskWorkspace.busy && !mainWindow.taskWorkspace.backgroundBusy; visible: running; Layout.preferredWidth: 28; Layout.preferredHeight: 28 }
                 WidgetAction {visible: mainWindow.taskContentVisible;symbol: "search";description: mainWindow.searchExpanded ? qsTr("关闭搜索") : qsTr("搜索任务");checked: mainWindow.searchExpanded || search.text.length>0;onClicked: {if(mainWindow.searchExpanded || search.text.length>0){search.clear();mainWindow.searchExpanded=false;taskList.forceActiveFocus()}else{mainWindow.searchExpanded=true;search.forceActiveFocus()}}}
-                WidgetAction {objectName: "toggleListSubtasks";visible: mainWindow.taskContentVisible && !mainWindow.taskWorkspace.smartView;symbol: "subtasks";description: mainWindow.taskWorkspace.preferences.listShowSubtasks ? qsTr("隐藏子任务") : qsTr("显示子任务");checked: mainWindow.taskWorkspace.preferences.listShowSubtasks;onClicked: mainWindow.navigateSafely(function(){quickEditor.close();mainWindow.taskWorkspace.setPreference("listShowSubtasks",!mainWindow.taskWorkspace.preferences.listShowSubtasks)})}
-                WidgetAction {objectName: "toggleTaskSelection";visible: mainWindow.taskContentVisible;symbol: "batch";description: mainWindow.batchMode ? qsTr("退出多选") : qsTr("选择任务，Shift连续选择，Ctrl或Command增选");checked: mainWindow.batchMode;onClicked: mainWindow.toggleTaskSelectionMode()}
                 WidgetAction {visible: mainWindow.taskContentVisible;symbol: "filter";description: (mainWindow.selectedTag || mainWindow.selectedProject) ? qsTr("清除筛选") : mainWindow.filtersExpanded ? qsTr("收起筛选") : qsTr("筛选任务");checked: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {if(mainWindow.selectedTag || mainWindow.selectedProject){tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("");mainWindow.filtersExpanded=false}else mainWindow.filtersExpanded=!mainWindow.filtersExpanded}}
+                RowLayout {
+                    id: contentViewSwitch;objectName:"contentViewSwitch";visible:!mainWindow.toolPageVisible
+                    Layout.minimumWidth:Theme.controlHeight;Layout.maximumWidth:Theme.controlHeight;spacing:0
+                    WidgetAction {objectName:"showListView";visible:mainWindow.calendarVisible;Layout.fillWidth:true;symbol:"list";description:qsTr("切换到列表视图");checked:!mainWindow.calendarVisible;onClicked:mainWindow.changeView(mainWindow.taskWorkspace.scope)}
+                    WidgetAction {objectName:"showCalendarView";visible:!mainWindow.calendarVisible;Layout.fillWidth:true;symbol:"calendar";description:qsTr("切换到日历视图");checked:mainWindow.calendarVisible;enabled:["trash","logbook","completed","cancelled"].indexOf(mainWindow.taskWorkspace.scope)<0;onClicked:mainWindow.changeView(mainWindow.taskWorkspace.calendarScale)}
+                }
                 IconToolButton {
-                    Accessible.name: qsTr("页面操作")
+                    objectName:"pageOptionsAction"
+                    Accessible.name: qsTr("列表显示与更多操作")
+                    checked: mainWindow.taskWorkspace.includeCompleted && (search.text.trim().length>0 || mainWindow.taskWorkspace.view.startsWith("project:"))
                     contentItem: AppIcon {name: "more"}
                     onClicked: pageMenu.open()
                     DS.Menu {
                         id: pageMenu
                         x: parent.width-width
                         y: parent.height
-                        MenuItem {text: mainWindow.batchMode ? qsTr("退出多选") : qsTr("选择多个任务…");enabled: mainWindow.taskContentVisible;onTriggered: mainWindow.toggleTaskSelectionMode()}
+                        MenuItem {objectName:"toggleListSubtasks";visible:mainWindow.taskContentVisible && !mainWindow.taskWorkspace.smartView;text:qsTr("显示子任务");checkable:true;checked:mainWindow.taskWorkspace.preferences.listShowSubtasks;onTriggered:mainWindow.navigateSafely(function(){quickEditor.close();mainWindow.taskWorkspace.setPreference("listShowSubtasks",!mainWindow.taskWorkspace.preferences.listShowSubtasks)})}
+                        MenuItem {objectName:"includeCompletedOption";visible:mainWindow.taskContentVisible && (search.text.trim().length>0 || mainWindow.taskWorkspace.view.startsWith("project:"));text:qsTr("显示已完成和已取消");checkable:true;checked:mainWindow.taskWorkspace.includeCompleted;onTriggered:mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.includeCompleted=!mainWindow.taskWorkspace.includeCompleted})}
+                        DS.MenuSeparator {}
+                        MenuItem {objectName:"toggleTaskSelection";text:mainWindow.batchMode ? qsTr("退出多选") : qsTr("选择多个任务…");enabled:mainWindow.taskContentVisible;onTriggered:mainWindow.toggleTaskSelectionMode()}
 
                         DS.MenuSeparator {}
+                        MenuItem {objectName:"openReminderHistory";text:qsTr("提醒记录…");onTriggered:mainWindow.openTool("notifications")}
                         MenuItem {objectName: "showRepeatingTasks";text: qsTr("循环任务");visible: mainWindow.taskContentVisible;onTriggered: mainWindow.openTool("recurrence")}
                         MenuItem {objectName: "editCurrentCatalog";text: mainWindow.taskWorkspace.scope.startsWith("tag:") ? qsTr("编辑当前标签…") : qsTr("编辑当前分类…");visible: mainWindow.taskContentVisible && mainWindow.taskWorkspace.view.indexOf(":")>=0;onTriggered: mainWindow.editCurrentCatalog()}
                         DS.MenuSeparator {}
                         MenuItem {text: qsTr("重新加载");enabled: !mainWindow.taskWorkspace.busy;onTriggered: mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.reload()})}
                     }
                 }
+            }
             }
             ScrollView {
                 id: headerScroll
@@ -879,8 +889,7 @@ ApplicationWindow {
             }
             ColumnLayout {
                 Layout.fillWidth: true
-                visible: mainWindow.taskContentVisible && (mainWindow.filtersExpanded || mainWindow.selectedTag.length>0 || mainWindow.selectedProject.length>0 || search.text.length>0 || mainWindow.taskWorkspace.view.startsWith("project:"))
-                CheckBox { visible: search.text.trim().length>0 || mainWindow.taskWorkspace.view.startsWith("project:"); text: qsTr("包括已完成/取消"); checked: mainWindow.taskWorkspace.includeCompleted; onClicked: mainWindow.taskWorkspace.includeCompleted=checked }
+                visible: mainWindow.taskContentVisible && (mainWindow.filtersExpanded || mainWindow.selectedTag.length>0 || mainWindow.selectedProject.length>0)
                 RowLayout {
                 Layout.fillWidth: true
                 visible: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject

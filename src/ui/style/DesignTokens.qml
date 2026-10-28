@@ -48,6 +48,7 @@ QtObject {
     readonly property int section: Math.round(13*scale)
     readonly property int heading: Math.round(17*scale)
     readonly property int title: Math.round(20*scale)
+    readonly property int pageTitle: Math.round(28*scale)
     readonly property int footnote: Math.round(11*scale)
     readonly property int iconSize: Math.round(Math.min(24,18*scale))
     readonly property int controlHeight: Math.max(32,body+(compact ? 12 : 16))
@@ -77,4 +78,7 @@ QtObject {
     readonly property int pagePadding: compact ? 12 : 16
     readonly property int panelPadding: compact ? 12 : 16
     readonly property int scrollGutter: 18
+    readonly property int rowVerticalPadding: compact ? 4 : 6
+    readonly property int metadataActionHeight: Math.max(24,caption+8)
+    readonly property int textLineGap: 1
 }

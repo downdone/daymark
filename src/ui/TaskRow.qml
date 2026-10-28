@@ -211,7 +211,7 @@ ItemDelegate {
     Rectangle {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:2;color:Theme.accent;visible:dropZone.containsDrag && dropZone.allowed}
     DS.ToolTip {contextualFeedback:true;delay:0;timeout:-1;visible:dropZone.containsDrag && !dropZone.allowed && !!dropZone.sourceTask;text:dropZone.sourceTask ? root.workspace.dropTaskReason(dropZone.sourceTask.taskId,root.taskId) : ""}
     readonly property real titleTopInset: summary.titleTopInset
-    padding: Theme.compact ? (summary.supportingText ? 4 : 2) : 6
+    padding: Theme.rowVerticalPadding
     leftPadding: Theme.listInset+Math.min(8,taskDepth)*Theme.hierarchyIndent
     rightPadding: 10
     function columnPositions() {

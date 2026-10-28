@@ -9,5 +9,6 @@ IconToolButton {
     implicitHeight: implicitWidth
     padding: 6
     Accessible.name: description
+    hintEnabled: symbol==="pin"
     contentItem: AppIcon {name: action.symbol;ink: !action.enabled ? Theme.disabledText : action.checked ? Theme.accent : Theme.secondary;implicitWidth: action.glyphSize;implicitHeight: action.glyphSize}
 }

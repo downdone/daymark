@@ -1,5 +1,7 @@
 # ADR-024：本地预览包与正式二进制门禁分离
 
+2026-10-28：包的内容与工具位置由[ADR-025](025-minimal-portable-payload.md)覆盖；验收脚本留仓库，预览结果移至运行包根TEST-RESULTS.json，完整门禁和白名单策略保持。
+
 2026-10-27，接受。用户要求完成两栏设置后打本地便携包并推送源码；Qt再分发许可未确认，旧完整UI链仍有已记录超时。正式二进制门禁仍要求全部CTest通过，不因为本地预览需求加长watchdog、删断言或把FAIL改成PASS。
 
 默认package-windows仍执行完整build/test并在任意失败时停止。增加显式LocalPreview模式：仍构建、完整CTest一次并读取JUnit报告，只允许此前已记录的qml_startup与qml_watchdog_late失败；任何新失败、跳过、未执行或报告不完整都阻止出包。包内保存机器可读的用例结果摘要，BUILD-INFO和README标明完整门禁结果、本地预览、非正式发布及运行库许可未验证；无二进制上传。

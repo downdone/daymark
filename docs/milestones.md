@@ -1,5 +1,7 @@
 # 里程碑与可执行任务队列
 
+UX-59按[提示与标题/工具栏契约](design/tooltip-and-layout-rhythm.md)落实P-18/19、单目标视图切换、低频显示选项收纳与垂直节奏；本地包按[ADR-025](ADR/025-minimal-portable-payload.md)精简，状态和交付证据仅见PROGRESS。
+
 UX-58按[稳定空间契约](design/stable-layout-and-scroll.md)定义P-15～17，再迁移详情/同类滚动表面、循环控件、日历工具栏和组件几何，验证坐标关系、浅深/大字及真实构建。当前状态只维护于PROGRESS。
 
 UX-57按[详情尺寸控制](design/inspector-size-control.md)先修复强制展开、收紧内容关系，再验证同会话/键盘/缩放及打本地便携包；平台状态和测试证据只维护于PROGRESS。

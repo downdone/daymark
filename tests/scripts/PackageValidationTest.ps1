@@ -4,7 +4,7 @@ Import-Module (Join-Path $PSScriptRoot '../../scripts/PackageValidation.psm1') -
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('daymark-manifest-test-'+[guid]::NewGuid().ToString('N'))
 $root=Join-Path $testRoot 'package'
 New-Item -ItemType Directory -Path $root | Out-Null
-$required=@('daymark.exe','Qt6Core.dll','platforms/qwindows.dll','sqldrivers/qsqlite.dll','qt.conf','docs/user-guide.md','docs/third-party-notices.md','verification/Test-Package.ps1','verification/PackageValidation.psm1')
+$required=@('daymark.exe','Qt6Core.dll','platforms/qwindows.dll','sqldrivers/qsqlite.dll','qt.conf','README.md','THIRD-PARTY-NOTICES.md')
 foreach($relative in $required) {
     $path=Join-Path $root $relative
     New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force | Out-Null
@@ -43,10 +43,31 @@ try {
     if(!(Read-DaymarkPreviewTests $junit $inventory).fullGatePassed){throw 'Passing report classified as failed.'}
     Write-Output 'PASS: preview requires complete full-test inventory; rejects new failures, skipped/duplicate cases and DTD'
     Write-Manifest;$null=Assert-DaymarkPackage $root;Write-Output 'PASS: valid synthetic manifest (no native runtime claim)'
+    foreach($relative in @('docs/PROGRESS.md','docs/design/draft.md','verification/Test-Package.ps1','qmltooling/qmldbg_debugger.dll','qml/QtQuick/Controls/Material/qmldir','qml/QtQuick/plugins.qmltypes','sqldrivers/qsqlodbc.dll','Qt6QuickControls2Material.dll','extra.txt')) {
+        if(Test-DaymarkPayloadPath $relative){throw ('Non-runtime path accepted: '+$relative)}
+    }
+    foreach($relative in @('qml/QtQuick/Controls/Basic/qmldir','qml/QtQuick/Dialogs/quickimpl/qml/FileDialog.qml','opengl32sw.dll','D3Dcompiler_47.dll','qt-sbom/qtbase-6.10.2.spdx.json')) {
+        if(!(Test-DaymarkPayloadPath $relative)){throw ('Required runtime path rejected: '+$relative)}
+    }
+    # A self-consistent manifest cannot authorize developer documents.
+    $extraDirectory=Join-Path $root 'docs';New-Item -ItemType Directory -Path $extraDirectory | Out-Null
+    $extraPath=Join-Path $extraDirectory 'PROGRESS.md';[IO.File]::WriteAllText($extraPath,'synthetic developer file')
+    $manifest.files=@($entries)+@(@{path='docs/PROGRESS.md';size=(Get-Item $extraPath).Length;sha256=(Get-FileHash $extraPath -Algorithm SHA256).Hash.ToLowerInvariant()})
+    Write-Manifest;Expect-Rejection 'developer document even with valid manifest entry'
+    Remove-Item -LiteralPath $extraPath;Remove-Item -LiteralPath $extraDirectory;$manifest.files=$entries;Write-Manifest
+    $pruneRoot=Join-Path $testRoot 'Daymark-test-windows-x64-local-20261028-120000'
+    New-Item -ItemType Directory -Path $pruneRoot | Out-Null
+    foreach($relative in @('daymark.exe','qml/QtQuick/qmldir','qml/QtQuick/plugins.qmltypes','qml/QtQuick/Controls/Material/qmldir','Qt6QuickControls2Material.dll','sqldrivers/qsqlodbc.dll','sqldrivers/qsqlite.dll')) {
+        $path=Join-Path $pruneRoot $relative;New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force | Out-Null
+        [IO.File]::WriteAllText($path,"module Test`ntypeinfo plugins.qmltypes`n")
+    }
+    $removed=@(Remove-DaymarkDeploymentExtras $pruneRoot)
+    if($removed.Count -ne 4 -or !(Test-Path -LiteralPath (Join-Path $pruneRoot 'sqldrivers/qsqlite.dll')) -or [IO.File]::ReadAllText((Join-Path $pruneRoot 'qml/QtQuick/qmldir')) -match 'typeinfo'){throw 'Runtime pruning did not preserve imports/SQLite or remove tool metadata.'}
+    Write-Output 'PASS: minimal payload admission and deployment pruning preserve Basic/runtime resources'
     $previewInfo=[ordered]@{};foreach($key in $info.Keys){$previewInfo[$key]=$info[$key]}
     $previewInfo.scope='Windows local preview candidate';$previewInfo.localPreview=$true
     $previewInfo.fullTestGatePassed=$false;$previewInfo.knownTestFailures=@($preview.failed)
-    $summaryPath=Join-Path $root 'verification/full-tests.json'
+    $summaryPath=Join-Path $root 'TEST-RESULTS.json'
     $preview | ConvertTo-Json -Depth 6 | Set-Content $summaryPath
     $previewInfo | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
     $savedEntries=$manifest.files
@@ -82,7 +103,7 @@ try {
     Write-Manifest;$text=Get-Content (Join-Path $root 'manifest.json') -Raw
     [IO.File]::WriteAllText((Join-Path $root 'manifest.json'),$text.Replace('"qt": "6.10.2"','"qt": "6.10.2", "qt": "6.10.2"'));Expect-Rejection 'duplicate JSON key';Write-Manifest
     $sensitive=Join-Path $root 'personal.sqlite';[IO.File]::WriteAllText($sensitive,'synthetic');Expect-Rejection 'database artifact';Remove-Item -LiteralPath $sensitive
-    $link=Join-Path $root 'linked';New-Item -ItemType Junction -Path $link -Target (Join-Path $root 'docs') | Out-Null
+    $link=Join-Path $root 'linked';New-Item -ItemType Junction -Path $link -Target (Join-Path $testRoot 'package') | Out-Null
     Expect-Rejection 'reparse point';[IO.Directory]::Delete($link)
     $archive=Join-Path $testRoot 'package.zip';Compress-Archive -LiteralPath $root -DestinationPath $archive
     $sha=(Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant();"$sha  package.zip" | Set-Content ($archive+'.sha256')

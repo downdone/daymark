@@ -36,10 +36,14 @@ $packageRoot=Join-Path $projectRoot "dist/Daymark-$Version-windows-x64-local-$st
 if(Test-Path -LiteralPath $packageRoot){throw 'Output already exists; no files were overwritten.'}
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 Copy-Item -LiteralPath $executable -Destination $packageRoot
+$strip=Join-Path $env:DAYMARK_MINGW 'bin/strip.exe'
+if(!(Test-Path -LiteralPath $strip)){throw 'Matching MinGW strip tool missing.'}
+& $strip --strip-unneeded (Join-Path $packageRoot 'daymark.exe')
+if($LASTEXITCODE -ne 0){throw 'Release symbol stripping failed.'}
 $originalPath=$env:PATH
 try {
     $env:PATH="$env:DAYMARK_MINGW/bin;$env:DAYMARK_QT/bin;$originalPath"
-    & "$env:DAYMARK_QT/bin/windeployqt.exe" --release --qmldir "$projectRoot/src/ui" --dir $packageRoot --no-translations (Join-Path $packageRoot 'daymark.exe')
+    & "$env:DAYMARK_QT/bin/windeployqt.exe" --release --qmldir "$projectRoot/src/ui" --dir $packageRoot --no-translations --skip-plugin-types 'qmltooling,generic' --exclude-plugins 'qsqlibase,qsqlmimer,qsqloci,qsqlodbc,qsqlpsql' (Join-Path $packageRoot 'daymark.exe')
     if($LASTEXITCODE -ne 0){throw 'windeployqt failed; package incomplete.'}
     foreach($dll in @('libgcc_s_seh-1.dll','libstdc++-6.dll','libwinpthread-1.dll')) {
         $runtime=Join-Path $env:DAYMARK_MINGW "bin/$dll"
@@ -47,31 +51,12 @@ try {
         Copy-Item -LiteralPath $runtime -Destination $packageRoot
     }
 } finally {$env:PATH=$originalPath}
-Copy-Item -LiteralPath (Join-Path $projectRoot 'docs') -Destination $packageRoot -Recurse
-$verification=Join-Path $packageRoot 'verification'
-New-Item -ItemType Directory -Path $verification | Out-Null
-foreach($script in @('Test-Package.ps1','PackageValidation.psm1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $script) -Destination $verification}
-$previewNotice=if($LocalPreview){'本地预览包；完整测试门禁通过：'+$fullTestGatePassed+'。已知失败：'+($knownTestFailures -join ', ')+'。详见verification/full-tests.json，不是正式二进制发行。'}else{'完整CTest通过的本地候选；不代表独立干净机或公开再分发许可通过。'}
-if($LocalPreview){$previewSummary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $verification 'full-tests.json') -Encoding utf8}
-$releaseNotes=if(Test-Path -LiteralPath (Join-Path $projectRoot "docs/release-notes-v$Version.md")){"docs/release-notes-v$Version.md"}else{'docs/release-notes-v1-rc2.md'}
-@"
-# Daymark $Version Windows本地候选包
-
-解压后双击daymark.exe。默认数据位于系统应用数据目录，包内没有个人任务数据库。
-
-$previewNotice
-
-构建源码提交：$sourceRevision。版本号沿用当前工程基线；本地包可能包含该版本公开标签之后的改进，以BUILD-INFO.json的sourceRevision为准，不代表改写既有Release。
-
-- [使用指南](docs/user-guide.md)
-- [发行说明/未验证项]($releaseNotes)
-- [离线校验及升级](docs/delivery-guide.md)
-- [第三方组件/再分发边界](docs/third-party-notices.md)
-
-可用PowerShell 7执行 verification/Test-Package.ps1 校验完整性及无SDK运行；报告位于包外临时目录。
-BUILD-INFO.json记录构建元数据，manifest.json提供逐文件校验。校验和不是可信签名。
-本包只用于本地验证，未进行GitHub发布、macOS/独立干净机验收或签名，公开再分发许可未核实。
-"@ | Set-Content -LiteralPath (Join-Path $packageRoot 'README.md') -Encoding utf8
+$removed=Remove-DaymarkDeploymentExtras $packageRoot
+$removed | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $projectRoot ('build/package-pruned-'+$stamp+'.json')) -Encoding utf8
+foreach($name in @('README.md','THIRD-PARTY-NOTICES.md')) {
+    Copy-Item -LiteralPath (Join-Path $projectRoot ('packaging/'+$name)) -Destination $packageRoot
+}
+if($LocalPreview){$previewSummary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $packageRoot 'TEST-RESULTS.json') -Encoding utf8}
 $bomDirectory=Join-Path $packageRoot 'qt-sbom'
 New-Item -ItemType Directory -Path $bomDirectory | Out-Null
 foreach($module in @('qtbase','qtdeclarative','qtshadertools','qtsvg')) {
@@ -86,7 +71,7 @@ Plugins=.
 QmlImports=qml
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot 'qt.conf') -Encoding ascii
 $packageScope=if($LocalPreview){'Windows local preview candidate'}else{'Windows local release candidate'}
-[ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=9;scope=$packageScope;signed=$false;localPreview=[bool]$LocalPreview;fullTestGatePassed=$fullTestGatePassed;knownTestFailures=@($knownTestFailures)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
+[ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=9;scope=$packageScope;signed=$false;symbolsStripped=$true;localPreview=[bool]$LocalPreview;fullTestGatePassed=$fullTestGatePassed;knownTestFailures=@($knownTestFailures)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
 $manifest=Get-ChildItem -LiteralPath $packageRoot -Recurse -File | ForEach-Object {
     [ordered]@{path=[IO.Path]::GetRelativePath($packageRoot,$_.FullName).Replace('\','/');size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
 }

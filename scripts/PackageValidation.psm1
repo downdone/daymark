@@ -39,6 +39,48 @@ function Read-PackageJson([string]$Path) {
     } finally {$document.Dispose()}
 }
 
+function Test-DaymarkPayloadPath([string]$Path) {
+    if($Path -match '(?i)(^|/)(docs|src|tests|scripts|verification|qmltooling)(/|$)|\.(qmltypes|pdb|lib|a|h|cpp|ps1|psm1|log)$'){return $false}
+    if($Path -match '^(daymark\.exe|qt\.conf|BUILD-INFO\.json|manifest\.json|README\.md|THIRD-PARTY-NOTICES\.md|TEST-RESULTS\.json)$'){return $true}
+    if($Path -match '^(Qt6[A-Za-z0-9]+|libgcc_s_seh-1|libstdc\+\+-6|libwinpthread-1|opengl32sw|D3Dcompiler_47)\.dll$') {
+        return $Path -notmatch '^Qt6QuickControls2(Fusion|Imagine|Material|Universal|FluentWinUI3|Windows)(StyleImpl)?\.dll$'
+    }
+    if($Path -match '^sqldrivers/'){return $Path -ceq 'sqldrivers/qsqlite.dll'}
+    if($Path -match '^qt-sbom/'){return $Path -match '^qt-sbom/(qtbase|qtdeclarative|qtshadertools|qtsvg)-6\.10\.2\.spdx\.json$'}
+    if($Path -match '^qml/') {
+        return $Path -notmatch '^qml/QtQuick/Controls/(Fusion|Imagine|Material|Universal|FluentWinUI3|Windows)/' -and
+            $Path -match '(\.dll|\.qml|\.png|/qmldir)$'
+    }
+    return $Path -match '^(platforms|imageformats|iconengines|tls|networkinformation|styles)/[A-Za-z0-9_-]+\.dll$'
+}
+
+function Remove-DaymarkDeploymentExtras([string]$PackageDirectory) {
+    $root=(Get-Item -LiteralPath $PackageDirectory -Force).FullName
+    if([IO.Path]::GetFileName($root) -notmatch '^Daymark-.+-windows-x64-local-\d{8}-\d{6}$' -or !(Test-Path -LiteralPath (Join-Path $root 'daymark.exe'))){throw 'Expected a new Daymark deployment directory.'}
+    $ancestor=Get-Item -LiteralPath $root -Force
+    while($null -ne $ancestor){if($ancestor.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Reparse point in deployment path.'};$ancestor=$ancestor.Parent}
+    if(@(Get-ChildItem -LiteralPath $root -Recurse -Force | Where-Object {$_.Attributes -band [IO.FileAttributes]::ReparsePoint}).Count){throw 'Reparse point in deployment contents.'}
+    $prefix=$root.TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+    $removed=[Collections.Generic.List[string]]::new()
+    foreach($file in Get-ChildItem -LiteralPath $root -Recurse -File) {
+        if(!$file.FullName.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase) -or $file.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Unsafe deployment cleanup target.'}
+        $relative=[IO.Path]::GetRelativePath($root,$file.FullName).Replace('\','/')
+        if(!(Test-DaymarkPayloadPath $relative)) {
+            if($relative -notmatch '(?i)^qmltooling/|^generic/qtuiotouchplugin\.dll$|\.qmltypes$|^qml/QtQuick/Controls/(Fusion|Imagine|Material|Universal|FluentWinUI3|Windows)/|^Qt6QuickControls2(Fusion|Imagine|Material|Universal|FluentWinUI3|Windows)(StyleImpl)?\.dll$|^sqldrivers/qsql(ibase|mimer|oci|odbc|psql)\.dll$'){throw ('Unreviewed deployment file: '+$relative)}
+            Remove-Item -LiteralPath $file.FullName;$removed.Add($relative)
+        } elseif($file.Name -ceq 'qmldir') {
+            $text=[IO.File]::ReadAllText($file.FullName)
+            [IO.File]::WriteAllText($file.FullName,([regex]::Replace($text,'(?m)^typeinfo[^\r\n]*\r?\n','')))
+        }
+    }
+    # Nonrecursive, deepest-first empty-directory cleanup inside the new deployment.
+    foreach($directory in Get-ChildItem -LiteralPath $root -Directory -Recurse | Sort-Object { $_.FullName.Length } -Descending) {
+        if(!$directory.FullName.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase) -or $directory.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Unsafe deployment directory.'}
+        if(!(Get-ChildItem -LiteralPath $directory.FullName -Force)){Remove-Item -LiteralPath $directory.FullName}
+    }
+    return $removed.ToArray()
+}
+
 function Assert-DaymarkPackage([string]$PackageDirectory) {
     $root=(Get-Item -LiteralPath $PackageDirectory -Force).FullName
     if(![IO.Directory]::Exists($root)){throw 'Package directory required.'}
@@ -55,7 +97,7 @@ function Assert-DaymarkPackage([string]$PackageDirectory) {
             if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Reparse point in package.'}
             $relative=[IO.Path]::GetRelativePath($root,$item.FullName).Replace('\','/')
             if($relative -match '(?i)(^|/)(\.git|build|dist)(/|$)|\.(sqlite[^/]*|db|db-wal|db-shm|log|pfx|pem|key|p12)$'){throw 'Private or build artifact in package.'}
-            if($item.PSIsContainer){$pending.Enqueue($item.FullName)}else{$files.Add($relative,$item)}
+            if($item.PSIsContainer){$pending.Enqueue($item.FullName)}else{if(!(Test-DaymarkPayloadPath $relative)){throw ('Non-runtime payload rejected: '+$relative)};$files.Add($relative,$item)}
         }
     }
     if(!$files.ContainsKey('manifest.json') -or !$files.ContainsKey('BUILD-INFO.json')){throw 'Package metadata missing.'}
@@ -72,7 +114,7 @@ function Assert-DaymarkPackage([string]$PackageDirectory) {
            !$info.ContainsKey('knownTestFailures')){throw 'Preview gate evidence missing.'}
         foreach($name in $info.knownTestFailures){if($name -cnotin @('qml_startup','qml_watchdog_late')){throw 'Unexpected preview failure metadata.'}}
         if($info.fullTestGatePassed -ne (@($info.knownTestFailures).Count -eq 0)){throw 'Inconsistent preview gate metadata.'}
-        $summaryPath=Join-Path $root 'verification/full-tests.json'
+        $summaryPath=Join-Path $root 'TEST-RESULTS.json'
         if(!(Test-Path -LiteralPath $summaryPath)){throw 'Preview full test summary missing.'}
         $summary=Read-PackageJson $summaryPath
         if($summary.fullGatePassed -ne $info.fullTestGatePassed -or
@@ -90,7 +132,7 @@ function Assert-DaymarkPackage([string]$PackageDirectory) {
     }
     if($seen.Count -ne $files.Count-1){throw 'Unlisted file in package.'}
     foreach($required in @('daymark.exe','BUILD-INFO.json','qt.conf','Qt6Core.dll','platforms/qwindows.dll','sqldrivers/qsqlite.dll',
-                            'docs/user-guide.md','docs/third-party-notices.md','verification/Test-Package.ps1','verification/PackageValidation.psm1')) {
+                            'README.md','THIRD-PARTY-NOTICES.md')) {
         if(!$seen.Contains($required)){throw 'Required deployment file missing.'}
     }
     return @{root=$root;manifest=$manifest;info=$info;files=$files}
@@ -135,4 +177,4 @@ function Get-DaymarkRuntimeOrigin([string]$ModuleName,[string]$ModulePath,[strin
     throw ('Runtime DLL outside permitted locations: '+$ModuleName)
 }
 
-Export-ModuleMember -Function Assert-DaymarkPackage,Assert-DaymarkArchive,Get-DaymarkRuntimeOrigin,Read-DaymarkPreviewTests
+Export-ModuleMember -Function Assert-DaymarkPackage,Assert-DaymarkArchive,Get-DaymarkRuntimeOrigin,Read-DaymarkPreviewTests,Test-DaymarkPayloadPath,Remove-DaymarkDeploymentExtras

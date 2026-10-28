@@ -23,7 +23,7 @@ ColumnLayout {
     readonly property real titleCenterY: titleLabel.y+titleLabel.topPadding+(titleLabel.height-titleLabel.topPadding-titleLabel.bottomPadding)/2
     FontMetrics {id:titleMetrics;font:titleLabel.font}
     signal subtasksRequested()
-    spacing: 1
+    spacing: Theme.textLineGap
     function inspectorSourcePoint(target) {
         return titleLabel.mapToItem(target,Math.min(titleLabel.width,titleLabel.contentWidth),titleLabel.topPadding+(titleLabel.height-titleLabel.topPadding-titleLabel.bottomPadding)/2)
     }
@@ -70,7 +70,7 @@ ColumnLayout {
             text: qsTr("%1 个子任务").arg(summary.subtaskTotal)
             font.pixelSize: Theme.captionSize
             padding: 0
-            implicitHeight: Math.max(32,Theme.captionSize+12)
+            implicitHeight: Theme.metadataActionHeight
             contentItem: Text {text: subtaskLink.text;font: subtaskLink.font;color: !subtaskLink.enabled ? Theme.disabledText : subtaskLink.hovered || subtaskLink.activeFocus ? Theme.accent : Theme.secondary;verticalAlignment: Text.AlignVCenter}
             Accessible.name: qsTr("%1：%2 个子任务，已完成 %3 个。查看子任务").arg(summary.title).arg(summary.subtaskTotal).arg(summary.subtaskTotal-summary.subtaskPending)
             background: Rectangle {radius: Theme.controlRadius;color: "transparent";border.width: subtaskLink.visualFocus ? 1 : 0;border.color: Theme.accent}

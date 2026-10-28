@@ -25,7 +25,7 @@ private:
     double m_viewMinute=0;
     int m_stage=0;
     int m_toolbarPhase=0;
-    QRectF m_toolbarRect;
+    QRectF m_toolbarRect;QRectF m_viewSwitchRect;
     QElapsedTimer m_wait,m_clock;
     quint64 m_sequence=0;
     QVariantMap m_before;

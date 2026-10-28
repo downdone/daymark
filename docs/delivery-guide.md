@@ -4,15 +4,17 @@
 
 ## 用户校验（PowerShell 7）
 
+运行包不包含开发docs和PowerShell验收脚本。验收器从源码仓库运行；README提供启动与数据目录说明，第三方追溯保留。
+
 下载时对ZIP计算SHA256，与随包侧车及交付渠道公布的值比较；校验和只能检测差异，不能代替可信签名。解压后从候选目录执行：
 
 ```powershell
 Get-FileHash './Daymark-版本-windows-x64-local-时间.zip' -Algorithm SHA256
 # 切换到已解压的候选目录；无需安装Qt或设置DAYMARK_QT。
-pwsh -NoProfile -File ./verification/Test-Package.ps1
+pwsh -NoProfile -File <源码仓库>/scripts/Test-Package.ps1 -PackageDirectory <解压目录>
 ```
 
-校验器先只读检查整个目录的清单、文件长度/SHA、版本与敏感文件，再以系统PATH运行--version及原生smoke。普通候选使用完整探针；明确标记的本地预览使用contextual-workspace探针，包内保留完整CTest结果摘要，详见[ADR-024](ADR/024-local-preview-package.md)。所有业务操作使用QTemporaryDir合成库，不访问现有任务库、不建立托盘或修改启动项；会出现测试窗口。运行期间检查加载的包内DLL是否实际来自包内，至少观察Qt6Core、qwindows和qsqlite。完成后再次检查目录，任何错误非零退出。
+校验器先只读检查整个目录的清单、文件长度/SHA、版本与敏感文件，再以系统PATH运行--version及原生smoke。普通候选使用完整探针；明确标记的本地预览使用contextual-workspace探针，包内TEST-RESULTS.json保留完整CTest结果摘要，详见[ADR-024](ADR/024-local-preview-package.md)。所有业务操作使用QTemporaryDir合成库，不访问现有任务库、不建立托盘或修改启动项；会出现测试窗口。运行期间检查加载的包内DLL是否实际来自包内，至少观察Qt6Core、qwindows和qsqlite。完成后再次检查目录，任何错误非零退出。
 
 Qt DLL文件版本另行核对为6.10.2。系统可能选择Windows/System32中的D3DCompiler_47.dll代替包内副本；仅允许这一精确系统路径，记录在windowsSystemModules。Qt、MinGW、QML插件仍必须来自候选目录，任意SDK或其他目录来源均失败。
 
@@ -32,7 +34,7 @@ report.json的passed只表示这台机器的SDK隔离原生检查通过；cleanM
 ./scripts/package-windows.ps1 -Version 1.0.0-rc.2
 ```
 
-脚本重新构建并测试当前Release，部署运行库、说明、SBOM和独立验收器，生成源码提交及版本元数据/manifest，再运行无SDK验收；通过后生成新的ZIP及SHA侧车，并逐项比较ZIP内容与已验证目录。失败保留独立候选目录用于诊断，不覆盖历史包，不自动推送或上传。合成篡改回归已接入Windows CTest的package_validation，也可单独执行tests/scripts/PackageValidationTest.ps1；合成文件不用于证明Qt可以运行。
+脚本重新构建并测试当前Release，按ADR-025部署必要运行库、简明说明、SBOM和小型结果元数据，生成源码提交及版本元数据/manifest，再运行无SDK验收；通过后生成新的ZIP及SHA侧车，并逐项比较ZIP内容与已验证目录。失败保留独立候选目录用于诊断，不覆盖历史包，不自动推送或上传。合成篡改回归已接入Windows CTest的package_validation，也可单独执行tests/scripts/PackageValidationTest.ps1；合成文件不用于证明Qt可以运行。
 
 升级/回退与数据库备份继续遵循[RC2说明](release-notes-v1-rc2.md)。公开分发前核实[第三方许可](third-party-notices.md)，当前版本不包含安装器、签名或自动升级。
 
