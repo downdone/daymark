@@ -23,6 +23,6 @@ SQLite schema/JSON仍为9，无新增数据库迁移。本地任务、日期和U
 - `qml_startup`及`qml_watchdog_late`仍因旧全链在45秒预算内未完成而失败；本版重跑分别在阶段324/402超时，后者未到其436阶段注入点。保留原超时和断言，不宣称RELEASE-READY。列表测试也存在接近30秒预算的波动，详见[PROGRESS](PROGRESS.md)。
 - 本轮关联验证覆盖单/多选菜单、危险操作、最近删除集合恢复、草稿保存/取消、重复结束日期、菜单分隔不可激活、实体菜单与锚点、托盘命令状态和设置路由。浅深色、200%文字截图为Qt框架证据。
 - 本地未进行本版macOS构建及原生外观实测，远端CI另行记录；Windows Shell托盘、真实GPU/DWM首帧闪边、物理输入/IME、辅助技术、多屏DPI和干净机部署仍UNVERIFIED。历史平台结果不能代替本次验收。
-- Qt运行库公开再分发许可仍待确认，因此只公开GitHub源码归档，不上传二进制。
+- Qt 按 LGPLv3 动态链接使用（[ADR-027](ADR/027-open-source-qt-ci.md)）；公开分发的二进制须由开源 Kit 构建并随包附带许可文本与源码获取方式。
 
 设计与菜单清单见[全局视觉系统](design/global-visual-system.md)、[原行新建](design/list-double-click-draft.md)、[重复设置](design/repeat-choice-popover.md)及[全菜单分组](design/menu-system-review.md)。实际证据和发布状态以[PROGRESS](PROGRESS.md)为准；版本、不可变标签及源码门槛遵守[发布规则](release-policy.md)。

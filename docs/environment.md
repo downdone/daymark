@@ -60,7 +60,7 @@ Windows构建测试/交付脚本使用PowerShell 7（pwsh）；CTest额外执行
 - qml_startup使用offscreen及QTemporaryDir真实文件库，加载模块、等待worker就绪，并通过实际QML输入/详情信号执行新增→非法日期拒绝保留草稿→编辑→完成/恢复→软删撤销→未保存离开保护；检查两窗口且无QML警告，不写真实用户库。
 - CTest使用noTestsAction=error；零测试不能冒充通过。日志在对应build目录Testing/Temporary，原始日志含本机路径，不提交。
 - 配置提示缺少WrapVulkanHeaders，但默认路径本轮构建通过；Vulkan后端未验证。
-- moc输出许可客户端期望服务版本3.6.1、安装服务不匹配。本轮编译及测试仍成功；未修改许可配置或启用绕过变量。发布前核实Kit许可来源及服务状态。
+- 构建使用开源（LGPLv3）Qt Kit；CI 由 `install-qt-action` 安装官方社区归档，日志回显 Kit 路径与 `LICENSES`。许可依据见 [ADR-027](ADR/027-open-source-qt-ci.md)。
 - QML加载失败：正常启动显示错误对话框；自动smoke返回失败，避免模态弹窗挂住测试。
 
 ## W-01窗口验证
@@ -71,8 +71,8 @@ QML静态检查：`cmake --build --preset windows-debug --target daymark_qmllint
 
 ## 基础任务验证
 
-CTest共6项：sqlite_runtime、task_service、task_workspace、single_instance、widget_window、qml_startup。任务/数据库测试均用QTemporaryDir；单实例测试启动真实第二进程，临时目录包含空格。
+CTest 共 25 项（见[测试方法](testing-method.md)的分层与标签）。任务/数据库测试均用 QTemporaryDir；单实例测试启动真实第二进程，临时目录包含空格。
 
 正常启动会创建用户业务库；只有smoke和自动测试强制隔离。--data-dir允许开发者指定独立目录，不要指向真实用户测试数据。--smoke-test --screenshot <本地PNG路径>在合成流程中保存主界面，以及追加.editor.png的窄窗错误详情截图；只用于开发验证，不含真实用户任务。
 
-Qt SQL连接仅在worker创建、使用和销毁。初始迁移001已作为本轮schema交付；后续schema变化必须新增迁移，不覆盖001。手动快照已验证，自动每日备份、导入恢复与未来版本迁移仍属后续工作。
+Qt SQL 连接仅在 worker 创建、使用和销毁。当前 schema 为 9，迁移按序号增量交付，不覆盖历史迁移。一致快照备份、JSON/CSV 导入导出与升级迁移见[用户指南](user-guide.md)。

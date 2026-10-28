@@ -1,35 +1,62 @@
 # Daymark
 
-Windows/macOS离线任务管理与日历应用，C++20 + **Qt 6.10.2 / Qt Quick** + SQLite。
+Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick** + SQLite本地优先存储。
 
-**简约而不简单**：记下事情，明确下一步，安心完成；组织方式可选，数据与恢复可靠。[产品哲学](docs/product-philosophy.md)与[全产品体验方案](docs/design/product-experience-review.md)规定功能和界面的取舍。
+**简约而不简单**：记下事情，明确下一步，安心完成；组织方式可选，数据与恢复可靠。[产品哲学](docs/product-philosophy.md)规定功能与界面的取舍。
 
-当前源码按[统一任务系统](docs/design/unified-task-system.md)结合日历与提醒事项：所有内容统一为任务，支持起止时间、循环、周期提醒、真实父子任务与两级分类；分类取代项目/领域，子任务取代检查清单。侧栏删除规划，顶部切换列表/日历，共用详情、完成与编辑记录。导航采用今天、计划、全部、特别关注、完成五个自动视图；父子任务完成、删除、分类移动联动，最近删除按同次操作恢复。分类与标签在右键就近管理。数据库schema9；本轮实现与验证仅以[PROGRESS](docs/PROGRESS.md)为准，RC2包描述仅为历史发行范围。
+## 功能概览
 
-当前源码版本为 **1.1.0**；版本提交与远端标签/发布分别记录，不覆盖已有版本。本轮不附Qt运行库或用户数据。[1.1.0发行说明](docs/release-notes-v1.1.0.md)列出变化和边界，[测试方法](docs/testing-method.md)说明分层、去重及链路覆盖；实际PASS/FAIL/UNVERIFIED只见[进度](docs/PROGRESS.md)。
+- **统一任务**：所有内容都是任务，支持起止时间、循环规则、周期提醒、真实父子任务；分类取代项目/领域，子任务取代检查清单。
+- **五个自动视图**：今天、计划、全部、特别关注、完成，切换列表/日历两种查看方式。
+- **日历**：连续月历、日/周时间轴、拖选排期、年视图与独立桌面日历。
+- **桌面组件**：浮动小窗、Mini 与桌面日历，不抢焦点、可置顶或置于桌面层。
+- **数据安全**：软删除与撤销、一致性快照备份、JSON/CSV 导入导出、升级迁移。
+- **离线优先**：无账号、无云、无遥测，核心操作不依赖网络。
 
-Windows/macOS是工程目标，当前源码的跨平台CI及物理输入、通知/穿透、多屏/睡眠/8h、独立部署和签名仍需分别验收，不能以1.0版本号或历史测试代替。Qt 按 LGPLv3 动态链接使用（[ADR-027](docs/ADR/027-open-source-qt-ci.md)），公开分发的二进制须由开源 Kit 构建；[RC2记录](docs/release-notes-v1-rc2.md)及[v0.1记录](docs/release-notes-v0.1.md)保留历史。
+当前版本 **1.1.0**，数据库 schema 9。实现与验证状态只以[进度](docs/PROGRESS.md)为准。
 
-UI-07统一了主窗、详情、管理弹窗、日历与桌面组件的字体、间距、图标、控件和动作层级。规范见[视觉统一](docs/design/visual-unification.md)，本地预览包与实际验证见[进度](docs/PROGRESS.md)。
+## 构建
 
-## 开始开发
+需要 Qt **6.10.2（EXACT）**、CMake ≥ 3.24、Ninja、C++20 编译器：
 
-1. 阅读 [AGENTS.md](AGENTS.md)、[文档导航](docs/README.md)、[当前进度](docs/PROGRESS.md)。
-2. 按 [环境与构建](docs/environment.md) 设置DAYMARK_QT及Windows的DAYMARK_MINGW。
-3. Windows运行 `./scripts/build-windows.ps1`、`./scripts/test-windows.ps1`、`./scripts/run-windows.ps1`。
-4. macOS运行 `bash scripts/build-macos.sh`；已验证范围和本机工具环境见[环境与构建](docs/environment.md)。
-5. Windows Release构建测试后，`./scripts/package-windows.ps1`生成带运行库的本地验证包并在不含SDK的PATH下验证。Qt 许可与再分发条件见[第三方说明](docs/third-party-notices.md)。
+| 平台 | 编译器 | 其它 |
+|---|---|---|
+| Windows | MinGW GCC 13.1 或 MSVC 2022 | PowerShell 7（测试/打包脚本） |
+| macOS | Apple Clang（Xcode） | 最低 macOS 13 |
+
+```bash
+# Windows（设置 DAYMARK_QT 指向 6.10.2/mingw_64，DAYMARK_MINGW 指向 Tools/mingw1310_64）
+./scripts/build-windows.ps1
+./scripts/test-windows.ps1
+
+# macOS（设置 DAYMARK_QT 指向 6.10.2/macos）
+bash scripts/build-macos.sh macos-release
+```
+
+完整环境说明见[环境与构建](docs/environment.md)；测试分层见[测试方法](docs/testing-method.md)。
+
+## 项目状态
+
+Windows 与 macOS 是工程目标。CI 在两端执行构建、完整 CTest 与 QML lint；平台专属门禁（物理输入、通知、穿透、多屏/睡眠、干净机部署、签名）仍需分别验收，不能以版本号代替。
+
+## 许可
+
+本项目源码以 **GNU Lesser General Public License v3.0** 发布，全文见 [LICENSE](LICENSE)。
+
+运行时使用 Qt 6.10.2，按 LGPLv3 动态链接，不修改 Qt 源码、不静态链接。公开分发的二进制须由开源 Qt（LGPLv3）构建，并随包提供 LGPLv3 文本、Qt 版权声明与源码获取方式。详见[第三方说明](docs/third-party-notices.md)与 [ADR-027](docs/ADR/027-open-source-qt-ci.md)。
+
+## 参与
+
+- [文档导航](docs/README.md)：项目文档总入口。
+- [开发方法](docs/engineering.md) 与 [工程原则](docs/principles.md)：提交、验证与分层纪律。
+- [AGENTS.md](AGENTS.md)：代码代理的工作约束。
 
 ## 项目资料
 
-- [产品哲学与概念关系](docs/product-philosophy.md)、[产品规格](docs/01_PRODUCT_SPEC.md)、[技术基线](docs/02_TECHNICAL_DESIGN.md)、[原始计划](docs/03_IMPLEMENTATION_PLAN.md)。
-- [AI开发方法](docs/engineering.md)、[工程原则](docs/principles.md)。
-- [详细设计](docs/design/architecture.md)、[模块契约](docs/design/contracts.md)、[界面设计](docs/design/ui.md)。
-- UI目标：[Things/Apple调研](docs/design/ui-research.md)、[UI/UX设计基准](docs/design/ui-baseline.md)、[UX验收](docs/design/ui-acceptance.md)。
-- [里程碑任务](docs/milestones.md)、[验证报告](docs/verification-report.md)、[平台矩阵](docs/platform-test-matrix.md)。
+- [产品规格](docs/01_PRODUCT_SPEC.md)、[技术基线](docs/02_TECHNICAL_DESIGN.md)、[原始计划](docs/03_IMPLEMENTATION_PLAN.md)。
+- [详细设计](docs/design/architecture.md)、[模块契约](docs/design/contracts.md)。
+- UI：[调研](docs/design/ui-research.md)、[设计基准](docs/design/ui-baseline.md)、[验收](docs/design/ui-acceptance.md)。
+- [里程碑](docs/milestones.md)、[平台矩阵](docs/platform-test-matrix.md)、[发布规则](docs/release-policy.md)。
+- 发行说明：[1.1.0](docs/release-notes-v1.1.0.md)。
 
-顺序：M0窗口POC → M1可靠基础 → M2数据闭环 → M3主窗 → M4日历 → M5桌面MVP → M6重复提醒 → M7备份/稳定性/双平台发布。工程基线不等于M0/M1整体完成。
-
-V1无账号、云端或AI功能依赖，核心操作离线可用。Things仅为交互原则参考，不复制资产；Daymark是暂定代号，公开发布前核实名称与许可。
-
-版本、不可变标签、源码/二进制门禁及隐私检查遵守[发布规则](docs/release-policy.md)。
+Things 仅为交互原则参考，未复制其图标、字体或二进制资产。
