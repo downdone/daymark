@@ -1,8 +1,14 @@
 # Daymark 实施进度
 
-### UX-58后本地便携包（2026-10-28，IN_PROGRESS）
+### UX-58后本地便携包（2026-10-28，LOCAL-PREVIEW交付；部署校验PASS / 完整门禁FAIL）
 
 用户要求构建便携包。按ADR-024将本轮已验证的空间稳定/滚动槽修改提交为本地源码快照，再以LocalPreview重新执行标准Release构建和完整CTest；仅容许既有两个长链失败，其他失败阻止打包。沿用工程1.1.0，以BUILD-INFO的真实提交区分公开旧tag，包内保留全测试结果；部署后进行SDK隔离原生探针、模块来源、清单/ZIP逐文件与SHA256校验。无关架构草案临时移入忽略build并按原哈希恢复，不纳入源码或包；不正常打开用户数据库，不推送/上传运行库。实际产物和验证结果完成后追加。
+
+结果：源码本地提交`4427e060dff85cca742db466be2cdf47883e2717`，标准Qt6.10.2 Release构建PASS。package-windows -LocalPreview重跑完整CTest23/25、150.48秒（build/ux58-portable.log）；所有关联及核心/数据通过。qml_startup在370超时；late watchdog本次在149的合成滚轮传播检查失败，未到436，不是成功验证故障注入或第二项超时。预览按既有失败用例名白名单记录真实FAIL，未调整预算或断言，包内verification/full-tests.json保留全部25项；完整门禁与正式二进制状态仍FAIL。
+
+最终产物`dist/Daymark-1.1.0-windows-x64-local-20261028-104231.zip`，47,483,631字节；SHA256 `c15af0a29ceb289270998d89f4a8f4b0c95a4cf92078a0238f07e5d2ced65873`，同名.sha256侧车已核对。包内BUILD-INFO固定4427e06、本地预览及两项失败，未修改既有公开版本标签。executable SHA256仍`8c2429cd2e89477166ffce676f119574f7347ead93eaa61d186ba00eb5e119b4`。
+
+部署校验PASS：SDK隔离Windows原生contextual-workspace退出0、visible windows=2、warnings=false；全程37个实际部署模块均来自包内，包含Qt6Core/qwindows/qsqlite（build/daymark-package-check-109dfd07ad194f7bba3bfd325ec8e2db/report.json）。版本、Qt SBOM、清单逐文件、ZIP内容及校验和均通过。无关架构草案未入清单，恢复SHA256与原始一致；所有业务数据合成临时生成，未正常启动私人库。本轮仅本地源码提交和本地包，无GitHub推送/上传；macOS/物理输入/读屏/独立干净机、许可及UX-58原生额外失败继续保持原状态。
 
 ### UX-58 全局空间稳定与滚动槽（2026-10-28，IMPLEMENTED；Windows关联AUTO-PASS / 完整门禁仍FAIL）
 
