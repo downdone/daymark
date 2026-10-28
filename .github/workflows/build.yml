@@ -53,17 +53,25 @@ jobs:
         shell: bash
         run: |
           set +e
-          ctest --test-dir build/ci -C Release --output-on-failure --no-tests=error --output-junit build/ci/ctest-report.xml
+          report="$PWD/build/ctest-report.xml"
+          log="$PWD/build/ctest-console.log"
+          mkdir -p build
+          ctest --test-dir build/ci -C Release --output-on-failure --no-tests=error \
+                --output-junit "$report" >"$log" 2>&1
           status=$?
+          cat "$log"
+          echo "ctest exit: $status"
           # The job log needs admin rights on some accounts; annotations are public.
-          python3 scripts/report-ctest-failures.py build/ci/ctest-report.xml || true
+          python3 scripts/report-ctest-failures.py "$report" "$log" || true
           exit $status
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ctest-report-${{ matrix.arch }}
-          path: build/ci/ctest-report.xml
+          path: |
+            build/ctest-report.xml
+            build/ctest-console.log
           if-no-files-found: warn
       - name: QML lint
         run: cmake --build build/ci --config Release --target daymark_qmllint daymark_style_qmllint

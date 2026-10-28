@@ -1,34 +1,58 @@
 #!/usr/bin/env python3
-"""Print one GitHub Actions error annotation per failing CTest JUnit case.
+"""Print one GitHub Actions error annotation per failing CTest case.
 
 The Actions job log is not readable without admin rights on some accounts,
 but workflow annotations are public. Emitting failing test names as
 `::error title=...::` lines keeps CI failures diagnosable from the API.
 
-Usage: report-ctest-failures.py <path-to-ctest-report.xml>
+Usage: report-ctest-failures.py <path-to-ctest-report.xml> [<console-log>]
+
+The JUnit file is preferred; the console log is a fallback so a run that
+died before CTest wrote the report still names the failing tests.
 """
+import re
 import sys
 import xml.etree.ElementTree as ET
 
 
-def main(argv):
-    if len(argv) != 2:
-        return 0
+def from_junit(path):
     try:
-        root = ET.parse(argv[1]).getroot()
+        root = ET.parse(path).getroot()
     except (OSError, ET.ParseError):
-        return 0
+        return []
+    out = []
     for case in root.iter('testcase'):
-        if case.find('failure') is None and case.find('error') is None:
-            continue
-        detail = ''
         node = case.find('failure')
         if node is None:
             node = case.find('error')
-        message = (node.text or '').strip().splitlines()
-        if message:
-            detail = ' - ' + message[0][:200]
-        print('::error title=CTest failure::%s%s' % (case.get('name', '?'), detail))
+        if node is None:
+            continue
+        first = (node.text or '').strip().splitlines()
+        detail = ' - ' + first[0][:200] if first else ''
+        out.append('%s%s' % (case.get('name', '?'), detail))
+    return out
+
+
+def from_console(path):
+    try:
+        text = open(path, encoding='utf-8', errors='replace').read()
+    except OSError:
+        return []
+    names = re.findall(r'^\s*\d+/\d+\s+Test\s+#\d+:\s+(\S+)\s+\.+\*\*\*', text, re.M)
+    if not names:
+        names = re.findall(r'^\s*(\d+)\s+-\s+(\S+)\s+\(Failed\)', text, re.M)
+        names = [n[1] for n in names]
+    return names
+
+
+def main(argv):
+    if len(argv) < 2:
+        return 0
+    failures = from_junit(argv[1])
+    if not failures and len(argv) > 2:
+        failures = from_console(argv[2])
+    for name in failures:
+        print('::error title=CTest failure::%s' % name)
     return 0
 
 
