@@ -45,6 +45,22 @@ def from_console(path):
     return names
 
 
+def failure_context(path):
+    """Pull the probe's own failure lines (stage name) out of the console log."""
+    try:
+        text = open(path, encoding='utf-8', errors='replace').read()
+    except OSError:
+        return []
+    found = []
+    for pattern in (
+        r'Basic UI smoke failed at .{0,200}',
+        r'UX\d+ stage \d+:.{0,200}',
+        r'Verification exited before all scenarios completed.{0,80}',
+    ):
+        found.extend(m.strip() for m in re.findall(pattern, text))
+    return found[:10]
+
+
 def main(argv):
     if len(argv) < 2:
         return 0
@@ -53,6 +69,9 @@ def main(argv):
         failures = from_console(argv[2])
     for name in failures:
         print('::error title=CTest failure::%s' % name)
+    if len(argv) > 2:
+        for line in failure_context(argv[2]):
+            print('::error title=CTest detail::%s' % line)
     return 0
 
 
