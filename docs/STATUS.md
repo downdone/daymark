@@ -21,7 +21,7 @@
 | macOS（CI，`macos-15`） | 构建、测试、QML lint 通过 |
 | QML lint | `daymark_qmllint`、`daymark_style_qmllint` 通过 |
 
-CI 双平台全绿：[run 40675789819](https://github.com/downdone/daymark/actions/runs/40675789819)（2026-10-28）。
+CI 双平台全绿：[run 40684920204](https://github.com/downdone/daymark/actions/runs/40684920204)（2026-10-28）。
 
 ## 已知问题
 
