@@ -1,5 +1,7 @@
 # Windows V1候选版实施契约
 
+> 状态：历史契约（已归档）。当前发布与包范围以 [ADR-024](../ADR/024-local-preview-package.md)、[ADR-025](../ADR/025-minimal-portable-payload.md) 与[发布规则](../release-policy.md)为准。
+
 用户确认暂时没有macOS，先交付Windows V1候选版。原PRD P0/P1保持基线，候选版不代表M7双平台正式验收完成。
 
 ## V1-A 数据与效率
