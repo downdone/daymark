@@ -1,6 +1,6 @@
 # Daymark 实施进度
 
-### UX-57 首开详情收起与排版（2026-10-28，IN_PROGRESS）
+### UX-57 首开详情收起与排版（2026-10-28，IMPLEMENTED；Windows关联/原生详情AUTO-PASS / 本地预览已生成）
 
 用户反馈首开详情默认铺满且收起无效、显示粗糙，要求修复后本地便携包。按[设计](design/inspector-size-control.md)移除width<1000/scale>=1.5对尺寸模式的强制覆盖，窄窗只做几何限制；收紧展开内容列、统一轴线和分隔。用原contextual_workspace验证首次窄窗、按钮/键盘、大字及同草稿无写入，再构建/lint、关联/完整测试和本地打包。保留原预算、已有进度与无关架构草案；不正常打开私人库，不改公开标签、不推送或公开运行库。当前Windows环境，macOS运行/便携包UNVERIFIED。
 
@@ -11,6 +11,10 @@
 原生截图：ux57-native-final.err退出0、warnings=false，复看首开紧凑、普通展开可读列及深色200%两种形态；包前所有业务用合成临时库。额外原生desktop全链不能标PASS：一次样板grip后排未进入视口，另一次设置类别滚动恢复0/89不一致（ux57-native-surfaces.err、ux57-native-surface-final.err）。像素采样已按实际截图/逻辑尺寸映射，阈值不变；未将额外失败或此前软件渲染DPR裁切改写为成功，未扩大到修改设置/样板行为。最终完整CTest及本地包检查另追加，macOS/物理输入/读屏仍UNVERIFIED。
 
 首次完整打包尝试：f83b46b完整CTest23/25、152.71秒，列表27.99秒通过；两个历史入口实际在198的隐藏端点布局失败，并非旧超时，不能算本轮回归通过。根因为旧布局链依赖200%自动展开日期；现改为测试打开后先经真实日期摘要展开，再执行全部原断言，产品行为不退回。首个090128本地包仅保留为过程证据，不作为本轮最终交付；重新构建/完整测试和生成最终包。
+
+最终交付源码c3680a63c57df881cb55bba803ead0abfa176a7a，完整CTest23/25、182.48秒（ux57-delivery-portable.log）。旧布局198回归已消除；所有核心/数据/关联UI通过，列表27.77秒。仅qml_startup/late watchdog分别在382/343达到原45秒预算，后者未到故障注入436，完整门禁仍FAIL。最终本地包`dist/Daymark-1.1.0-windows-x64-local-20261028-090817.zip`，47,466,638字节，SHA256 `3e1ac5f3946178c248b5608b530b2eeb0f0ab03468e3ed0e34f742e46ddce0bc`；编译版本仍1.1.0，包内BUILD-INFO明确真实c3680a6提交及预览范围，不改既有公开tag。
+
+最终SDK隔离原生contextual-workspace退出0、warnings=false，含首开尺寸/实际按钮绘制/切换/保存验证；37个实际部署模块从包内加载，Qt6Core/qwindows/qsqlite均观察到，清单/ZIP每文件与SHA一致（daymark-package-check-5cb3c7ca3a8b4eddb7ee26bb87aa1472/report.json）。executable SHA256 a0ffe238b26f49b2c0f7982d6e95c9e167d29e2eeeb91c1f1deafc9a28e2b802。所有测试为临时合成数据，未正常打开私人库；无关草案两次临时移入忽略build后按原SHA256恢复。本轮仅本地提交/交付，没有推送或公开运行库；原生全界面额外失败、macOS/物理输入/读屏/干净机及软件高DPI边界保持上述FAIL/UNVERIFIED，不标正式二进制READY。
 
 ### 最新源码拉取与本地构建（2026-10-28，BUILD-PASS；完整CTest 22/25）
 
