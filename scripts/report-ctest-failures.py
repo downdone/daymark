@@ -56,9 +56,13 @@ def failure_context(path):
         r'Basic UI smoke failed at .{0,200}',
         r'UX\d+ stage \d+:.{0,200}',
         r'Verification exited before all scenarios completed.{0,80}',
+        r'Compact insets.{0,200}',
+        r'Stale completion state.{0,200}',
+        r'List title axes.{0,200}',
+        r'Wheel geometry.{0,200}',
     ):
         found.extend(m.strip() for m in re.findall(pattern, text))
-    return found[:10]
+    return found[:12]
 
 
 def main(argv):
