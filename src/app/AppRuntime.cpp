@@ -799,7 +799,14 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 auto* save=mainWindow->findChild<QObject*>(QStringLiteral("saveTaskEditor"));
                 auto catalogId=[&](const QString& kind){for(const auto& value:m_workspace.catalogOf(kind))if(value.toMap().value(QStringLiteral("title")).toString().startsWith(QStringLiteral("布局验收")))return value.toMap().value(QStringLiteral("id")).toString();return QString();};
                 auto capture=[&](const QString& name){return screenshotPath.isEmpty() || mainWindow->grabWindow().save(screenshotPath+QLatin1Char('.')+name+QStringLiteral(".png"));};
-                auto open=[&]{return QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));};
+                auto open=[&]{
+                    if(!QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId))))return false;
+                    // Exercise endpoint layout explicitly; text scaling no longer
+                    // changes the user's inspector-size or date-section choice.
+                    if(!mainWindow->property("inspectorExpanded").toBool() && !mainWindow->property("dateTimeExpanded").toBool())
+                        return QMetaObject::invokeMethod(mainWindow->findChild<QObject*>(QStringLiteral("editorTimeSummary")),"clicked");
+                    return true;
+                };
                 auto select=[&](const QString& kind,const QString& id,const QString& heading){QVariant result;return QMetaObject::invokeMethod(fields,"selectDestinationForVerification",Q_RETURN_ARG(QVariant,result),Q_ARG(QVariant,QVariant(kind)),Q_ARG(QVariant,QVariant(id)),Q_ARG(QVariant,QVariant(heading))) && result.toBool();};
                 auto layout=[&](bool wide){QVariant result;const bool called=QMetaObject::invokeMethod(mainWindow,"verifyTaskDetailLayout",Q_RETURN_ARG(QVariant,result),Q_ARG(QVariant,QVariant(wide)));if(!called || result.toString()!=QStringLiteral("PASS"))qWarning()<<"Detail layout:"<<result;return called && result.toString()==QStringLiteral("PASS");};
                 if(phase==191) {if(!m_workspace.saveCatalog({{"kind",QStringLiteral("project")},{"title",QStringLiteral("布局验收分类")},{"planningState",QStringLiteral("ACTIVE")},{"status",QStringLiteral("OPEN")}})){fail("detail project setup");return;}}
