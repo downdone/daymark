@@ -18,6 +18,7 @@ private:
     QPointer<QQuickWindow> m_window;
     QString m_screenshot,m_scope,m_first,m_second,m_unscheduled;
     int m_stage=0;
+    int m_inspectorSizePhase=0;
     QElapsedTimer m_wait,m_inputClock;
     quint64 m_inputSequence=0;
     QVariantMap m_before;

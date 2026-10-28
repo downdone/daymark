@@ -9,12 +9,13 @@ Item {
     implicitHeight:DesignTokens.iconSize
     readonly property real drawingSize:Math.min(width,height,DesignTokens.iconSize)
     readonly property string pathData:IconPaths.path(name)
-    // The raster Shape backend needs a bounded layer to honor nested scroll
-    // clips. Native RHI keeps vector antialiasing without a texture per icon.
-    layer.enabled:shape.rendererType===Shape.SoftwareRenderer
+    // Bound the small geometry paths for reliable initial native rendering,
+    // multisampled edges and nested software-renderer scroll clips.
+    layer.enabled:true
+    layer.samples:4
     Shape {
         id:shape
-        preferredRendererType:Shape.CurveRenderer
+        preferredRendererType:Shape.GeometryRenderer
         x:(root.width-root.drawingSize)/2;y:(root.height-root.drawingSize)/2
         width:24;height:24;scale:root.drawingSize/24;transformOrigin:Item.TopLeft
         ShapePath {

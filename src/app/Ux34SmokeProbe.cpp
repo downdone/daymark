@@ -12,6 +12,7 @@
 #include <QAction>
 #include <QList>
 #include <QStyleHints>
+#include <QColor>
 
 namespace daymark {
 Ux34SmokeProbe::Ux34SmokeProbe(TaskWorkspace& workspace,QQuickWindow* window,QString screenshot):m_workspace(workspace),m_window(window),m_screenshot(std::move(screenshot)){m_wait.start();m_inputClock.start();}
@@ -35,21 +36,60 @@ QString Ux34SmokeProbe::advance()
     auto doubleBlank=[&]{m_inputSequence+=QGuiApplication::styleHints()->mouseDoubleClickInterval()+1;const auto at=listPoint();mouse(QEvent::MouseMove,at,Qt::NoButton,Qt::NoButton);mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonDblClick,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);};
     auto type=[&](const QString& text){for(const auto kind:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(kind,0,Qt::NoModifier,text);QCoreApplication::sendEvent(m_window,&event);}};
     auto shortcut=[&](int key,Qt::KeyboardModifiers modifiers=Qt::NoModifier){for(const auto kind:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(kind,key,modifiers);QCoreApplication::sendEvent(m_window,&event);}};
+    auto toggleInspector=[&]{auto* button=qobject_cast<QQuickItem*>(find("toggleTaskEditorSize"));if(!button || !button->isVisible())return false;const auto at=button->mapToScene(QPointF(button->width()/2,button->height()/2));mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);return true;};
     if(m_stage>=34 && !settle())return {};
     if(m_stage==0){invoke(editor,"close");m_workspace.setPreference("listShowSubtasks",true);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1280,800);m_workspace.clearError();if(!m_workspace.saveCatalog({{"kind","project"},{"title",QStringLiteral("时间工作区验收")}}))return fail("create category");}
     else if(m_stage==1){for(const auto& item:m_workspace.categoryTree())if(item.toMap().value("title")==QStringLiteral("时间工作区验收"))m_scope="project:"+item.toMap().value("id").toString();if(m_scope.isEmpty())return fail("category identity");m_workspace.setView(m_scope);if(!m_workspace.createForTime(QStringLiteral("讨论方案"),m_workspace.dateOffset(0),540))return fail("timed create");}
     else if(m_stage==2){for(const auto& task:m_workspace.tasks()->items())if(task.title==QStringLiteral("讨论方案"))m_first=task.id;if(m_first.isEmpty())return fail("first task identity");if(!m_workspace.createForTime(QStringLiteral("整理设计"),m_workspace.dateOffset(0),570))return fail("overlap create");}
     else if(m_stage==3){for(const auto& task:m_workspace.tasks()->items())if(task.title==QStringLiteral("整理设计"))m_second=task.id;if(m_second.isEmpty())return fail("second task identity");if(!m_workspace.createForDate(QStringLiteral("检查清单项"),m_workspace.dateOffset(0)))return fail("date task create");}
     else if(m_stage==4){m_workspace.selectCalendarDate(m_workspace.dateOffset(0));m_workspace.setView("week");}
-    else if(m_stage==5){if(!settle())return {};const auto map=m_workspace.timelineFor(m_workspace.dateOffset(0),true);if(map.value("blocks").toList().size()!=2 || map.value("days").toList().size()!=7 || m_workspace.scope()!=m_scope)return fail("scoped week contents");auto* block=find((QStringLiteral("calendarTimeBlock-")+m_first).toUtf8().constData());if(!block || !block->property("visible").toBool() || !capture("week-light"))return fail("hour block visible");invoke(m_window,"openEditor",m_first);}
-    else if(m_stage==6){if(!settle())return {};if(!editor->property("visible").toBool() || m_window->property("editId")!=m_first || m_window->property("inspectorExpanded").toBool() || !capture("inspector-nearby"))return fail("nearby shared inspector");title->setProperty("text",QStringLiteral("讨论方案已更新"));invoke(m_window,"returnFromDetails");}
+    else if(m_stage==5){if(!settle())return {};const auto map=m_workspace.timelineFor(m_workspace.dateOffset(0),true);if(map.value("blocks").toList().size()!=2 || map.value("days").toList().size()!=7 || m_workspace.scope()!=m_scope)return fail("scoped week contents");auto* block=find((QStringLiteral("calendarTimeBlock-")+m_first).toUtf8().constData());if(!block || !block->property("visible").toBool() || !capture("week-light"))return fail("hour block visible");m_window->resize(880,580);invoke(m_window,"openEditor",m_first);}
+    else if(m_stage==6){
+        if(!settle())return {};
+        auto* pane=qobject_cast<QQuickItem*>(editor);const bool expanded=m_window->property("inspectorExpanded").toBool();
+        if(!pane || !pane->isVisible() || m_window->property("editId")!=m_first || pane->x()<m_window->property("sidebarWidth").toReal() || pane->x()+pane->width()>m_window->width()+1)return fail("inspector stays inside content bounds");
+        if(m_inspectorSizePhase>0 && (title->property("text")!=QStringLiteral("讨论方案已更新") || (m_inspectorSizePhase!=3 && title->property("selectedText")!=QStringLiteral("讨论")) || !m_window->property("draftDirty").toBool() || m_workspace.task(m_first)!=m_before)){
+            qInfo()<<"Inspector sizing state"<<m_inspectorSizePhase<<title->property("selectedText")<<m_window->property("draftDirty")<<(m_workspace.task(m_first)==m_before);
+            return fail("size changes preserve draft, selection and database version");
+        }
+        if(m_inspectorSizePhase==0){
+            if(expanded || pane->width()>421 || !capture("inspector-first-narrow"))return fail("first narrow open defaults compact");
+            auto* button=find("toggleTaskEditorSize");auto* glyph=qobject_cast<QQuickItem*>(button->property("contentItem").value<QObject*>());
+            if(!glyph)return fail("size action glyph missing");
+            const auto frame=m_window->grabWindow();const auto at=glyph->mapToScene(QPointF());const auto ink=glyph->property("ink").value<QColor>();
+            const double sx=double(frame.width())/m_window->width(),sy=double(frame.height())/m_window->height();int pixels=0;
+            for(int y=qMax(0,int(at.y()*sy));y<qMin(frame.height(),int((at.y()+glyph->height())*sy));++y)for(int x=qMax(0,int(at.x()*sx));x<qMin(frame.width(),int((at.x()+glyph->width())*sx));++x){const auto color=frame.pixelColor(x,y);if(qAbs(color.red()-ink.red())+qAbs(color.green()-ink.green())+qAbs(color.blue()-ink.blue())<100)++pixels;}
+            if(pixels<3)return fail("size action must paint a visible glyph");
+            m_before=m_workspace.task(m_first);title->setProperty("text",QStringLiteral("讨论方案已更新"));QMetaObject::invokeMethod(title,"select",Q_ARG(int,0),Q_ARG(int,2));
+            if(!toggleInspector())return fail("size button reachable on first open");
+        } else if(m_inspectorSizePhase==1){
+            if(!expanded || !capture("inspector-expanded-narrow"))return fail("first narrow click expands");
+            m_window->resize(1280,800);
+        } else if(m_inspectorSizePhase==2){
+            auto* notes=qobject_cast<QQuickItem*>(find("editTaskNotes"));auto* heading=qobject_cast<QQuickItem*>(title);
+            if(!expanded || pane->property("bodyWidth").toReal()>641 || qAbs(heading->mapToItem(pane,QPointF()).x()-notes->mapToItem(pane,QPointF()).x())>1 || !capture("inspector-expanded-readable"))return fail("expanded form has bounded aligned content column");
+            qobject_cast<QQuickItem*>(find("toggleTaskEditorSize"))->forceActiveFocus();shortcut(Qt::Key_Space);
+        } else if(m_inspectorSizePhase==3){
+            if(expanded || !capture("inspector-nearby"))return fail("Space collapses expanded inspector");
+            qobject_cast<QQuickItem*>(title)->forceActiveFocus();QMetaObject::invokeMethod(title,"select",Q_ARG(int,0),Q_ARG(int,2));
+            m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_window->resize(880,580);
+        } else if(m_inspectorSizePhase==4){
+            if(expanded || !capture("inspector-compact-dark-200") || !toggleInspector())return fail("large text remains compact and size action reachable");
+        } else if(m_inspectorSizePhase==5){
+            if(!expanded || !capture("inspector-expanded-dark-200") || !toggleInspector())return fail("large text explicitly expands");
+        } else {
+            if(expanded || !capture("inspector-collapsed-dark-200"))return fail("large text collapse is not overridden");
+            m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1280,800);invoke(m_window,"returnFromDetails");
+        }
+        if(m_inspectorSizePhase++<6){m_wait.restart();return {};}
+    }
     else if(m_stage==7){if(editor->property("visible").toBool() || m_workspace.task(m_first).value("title")!=QStringLiteral("讨论方案已更新"))return fail("inspector exit autosave");m_workspace.setView("day");}
     else if(m_stage==8){if(!settle())return {};invoke(find("calendarTimeline"),"revealMinute",540);m_window->grabWindow();if(!capture("day-light"))return fail("day capture");m_before=m_workspace.task(m_first);auto* block=qobject_cast<QQuickItem*>(find((QStringLiteral("calendarTimeBlock-")+m_first).toUtf8().constData()));if(!block)return fail("time drag target");const auto from=block->mapToScene(QPointF(block->width()*0.4,12));const auto to=from+QPointF(0,96);auto send=[&](QEvent::Type type,const QPointF& at,Qt::MouseButton button,Qt::MouseButtons buttons){QMouseEvent event(type,at,m_window->mapToGlobal(at),button,buttons,Qt::NoModifier);QCoreApplication::sendEvent(m_window,&event);};send(QEvent::MouseButtonPress,from,Qt::LeftButton,Qt::LeftButton);send(QEvent::MouseMove,to,Qt::NoButton,Qt::LeftButton);if(m_workspace.task(m_first)!=m_before)return fail("drag preview wrote before release");send(QEvent::MouseButtonRelease,to,Qt::LeftButton,Qt::NoButton);}
     else if(m_stage==9){const auto task=m_workspace.task(m_first);if(task.value("schedule").toMap().value("startTime")!="11:00" || task.value("projectId")!=m_before.value("projectId"))return fail("time move same identity and scope");m_before=task;invoke(m_window,"openEditor",m_first);title->setProperty("text",QString());invoke(m_window,"returnFromDetails");invoke(panel,"step",1);}
     else if(m_stage==10){if(!editor->property("visible").toBool() || !m_window->property("draftDirty").toBool() || m_workspace.calendarDate()!=m_workspace.dateOffset(0) || m_workspace.errorText().isEmpty() || m_workspace.task(m_first)!=m_before || !capture("failed-close-preserves-draft"))return fail("failed close protection");title->setProperty("text",m_before.value("title"));m_window->setProperty("draftDirty",false);invoke(editor,"close");m_workspace.clearError();m_workspace.setView("year");}
     else if(m_stage==11){if(!settle())return {};if(m_workspace.calendarMonthsFor(m_workspace.dateOffset(0)).size()!=12 || m_workspace.task(m_first)!=m_before || !capture("year-light"))return fail("year readonly navigation");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_window->resize(880,580);}
     else if(m_stage==12){if(!settle())return {};if(!capture("year-dark-200"))return fail("large year capture");m_workspace.setView("day");}
-    else if(m_stage==13){if(!settle())return {};if(!capture("day-dark-200"))return fail("large day capture");invoke(m_window,"openEditor",m_first);}
+    else if(m_stage==13){if(!settle())return {};if(!capture("day-dark-200"))return fail("large day capture");invoke(m_window,"openEditor",m_first);invoke(find("toggleTaskEditorSize"),"clicked");}
     else if(m_stage==14){if(!settle())return {};if(!m_window->property("inspectorExpanded").toBool() || !capture("inspector-dark-200"))return fail("large inspector expanded");invoke(find("editStartDate"),"openPicker");}
     else if(m_stage==15){if(!settle())return {};auto* picker=find("taskInspectorPicker");if(!picker || !picker->property("active").toBool() || !capture("single-picker-dark-200"))return fail("single layer date selector");invoke(picker,"close");m_window->setProperty("draftDirty",false);invoke(editor,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1280,800);invoke(m_window,"openTool",QStringLiteral("settings"));}
     else if(m_stage==16){if(!settle())return {};auto* settings=qobject_cast<QQuickWindow*>(find("settingsDialog"));if(!settings || !settings->isVisible() || !capture("settings-window",settings))return fail("independent settings window");invoke(settings,"close");m_workspace.setView("month");}

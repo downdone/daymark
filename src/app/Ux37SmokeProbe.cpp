@@ -19,10 +19,14 @@ Ux37SmokeProbe::Ux37SmokeProbe(TaskWorkspace& workspace,QQuickWindow* window,QSt
     });
 }
 QObject* Ux37SmokeProbe::find(const QString& name) const {
+    // These controls live for the main window's lifetime. Delegates and other
+    // dynamic items still use a fresh traversal; never cache task identities.
+    const bool stable=name=="taskSelection" || name=="taskList" || name=="batchTaskContext" || name=="trashTaskContext" || name=="categoryContextMenu" || name=="taskEditor";
+    if(stable){const auto cached=m_stableControls.value(name);if(cached)return cached;}
     QList<QObject*> pending{m_window};QSet<QObject*> seen;
     while(!pending.isEmpty()){
         auto* object=pending.takeLast();if(!object || seen.contains(object))continue;seen.insert(object);
-        if(object->objectName()==name)return object;
+        if(object->objectName()==name){if(stable)m_stableControls.insert(name,object);return object;}
         for(auto* child:object->children())pending.append(child);
         if(auto* item=qobject_cast<QQuickItem*>(object))for(auto* child:item->childItems())pending.append(child);
         if(auto* window=qobject_cast<QQuickWindow*>(object))pending.append(window->contentItem());
@@ -54,7 +58,7 @@ QString Ux37SmokeProbe::advance() {
     auto fail=[this](const QString& reason){capture("failure");return QStringLiteral("UX37 stage %1: %2").arg(m_stage).arg(reason);};
     auto* selection=find("taskSelection");auto* list=qobject_cast<QQuickItem*>(find("taskList"));
     if(!selection || !list)return fail("selection controls missing");
-    auto row=[&](int index){return qobject_cast<QQuickItem*>(find("taskRow-"+m_ids.value(index)));};
+    auto row=[&](int index){QVariant result;const auto id=m_ids.value(index);QMetaObject::invokeMethod(m_window,"taskRowForVerification",Q_RETURN_ARG(QVariant,result),Q_ARG(QVariant,QVariant(id)));auto* item=qobject_cast<QQuickItem*>(result.value<QObject*>());return item && item->property("taskId")==id ? item : nullptr;};
     auto count=[&]{return selection->property("count").toInt();};
     auto invoke=[&](QObject* object,const char* method){return object && QMetaObject::invokeMethod(object,method);};
     auto menu=[&]{return find("batchTaskContext");};

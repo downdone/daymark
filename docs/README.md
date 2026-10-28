@@ -1,5 +1,7 @@
 # 文档导航
 
+[UX-57详情尺寸](design/inspector-size-control.md)修复窄窗/大字强制展开覆盖收起动作，定义同草稿切换及居中可读内容列；实际构建/打包与平台验证见PROGRESS。
+
 [UX-56两栏设置](design/settings-split-navigation.md)以稳定一级侧栏和右侧分组内容替代设置目录/返回，保留即时保存、键盘及各分类滚动。包的本地预览与正式门禁区分见[ADR-024](ADR/024-local-preview-package.md)；实际结果见PROGRESS。
 
 [UX-55全菜单](design/menu-system-review.md)梳理任务/日历/侧栏/桌面与托盘菜单分组、动态分隔和快捷键列；验证以PROGRESS为准。

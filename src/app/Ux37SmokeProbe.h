@@ -1,5 +1,6 @@
 #pragma once
 #include <QElapsedTimer>
+#include <QHash>
 #include <QPointer>
 #include <QStringList>
 #include <QVariantMap>
@@ -19,6 +20,7 @@ private:
     bool capture(const QString& name) const;
     TaskWorkspace& m_workspace;
     QPointer<QQuickWindow> m_window;
+    mutable QHash<QString,QPointer<QObject>> m_stableControls;
     QString m_screenshot,m_parent,m_tag,m_createdTag;
     QStringList m_ids;
     QVariantMap m_columns;

@@ -154,8 +154,21 @@ ApplicationWindow {
     readonly property real sidebarWidth: taskWorkspace.preferences.sidebarCollapsed ? 44 : Math.min(288,200*Theme.scale)
     readonly property real detailWidth: Math.max(344,280*Theme.scale)
     readonly property bool detailDocked: false
-    readonly property bool inspectorExpanded: editorSession.expanded || width<1000 || Theme.scale>=1.5
+    readonly property bool inspectorExpanded: editorSession.expanded
 
+    function toggleInspectorSize() {
+        const taskId=editId
+        const titleFocused=editTitle.activeFocus
+        const cursor=editTitle.cursorPosition
+        const first=editTitle.selectionStart,last=editTitle.selectionEnd
+        editorSession.expanded=!inspectorExpanded
+        Qt.callLater(function(){
+            if(!editor.visible || editId!==taskId)return
+            if(titleFocused)editTitle.forceActiveFocus()
+            editTitle.cursorPosition=cursor
+            if(last>first)editTitle.select(first,last)
+        })
+    }
     function markDirty() { if (!fillingDraft) draftDirty = true }
     function prepareInspectorPosition(taskId,calendarAnchor) {
         editorSession.positionedManually=false
@@ -1129,7 +1142,7 @@ ApplicationWindow {
         objectName: "taskEditor"
         visible: false
         z: 20
-        readonly property real bodyWidth: width-24
+        readonly property real bodyWidth: Math.min(width-24,mainWindow.inspectorExpanded ? 640*Theme.scale : width-24)
         readonly property real bodyInset: (width-bodyWidth)/2
         readonly property bool fitsRight: editorSession.sourcePoint.x+12+width<=mainWindow.width-12
         readonly property bool fitsLeft: editorSession.sourcePoint.x-12-width>=mainWindow.sidebarWidth+12
@@ -1185,7 +1198,7 @@ ApplicationWindow {
                 Shortcut {sequence:"Escape";enabled:inspectorDrag.pressed;onActivated:inspectorDrag.cancel()}
             }
             WidgetAction {visible:!mainWindow.newInlineDraft && !mainWindow.editorIsSubtask && !mainWindow.editorHasChildren && mainWindow.editorTab===0;symbol:"subtasks";description:qsTr("添加子任务");onClicked:mainWindow.selectEditorTab(1)}
-            WidgetAction {symbol: mainWindow.inspectorExpanded ? "collapse" : "expand";description: mainWindow.inspectorExpanded ? qsTr("收起任务面板") : qsTr("展开任务面板");onClicked: editorSession.expanded=!editorSession.expanded}
+            WidgetAction {objectName:"toggleTaskEditorSize";focusPolicy:Qt.TabFocus;symbol: mainWindow.inspectorExpanded ? "collapse" : "expand";description: mainWindow.inspectorExpanded ? qsTr("收起任务面板") : qsTr("展开任务面板");onClicked: mainWindow.toggleInspectorSize()}
             Label {visible: mainWindow.inspectorExpanded && (mainWindow.draftDirty || (mainWindow.taskWorkspace.busy && !mainWindow.taskWorkspace.backgroundBusy));text: mainWindow.taskWorkspace.busy && !mainWindow.taskWorkspace.backgroundBusy ? qsTr("正在处理…") : qsTr("未保存");font.pixelSize: Theme.captionSize;color: Theme.secondary}
             Button {objectName: "saveTaskEditor";text: qsTr("保存");visible: mainWindow.draftDirty && mainWindow.inspectorExpanded;highlighted: true;enabled: !mainWindow.taskWorkspace.busy;onClicked: {mainWindow.pendingAction=null;mainWindow.saveEditor()}}
             IconToolButton {
@@ -1298,13 +1311,15 @@ ApplicationWindow {
             ColumnLayout {
             id: editorFields
             onHeightChanged: if(editor.visible)editorFocusDelay.restart()
-            width: Math.min(editorScroll.width,760*Theme.scale)
+            width: editorScroll.width
             x: (editorScroll.width-width)/2
             spacing: Theme.fieldGap
             enabled: !mainWindow.taskWorkspace.busy || mainWindow.taskWorkspace.backgroundBusy
             Control {
                 Layout.fillWidth: true
-                padding: mainWindow.inspectorExpanded ? Theme.sectionPadding : 0
+                padding: 0
+                topPadding: mainWindow.inspectorExpanded ? 8 : 0
+                bottomPadding: mainWindow.inspectorExpanded ? 8 : 0
                 implicitHeight: implicitContentHeight+topPadding+bottomPadding
                 background: Rectangle {color: "transparent"}
                 contentItem: ColumnLayout {
@@ -1339,7 +1354,7 @@ ApplicationWindow {
             DetailSection {
                 objectName: "editorDateTimeSection"
                 plain:true
-                heading: mainWindow.inspectorExpanded ? qsTr("日期与时间") : "";symbol: "calendar"
+                symbol: "calendar"
                 RowLayout {
                     visible:mainWindow.inspectorExpanded || mainWindow.dateTimeExpanded || mainWindow.draftPlanningState==="SOMEDAY"
                     Layout.fillWidth: true

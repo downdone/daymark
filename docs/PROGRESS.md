@@ -1,5 +1,21 @@
 # Daymark 实施进度
 
+### UX-57 首开详情收起与排版（2026-10-28，IN_PROGRESS）
+
+用户反馈首开详情默认铺满且收起无效、显示粗糙，要求修复后本地便携包。按[设计](design/inspector-size-control.md)移除width<1000/scale>=1.5对尺寸模式的强制覆盖，窄窗只做几何限制；收紧展开内容列、统一轴线和分隔。用原contextual_workspace验证首次窄窗、按钮/键盘、大字及同草稿无写入，再构建/lint、关联/完整测试和本地打包。保留原预算、已有进度与无关架构草案；不正常打开私人库，不改公开标签、不推送或公开运行库。当前Windows环境，macOS运行/便携包UNVERIFIED。
+
+实现：尺寸状态只由editorSession.expanded决定，首次紧凑；宽窄和缩放只参与边界/重排。展开内容限640×文字scale DIP，头部/正文/子任务共轴，标题备注去横向额外缩进，去掉日期的重复标题/双线。按钮保留Tab/Space且鼠标不抢文字焦点；重排后恢复标题光标/选区，同taskId/版本/脏草稿，无重载或额外写入。原生截图另外发现CurveRenderer主窗首帧图标缺失；共享Glyph改GeometryRenderer和有界4样本图层，实际按钮像素断言及原生浅深/200%截图验证可见和抗锯齿，不只是可点击对象。
+
+验证：Qt6.10.2标准Release构建与双目标lint PASS（ux57-ready-build.log、ux57-ready-lint.log）；contextual_workspace/desktop_surfaces关联2/2、34.81秒（ux57-final-association.log），列表最终28.46秒PASS（ux57-ready-list.log），日历关联11.97秒PASS。新增首开880宽、实际点击/Space、1280宽列上限、200%深色往返、原草稿/选区与一次退出保存全部通过。首次测试揭示标题重挂时选区丢失并已修复。列表曾到完整退出时触30秒预算，改为QPointer缓存固定主窗控件、ListView实时取行并核对ID，动态delegate不缓存，未动140ms等待/断言/预算。90QML样式、四主题颜色、120份文档链接和diff守卫PASS。
+
+原生截图：ux57-native-final.err退出0、warnings=false，复看首开紧凑、普通展开可读列及深色200%两种形态；包前所有业务用合成临时库。额外原生desktop全链不能标PASS：一次样板grip后排未进入视口，另一次设置类别滚动恢复0/89不一致（ux57-native-surfaces.err、ux57-native-surface-final.err）。像素采样已按实际截图/逻辑尺寸映射，阈值不变；未将额外失败或此前软件渲染DPR裁切改写为成功，未扩大到修改设置/样板行为。最终完整CTest及本地包检查另追加，macOS/物理输入/读屏仍UNVERIFIED。
+
+### 最新源码拉取与本地构建（2026-10-28，BUILD-PASS；完整CTest 22/25）
+
+用户要求拉取最新并构建。先检查main、本地未跟踪草案与远端，按ff-only同步；使用Qt6.10.2和匹配MinGW构建标准windows-release，再尝试完整CTest并记录真实结果。不正常打开私人业务库、不覆盖未跟踪架构草案，本轮不更新版本/标签、不打包或推送。
+
+结果：fetch及pull --ff-only均成功，远端main与本地已一致，最新提交仍为8e7677d0acc0f285190089f85c9a0f2bb47684d3，没有新增源码。标准Release配置/构建PASS（build/latest-20261028-build.log），Qt6.10.2，CLI --version退出0并返回Daymark 1.1.0，FileVersion 1.1.0；输出build/windows-release/bin/daymark.exe，SHA256 c045f8598a76c880155078d0a93567056e76497c377ee5bc18423a159efbb5ef，与上轮已验证二进制一致。完整CTest22/25、203.48秒（build/latest-20261028-tests.log）：qml_startup在375阶段超时，qml_watchdog_late在385阶段超时未到预设436，task_list_interaction在原30秒预算超时（已完成至122场景）；其他22项通过。保留全部失败/原预算，不把构建成功称为测试全绿。只有本轮进度文档改变，无业务源码改动，未正常打开私人库；macOS/原生体验本轮UNVERIFIED。
+
 ### UX-56 两栏设置、本地便携包与推送（2026-10-27，IMPLEMENTED；关联AUTO-PASS / 本地预览已生成 / 源码已推送）
 
 用户要求设置对齐macOS两栏：左一级导航、右具体内容，完成后本地便携包并推送GitHub。按[设计](design/settings-split-navigation.md)替代设置目录/返回模式，保留真实四类设置、即时保存/错误、键盘和200%可达；更新原测试协议。现有v1.1.0标签已公开不移动，包用真实提交SHA标识；本地交付不等于公开上传Qt运行库。先实现/关联测试，再处理阻碍打包的旧完整探针，保持原断言和门禁，不正常打开私人数据库，不纳入无关架构草案。
