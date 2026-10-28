@@ -1,6 +1,6 @@
 # Daymark 实施进度
 
-### 精简部署、提示准入与垂直节奏（2026-10-28，IN_PROGRESS）
+### 精简部署、提示准入与垂直节奏（2026-10-28，IMPLEMENTED；LOCAL-PREVIEW已交付 / 完整门禁FAIL）
 
 用户要求删除便携包开发资料并审查冗余依赖，追加全局tooltip不遮操作、菜单不提示，以及布局/上下边距规则。本轮先制定ADR-025与UX-59：运行包白名单，保留必要运行库/用户简明说明/第三方及SBOM/小型校验元数据；开发docs与验收脚本留仓库。审查Qt可选样式、调试/SQL插件和工具类型描述，保留图形兼容回退。UI采用显式提示准入、安全锚点及垂直节奏token，复用现有回归。构建/完整测试、SDK隔离原生启动、清单/ZIP和实际尺寸比较后生成新本地预览包，原包不覆盖，私人库不访问，无关草案保留。
 
@@ -9,6 +9,12 @@
 实施与预检：Release构建和双目标lint PASS（ux59-final-build.log、ux59-final-lint.log）；初批关联5/5，最终标题/单槽后calendar_interaction、desktop_surfaces、task_list_interaction 3/3、55.09秒（ux59-final-tests.log）。新增真实Today列表→日历单目标可见性与位置/尺寸比较；提示来源无交集、菜单禁提示与原备注例外、浏览/编辑轴和上下留白通过。负载白名单/自洽清单拒绝开发docs、裁剪保留SQLite/qmldir及防篡改回归通过。初步PE审计主程序23,498,029字节，部署副本strip后7,466,593字节，异常展开/资源/重定位段保留；最终包仍须从该副本原生验收。
 
 原生范围：最终日历在78/79通过单目标入口和固定槽，额外链仍在97快速编辑时段失败；组件原生通过提示/菜单/设置至88，89大字图标像素失败（ux59-final-native-*.err），未扩大为全套PASS。contextual初次原生在48 Escape合成输入失败，再跑完整75场景退出0、warnings=false（ux59-native-inspector-review.err）；保留首次失败。已复看最终顶部大标题、四个工具和列表边界、深色200%及详情自然高度。完整门禁和新包交付结果后续追加，不覆盖这些边界。
+
+交付源码本地提交`a783df3438324130b20302a49708f13b1a4b9c72`。修订后的package-windows -LocalPreview重新Release构建并执行完整CTest23/25、188.54秒（build/ux59-portable.log）；仅两个历史长链qml_startup/late watchdog在340/342超时，未到后者436故障注入。全部关联、数据/核心、完整包守卫通过，测试/预算未放宽；测试摘要置于包根TEST-RESULTS.json。部署副本剥除符号，原构建产物保留，文件版本/异常展开及资源随真实启动校验。
+
+最终包`dist/Daymark-1.1.0-windows-x64-local-20261028-112428.zip`，38,930,337字节，SHA256 `9b42604cb53943dd5e9fe46f28a10114e78eb38e77be76ef1de5d9e068b1bdec`；同名.sha256侧车/ZIP每文件均通过。相对104231旧包，文件数1534→213，解压体积142,013,223→104,076,146字节，ZIP 47,483,631→38,930,337字节（减少约18%）。清单确认docs/verification/qmltooling/generic、其他QuickControls样式与.qmltypes为0，SQL仅qsqlite；仅保留简明README、第三方/SBOM与小型版本/测试/完整性元数据。软件图形回退保留，不依据单次未加载就删除兼容依赖。
+
+裁剪后SDK隔离原生contextual-workspace退出0、visible windows=2、warnings=false，37个部署模块实际来自包内，Qt6Core/qwindows/qsqlite均观察到（build/daymark-package-check-7fae0107b6bb417d95a4a6ec5311609c/report.json）。最终程序7,466,593字节，SHA256 `9820c6da59c346c8dbad0b81e0fe3c9279dea0b113c2454d2dac8ac4acde79ed`。版本仍1.1.0、BUILD-INFO固定a783df3并标记symbolsStripped/本地预览/完整门禁失败；不改公开tag、无推送/二进制上传。无关草案按原哈希恢复，未访问私人任务库；macOS/读屏/物理输入/独立干净机及前述原生额外失败仍未完成，不称正式发行READY。
 
 ### UX-58后本地便携包（2026-10-28，LOCAL-PREVIEW交付；部署校验PASS / 完整门禁FAIL）
 
