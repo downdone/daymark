@@ -49,7 +49,7 @@
 
 ## 5. 交付与运维
 
-[交付指南](delivery-guide.md) · [稳定性指南](stability-guide.md) · [平台矩阵](platform-test-matrix.md) · [验证记录](verification-report.md) · [1.1.0 发行说明](release-notes-v1.1.0.md)
+[交付指南](delivery-guide.md) · [稳定性指南](stability-guide.md) · [平台矩阵](platform-test-matrix.md) · [验证记录](verification-report.md) · [版本与发行索引](releases.md)
 
 ## 6. 历史设计（已完成切片）
 
