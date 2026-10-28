@@ -1,5 +1,19 @@
 # Daymark 实施进度
 
+### UX-60 本地便携包与源码推送（2026-10-28，IN_PROGRESS）
+
+用户授权构建便携包并推送GitHub。先同步远端、审查此前本地提交与当前排版改动，提交明确文件，排除无关架构草案及构建/数据/日志；使用项目身份与UTC元数据。保持工程1.1.0和既有公开tag，以真实提交SHA区分本地预览；按ADR-024/025重新Release构建、完整CTest、最小运行负载、SDK隔离原生探针/模块来源、清单与ZIP/SHA校验。仅允许两个已知长链失败，其他失败阻止出包；本地交付运行包，遵守先前未确认Qt公开再分发许可时只推源码的决定。打包及推送真实结果后续追加，不预记成功，不访问私人库或覆盖旧包。
+
+### UX-60 全局字体与比例留白（2026-10-28，IMPLEMENTED；关联AUTO-PASS / 完整门禁FAIL）
+
+按用户反馈，先制定[设计](design/typography-and-proportional-spacing.md)：大标题与页面区域共比例，表单字段间距不能复用于标题/录入/列表；统一平台字体、字重、行内留白和正式/验证管线。Windows实测GeneralFont为Microsoft YaHei UI，Segoe UI及两种雅黑均已安装；不假定缺字体。最终中文优先Microsoft YaHei UI统一中西文/数字，缺失回退Segoe UI/系统字体，正文Normal、优先抗锯齿；macOS保留系统GeneralFont。正式与探针共用，移除原离屏独立强制Segoe策略。列表15、区域16、上下6/行间2随文字比例变化，页面内边距16；保留字段内部紧凑、稳定按钮槽和浏览/编辑轴，样式库展示真实七类字号/字重。P-21与设计/入口/验收/测试方法同步；无业务/schema变更，不读私人库，不打包推送。
+
+过程证据：最初尝试Segoe/Han回退与强制NativeTextRendering，截图出现宋体式细衬线；中文首选的强制原生版本仍不协调，故最终保留Qt文字渲染。旧版本日志/截图保留，不把字体存在当作实际观感通过。首轮大字contextual在59失败：视口85%固定点已落在第三行，原生截图确认进入已有任务；改用ListView.itemAt查找真实空白，模板全选/未改零写/保存/焦点可见原断言与预算均保留，没有缩字或放宽可见性。
+
+最终Qt6.10.2标准Release构建与双目标lint PASS（build/ux60-confirmed-build.log、ux60-confirmed-lint.log）。完整CTest23/25、179.50秒（ux60-confirmed-full-tests.log）：contextual 15.43、continuous 5.69、calendar interaction 11.56、desktop 13.92、task list 27.01秒全部通过，数据/核心/工作区/包守卫也通过。两个既有qml_startup/late watchdog在416超时，后者未到436故障注入，完整门禁仍FAIL；不改45/30秒预算、不删测试或断言。实际页面标题→录入→列表的间距/共轴及100/200%比例加入原desktop入口，无新重复套件。
+
+最终Windows原生contextual 75场景退出0、warnings=false（build/ux60-confirmed-context.err），复看默认/原行草稿及详情浅深200%。原生desktop通过字体/间距、菜单、组件/Mini和设置至88，89既有大字图标像素检查仍失败（ux60-confirmed-native.err）；不称整条原生PASS。最终浅色与深色200%见ux60-confirmed-native.png.desktop-sidebar-light.png、desktop-sidebar-dark-200.png，字体/对齐/区域留白已实际复看；90QML文字角色/图标词表、四组颜色、124文档链接与diff检查PASS。构建exe SHA256 A539CC077BC38D1EDBEAB4F5117E1FE3D66EBEBDBF44EE7A54BC35E6FEC3F9DF；macOS/读屏/物理输入/多屏及干净机本轮UNVERIFIED。无关code-structure-roadmap草案保持原SHA256，未提交/推送/更新公开版本或运行包。
+
 ### 精简部署、提示准入与垂直节奏（2026-10-28，IMPLEMENTED；LOCAL-PREVIEW已交付 / 完整门禁FAIL）
 
 用户要求删除便携包开发资料并审查冗余依赖，追加全局tooltip不遮操作、菜单不提示，以及布局/上下边距规则。本轮先制定ADR-025与UX-59：运行包白名单，保留必要运行库/用户简明说明/第三方及SBOM/小型校验元数据；开发docs与验收脚本留仓库。审查Qt可选样式、调试/SQL插件和工具类型描述，保留图形兼容回退。UI采用显式提示准入、安全锚点及垂直节奏token，复用现有回归。构建/完整测试、SDK隔离原生启动、清单/ZIP和实际尺寸比较后生成新本地预览包，原包不覆盖，私人库不访问，无关草案保留。

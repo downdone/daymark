@@ -74,7 +74,7 @@ Control {
             id:quickHeader
             Layout.fillWidth: true;spacing: Theme.listTextGap
             IconToolButton {id: quickComplete;Layout.alignment:Qt.AlignTop;enabled:!root.creationMode;hintEnabled: false;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {id:quickCompletionMark;anchors.horizontalCenter:parent.horizontalCenter;y:root.titleInkCenter-quickComplete.y-quickComplete.topPadding-height/2;width: Math.min(24,18*Theme.scale);height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.25}} onClicked: root.completeRequested()}
-            ColumnLayout {id:quickTextStack;Layout.fillWidth:true;Layout.alignment:Qt.AlignTop;spacing:1
+            ColumnLayout {id:quickTextStack;Layout.fillWidth:true;Layout.alignment:Qt.AlignTop;spacing:Theme.textLineGap
             TextField {
                 id: quickTitle;objectName: "quickEditorTitle"
                 Layout.fillWidth: true

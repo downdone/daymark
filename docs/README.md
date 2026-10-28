@@ -1,5 +1,7 @@
 # 文档导航
 
+[UX-60全局字体与比例留白](design/typography-and-proportional-spacing.md)定义平台字体分工、正式/验证一致及28/20/17/15/13/12/11角色，页面区域与行内间距分开并随文字比例适配；实际证据见PROGRESS。
+
 [最小运行包ADR-025](ADR/025-minimal-portable-payload.md)定义用户包白名单与依赖裁剪；[UX-59](design/tooltip-and-layout-rhythm.md)定义提示准入/安全位置与垂直节奏，实际结果见PROGRESS。
 
 [UX-58空间稳定与滚动槽](design/stable-layout-and-scroll.md)将按钮锚点、共享宽度、内容预算和独立滚动槽落实到详情、日历及小窗/Mini；通用规则纳入[原则P-15～17](principles.md)，实际证据见PROGRESS。

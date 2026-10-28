@@ -1,5 +1,7 @@
 # Daymark UI/UX设计基准 v1
 
+[UX-60](typography-and-proportional-spacing.md)覆盖旧列表14/页面4间距：列表标题15、区域16、行上下6/文字间隙2并按文字比例增长；Windows采用中文优先的统一UI字体与抗锯齿，macOS保留系统字体。以同一正式/验证策略验收。
+
 [UX-59](tooltip-and-layout-rhythm.md)统一提示显式准入、安全锚点与垂直节奏；标题区不为空副标题留位，行内/区域间距由共享token和单一容器负责。菜单、更多及视图/层级切换无tooltip。
 
 按[UX-58稳定空间](stable-layout-and-scroll.md)及P-15～17验收：内容变化不推动常用控件；表单内容不能进入独立滚动槽；自然高度优先，必要滚动与明确断点保留可达性。日历四比例共锚点，小窗/Mini共宽度和尾部槽，数据安全与草稿协议保持。

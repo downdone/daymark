@@ -108,15 +108,15 @@ Dialog {
             }
             SectionLabel {text: qsTr("信息与反馈")}
             Label {text: qsTr("正文承载主要信息，次级文字说明上下文。");Layout.fillWidth: true;wrapMode: Text.Wrap}
-            Label {text: qsTr("次级说明 · 12px");font.pixelSize: Theme.captionSize;color: Theme.secondary}
+            Label {text: qsTr("次级说明 · %1 DIP").arg(Theme.captionSize);font.pixelSize: Theme.captionSize;color: Theme.secondary}
             Label {text: qsTr("操作已保存");color: Theme.success}
             Label {text: qsTr("请检查输入后重试，原内容已保留。");color: Theme.danger;Layout.fillWidth: true;wrapMode: Text.Wrap}
             ColumnLayout {
                 id:typeSamples;Layout.fillWidth:true;spacing:8
                 SectionLabel {text:qsTr("文字角色 · 系统字体")}
                 Repeater {
-                    model:[{label:qsTr("页面标题"),size:Theme.titleSize},{label:qsTr("面板与任务标题"),size:Theme.headingSize},{label:qsTr("列表任务"),size:Theme.listTitleSize},{label:qsTr("正文与菜单"),size:Theme.bodySize},{label:qsTr("辅助信息"),size:Theme.captionSize},{label:qsTr("时间刻度"),size:Theme.footnoteSize}]
-                    Label {required property var modelData;text:modelData.label+" · Daymark 012345";font.pixelSize:modelData.size;Layout.fillWidth:true;wrapMode:Text.Wrap}
+                    model:[{label:qsTr("页面标题"),size:Theme.pageTitleSize},{label:qsTr("普通标题"),size:Theme.titleSize},{label:qsTr("面板与任务标题"),size:Theme.headingSize},{label:qsTr("列表任务"),size:Theme.listTitleSize},{label:qsTr("正文与菜单"),size:Theme.bodySize},{label:qsTr("辅助信息"),size:Theme.captionSize},{label:qsTr("时间刻度"),size:Theme.footnoteSize}]
+                    Label {required property var modelData;text:modelData.label+" · Daymark 012345";font.pixelSize:modelData.size;font.weight:modelData.size>=Theme.headingSize ? Font.DemiBold : Font.Normal;Layout.fillWidth:true;wrapMode:Text.Wrap}
                 }
             }
             SectionLabel {text:qsTr("统一矢量图标")}

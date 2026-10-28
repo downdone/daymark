@@ -1,5 +1,7 @@
 # 里程碑与可执行任务队列
 
+UX-60按[全局字体与比例留白](design/typography-and-proportional-spacing.md)统一中西文字体管线、角色字级和字号对应的页面/行内空间，复用实际几何、原生截图与完整CTest；状态只见PROGRESS。
+
 UX-59按[提示与标题/工具栏契约](design/tooltip-and-layout-rhythm.md)落实P-18/19、单目标视图切换、低频显示选项收纳与垂直节奏；本地包按[ADR-025](ADR/025-minimal-portable-payload.md)精简，状态和交付证据仅见PROGRESS。
 
 UX-58按[稳定空间契约](design/stable-layout-and-scroll.md)定义P-15～17，再迁移详情/同类滚动表面、循环控件、日历工具栏和组件几何，验证坐标关系、浅深/大字及真实构建。当前状态只维护于PROGRESS。

@@ -1,5 +1,7 @@
 # UX-59：提示准入与垂直节奏
 
+字体与区域间隔后续由[UX-60](typography-and-proportional-spacing.md)细化：列表15、页面区域16随字增长、行上下6/文字间隙2；本页其余提示准入与工具职责保持。
+
 FR-018/035/037，UX-01/02/05/09/10/11/13/14；P-13～19。承接UX-40/48/52/58。HIG的内容优先、清晰层级、对齐/适应与帮助不妨碍操作，落地为Daymark自己的数值规则；来源沿用ui-research及ui-baseline。
 
 补核[Apple Offering help](https://developer.apple.com/design/human-interface-guidelines/offering-help)的简短、针对当前控件、不重复名称原则。默认关闭与菜单/切换禁用是用户要求及Daymark准入规则，不能误述为Apple禁止所有按钮提示。普通提示是无焦点、无模态、禁用输入的展示层；只有备注复制预览显式允许输入。

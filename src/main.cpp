@@ -14,7 +14,18 @@ int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
     auto interfaceFont=QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+#ifdef Q_OS_WIN
+    // Use one installed CJK-capable UI face for Han, Latin and digits, with
+    // the same policy in native surfaces and isolated probes.
+    const auto families=QFontDatabase::families();
+    if(families.contains(QStringLiteral("Microsoft YaHei UI")))
+        interfaceFont.setFamily(QStringLiteral("Microsoft YaHei UI"));
+    else if(families.contains(QStringLiteral("Segoe UI")))
+        interfaceFont.setFamily(QStringLiteral("Segoe UI"));
+#endif
     interfaceFont.setPixelSize(13);
+    interfaceFont.setWeight(QFont::Normal);
+    interfaceFont.setStyleStrategy(QFont::PreferAntialias);
     app.setFont(interfaceFont);
     QCoreApplication::setApplicationName(QStringLiteral("Daymark"));
     QCoreApplication::setOrganizationName(QStringLiteral("Daymark"));
@@ -50,14 +61,6 @@ int main(int argc, char* argv[])
         }
     } else if(parser.isSet(QStringLiteral("soak-report"))) {std::fprintf(stderr,"--soak-report requires --soak-seconds.\n");return 2;}
     const bool verification=parser.isSet(QStringLiteral("calendar-interaction-smoke")) || parser.isSet(QStringLiteral("desktop-surfaces-smoke")) || parser.isSet(QStringLiteral("task-list-smoke")) || parser.isSet(QStringLiteral("smoke-test")) || parser.isSet(QStringLiteral("continuous-calendar-smoke")) || parser.isSet(QStringLiteral("contextual-workspace-smoke")) || soakSeconds>0;
-#ifdef Q_OS_WIN
-    // The offscreen plugin has no Windows system-font integration. Use the
-    // installed UI font for synthetic layout tests; native users keep the OS font.
-    if(verification && QGuiApplication::platformName()==QStringLiteral("offscreen"))
-    {
-        auto font=app.font();font.setFamily(QStringLiteral("Segoe UI"));app.setFont(font);
-    }
-#endif
     if(verification) {
         qInstallMessageHandler([](QtMsgType,const QMessageLogContext&,const QString& message){
             const auto utf8=message.toUtf8();

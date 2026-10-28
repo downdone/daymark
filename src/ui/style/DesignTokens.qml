@@ -59,7 +59,7 @@ QtObject {
     readonly property int smartTileHeight: Math.max(compact ? 56 : 64,caption+heading+20)
     readonly property int toolbarHeight: Math.max(compact ? 40 : 44,controlHeight+8)
     readonly property int propertyLabelWidth: Math.round(72*scale)
-    readonly property int listTitle: Math.round(14*scale)
+    readonly property int listTitle: Math.round(15*scale)
     readonly property int listInset: 6
     readonly property int hierarchyGutter: 24
     readonly property int hierarchyIndent: 20
@@ -75,10 +75,12 @@ QtObject {
     readonly property int fieldGap: compact ? 4 : 8
     readonly property int groupGap: compact ? 8 : 12
     readonly property int sectionPadding: compact ? 4 : 8
-    readonly property int pagePadding: compact ? 12 : 16
+    readonly property int pagePadding: compact ? 16 : 20
+    // Page regions follow the display heading, not the form-field density.
+    readonly property int pageRegionGap: Math.ceil((compact ? 16 : 20)*scale/4)*4
     readonly property int panelPadding: compact ? 12 : 16
     readonly property int scrollGutter: 18
-    readonly property int rowVerticalPadding: compact ? 4 : 6
+    readonly property int rowVerticalPadding: Math.round((compact ? 6 : 8)*scale)
     readonly property int metadataActionHeight: Math.max(24,caption+8)
-    readonly property int textLineGap: 1
+    readonly property int textLineGap: Math.round(2*scale)
 }

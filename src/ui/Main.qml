@@ -604,6 +604,18 @@ ApplicationWindow {
         for(const item of taskWorkspace.catalog)if(taskWorkspace.view.endsWith(":"+item.id))return item.kind==="tag" ? qsTr("标签 · %1").arg(item.title) : item.title
         return qsTr("任务")
     }
+    function verifyPageRhythm() {
+        const gap=Theme.pageRegionGap
+        if(!taskContentVisible || !headerScroll.visible || !taskList.visible)return "list regions missing"
+        const headingBottom=pageToolbar.mapToItem(mainWindow.contentItem,0,pageToolbar.height).y
+        const entryTop=headerScroll.mapToItem(mainWindow.contentItem,0,0).y
+        const entryBottom=headerScroll.mapToItem(mainWindow.contentItem,0,headerScroll.height).y
+        const listTop=taskList.mapToItem(mainWindow.contentItem,0,0).y
+        if(Math.abs(entryTop-headingBottom-gap)>1 || Math.abs(listTop-entryBottom-gap)>1)return "page region gaps: "+JSON.stringify({heading:entryTop-headingBottom,list:listTop-entryBottom,expected:gap})
+        if(gap<pageTitleLabel.font.pixelSize/2)return "display type lacks proportional space"
+        if(Math.abs(pageTitleLabel.mapToItem(mainWindow.contentItem,0,0).x-headerScroll.mapToItem(mainWindow.contentItem,0,0).x)>1)return "heading and entry axes differ"
+        return "PASS"
+    }
     function verifyWorkspacePage() {
         const page=toolPage==="organization" ? organization : notifications
         if(!toolPageVisible || !page.visible || !workspacePageHost.visible)return "page is not visible"
@@ -800,9 +812,10 @@ ApplicationWindow {
             Layout.fillHeight: true
             Layout.margins: Theme.pagePadding
             Layout.rightMargin: mainWindow.detailDocked ? mainWindow.detailWidth+Theme.pagePadding+16 : Theme.pagePadding
-            spacing: Theme.fieldGap
+            spacing: Theme.pageRegionGap
             RowLayout {
                 id: pageToolbar
+                objectName: "pageToolbar"
                 readonly property real reservedHeight: Math.max(Theme.controlHeight,pageHeading.implicitHeight)
                 Layout.minimumHeight: reservedHeight;Layout.maximumHeight: reservedHeight
                 WidgetAction {objectName: "returnFromWorkspacePage";visible: mainWindow.toolPageVisible;symbol: "left";description: qsTr("返回之前的内容");onClicked: mainWindow.returnToContent()}
@@ -868,6 +881,7 @@ ApplicationWindow {
             }
             ScrollView {
                 id: headerScroll
+                objectName: "taskHeaderViewport"
                 visible: mainWindow.taskContentVisible
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.min(taskHeader.implicitHeight,mainWindow.height*0.45)

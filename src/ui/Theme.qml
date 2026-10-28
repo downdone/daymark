@@ -71,6 +71,7 @@ QtObject {
     readonly property int pageTitleSize: DS.DesignTokens.pageTitle
     readonly property int panelRadius: DS.DesignTokens.panelRadius
     readonly property int pagePadding: DS.DesignTokens.pagePadding
+    readonly property int pageRegionGap: DS.DesignTokens.pageRegionGap
     readonly property int controlHeight: DS.DesignTokens.controlHeight
     readonly property int navigationRowHeight: DS.DesignTokens.navigationRowHeight
     readonly property int taskRowHeight: DS.DesignTokens.taskRowHeight

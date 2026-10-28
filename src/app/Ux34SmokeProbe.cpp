@@ -33,7 +33,19 @@ QString Ux34SmokeProbe::advance()
     auto settle=[&]{m_window->grabWindow();return m_wait.elapsed()>120;};
     auto listPoint=[&]{auto* list=qobject_cast<QQuickItem*>(find("taskList"));return list->mapToScene(QPointF(list->width()*0.85,list->height()*0.85));};
     auto clickBlank=[&]{const auto at=listPoint();mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);};
-    auto doubleBlank=[&]{m_inputSequence+=QGuiApplication::styleHints()->mouseDoubleClickInterval()+1;const auto at=listPoint();mouse(QEvent::MouseMove,at,Qt::NoButton,Qt::NoButton);mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonDblClick,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);};
+    auto doubleBlank=[&]{
+        m_inputSequence+=QGuiApplication::styleHints()->mouseDoubleClickInterval()+1;
+        auto* list=qobject_cast<QQuickItem*>(find("taskList"));
+        auto at=listPoint();
+        // Locate real empty space: a percentage of the viewport can hit a row
+        // when fonts, density or translated metadata change its natural height.
+        const qreal x=list->width()*0.85;
+        for(qreal y=list->height()-4;y>=4;y-=4){
+            QQuickItem* hit=nullptr;
+            if(QMetaObject::invokeMethod(list,"itemAt",Q_RETURN_ARG(QQuickItem*,hit),Q_ARG(qreal,x+list->property("contentX").toReal()),Q_ARG(qreal,y+list->property("contentY").toReal())) && !hit){at=list->mapToScene(QPointF(x,y));break;}
+        }
+        mouse(QEvent::MouseMove,at,Qt::NoButton,Qt::NoButton);mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonDblClick,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);
+    };
     auto type=[&](const QString& text){for(const auto kind:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(kind,0,Qt::NoModifier,text);QCoreApplication::sendEvent(m_window,&event);}};
     auto shortcut=[&](int key,Qt::KeyboardModifiers modifiers=Qt::NoModifier){for(const auto kind:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(kind,key,modifiers);QCoreApplication::sendEvent(m_window,&event);}};
     auto toggleInspector=[&]{auto* button=qobject_cast<QQuickItem*>(find("toggleTaskEditorSize"));if(!button || !button->isVisible())return false;const auto at=button->mapToScene(QPointF(button->width()/2,button->height()/2));mouse(QEvent::MouseButtonPress,at,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseButtonRelease,at,Qt::LeftButton,Qt::NoButton);return true;};
