@@ -50,6 +50,13 @@ jobs:
       - name: Build
         run: cmake --build build/ci --config Release --parallel 4
       - name: Test
-        run: ctest --test-dir build/ci -C Release --output-on-failure --no-tests=error
+        run: ctest --test-dir build/ci -C Release --output-on-failure --no-tests=error --output-junit build/ci/ctest-report.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ctest-report-${{ matrix.arch }}
+          path: build/ci/ctest-report.xml
+          if-no-files-found: warn
       - name: QML lint
         run: cmake --build build/ci --config Release --target daymark_qmllint daymark_style_qmllint
