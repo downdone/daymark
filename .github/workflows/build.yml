@@ -50,7 +50,14 @@ jobs:
       - name: Build
         run: cmake --build build/ci --config Release --parallel 4
       - name: Test
-        run: ctest --test-dir build/ci -C Release --output-on-failure --no-tests=error --output-junit build/ci/ctest-report.xml
+        shell: bash
+        run: |
+          set +e
+          ctest --test-dir build/ci -C Release --output-on-failure --no-tests=error --output-junit build/ci/ctest-report.xml
+          status=$?
+          # The job log needs admin rights on some accounts; annotations are public.
+          python3 scripts/report-ctest-failures.py build/ci/ctest-report.xml || true
+          exit $status
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
