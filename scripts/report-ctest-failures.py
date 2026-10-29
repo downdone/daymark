@@ -61,6 +61,7 @@ def failure_context(path):
         r'List title axes.{0,300}',
         r'Wheel geometry.{0,300}',
         r'Desktop layout.{0,300}',
+        r'Menu state.{0,300}',
         r'Drawer drop.{0,300}',
     ):
         found.extend(m.strip() for m in re.findall(pattern, text))

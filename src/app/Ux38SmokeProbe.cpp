@@ -113,6 +113,9 @@ QString Ux38SmokeProbe::advance() {
         const int minHeight=m_widget->minimumHeight();
         if(m_widget->height()<minHeight){m_widget->resize(m_widget->width(),minHeight);if(m_wait.elapsed()<800)return {};}
         if(!layout() || !capture(m_widget,"narrow-high-contrast"))return fail(QStringLiteral("260 DIP high contrast: min=%1 h=%2").arg(minHeight).arg(m_widget->height()));
+        // A popup needs an active window to become visible; X11/Wayland runners do not
+        // focus a window that was never shown as active, so the menu stayed closed.
+        if(!m_widget->isActive()){m_widget->show();m_widget->requestActivate();if(m_wait.elapsed()<800)return {};}
         QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
     else if(m_stage==32){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         // The menu is created and shown asynchronously after openVerificationMenu();
