@@ -51,3 +51,9 @@ python scripts/publish-source-release.py --check-current
 Actions checkout可能在一次性runner中把事件标签落成本地轻量引用。发布前显式重新获取远端完整标签对象：`git fetch --no-tags --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"`，这里的force仅替换CI本地引用，不写远端。随后仍强制检查annotated类型、固定commit和main可达性；不得放宽守卫或移动公开标签。标签入口与恢复入口采用同一准备步骤。
 
 创建Release前后还通过GitHub API核对远端tag对象与已校验的本地annotated对象一致。对已存在的tag，不发送仅用于新建标签的`target_commitish`提示；Release来源以tag对象/剥离commit为准，不以该创建提示字段为准。这样不需要给短期GITHUB_TOKEN扩大Workflows写权限。官方字段及权限语义见[GitHub Release API](https://docs.github.com/en/rest/releases/releases#create-a-release)。已有Release仍须名称、正文、tag、非草稿状态和无资产全部匹配，不静默修改。
+
+## 标签候选构建恢复
+
+已发布tag的构建工具失败时，保持tag不变。用户授权的`.github/build-request.json`固定现有tag及40位commit，只有main上该文件的变更触发恢复。工作流从main读取请求与修复后的编排，恢复远端annotated对象、检查SHA相等及origin/main可达性，再让全部构建checkout固定源码SHA，执行该源码的版本/隐私守卫、完整CTest和QML lint。资产仍只能附加到该tag的既有Release，已有同名资产不覆盖；源码Release正文不修改。不把main上的新代码冒充已发布tag，也不把首次失败隐去。
+
+跨平台run步骤若使用`$RELEASE_TAG`，必须显式`shell: bash`；PowerShell应使用`$env:RELEASE_TAG`。恢复构建的归档命名/上传统一使用解析后的tag，不使用触发它的main分支名。

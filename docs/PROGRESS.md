@@ -1,5 +1,12 @@
 # Daymark 实施进度
 
+### RELEASE-1.8.0 标签发布与构建恢复（2026-10-29，TAG-PUBLISHED / SOURCE-RELEASE-PASS / BINARY-RECOVERY-IN-PROGRESS）
+
+main及annotated v1.8.0已原子推送并核对，tag对象738d52e1410990a7375492168271cfa12fe944cc，源码a7ae585c8f577f71abcf79bf44256d5ba0930c8d；项目身份与UTC。源码Release作业40885719009 PASS，Release v1.8.0非草稿已创建。首轮tag候选作业40885718884的Windows在Verify tag metadata失败：默认PowerShell使用Bash的$RELEASE_TAG写法，得到空tag，并非C++编译失败。
+
+不移动tag。修正该步骤shell，新增只在main显式固定tag/SHA请求变更时触发的恢复入口；解析器验证annotated对象、固定SHA及main可达性，构建checkout仍为a7ae585，归档/上传只用解析后的v1.8.0。首轮失败保留，解析器真实执行、YAML/依赖/shell审查、无效tag/非40位提交拒绝、发布守卫14/14及源码/149文档守卫PASS；恢复完整三平台门禁待核验。编译脚本、业务源码、已发布源码说明和WSL服务未改动。
+
+
 ### RELEASE-1.8.0 最终本地门禁（2026-10-29，FULL-TEST-PASS / LOCAL-PACKAGE-PASS）
 
 固定源码c02f36e完整Release构建及26/26 CTest再次PASS（269.96秒）；常规package-windows -Version 1.8.0，无LocalPreview，完整门禁true、失败清单空。SDK隔离Windows原生完整437阶段、版本1.8.0、39个运行库来源、211项载荷清单及ZIP逐项/SHA256和复制后复核全部PASS。真实交付exe SHA256：9d14ee6316bf25e699f0cb05fc60ec214f28d266bad2798fc5ee71cdf15306a0。此前05c3ddb原生菜单失败保留，最终包确实包含屏边定位修复，未放宽断言/超时或跳过原生全链。

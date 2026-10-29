@@ -7,13 +7,64 @@ name: Publish tagged build
 on:
   push:
     tags: ['v*']
+    branches: ['main']
+    paths: ['.github/build-request.json']
 permissions:
   contents: read
 concurrency:
   group: release-build-${{ github.ref_name }}
   cancel-in-progress: false
 jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.source.outputs.tag }}
+      commit: ${{ steps.source.outputs.commit }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Resolve immutable source
+        id: source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          def git(*args):
+              return subprocess.check_output(["git", *args], text=True).strip()
+          expected = None
+          if os.environ["GITHUB_REF"].startswith("refs/tags/"):
+              tag = os.environ["GITHUB_REF_NAME"]
+              expected = git("rev-parse", "HEAD")
+          else:
+              if os.environ["GITHUB_REF"] != "refs/heads/main":
+                  raise ValueError("Recovery requires main")
+              request = json.loads(Path(".github/build-request.json").read_text())
+              tag, expected = request["tag"], request["commit"]
+              if not re.fullmatch(r"[0-9a-f]{40}", expected):
+                  raise ValueError("Recovery requires an exact source commit")
+          if not re.fullmatch(r"v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", tag):
+              raise ValueError("Stable release tag required")
+          git("fetch", "--no-tags", "origin", "main:refs/remotes/origin/main")
+          # Restore only the disposable runner ref; never write a remote tag.
+          git("fetch", "--no-tags", "--force", "origin", f"refs/tags/{tag}:refs/tags/{tag}")
+          if git("cat-file", "-t", f"refs/tags/{tag}") != "tag":
+              raise ValueError("Annotated tag required")
+          commit = git("rev-parse", f"refs/tags/{tag}^{{}}")
+          if expected and commit != expected:
+              raise ValueError("Recovery tag differs from pinned source")
+          subprocess.run(["git", "merge-base", "--is-ancestor", commit, "origin/main"], check=True)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"tag={tag}\ncommit={commit}\n")
+          print(f"Verified immutable source: {tag} {commit}")
+          PY
   build:
+    needs: resolve
+    env:
+      RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
     name: ${{ matrix.label }}
     strategy:
       fail-fast: false
@@ -33,13 +84,13 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ needs.resolve.outputs.commit }}
           persist-credentials: false
           fetch-depth: 0
       # The release guard is the same one the source workflow runs, so a build
       # can never be produced for a tag whose metadata is inconsistent.
       - name: Verify tag metadata
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
         run: python3 scripts/publish-source-release.py --tag "$RELEASE_TAG" --check
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
@@ -99,7 +150,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          name="Daymark-${GITHUB_REF_NAME#v}-${{ matrix.label }}"
+          name="Daymark-${RELEASE_TAG#v}-${{ matrix.label }}"
           stage="build/stage/$name"
           mkdir -p "build/artifacts" "$stage"
           QTDIR="${QT_ROOT_DIR:-$Qt6_DIR}"
@@ -148,7 +199,7 @@ jobs:
           path: build/artifacts/*
           if-no-files-found: error
   publish:
-    needs: build
+    needs: [resolve, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -162,7 +213,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
