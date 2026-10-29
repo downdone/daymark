@@ -20,15 +20,15 @@
 | Windows MinGW Release | 当前同步工作树25/25通过（本机实测，见PROGRESS） |
 | Windows MinGW Debug | 之前基线25/25；当前同步切片未复验 |
 | Windows MSVC（CI） | 6cfc6d7同步双端通过；完整桌面新run执行中 |
-| macOS（CI，`macos-15`） | 6cfc6d7服务端通过；完整桌面新run执行中 |
-| Linux（CI，`ubuntu-24.04`） | 6cfc6d7服务端/race通过；完整桌面新run执行中 |
+| macOS（CI，`macos-15`） | 6cfc6d7服务端通过；完整桌面contextual_workspace失败 |
+| Linux（CI，`ubuntu-24.04`） | 6cfc6d7服务端/race通过；完整桌面3个UX探针失败 |
 | QML lint | `daymark_qmllint`、`daymark_style_qmllint` 通过 |
 
 上述桌面CI是同步改动前的已验证基线：[run 40684920204](https://github.com/downdone/daymark/actions/runs/40684920204)（2026-10-28）。新增同步workflow及当前源码须以新一次GitHub检查为准，不沿用旧run宣称通过。
 
 账号/同步实现包含本地队列、完整批次应用、冲突、首次合并/大组、系统凭据、账号隔离与备份恢复。Go包测试/vet/race及真实两个Qt工作区↔Go TLS联调已有本机PASS；具体范围、最后修改后的门禁及未验证项见[PROGRESS](PROGRESS.md)与[实现验证清单](sync-verification.md)。源码实现不表示服务已部署。
 
-6cfc6d7已推送并核对origin/main；其[Account and sync](https://github.com/downdone/daymark/actions/runs/40802576795)三平台Go（含Linux race）与Windows MSVC真实双端全部通过。[完整桌面新run](https://github.com/downdone/daymark/actions/runs/40802576805)仍在执行，不提前宣称通过。此前e4303c8的[桌面流水线](https://github.com/downdone/daymark/actions/runs/40800033857)有UX探针/重复任务测试失败；新run结果不能沿用旧基线或同步workflow的绿灯。
+业务源码6cfc6d7已推送并核对origin/main；其[Account and sync](https://github.com/downdone/daymark/actions/runs/40802576795)三平台Go（含Linux race）与Windows MSVC真实双端全部通过。[完整桌面run](https://github.com/downdone/daymark/actions/runs/40802576805)的macOS仍失败于UX34；Linux仍失败于UX34/UX38/UX39（contextual_workspace/desktop_surfaces/calendar_interaction），失败清单不再包含recurrence_service。Windows完整测试尚未完成；该workflow不能称为通过。此后文档提交不改变已验证业务源码。
 
 ## 已知问题
 

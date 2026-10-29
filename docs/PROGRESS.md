@@ -1,5 +1,9 @@
 # Daymark 实施进度
 
+### SYNC-05 桌面CI剩余失败回填（2026-10-29，SYNC-CI-PASS / DESKTOP-CI-FAIL）
+
+6cfc6d7的同步专项四job全部通过不变；[完整桌面40802576805](https://github.com/downdone/daymark/actions/runs/40802576805)随后返回macOS contextual_workspace失败（UX34 stage22），Linux contextual_workspace/desktop_surfaces/calendar_interaction失败（UX34 stage22、UX38 stage32、UX39 stage68）。读取公开check annotations核实，失败清单不再含recurrence_service；Windows完整CTest仍在执行。剩余UX探针属另一agent修复范围，本轮未覆盖其工作，也不宣称整库CI通过；实际验收边界已回填STATUS。此条为文档补充，未改变已通过同步CI的业务源码。
+
 ### SYNC-05 源码推送与远端同步门禁（2026-10-29，PUSHED / SYNC-CI-PASS）
 
 实现及最终修复已推送main，Git SSH核对origin/main为6cfc6d7c8bebdd9da5c43cebb999aa9f1529a5ba。[Account and sync run 40802576795](https://github.com/downdone/daymark/actions/runs/40802576795)四个job全部success：Windows/macOS/Linux实际Go测试、Linux race及Windows MSVC真实Qt双端TLS联调；合成账号、临时资料与真实作业过期恢复均在此源码运行。与本机Release25/25、Go/vet/race、lint及文档/许可/隐私检查形成独立证据。
