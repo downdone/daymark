@@ -1,5 +1,7 @@
 # Daymark同步协议v1
 
+SYNC-06扩展：`POST /v1/auth/register`使用严格RegistrationRequest（protocol_version=1、login、password），成功204，无token或业务数据。新建与同名请求返回相同应答；重复不会改密或恢复账号，之后独立调用login。关闭时404，校验422、无效JSON400、限流429沿现有Problem。密码至少15个Unicode字符、最多1024 UTF-8字节；旧配置registration_enabled=false，示例显式true。capabilities.metadata.registration_enabled为可选的注册可用性提示，缺失视为不可用，不改变同步命令/实体/复制语义或封闭features；注册实际授权仍由服务配置在每个请求执行。不是已验证邮箱注册，不支持邮件找回。机器契约见[OpenAPI](sync-v1.openapi.json)。
+
 日期：2026-10-28，2026-10-29实现基线。服务入口及运维见[server](../../server/README.md)；v1路径/字段由共享样本、规范编码向量及真实双端测试保护。[架构与事务责任](../design/server-architecture.md)、[需求和产品取舍](../design/account-and-sync-service.md)、[当前证据](../PROGRESS.md)分别维护，不以JSON示例证明服务可用。示例ID、token和文本均为合成数据。
 
 路径/结构的权威机器契约为[OpenAPI 3.1](sync-v1.openapi.json)，详细字段/类型及补充裁决见[强类型契约](../design/sync-contracts/README.md)。[77个Schema正反例](fixtures/contract-v1.json)及16个规范编码向量由Go/Qt分别执行；[ADR-028](../ADR/028-sync-api-contract-and-rpc.md)解释RPC取舍和兼容门禁。修改机器契约后用`scripts/generate-sync-contract.py`生成副本，CI通过`--check`拒绝漂移。

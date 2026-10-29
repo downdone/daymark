@@ -16,6 +16,7 @@ import (
 )
 
 type Config struct {
+	RegistrationEnabled  bool   `json:"registration_enabled"`
 	DataDir              string `json:"data_dir"`
 	Listen               string `json:"listen"`
 	PublicOrigin         string `json:"public_origin"`

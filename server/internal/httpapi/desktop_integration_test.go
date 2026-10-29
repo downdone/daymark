@@ -43,7 +43,7 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 		t.Fatal(e)
 	}
 	password := "synthetic-isolated-password"
-	for _, login := range []string{"synthetic@example.invalid", "second@example.invalid"} {
+	for _, login := range []string{"second@example.invalid"} {
 		if _, e = auth.CreateUser(ctx, login, []byte(password)); e != nil {
 			t.Fatal(e)
 		}
@@ -69,6 +69,7 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 	transfer.Start(ctx)
 	defer transfer.Stop()
 	handler := New(auth, syncer, codec)
+	handler.RegistrationEnabled = true
 	handler.AttachTransfer(transfer)
 	router := handler.Router()
 	var staged atomic.Int32

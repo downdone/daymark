@@ -72,7 +72,7 @@ func TestEveryProtectedContractOperationRejectsBeforeDependencyAccess(t *testing
 			})
 		}
 	}
-	if total != 34 || protected < 25 {
+	if total != 35 || protected < 25 {
 		t.Fatalf("unexpected contract coverage: %d operations/%d protected", total, protected)
 	}
 	t.Logf("all %d protected operations among %d contract operations checked", protected, total)

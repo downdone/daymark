@@ -1,5 +1,23 @@
 # Daymark 实施进度
 
+### SYNC-06 注册实现与验证（2026-10-29，IMPLEMENTED / REGISTRATION-AUTO-PASS）
+
+已提供严格POST /v1/auth/register，RegistrationRequest后204再独立登录；账号/空dataset原子建立。重复标准化账号同样204，不覆盖密码、状态或资料；删除身份不可借注册复活。密码至少15个Unicode码点、最多1024 UTF-8字节；KDF前socket-IP5次/分钟和全局20次/分钟，现有登录限流及Argon2并发门保留。registration_enabled默认false，示例true；能力仅以可选metadata作注册可用性提示，不改DTO1的封闭features、同步命令或实体；邮箱验证/邮件找回未实现，也无相关承诺。
+
+客户端通用设置支持登录/注册切换、确认密码、“注册并同步”、明确关闭/限流/校验/结果不确定提示。注册经Main草稿保存门；模式切换/发送/关闭清空密码，服务器与账号仅打开表单时预填，修复后台状态刷新覆盖输入的问题。UI沿UX-07/09/11/HIG用户控制、反馈与可达性，全部沿现有共享样式；未新增依赖或修改历史migration、构建/CI脚本。
+
+实际PASS：Go全包test/vet（sync06-go-final.log）；application/httpapi/config/protocol race（sync06-race.log）；新增注册事务回滚/并发同名/不可改密及不可复活/Unicode和UTF-8字节边界race复验（sync06-registration-atomic.log）。测试在实际临时SQLite插入用户后注入dataset配额失败，确认用户也回滚；不是把伪造成功当持久化验证。HTTP可信TLS覆盖注册→登录→push/pull、关闭/严格字段/重复键/限流；真实Qt双端由新账号注册开始，同名注册不建第二份，完整图收敛PASS（Qt67.79秒/Go70.995秒，sync06-e2e.log）。
+
+Qt6.10.2/MinGW Release构建通过；本轮曾全量25/25 CTest通过272.69秒（sync06-full-tests.log）。新增注册表单探针复查18.80秒通过，随后完整桌面截图和再次探针在更早的既有UX38 stage76失败：滚动恢复83而先前记录89（sync06-reg-render.err.log、sync06-form-final-test.log），未删改该断言或宣称最新全套门禁全绿。注册独立切片等待本地profile加载，在空fixture显式启用日历，最后退出0/visible windows=3/warnings=false；连续3轮退出0。已查看浅色密码不一致和深色200%确认/提交的真实QML渲染截图（sync06-registration.png.desktop-registration-*.png），确认禁用/提示/焦点及滚动后可达。原生Windows测试进程未暴露给窗口工具，未自动操作认证弹窗；原生键盘/读屏/macOS仍UNVERIFIED。
+
+最后输入保留修复后，受影响data_transfer/task_workspace/qml_startup复验3/3通过61.82秒（sync06-final-regression.log），注册focused渲染退出0且连续3轮退出0；schema生成106项、13模块许可、147文档链接和共享UI样式检查通过。注册表单最初98～103段已随共享提交0cfdaf5进入历史，本轮其余代码与夹具修复另提交，不重写共享提交；另一个agent的UI/CI诊断和历史文档改动保留。没有部署、真实用户建号/登录或私人资料上传。
+
+### SYNC-06 自助注册（2026-10-29，IN_PROGRESS）
+
+用户明确要求注册能力，扩展FR-042。本轮接口POST /v1/auth/register（严格RegistrationRequest，204后独立登录），原子建用户/空dataset，重复账号同样204但不改口令/状态/资料；注册密码至少15个Unicode字符且最多1024 UTF-8字节。管理员registration_enabled显式开启，旧配置默认关闭；能力通过已有metadata标量宣布，避免破坏旧DTO1封闭features。请求限流在KDF前，注册全局及IP有界，返回不区分已存在/新建；无邮箱验证或找回承诺。
+
+客户端通用设置登录/注册同表单，确认密码仅本地比较，注册并同步经现有草稿保存门；密码发送/切换/关闭清除，失败可改正。按HIG用户控制/清晰反馈及UX-07/09/11验证忙碌/错误/Tab/Enter与缩放；服务单元/实际TLS注册-登录-同步、并发同名/关闭/限流/严格协议和原Qt回归均须执行。未触碰其他agent的CI脚本与历史记录。尚未运行新增测试。
+
 ### SYNC-05 桌面CI剩余失败回填（2026-10-29，SYNC-CI-PASS / DESKTOP-CI-FAIL）
 
 6cfc6d7的同步专项四job全部通过不变；[完整桌面40802576805](https://github.com/downdone/daymark/actions/runs/40802576805)随后返回macOS contextual_workspace失败（UX34 stage22），Linux contextual_workspace/desktop_surfaces/calendar_interaction失败（UX34 stage22、UX38 stage32、UX39 stage68）。读取公开check annotations核实，失败清单不再含recurrence_service；Windows完整CTest仍在执行。剩余UX探针属另一agent修复范围，本轮未覆盖其工作，也不宣称整库CI通过；实际验收边界已回填STATUS。此条为文档补充，未改变已通过同步CI的业务源码。

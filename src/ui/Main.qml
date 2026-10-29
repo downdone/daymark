@@ -1588,6 +1588,7 @@ ApplicationWindow {
         onQuitRequested: {windowSettings.close();mainWindow.forceQuit=true;mainWindow.close()}
         onCalendarVisibilityRequested: function(visible){if(visible)mainWindow.taskWorkspace.setPreference("desktopCalendarVisible",true);else desktopCalendar.close()}
         onSyncLoginRequested:function(origin,login,password){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncLogin(origin,login,password)})}
+        onSyncRegisterRequested:function(origin,login,password){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncRegister(origin,login,password)})}
         onSyncProfileRequested:function(id){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncOpenProfile(id)})}
         onSyncResolveRequested:function(id,decision){mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.syncResolveConflict(id,decision)})}
         onSyncRebuildRequested:mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncRebuild()})

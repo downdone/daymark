@@ -3,6 +3,7 @@
   "listen": "127.0.0.1:8080",
   "public_origin": "https://sync.example.com",
   "development": false,
+  "registration_enabled": true,
   "writer_queue": 32,
   "read_pool": 4,
   "request_timeout_ms": 10000,

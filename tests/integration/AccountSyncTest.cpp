@@ -146,10 +146,10 @@ int run() {
     coordinatorB.setTlsConfiguration(tls);
     if (!until([&] { return a.syncState().contains("mode") && b.syncState().contains("mode"); }))
         return failed("coordinator init", &a, &b);
-    a.syncLogin(url, "synthetic@example.invalid", password);
+    a.syncRegister(url, "synthetic@example.invalid", password);
     if (!settle(a))
         return failed("first import and own echo", &a, &b);
-    b.syncLogin(url, "synthetic@example.invalid", password);
+    b.syncRegister(url, "synthetic@example.invalid", password);
     if (!settle(b) || b.task(id).value("title") != "合成离线任务")
         return failed("second device snapshot", &a, &b);
     auto t = a.task(id);

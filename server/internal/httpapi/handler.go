@@ -20,17 +20,18 @@ import (
 )
 
 type Handler struct {
-	Auth      *application.Auth
-	Sync      *application.Sync
-	Codec     *protocol.Codec
-	MaxBody   int64
-	Timeout   time.Duration
-	semaphore chan struct{}
-	mu        sync.Mutex
-	attempts  map[string]window
-	status    map[string]int
-	Transfer  *application.Transfer
-	Account   *application.Account
+	RegistrationEnabled bool
+	Auth                *application.Auth
+	Sync                *application.Sync
+	Codec               *protocol.Codec
+	MaxBody             int64
+	Timeout             time.Duration
+	semaphore           chan struct{}
+	mu                  sync.Mutex
+	attempts            map[string]window
+	status              map[string]int
+	Transfer            *application.Transfer
+	Account             *application.Account
 }
 type window struct {
 	Start time.Time
@@ -55,6 +56,7 @@ func (h *Handler) Router() http.Handler {
 	})
 	mux.HandleFunc("GET /v1/capabilities", h.capabilities)
 	mux.HandleFunc("POST /v1/auth/login", h.login)
+	mux.HandleFunc("POST /v1/auth/register", h.register)
 	mux.HandleFunc("POST /v1/auth/refresh", h.refresh)
 	mux.HandleFunc("POST /v1/auth/logout", h.authorized(func(w http.ResponseWriter, r *http.Request, p domain.Principal) {
 		if e := h.Auth.Revoke(r.Context(), p, p.SessionID); e != nil {
@@ -217,6 +219,9 @@ func (h *Handler) limited(r *http.Request) bool {
 	if e != nil {
 		addr = r.RemoteAddr
 	}
+	return h.limitKey("auth:"+addr, 20)
+}
+func (h *Handler) limitKey(addr string, maximum int) bool {
 	now := h.Sync.Clock.Now()
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -239,7 +244,35 @@ func (h *Handler) limited(r *http.Request) bool {
 	}
 	v.Count++
 	h.attempts[addr] = v
-	return v.Count > 20
+	return v.Count > maximum
+}
+func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
+	if !h.RegistrationEnabled {
+		h.problem(w, r, domain.Fail("not_found"))
+		return
+	}
+	addr, _, e := net.SplitHostPort(r.RemoteAddr)
+	if e != nil {
+		addr = r.RemoteAddr
+	}
+	if h.limited(r) || h.limitKey("register:global", 20) || h.limitKey("register:ip:"+addr, 5) {
+		h.problem(w, r, domain.Fail("rate_limited"))
+		return
+	}
+	var in struct {
+		ProtocolVersion int    `json:"protocol_version"`
+		Login           string `json:"login"`
+		Password        string `json:"password"`
+	}
+	if e := h.decode(w, r, "RegistrationRequest", &in); e != nil {
+		h.problem(w, r, e)
+		return
+	}
+	if e := h.Auth.Register(r.Context(), in.Login, []byte(in.Password)); e != nil {
+		h.problem(w, r, e)
+		return
+	}
+	h.write(w, r, 204, "", nil)
 }
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	if h.limited(r) {
@@ -409,7 +442,7 @@ func (h *Handler) progress(w http.ResponseWriter, r *http.Request, p domain.Prin
 	h.write(w, r, 204, "", nil)
 }
 func (h *Handler) capabilities(w http.ResponseWriter, r *http.Request) {
-	h.write(w, r, 200, "Capabilities", map[string]any{"protocol_version": 1, "server_instance_id": h.Sync.Cursor.ServerID, "supported_protocol_versions": []int{1}, "supported_dto_versions": []int{1}, "dto_version": 1, "command_types": domain.CommandTypes, "max_inline_bytes": h.MaxBody, "max_inline_commands": h.Sync.MaxCommands, "max_inline_entities": h.Sync.MaxInlineEntities, "max_chunk_bytes": 262144, "max_job_bytes": domain.Counter(67108864), "max_batch_reassembly_bytes": domain.Counter(268435456), "features": map[string]bool{"staged_payloads": h.Sync.Resolver != nil, "snapshots": h.Transfer != nil, "imports": h.Transfer != nil, "account_export": h.Transfer != nil, "account_deletion": h.Account != nil}})
+	h.write(w, r, 200, "Capabilities", map[string]any{"protocol_version": 1, "server_instance_id": h.Sync.Cursor.ServerID, "supported_protocol_versions": []int{1}, "supported_dto_versions": []int{1}, "dto_version": 1, "command_types": domain.CommandTypes, "max_inline_bytes": h.MaxBody, "max_inline_commands": h.Sync.MaxCommands, "max_inline_entities": h.Sync.MaxInlineEntities, "max_chunk_bytes": 262144, "max_job_bytes": domain.Counter(67108864), "max_batch_reassembly_bytes": domain.Counter(268435456), "metadata": map[string]any{"registration_enabled": h.RegistrationEnabled}, "features": map[string]bool{"staged_payloads": h.Sync.Resolver != nil, "snapshots": h.Transfer != nil, "imports": h.Transfer != nil, "account_export": h.Transfer != nil, "account_deletion": h.Account != nil}})
 }
 func (h *Handler) write(w http.ResponseWriter, r *http.Request, status int, schema string, out any) {
 	if status == 204 {

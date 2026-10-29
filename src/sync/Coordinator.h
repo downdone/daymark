@@ -46,6 +46,8 @@ class Coordinator final : public QObject {
                 [this](const QString &action, const QVariantMap &values) {
                     if (action == "login")
                         login(values);
+                    else if (action == "register")
+                        login(values, true);
                     else if (action == "logout")
                         logout();
                     else if (action == "rebuild")
@@ -355,7 +357,7 @@ class Coordinator final : public QObject {
         tokens = pair;
         return true;
     }
-    void login(const QVariantMap &values) {
+    void login(const QVariantMap &values, bool registering = false) {
         if (busy)
             return;
         const auto normalized = origin(values.value("origin").toString());
@@ -372,12 +374,12 @@ class Coordinator final : public QObject {
         authenticated = false;
         tokens = {};
         server = normalized.value;
-        message = tr("正在登录…");
+        message = registering ? tr("正在注册…") : tr("正在登录…");
         cycleTime.restart();
         publish();
         request(
             "GET", "/v1/capabilities", {}, "Capabilities",
-            [this, values](Response r) {
+            [this, values, registering](Response r) {
                 if (!r.ok()) {
                     fail(r.code);
                     return;
@@ -407,6 +409,25 @@ class Coordinator final : public QObject {
                         fail("syncProtocolMismatch");
                         return;
                     }
+                if (registering) {
+                    if (!capabilities.value("metadata").toObject().value("registration_enabled").toBool()) {
+                        fail("syncRegistrationDisabled");
+                        return;
+                    }
+                    request("POST", "/v1/auth/register",
+                            json({{"protocol_version", 1}, {"login", values.value("login").toString()},
+                                  {"password", values.value("password").toString()}}), {},
+                            [this, values](Response registered) {
+                                if (!registered.ok()) {
+                                    fail((registered.code == "syncNetworkError" || registered.code == "commit_result_unknown" || registered.code == "timeout") ? "syncRegistrationUncertain" :
+                                         registered.code == "validation_failed" ? "syncRegistrationInvalid" : registered.code);
+                                    return;
+                                }
+                                busy = false;
+                                login(values);
+                            }, false);
+                    return;
+                }
 #ifdef Q_OS_MACOS
                 const QString platform = QStringLiteral("macos");
 #else
@@ -716,7 +737,15 @@ class Coordinator final : public QObject {
             });
             return;
         }
-        if (code == "invalid_credentials")
+        if (code == "syncRegistrationDisabled")
+            message = tr("此服务器未开放注册，请联系管理员或登录已有账号。");
+        else if (code == "syncRegistrationUncertain")
+            message = tr("未收到注册结果。账号可能已创建，请先尝试登录；本地资料仍保留。");
+        else if (code == "syncRegistrationInvalid")
+            message = tr("请使用3～254位英文字母、数字或 . _ @ + - 作为账号；密码至少15个字符，最多1024字节。");
+        else if (code == "rate_limited")
+            message = tr("请求过于频繁，请稍后重试。");
+        else if (code == "invalid_credentials")
             message = tr("账号或密码不正确。");
         else if (code == "syncProfileMismatch")
             message = tr("此资料属于其他账号或服务器，请打开该账号的独立本地资料后登录。");

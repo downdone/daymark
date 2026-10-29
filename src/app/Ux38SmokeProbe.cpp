@@ -14,7 +14,12 @@
 #include <QLineF>
 namespace daymark {
 Ux38SmokeProbe::Ux38SmokeProbe(TaskWorkspace& workspace,WidgetViewModel& controller,QQuickWindow* main,QQuickWindow* widget,QString screenshot)
-    :m_workspace(workspace),m_controller(controller),m_main(main),m_widget(widget),m_screenshot(std::move(screenshot)){m_wait.start();}
+    :m_workspace(workspace),m_controller(controller),m_main(main),m_widget(widget),m_screenshot(std::move(screenshot)){
+        // Focused rendering still runs the real registration assertions in the
+        // isolated smoke workspace. The normal CTest executes the entire suite.
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="registration")m_stage=98;
+        m_wait.start();
+    }
 QObject* Ux38SmokeProbe::find(QObject* root,const QString& name) const {
     QList<QObject*> pending{root};QSet<QObject*> seen;
     while(!pending.isEmpty()) {
@@ -171,6 +176,11 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==96){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("moving host left detached menu");click("desktopCalendarOptions",calendar);}
     else if(m_stage==97){auto* button=find(calendar,"desktopCalendarOptions");auto* menu=find(button,"desktopCalendarOptionsMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(!menu || !menu->property("visible").toBool() || menu->property("anchorItem").value<QObject*>()!=button || !content || content->window()->color().alpha()!=255 || !capture(content->window(),"calendar-solid-menu"))return fail("desktop calendar explicit opaque menu anchor");QMetaObject::invokeMethod(menu,"close");}
     else if(m_stage==98){
+        if(!m_workspace.syncState().contains("mode") || m_workspace.syncState().value("busy").toBool()){
+            if(m_wait.elapsed()<5000)return {};
+            return fail("registration waits for the local account profile to load");
+        }
+        m_workspace.setPreference("desktopCalendarVisible",true);m_workspace.setThemeMode(1);m_workspace.setTextScale(1);
         auto* settings=find(m_main,"settingsDialog");QMetaObject::invokeMethod(settings,"open");
         QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(2)));
         settings->setProperty("syncFormOpen",true);settings->setProperty("syncRegisterMode",false);
@@ -195,7 +205,10 @@ QString Ux38SmokeProbe::advance() {
         if(m_workspace.syncState().value("busy").toBool() || find(settings,"syncPassword")->property("text").toString().isEmpty())return fail("Enter on mismatched confirmation must keep input and avoid request");
         if(!capture(settings,"registration-light-mismatch"))return fail("registration light capture");
         find(settings,"syncConfirmPassword")->setProperty("text","synthetic-long-password");
-        if(!find(settings,"syncSubmit")->property("enabled").toBool())return fail("matching registration password enables explicit submit");
+        if(!find(settings,"syncSubmit")->property("enabled").toBool()){
+            qCritical()<<"Registration readiness"<<find(settings,"syncServerOrigin")->property("text").toString().length()<<find(settings,"syncLogin")->property("text").toString().length()<<find(settings,"syncPassword")->property("text").toString().length()<<find(settings,"syncConfirmPassword")->property("text").toString().length()<<m_workspace.syncState().value("busy");
+            return fail("matching registration password enables explicit submit");
+        }
         settings->setProperty("syncRegisterMode",false);
         if(!find(settings,"syncPassword")->property("text").toString().isEmpty() || !find(settings,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("leaving registration clears both passwords");
         settings->setProperty("syncRegisterMode",true);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);

@@ -2613,6 +2613,60 @@
           }
         }
       }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "operationId": "registerAccount",
+        "summary": "Request self registration; enabled by operator configuration",
+        "security": [],
+        "responses": {
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Request accepted; login separately. Same response for an existing login."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "description": "204 for both newly created and existing normalized login. Never updates existing password/status/data or issues tokens. Login separately; after an uncertain response, login can determine access. No verified email semantics. Disabled returns 404. Rate limited before KDF."
+      }
     }
   },
   "components": {
@@ -6881,6 +6935,34 @@
           ]
         },
         "description": "Non-business diagnostics only. Unknown keys may be ignored; never round-trip or hash as business facts."
+      },
+      "RegistrationRequest": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "login": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 512,
+            "description": "Normalize trim + ASCII lowercase, then require [a-z0-9._@+-], length 3..254; not a verified email."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 15,
+            "maxLength": 1024,
+            "writeOnly": true,
+            "description": "15 or more Unicode code points; at most 1024 UTF-8 bytes. Never truncated."
+          }
+        },
+        "required": [
+          "protocol_version",
+          "login",
+          "password"
+        ],
+        "additionalProperties": false
       }
     }
   },

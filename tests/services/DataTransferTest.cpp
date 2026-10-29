@@ -109,6 +109,13 @@ private slots:
         QCOMPARE(command.value("patch").toObject().value("category_id").toString(), native);
         QCOMPARE(sync::Identity::entityTo(mapped.value.entities.value("task:" + canonical), mapped.value.taskLocalIds), legacy);
     }
+    void registrationRequestUsesStrictSharedSchema() {
+        QJsonObject input{{"protocol_version",1},{"login",QStringLiteral("new-user")},{"password",QStringLiteral("long-valid-password")}};
+        QVERIFY(sync::Schema::accepts("RegistrationRequest",input));
+        input.insert("extra",true);QVERIFY(!sync::Schema::accepts("RegistrationRequest",input));input.remove("extra");
+        input.insert("password",QStringLiteral("short"));QVERIFY(!sync::Schema::accepts("RegistrationRequest",input));
+        input.insert("password",QStringLiteral("long-valid-password"));input.remove("login");QVERIFY(!sync::Schema::accepts("RegistrationRequest",input));
+    }
     void syncSharedContractFixturesAndGoldenCanonicalBytes() {
         QFile fixture(QFINDTESTDATA("../../docs/api/fixtures/contract-v1.json"));QVERIFY(fixture.open(QIODevice::ReadOnly));const auto root=QJsonDocument::fromJson(fixture.readAll()).object();
         const auto cases=root.value("schema_cases").toArray();QCOMPARE(cases.size(),77);for(const auto& x:cases){const auto c=x.toObject();const auto schema=c.value("schema").toString();QVERIFY2(sync::Schema::definitions().contains(schema),qPrintable(schema));QVERIFY2(sync::Schema::accepts(schema,c.value("value"))==c.value("valid").toBool(),qPrintable(c.value("id").toString()));}

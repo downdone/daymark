@@ -112,6 +112,7 @@ public:
     void switchSyncDatabase(const QString& path,std::function<void(Result<void>)> completed);
     Q_INVOKABLE void syncOpenProfile(const QString& id){emit syncActionRequested(QStringLiteral("open_profile"),{{"id",id}});}
     Q_INVOKABLE void syncLogin(const QString& origin,const QString& login,const QString& password){emit syncActionRequested(QStringLiteral("login"),{{"origin",origin},{"login",login},{"password",password}});}
+    Q_INVOKABLE void syncRegister(const QString& origin,const QString& login,const QString& password){emit syncActionRequested(QStringLiteral("register"),{{"origin",origin},{"login",login},{"password",password}});}
     Q_INVOKABLE void syncLogout(){emit syncActionRequested(QStringLiteral("logout"),{});}
     Q_INVOKABLE void syncNow(){emit syncActionRequested(QStringLiteral("now"),{});}
     Q_INVOKABLE void syncRebuild(){emit syncActionRequested(QStringLiteral("rebuild"),{});}

@@ -69,3 +69,23 @@ func TestSecretsAreNeverSilentlyReplaced(t *testing.T) {
 		t.Fatal("key traversal accepted")
 	}
 }
+
+func TestRegistrationRequiresExplicitOperatorOptIn(t *testing.T) {
+	if Defaults().RegistrationEnabled {
+		t.Fatal("old configuration must stay closed")
+	}
+	for _, enabled := range []bool{false, true} {
+		p := filepath.Join(t.TempDir(), "config.json")
+		raw := []byte(`{"registration_enabled":false}`)
+		if enabled {
+			raw = []byte(`{"registration_enabled":true}`)
+		}
+		if e := os.WriteFile(p, raw, 0600); e != nil {
+			t.Fatal(e)
+		}
+		c, e := Load(p)
+		if e != nil || c.RegistrationEnabled != enabled {
+			t.Fatal("registration config", e)
+		}
+	}
+}

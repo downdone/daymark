@@ -205,6 +205,19 @@ func (a *Auth) CreateUser(ctx context.Context, login string, password []byte) (d
 	return id, e
 }
 
+// Register never alters an existing identity, including disabled/deleted users.
+// A generic success avoids exposing whether a normalized login already exists.
+func (a *Auth) Register(ctx context.Context, login string, password []byte) error {
+	if utf8.RuneCount(password) < 15 {
+		return domain.Invalid("/password")
+	}
+	_, e := a.CreateUser(ctx, login, password)
+	if domain.Code(e) == "revision_conflict" {
+		return nil
+	}
+	return e
+}
+
 type LoginInput struct {
 	ProtocolVersion int       `json:"protocol_version"`
 	Login           string    `json:"login"`

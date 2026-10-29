@@ -238,6 +238,7 @@ func run() error {
 	backups.Start(context.Background())
 	defer backups.Stop()
 	handler := httpapi.New(auth, syncer, codec)
+	handler.RegistrationEnabled = c.RegistrationEnabled
 	handler.AttachTransfer(transfer)
 	handler.Account = account
 	handler.Timeout = c.RequestTimeout()

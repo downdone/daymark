@@ -28,10 +28,6 @@ func TestTLSLoginAtomicPushPullAndProtocolErrors(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	_, e = auth.CreateUser(t.Context(), "synthetic@example.invalid", []byte("synthetic-password"))
-	if e != nil {
-		t.Fatal(e)
-	}
 	codec, e := protocol.NewCodec()
 	if e != nil {
 		t.Fatal(e)
@@ -41,6 +37,7 @@ func TestTLSLoginAtomicPushPullAndProtocolErrors(t *testing.T) {
 	cursor := &application.CursorCodec{ServerID: state.ServerID, ActiveKey: "test", Keys: map[string][]byte{"test": []byte(strings.Repeat("x", 32))}, Clock: clock, TTL: time.Hour}
 	syncer := application.NewSync(db, auth, clock, cursor)
 	handler := New(auth, syncer, codec)
+	handler.RegistrationEnabled = true
 	server := httptest.NewTLSServer(handler.Router())
 	defer server.Close()
 	client := server.Client()
@@ -86,6 +83,25 @@ func TestTLSLoginAtomicPushPullAndProtocolErrors(t *testing.T) {
 	_ = json.Unmarshal(raw, &cap)
 	if cap["protocol_version"] != float64(1) {
 		t.Fatal("capability")
+	}
+	registration := []byte(`{"protocol_version":1,"login":" Synthetic@Example.Invalid ","password":"synthetic-password"}`)
+	if status, _ = request("POST", "/v1/auth/register", "", registration); status != 204 {
+		t.Fatal("registration", status)
+	}
+	if status, _ = request("POST", "/v1/auth/register", "", []byte(`{"protocol_version":1,"login":"synthetic@example.invalid","password":"different-password"}`)); status != 204 {
+		t.Fatal("duplicate must not enumerate login", status)
+	}
+	if status, _ = request("POST", "/v1/auth/register", "", []byte(`{"protocol_version":1,"login":"invalid-new","password":"short"}`)); status != 422 {
+		t.Fatal("short password accepted", status)
+	}
+	if status, _ = request("POST", "/v1/auth/register", "", []byte(`{"protocol_version":1,"login":"invalid-new","password":"long-valid-password","extra":true}`)); status != 422 {
+		t.Fatal("unknown registration field accepted", status)
+	}
+	if status, _ = request("POST", "/v1/auth/register", "", []byte(`{"protocol_version":1,"login":"invalid-new","login":"other-new","password":"long-valid-password"}`)); status != 400 {
+		t.Fatal("duplicate registration key accepted", status)
+	}
+	if status, _ = request("POST", "/v1/auth/register", "", registration); status != 429 {
+		t.Fatal("registration limit bypassed", status)
 	}
 	installation := domain.StableID("tls-installation")
 	login, _ := json.Marshal(application.LoginInput{ProtocolVersion: 1, Login: "synthetic@example.invalid", Password: "synthetic-password", InstallationID: installation, DeviceName: "TLS test", Platform: "windows"})
