@@ -90,34 +90,46 @@ jobs:
           & ./scripts/package-tagged-windows.ps1 -BuildDirectory build/release -OutputDirectory build/artifacts -Version $version
       # macOS and Linux ship an executable archive only; signing/notarisation
       # and a clean-machine gate are still open (see release-policy).
+      # macOS ships a self-contained .app via macdeployqt; Linux gets the binary,
+      # the Qt shared libraries it links, the plugins it loads and the QML imports,
+      # with a qt.conf and a launcher that points LD_LIBRARY_PATH at ./lib.
+      # Neither archive is code-signed or clean-machine validated.
       - name: Package (macOS/Linux)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
           name="Daymark-${GITHUB_REF_NAME#v}-${{ matrix.label }}"
-          mkdir -p "build/artifacts" "build/stage/$name"
+          stage="build/stage/$name"
+          mkdir -p "build/artifacts" "$stage"
+          QTDIR="${QT_ROOT_DIR:-$Qt6_DIR}"
           if [ "$RUNNER_OS" = "macOS" ]; then
-            bin="build/release/bin/daymark.app"
-            [ -d "$bin" ] || { echo "::error::daymark.app missing"; exit 1; }
-            cp -R "$bin" "build/stage/$name/"
-            QTDIR="${QT_ROOT_DIR:-$Qt6_DIR}"
-            macdeployqt "build/stage/$name/daymark.app" -always-overwrite
+            [ -d build/release/bin/daymark.app ] || { echo "::error::daymark.app missing"; exit 1; }
+            cp -R build/release/bin/daymark.app "$stage/"
+            "$QTDIR/bin/macdeployqt" "$stage/daymark.app" -always-overwrite
           else
-            bin="build/release/bin/daymark"
-            [ -x "$bin" ] || { echo "::error::daymark binary missing"; exit 1; }
-            cp "$bin" "build/stage/$name/"
+            [ -x build/release/bin/daymark ] || { echo "::error::daymark binary missing"; exit 1; }
+            cp build/release/bin/daymark "$stage/"
+            mkdir -p "$stage/lib" "$stage/plugins"
+            for lib in Core Gui Qml Quick QuickControls2 Widgets Sql Network QuickDialogs2 QuickLayouts QuickShapes Svg OpenGL; do
+              for f in "$QTDIR"/lib/libQt6"$lib".so.*; do
+                [ -e "$f" ] && cp -P "$f" "$stage/lib/"
+              done
+            done
+            for plugin in platforms sqldrivers imageformats iconengines tls; do
+              [ -d "$QTDIR/plugins/$plugin" ] && cp -R "$QTDIR/plugins/$plugin" "$stage/plugins/"
+            done
+            [ -d "$QTDIR/qml" ] && cp -R "$QTDIR/qml" "$stage/"
+            printf '%s\n' 'Prefix=.' 'Libraries=lib' 'Plugins=plugins' 'QmlImports=qml' > "$stage/qt.conf"
+            printf '%s\n' '#!/bin/sh' 'HERE=$(dirname "$0")' 'LD_LIBRARY_PATH="$HERE/lib:$LD_LIBRARY_PATH" exec "$HERE/daymark" "$@"' > "$stage/daymark.sh"
+            chmod +x "$stage/daymark.sh" "$stage/daymark"
           fi
-          cp LICENSE CONTRIBUTING.md "build/stage/$name/" 2>/dev/null || true
-          cp packaging/THIRD-PARTY-NOTICES.md "build/stage/$name/"
-          cat > "build/stage/$name/README.txt" <<'TXT'
-          Daymark - unofficial build artifact
-          Qt runtime is licensed under LGPLv3 and linked dynamically; see
-          THIRD-PARTY-NOTICES.md. This archive is not signed and has not been
-          validated on a clean machine.
-          TXT
+          cp LICENSE CONTRIBUTING.md "$stage/" 2>/dev/null || true
+          cp packaging/THIRD-PARTY-NOTICES.md "$stage/"
+          printf '%s\n' 'Daymark - tagged build artifact' ''             'Qt runtime is licensed under LGPLv3 and linked dynamically; see THIRD-PARTY-NOTICES.md.'             'This archive is not code-signed and has not been validated on a clean machine.' > "$stage/README.txt"
           (cd build/stage && tar -czf "../artifacts/$name.tar.gz" "$name")
           (cd build/artifacts && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
+
       - name: Record artifact digests
         shell: bash
         run: |
