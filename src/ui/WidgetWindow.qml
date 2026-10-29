@@ -16,7 +16,9 @@ Window {
     width: 340;height: 360
     readonly property int ballDiameter: Math.max(36,Theme.iconSize+12)
     readonly property int miniBarHeight: Math.max(48,Theme.controlHeight+2*Theme.panelPadding)
-    onMiniBarHeightChanged: updateMiniCollapse()
+    onMiniBarHeightChanged: Qt.callLater(syncMiniLayout)
+    onBallDiameterChanged: Qt.callLater(syncMiniLayout)
+    Component.onCompleted: syncMiniLayout()
     minimumWidth: controller.mini && controller.miniAutoCollapse ? ballDiameter : 260
     minimumHeight: controller.mini && controller.miniAutoCollapse ? ballDiameter : controller.mini ? Math.max(48,Theme.controlHeight+2*Theme.panelPadding) : Math.max(190,header.implicitHeight+footer.implicitHeight+(widgetError.visible ? widgetError.implicitHeight : 0)+2*Theme.panelPadding+4*Theme.fieldGap+48)
     x: 80;y: 80;visible: false;color: "transparent"
@@ -26,26 +28,74 @@ Window {
     readonly property bool interacting: headerDrag.active || miniDrag.active
     readonly property bool miniMode: controller.mini
     property bool miniKeyboardInteraction: false
+    property bool pendingMiniKeyboardFocus: false
+    property bool miniWantCollapsed: false
+    property real miniReveal: 1
+    readonly property bool miniTransitionRunning: miniAnimation.running
     readonly property Control miniFocusControl: activeFocusItem as Control
-    readonly property bool miniKeyboardFocus: active && (miniKeyboardInteraction || (!!miniFocusControl && [Qt.TabFocusReason,Qt.BacktabFocusReason,Qt.ShortcutFocusReason].indexOf(miniFocusControl.focusReason)>=0))
+    readonly property bool miniKeyboardFocus: active && (miniKeyboardInteraction || pendingMiniKeyboardFocus || (!!miniFocusControl && [Qt.TabFocusReason,Qt.BacktabFocusReason,Qt.ShortcutFocusReason].indexOf(miniFocusControl.focusReason)>=0))
     onActiveChanged: if(!active && !widgetMenu.visible)miniKeyboardInteraction=false
     readonly property bool canCollapseMini: controller.mini && controller.miniAutoCollapse && !controller.clickThrough && !interacting && !miniKeyboardFocus && !widgetMenu.visible && !errorMessage.length
-    onCanCollapseMiniChanged: updateMiniCollapse()
+    onCanCollapseMiniChanged: Qt.callLater(updateMiniCollapse)
+    function syncMiniLayout() {
+        controller.setMiniLayout(miniBarHeight,ballDiameter)
+        updateMiniCollapse()
+    }
+    function finishMiniTransition() {
+        if(miniWantCollapsed) {
+            if(!controller.setMiniCollapsed(true,ballDiameter)){miniWantCollapsed=false;miniReveal=1}
+        } else if(pendingMiniKeyboardFocus) {
+            pendingMiniKeyboardFocus=false
+            miniSummary.forceActiveFocus(Qt.TabFocusReason)
+            miniKeyboardInteraction=true
+        }
+    }
+    function animateMiniTo(value) {
+        if(miniAnimation.running && miniAnimation.to===value)return
+        miniAnimation.stop()
+        if(reduceMotion || !visible || Math.abs(miniReveal-value)<0.001) {
+            miniReveal=value
+            finishMiniTransition()
+        } else {
+            miniAnimation.to=value
+            miniAnimation.duration=Math.max(1,Math.round(160*Math.abs(miniReveal-value)))
+            miniAnimation.start()
+        }
+    }
+    function requestMiniCollapse(collapse,keyboard) {
+        if(controller.geometryChanging || !controller.mini)return
+        if(keyboard && (controller.miniCollapsed || miniReveal<1 || miniAnimation.running))pendingMiniKeyboardFocus=true
+        miniWantCollapsed=collapse
+        if(!collapse && controller.miniCollapsed && !controller.setMiniCollapsed(false)) {
+            miniWantCollapsed=true;pendingMiniKeyboardFocus=false;miniReveal=0;return
+        }
+        animateMiniTo(collapse ? 0 : 1)
+    }
     function updateMiniCollapse() {
-        if(controller.mini && !controller.miniCollapsed && height<miniBarHeight)height=miniBarHeight
-        if(!canCollapseMini){
-            collapseDelay.stop()
-            const transferKeyboardFocus=miniKeyboardFocus && controller.miniCollapsed
-            if(controller.miniCollapsed)controller.setMiniCollapsed(false)
-            if(transferKeyboardFocus)Qt.callLater(function(){if(widget.controller.mini && !widget.controller.miniCollapsed){miniSummary.forceActiveFocus(Qt.TabFocusReason);widget.miniKeyboardInteraction=true}})
+        if(controller.geometryChanging)return
+        if(!controller.mini || !visible) {
+            collapseDelay.stop();miniAnimation.stop();pendingMiniKeyboardFocus=false
+            miniWantCollapsed=controller.miniCollapsed;miniReveal=controller.miniCollapsed ? 0 : 1
             return
         }
-        if(!miniHover.hovered)collapseDelay.restart()
+        if(!canCollapseMini) {
+            collapseDelay.stop()
+            requestMiniCollapse(false,miniKeyboardFocus)
+            return
+        }
+        if(controller.miniCollapsed){miniAnimation.stop();miniWantCollapsed=true;miniReveal=0}
+        else if(miniWantCollapsed && !miniAnimation.running && miniReveal===0){miniWantCollapsed=false;animateMiniTo(1)}
+        if(!miniHover.hovered && !miniWantCollapsed)collapseDelay.restart()
     }
-    Timer {id:collapseDelay;interval:450;onTriggered:if(widget.canCollapseMini && !miniHover.hovered)widget.controller.setMiniCollapsed(true,widget.ballDiameter)}
-    Connections {target:widget.controller;function onStateChanged(){widget.updateMiniCollapse()}}
-    onVisibleChanged: if(visible)updateMiniCollapse()
-    onMiniModeChanged: {miniKeyboardInteraction=false;if(active)Qt.callLater(function(){if(widget.controller.mini)miniSummary.forceActiveFocus();else if(todayList.count>0)todayList.forceActiveFocus();else addTask.forceActiveFocus()})}
+    NumberAnimation {id:miniAnimation;target:widget;property:"miniReveal";easing.type:Easing.OutCubic;onFinished:widget.finishMiniTransition()}
+    Timer {id:collapseDelay;interval:450;onTriggered:if(widget.canCollapseMini && !miniHover.hovered)widget.requestMiniCollapse(true,false)}
+    Connections {target:widget.controller;function onStateChanged(){Qt.callLater(widget.updateMiniCollapse)}}
+    onReduceMotionChanged: if(reduceMotion && miniAnimation.running){miniAnimation.stop();miniReveal=miniWantCollapsed ? 0 : 1;finishMiniTransition()}
+    onVisibleChanged: Qt.callLater(updateMiniCollapse)
+    onMiniModeChanged: {
+        miniAnimation.stop();miniReveal=1;miniWantCollapsed=false;pendingMiniKeyboardFocus=false;miniKeyboardInteraction=false
+        if(active)Qt.callLater(function(){if(widget.controller.mini)miniSummary.forceActiveFocus();else if(todayList.count>0)todayList.forceActiveFocus();else addTask.forceActiveFocus()})
+    }
     function verifyMenu() {
         if(!widgetMenu.visible)return "closed"
         if(widgetMenu.verifyGrouping()!=="PASS")return widgetMenu.verifyGrouping()
@@ -70,6 +120,7 @@ Window {
     function verifyLayout() {
         if(controller.mini) {
             if(controller.miniCollapsed)return width===height && width>=36 && miniBall.visible ? "PASS" : "mini ball geometry"
+            if(width!==controller.miniWidth || height!==miniBarHeight)return "mini target size drift: "+width+"x"+height+" expected "+controller.miniWidth+"x"+miniBarHeight
             if(miniSummary.width<80 || miniSummary.height<Theme.controlHeight || miniTitle.width<20)return "mini content clipped"
         } else if(todayList.width<100 || todayList.height<24 || footer.y+footer.height>surface.height+1 || header.width<header.implicitWidth-1){
             const details="width="+Math.round(header.width)+" implicit="+Math.round(header.implicitWidth)+" list="+Math.round(todayList.width)+"x"+Math.round(todayList.height)+" footerBottom="+Math.round(footer.y+footer.height)+" surfaceH="+Math.round(surface.height)
@@ -83,8 +134,13 @@ Window {
         font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize
         palette.window: Theme.content;palette.windowText: Theme.text;palette.text: Theme.text
         palette.button: Theme.sidebar;palette.buttonText: Theme.text;palette.highlight: Theme.accent
-        contentItem: Rectangle {
+        contentItem: Item {
+          Rectangle {
             id: surface
+            readonly property real reveal: widget.controller.mini ? widget.miniReveal : 1
+            width: widget.controller.mini ? widget.ballDiameter+(widget.controller.miniWidth-widget.ballDiameter)*reveal : parent.width
+            height: widget.controller.mini ? widget.ballDiameter+(widget.miniBarHeight-widget.ballDiameter)*reveal : parent.height
+            clip: widget.controller.mini
             objectName: "widgetBackground"
             radius: widget.controller.mini ? Math.min(height/2,22) : Theme.panelRadius
             color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,widget.workspace.preferences.solidWidget || Theme.highContrast ? 1 : widget.controller.backgroundOpacity)
@@ -93,18 +149,19 @@ Window {
                 id:miniHover
                 enabled:widget.controller.mini && widget.controller.miniAutoCollapse
                 onHoveredChanged: {
-                    if(hovered){collapseDelay.stop();if(widget.controller.miniCollapsed)widget.controller.setMiniCollapsed(false)}
+                    if(hovered){collapseDelay.stop();widget.requestMiniCollapse(false,false)}
                     else widget.updateMiniCollapse()
                 }
             }
             ToolButton {
                 id:miniBall;objectName:"widgetMiniBall"
-                visible:widget.controller.miniCollapsed
-                anchors.fill:parent;padding:8
+                visible:widget.controller.mini && widget.miniReveal<0.999
+                enabled:widget.controller.miniCollapsed
+                width:widget.ballDiameter;height:widget.ballDiameter;y:(surface.height-height)/2;padding:8
+                opacity:Math.max(0,1-widget.miniReveal*3)
                 Accessible.name:qsTr("今天 %1 项，展开任务组件").arg(widget.workspace.todayTasks.count)+(widget.errorMessage.length ? ", "+widget.errorMessage : "")
                 onActiveFocusChanged: if(activeFocus && [Qt.TabFocusReason,Qt.BacktabFocusReason,Qt.ShortcutFocusReason].indexOf(focusReason)>=0) {
-                    widget.controller.setMiniCollapsed(false)
-                    Qt.callLater(function(){if(widget.controller.mini && !widget.controller.miniCollapsed){miniSummary.forceActiveFocus(Qt.TabFocusReason);widget.miniKeyboardInteraction=true}})
+                    widget.requestMiniCollapse(false,true)
                 }
                 onClicked:widget.controller.setMini(false)
                 Keys.onReturnPressed:widget.controller.setMini(false)
@@ -224,8 +281,11 @@ Window {
                 }
             }
             RowLayout {
-                visible: widget.controller.mini && !widget.controller.miniCollapsed
-                anchors.fill: parent;anchors.margins: Theme.panelPadding
+                id:miniRow
+                visible: widget.controller.mini && widget.miniReveal>0.001
+                x:Theme.panelPadding;y:Theme.panelPadding
+                width:widget.controller.miniWidth-2*Theme.panelPadding;height:widget.miniBarHeight-2*Theme.panelPadding
+                opacity:widget.miniReveal
                 spacing: 2
                 ToolButton {
                     id: miniSummary
@@ -258,6 +318,7 @@ Window {
                 onPressed: widget.controller.startResize()
                 Accessible.name: qsTr("调整组件大小")
             }
+          }
         }
     }
 }

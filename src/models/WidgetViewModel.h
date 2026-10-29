@@ -20,6 +20,8 @@ class WidgetViewModel final : public QObject {
     Q_PROPERTY(bool mini READ mini NOTIFY stateChanged)
     Q_PROPERTY(bool miniAutoCollapse READ miniAutoCollapse NOTIFY stateChanged)
     Q_PROPERTY(bool miniCollapsed READ miniCollapsed NOTIFY stateChanged)
+    Q_PROPERTY(bool geometryChanging READ geometryChanging NOTIFY stateChanged)
+    Q_PROPERTY(int miniWidth READ miniWidth NOTIFY stateChanged)
     Q_PROPERTY(bool alwaysOnTop READ alwaysOnTop NOTIFY stateChanged)
     Q_PROPERTY(bool desktopPinned READ desktopPinned NOTIFY stateChanged)
     Q_PROPERTY(bool visible READ visible NOTIFY stateChanged)
@@ -38,6 +40,8 @@ public:
     bool mini() const { return m_mini; }
     bool miniAutoCollapse() const { return m_miniAutoCollapse; }
     bool miniCollapsed() const { return m_miniCollapsed; }
+    bool geometryChanging() const {return m_geometryChanging;}
+    int miniWidth() const {return m_miniSize.width();}
     bool alwaysOnTop() const { return m_window && m_window->flags().testFlag(Qt::WindowStaysOnTopHint); }
     bool desktopPinned() const {return m_window && m_window->flags().testFlag(Qt::WindowStaysOnBottomHint);}
     bool visible() const { return m_window && m_window->isVisible(); }
@@ -56,6 +60,7 @@ public:
     Q_INVOKABLE bool setMini(bool mini);
     Q_INVOKABLE bool setMiniAutoCollapse(bool enabled);
     Q_INVOKABLE bool setMiniCollapsed(bool collapsed, int diameter = 36);
+    Q_INVOKABLE bool setMiniLayout(int barHeight, int diameter = 36);
     Q_INVOKABLE bool setAlwaysOnTop(bool enabled);
     Q_INVOKABLE bool setDesktopPinned(bool enabled);
     Q_INVOKABLE bool setVisible(bool visible);
@@ -75,12 +80,15 @@ signals:
 
 private:
     bool accept(WindowResult result);
+    bool changePresentation(bool mini, bool collapsed);
     IWindowPlatform& m_platform;
     QPointer<QWindow> m_window;
     QSize m_floatingSize{340, 190};
     bool m_mini = false;
     bool m_miniAutoCollapse = false, m_miniCollapsed = false;
     QSize m_miniSize{340,48};
+    int m_miniHeight=48, m_ballDiameter=36;
+    bool m_geometryChanging=false;
     WindowError m_error = WindowError::None;
     bool m_trayAvailable=false,m_locked=false,m_closeToTray=true;
     double m_backgroundOpacity=0.9;

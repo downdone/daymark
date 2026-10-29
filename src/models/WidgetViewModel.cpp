@@ -70,22 +70,40 @@ bool WidgetViewModel::attachWindow(QWindow* window)
     return true;
 }
 
+bool WidgetViewModel::changePresentation(bool mini,bool collapsed)
+{
+    if(!m_window)return accept({WindowError::WindowUnavailable});
+    if(m_geometryChanging)return false;
+    const bool oldMini=m_mini,oldCollapsed=m_miniCollapsed;
+    const auto original=m_window->geometry();
+    const auto floating=mini && !oldMini ? original.size() : m_floatingSize;
+    const int width=oldMini ? m_miniSize.width() : original.width();
+    const QSize bar(width,m_miniHeight);
+    const QSize target=collapsed ? QSize(m_ballDiameter,m_ballDiameter) : mini ? bar : QSize(width,floating.height());
+    m_geometryChanging=true;
+    m_mini=mini;m_miniCollapsed=collapsed;
+    // QML must release the old floating minimum before the native resize.
+    emit stateChanged();
+    const auto result=m_platform.resize(m_window,target);
+    if(result.succeeded()) {
+        m_floatingSize=floating;m_miniSize=bar;
+        m_window->setPosition(original.topLeft());
+        normalizeGeometry();
+        m_window->requestUpdate();
+    } else {
+        m_mini=oldMini;m_miniCollapsed=oldCollapsed;
+    }
+    accept(result);
+    m_geometryChanging=false;
+    emit stateChanged();
+    return result.succeeded();
+}
+
 bool WidgetViewModel::setMini(bool mini)
 {
-    if (!m_window)
-        return accept({WindowError::WindowUnavailable});
-    if (mini == m_mini)
-        return accept({});
-    const auto floatingSize = mini ? m_window->size() : m_floatingSize;
-    const int width=m_miniCollapsed ? m_miniSize.width() : m_window->width();
-    if (!accept(m_platform.resize(m_window,QSize{width,mini ? 48 : floatingSize.height()})))
-        return false;
-    if (mini)
-        m_floatingSize = floatingSize;
-    m_mini = mini;
-    m_miniCollapsed = false;
-    emit stateChanged();
-    return true;
+    if(!m_window)return accept({WindowError::WindowUnavailable});
+    if(mini==m_mini)return accept({});
+    return changePresentation(mini,false);
 }
 
 bool WidgetViewModel::setMiniAutoCollapse(bool enabled)
@@ -96,19 +114,29 @@ bool WidgetViewModel::setMiniAutoCollapse(bool enabled)
     return accept({});
 }
 
+bool WidgetViewModel::setMiniLayout(int barHeight,int diameter)
+{
+    const int oldHeight=m_miniHeight,oldDiameter=m_ballDiameter;
+    m_miniHeight=qBound(48,barHeight,512);m_ballDiameter=qBound(36,diameter,96);
+    if(oldHeight==m_miniHeight && oldDiameter==m_ballDiameter)return true;
+    if(m_window && m_mini && !changePresentation(true,m_miniCollapsed)) {
+        m_miniHeight=oldHeight;m_ballDiameter=oldDiameter;
+        emit stateChanged();
+        return false;
+    }
+    return true;
+}
+
 bool WidgetViewModel::setMiniCollapsed(bool collapsed,int diameter)
 {
     if(!m_window)return accept({WindowError::WindowUnavailable});
     if(collapsed && (!m_mini || !m_miniAutoCollapse || clickThrough()))return accept({WindowError::OperationRejected});
     if(collapsed==m_miniCollapsed)return accept({});
-    const auto miniSize=collapsed ? m_window->size() : m_miniSize;
-    const int side=qBound(36,diameter,96);
-    if(!accept(m_platform.resize(m_window,collapsed ? QSize(side,side) : miniSize)))return false;
-    if(collapsed)m_miniSize=miniSize;
-    m_miniCollapsed=collapsed;
-    normalizeGeometry();
-    emit stateChanged();
-    return true;
+    const int oldDiameter=m_ballDiameter;
+    m_ballDiameter=qBound(36,diameter,96);
+    if(changePresentation(true,collapsed))return true;
+    m_ballDiameter=oldDiameter;
+    return false;
 }
 
 bool WidgetViewModel::setAlwaysOnTop(bool enabled)
@@ -187,7 +215,7 @@ void WidgetViewModel::resetPosition()
 void WidgetViewModel::saveSettings()
 {
     if(!m_settings || !m_window)return;
-    m_settings->setValue(QStringLiteral("widget/floatingSize"),QSize(m_miniCollapsed ? m_miniSize.width() : m_window->width(),m_mini?m_floatingSize.height():m_window->height()));
+    m_settings->setValue(QStringLiteral("widget/floatingSize"),QSize(m_mini ? m_miniSize.width() : m_window->width(),m_mini?m_floatingSize.height():m_window->height()));
     m_settings->setValue(QStringLiteral("widget/position"),m_window->position());
     m_settings->setValue(QStringLiteral("widget/mini"),m_mini);
     m_settings->setValue(QStringLiteral("widget/miniAutoCollapse"),m_miniAutoCollapse);

@@ -31,6 +31,9 @@ private:
     double m_settingsScroll=0;
     bool m_settingsHomeSent=false;
     QRect m_widgetModeGeometry;
+    QRect m_miniMotionGeometry;
+    int m_miniMotionCycle=0;
+    bool m_miniMotionSampled=false,m_miniMotionValid=false,m_miniIntermediateSeen=false;
     QPointF m_widgetModeCollapse,m_widgetModeMore;
     QVariantMap m_originalSyncState,m_accountDisplayState;
     QElapsedTimer m_wait;

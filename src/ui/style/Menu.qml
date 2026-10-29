@@ -25,6 +25,7 @@ T.Menu {
     readonly property var menuWindow: contentItem ? contentItem.Window.window : null
     function popupAt(source) {
         anchorItem=source
+        recordHostGeometry()
         popup(source,source.width-width,source.height+4)
     }
     function refreshAnchor() {
@@ -32,16 +33,26 @@ T.Menu {
     }
     onWidthChanged: if(visible && anchorItem)Qt.callLater(refreshAnchor)
     onHeightChanged: if(visible && anchorItem)Qt.callLater(refreshAnchor)
-    onOpened: {updateGroups();refreshAnchor()}
+    onOpened: {recordHostGeometry();updateGroups();refreshAnchor()}
     opacity: 1
     Binding {target:control.menuWindow;property:"color";value:DesignTokens.surface;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreBindingOrValue}
     Binding {target:control.menuWindow;property:"opacity";value:1;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreBindingOrValue}
+    property rect hostGeometry: Qt.rect(0,0,0,0)
+    function recordHostGeometry() {
+        const host=anchorWindow
+        if(host)hostGeometry=Qt.rect(host.x,host.y,host.width,host.height)
+    }
+    function closeForHostGeometryChange() {
+        const host=anchorWindow
+        // Native resize acknowledgements may repeat an already applied value.
+        if(visible && host && (host.x!==hostGeometry.x || host.y!==hostGeometry.y || host.width!==hostGeometry.width || host.height!==hostGeometry.height))close()
+    }
     Connections {
         target:control.anchorWindow
-        function onXChanged(){if(control.visible)control.close()}
-        function onYChanged(){if(control.visible)control.close()}
-        function onWidthChanged(){if(control.visible)control.close()}
-        function onHeightChanged(){if(control.visible)control.close()}
+        function onXChanged(){control.closeForHostGeometryChange()}
+        function onYChanged(){control.closeForHostGeometryChange()}
+        function onWidthChanged(){control.closeForHostGeometryChange()}
+        function onHeightChanged(){control.closeForHostGeometryChange()}
     }
     property bool registeredHintBlock: false
     onVisibleChanged: {

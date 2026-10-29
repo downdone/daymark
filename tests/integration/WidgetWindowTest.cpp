@@ -50,7 +50,7 @@ private slots:
         window.setGeometry(80,100,400,240);model.configureSettings(dir.filePath("mini.ini"));QVERIFY(model.attachWindow(&window));
         window.setGeometry(80,100,400,240);
         QVERIFY(!model.setMiniCollapsed(true));QVERIFY(model.setMiniAutoCollapse(true));QVERIFY(model.setMini(true));
-        window.resize(400,72); // A larger text setting can make the bar taller.
+        QVERIFY(model.setMiniLayout(72)); // Font metrics determine the height, not a transient window frame.
         QVERIFY(model.setMiniCollapsed(true));QCOMPARE(window.size(),QSize(36,36));QVERIFY(model.miniCollapsed());
         model.saveSettings();
         WidgetViewModel restored(platform);QWindow second;second.resize(340,360);restored.configureSettings(dir.filePath("mini.ini"));QVERIFY(restored.attachWindow(&second));
@@ -60,11 +60,35 @@ private slots:
         QVERIFY(model.setMiniCollapsed(true));QVERIFY(model.setMiniAutoCollapse(false));QCOMPARE(window.size(),QSize(400,72));QVERIFY(!model.miniCollapsed());
         QVERIFY(!model.setMiniCollapsed(true));QVERIFY(model.setMini(false));QCOMPARE(window.size(),QSize(400,240));
     }
+    void miniUsesCanonicalHeightAndAnchorAcrossRepeatedTransitions()
+    {
+        QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;
+        window.setGeometry(80,100,400,240);QVERIFY(model.attachWindow(&window));QVERIFY(model.setMiniLayout(56));
+        connect(&model,&WidgetViewModel::stateChanged,&window,[&]{window.setMinimumSize(model.mini() ? QSize(36,36) : QSize(260,190));});
+        QVERIFY(model.setMiniAutoCollapse(true));QVERIFY(model.setMini(true));QCOMPARE(window.size(),QSize(400,56));
+        for(int i=0;i<30;++i) {
+            window.resize(480+i,190); // Stale native frames must not redefine either target dimension.
+            QVERIFY(model.setMiniCollapsed(true));QCOMPARE(window.geometry(),QRect(80,100,36,36));
+            QVERIFY(model.setMiniCollapsed(false));QCOMPARE(window.geometry(),QRect(80,100,400,56));QVERIFY(!model.geometryChanging());
+        }
+        QVERIFY(model.setMiniLayout(72));QCOMPARE(window.size(),QSize(400,72));
+        QVERIFY(model.setMiniCollapsed(true));QVERIFY(model.setMini(false));QCOMPARE(window.geometry(),QRect(80,100,400,240));
+    }
+    void miniAtScreenEdgeKeepsItsExpandedAnchor()
+    {
+        QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;
+        const auto available=QGuiApplication::primaryScreen()->availableGeometry();
+        const QPoint anchor(available.right()-400+1,available.bottom()-240+1);
+        window.setGeometry(QRect(anchor,QSize(400,240)));QVERIFY(model.attachWindow(&window));
+        QVERIFY(model.setMiniLayout(56));QVERIFY(model.setMiniAutoCollapse(true));QVERIFY(model.setMini(true));
+        for(int i=0;i<10;++i){QVERIFY(model.setMiniCollapsed(true));QCOMPARE(window.position(),anchor);QVERIFY(model.setMiniCollapsed(false));QCOMPARE(window.geometry(),QRect(anchor,QSize(400,56)));}
+    }
     void miniBallFailureDoesNotCommitModeOrPreference()
     {
         RejectingPlatform platform;WidgetViewModel model(platform);QWindow window;window.setGeometry(80,80,400,240);QVERIFY(model.attachWindow(&window));
         QVERIFY(model.setMiniAutoCollapse(true));QVERIFY(model.setMini(true));platform.rejectResize=true;
         QVERIFY(!model.setMiniCollapsed(true));QVERIFY(!model.miniCollapsed());QCOMPARE(window.size(),QSize(400,48));
+        QVERIFY(!model.setMiniLayout(96));QCOMPARE(window.size(),QSize(400,48));
         platform.rejectResize=false;QVERIFY(model.setMiniCollapsed(true));platform.rejectResize=true;
         QVERIFY(!model.setMiniAutoCollapse(false));QVERIFY(model.miniAutoCollapse());QVERIFY(model.miniCollapsed());QCOMPARE(window.size(),QSize(36,36));
         QVERIFY(!model.setMini(false));QVERIFY(model.mini());QVERIFY(model.miniCollapsed());
@@ -183,11 +207,11 @@ private slots:
         QVERIFY(model.setAlwaysOnTop(false));
         QVERIFY(model.visible());
         QCOMPARE(window.geometry(), QRect(80, 100, 340, 190));
+        window.resize(420,190); // User resizing is available in the floating presentation.
         QVERIFY(model.setMini(true));
         QVERIFY(model.visible());
         QVERIFY(model.setAlwaysOnTop(true));
-        QCOMPARE(window.size(), QSize(340, 48));
-        window.resize(420,48);
+        QCOMPARE(window.size(), QSize(420, 48));
         QVERIFY(model.setMini(false));
         QCOMPARE(window.size(), QSize(420, 190));
         QVERIFY(window.close());
