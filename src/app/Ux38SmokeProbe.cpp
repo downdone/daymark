@@ -181,14 +181,17 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==88){capture(m_main,"glyph-debug");if(!glyphPainted("calendar") || !glyphPainted("check") || !glyphPainted("grip") || !glyphPainted("settings") || !capture(m_main,"glyph-matrix-light"))return fail("vector symbols paint distinct small shapes");m_workspace.setThemeMode(2);m_workspace.setTextScale(2);m_main->resize(880,580);QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("icons")));}
     else if(m_stage==89){if(!glyphPainted("calendar") || !capture(m_main,"glyph-matrix-dark-200"))return fail("vector symbol follows theme and text scale");QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("clip")));}
     else if(m_stage==91){QVariant result;auto* gallery=find(m_main,"styleGallery");QMetaObject::invokeMethod(gallery,"verifyVisualSystem",Q_RETURN_ARG(QVariant,result));if(result!="PASS" || !capture(m_main,"type-scale-dark-200"))return fail("shared type and radius hierarchy: "+result.toString());QMetaObject::invokeMethod(gallery,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("highContrast",false);m_workspace.setPreference("solidWidget",false);m_controller.setBackgroundOpacity(0.6);m_controller.setMini(true);m_widget->setPosition(160,90);m_widget->resize(700,m_widget->height());}
-    else if(m_stage==92){click("miniMore");}
+    else if(m_stage==92){
+        auto* more=find(m_widget,"miniMore");
+        if(!more || !more->property("visible").toBool())return fail(QStringLiteral("mini more not reachable: mini=%1 size=%2x%3").arg(m_controller.mini()).arg(m_widget->width()).arg(m_widget->height()));
+        click("miniMore");}
     else if(m_stage==93){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         // Same asynchronous popup as stage 32: on runners that do not focus the widget
         // the menu becomes visible a frame or more after the click.
         if(result!="PASS" && m_wait.elapsed()<1500)return {};
         if(result!="PASS"){
             auto* menu=find(m_widget,"widgetMenu");
-            qCritical()<<"Mini menu state"<<result<<(menu?menu->property("visible"):QVariant())<<m_widget->isActive()<<QGuiApplication::platformName();
+            qCritical()<<"Mini menu state"<<result<<(menu?menu->property("visible"):QVariant())<<m_widget->isActive()<<"mini"<<m_controller.mini()<<"size"<<m_widget->size()<<"moreVisible"<<(find(m_widget,"miniMore")?find(m_widget,"miniMore")->property("visible"):QVariant())<<QGuiApplication::platformName();
             return fail("Mini menu anchor and opaque surface: "+result.toString());
         }auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetMenu")->property("contentItem").value<QObject*>());if(!content)return fail("Mini menu content");const auto image=content->window()->grabWindow();int ink=0;for(int y=0;y<image.height();++y)for(int x=0;x<image.width();++x)if(image.pixelColor(x,y).lightness()<100)++ink;if(ink<30){if(m_wait.elapsed()<1500)return {};return fail("Mini opaque window must paint menu text");}if(!capture(content->window(),"mini-solid-menu"))return fail("Mini menu window capture");m_controller.setMini(false);}
     else if(m_stage==94){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("mode change left stale menu open");click("widgetMore");}
