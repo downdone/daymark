@@ -53,7 +53,7 @@ UX-47沿用desktop_surfaces覆盖设置四页真实进入/返回与焦点、主�
 | ui | account_access | 独立账号入口、设置移除、登录/注册/密码清理、错误/忙碌/管理/冲突/本地资料、折叠入口及浅深200%/窄窗；真实Main→Coordinator的loopback失败接线 | 合成状态只验呈现；成功认证/同步另由真实Qt/Go TLS覆盖，不伪造原生键盘/读屏 |
 | watchdog | qml_watchdog_late | 同一完整流程到436阶段后被应用自己的45秒守卫拒绝 | 这次重复执行有独立故障目的，保留；不改成早期启动成功或外部kill |
 | performance | performance | 10k任务及关系的加载/搜索/月投影预算 | 选择最小投影另测适配器成本；不把两者相加当UI首帧 |
-| package | package_validation | 清单、路径、schema9、篡改/重复项/ZIP、运行库来源边界 | 合成DLL只测试校验逻辑；真实部署仍由Test-Package执行 |
+| package | package_validation | 清单、路径、schema10（拒绝旧9/未来11）、篡改/重复项/ZIP、运行库来源边界 | 合成DLL只测试校验逻辑；真实部署仍由Test-Package执行 |
 
 核心测试按风险保留当前全部可执行入口。上表所有CTest入口在完整模式中各执行一次，watchdog因故障注入独立运行一次；不把fast结果称为发布全通过。现有旧循环事件测试负责迁移兼容，不能因为新任务日程替代旧入口就删除旧数据路径。
 
