@@ -63,6 +63,7 @@ def failure_context(path):
         r'Desktop layout.{0,300}',
         r'Menu state.{0,300}',
         r'Mini menu state.{0,300}',
+        r'Registration state.{0,300}',
         r'Completion check at phase.{0,120}',
         r'Incubation still pending.{0,120}',
         r'Drawer drop.{0,300}',
