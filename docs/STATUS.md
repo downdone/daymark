@@ -24,7 +24,7 @@
 | Linux（CI，`ubuntu-24.04`） | 构建、测试、QML lint 通过 |
 | QML lint | `daymark_qmllint`、`daymark_style_qmllint` 通过 |
 
-三平台完整桌面CI全绿：[run 40849814667](https://github.com/downdone/daymark/actions/runs/40849814667)（2026-10-29，Windows/macOS/Linux 构建+CTest+QML lint）。打 `v*` 标签时 [release-build.yml](../.github/workflows/release-build.yml) 会构建三平台并附加归档到源码 Release。
+三平台完整桌面CI全绿：[run 40855720727](https://github.com/downdone/daymark/actions/runs/40855720727)（2026-10-29，Windows/macOS/Linux 构建+完整CTest+QML lint）。打 `v*` 标签时 [release-build.yml](../.github/workflows/release-build.yml) 会构建三平台并附加归档到源码 Release；tag 流水线本身尚未以真实 tag 运行验证。
 
 账号/同步实现包含本地队列、完整批次应用、冲突、首次合并/大组、系统凭据、账号隔离与备份恢复。Go包测试/vet/race及真实两个Qt工作区↔Go TLS联调已有本机PASS；具体范围、最后修改后的门禁及未验证项见[PROGRESS](PROGRESS.md)与[实现验证清单](sync-verification.md)。源码实现不表示服务已部署。
 
