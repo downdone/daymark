@@ -82,33 +82,34 @@ QString Ux38SmokeProbe::advance() {
     auto* list=find(m_widget,"widgetTasks");
     auto* calendar=qobject_cast<QQuickWindow*>(find(m_main,"desktopCalendarWindow"));
     if(!list || !calendar)return fail("desktop surfaces missing");
+    if(m_stage<=74){
     if(m_stage==0){m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",false);m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_workspace.setView("today");m_workspace.setPreference("desktopCalendarVisible",true);m_controller.setMini(false);m_controller.setVisible(true);m_widget->resize(340,360);}
-    else if(m_stage==1){if(!calendar->isVisible() || !m_widget->isVisible() || !layout() || list->property("interactive").toBool() || !capture(m_widget,"empty"))return fail("empty state and coexistence");m_workspace.createForTime(QStringLiteral("讨论方案与下一步安排"),m_workspace.dateOffset(0),540);}
-    else if(m_stage==2){if(m_workspace.todayTasks()->rowCount()!=1)return fail("today fixture");m_task=m_workspace.todayTasks()->items().first().id;m_workspace.createSubtask(QStringLiteral("准备评审材料"),m_task);}
-    else if(m_stage==3){auto* row=find(m_widget,"widgetTask-"+m_task);if(!row || row->property("summary").toString().isEmpty() || row->property("subtaskTotal").toInt()!=1 || !layout() || !capture(m_widget,"today-light") || !capture(calendar,"calendar-light"))return fail("shared schedule and relationship");click("widgetPin");}
-    else if(m_stage==4){if(m_controller.alwaysOnTop())return fail("unpin");m_widgetModeGeometry=m_widget->geometry();m_widgetModeCollapse=qobject_cast<QQuickItem*>(find(m_widget,"widgetCollapse"))->mapToScene(QPointF());m_widgetModeMore=qobject_cast<QQuickItem*>(find(m_widget,"widgetMore"))->mapToScene(QPointF());click("widgetCollapse");}
-    else if(m_stage==5){if(!m_controller.mini() || !layout() || !capture(m_widget,"mini-light"))return fail("mini summary");const auto expand=qobject_cast<QQuickItem*>(find(m_widget,"widgetExpand"))->mapToScene(QPointF()),more=qobject_cast<QQuickItem*>(find(m_widget,"miniMore"))->mapToScene(QPointF());if(m_widget->width()!=m_widgetModeGeometry.width() || m_widget->position()!=m_widgetModeGeometry.topLeft() || QLineF(expand,m_widgetModeCollapse).length()>1 || QLineF(more,m_widgetModeMore).length()>1)return fail("Mini preserves width, position and action slots");click("widgetMiniSummary");}
-    else if(m_stage==6){if(m_controller.mini() || m_widget->size()!=QSize(340,360))return fail("single click restores floating geometry");m_controller.setLocked(true);m_controller.setMini(true);}
-    else if(m_stage==7){expandWithKey(Qt::Key_Space);}
-    else if(m_stage==8){if(m_controller.mini() || !m_controller.errorText().isEmpty())return fail("locked mini keyboard expansion");m_controller.setLocked(false);m_workspace.setTextScale(2);m_widget->resize(260,190);auto* row=find(m_widget,"widgetTask-"+m_task);row->setProperty("rowVersion",row->property("rowVersion").toLongLong()-1);QMetaObject::invokeMethod(row,"complete");}
-    else if(m_stage==9){auto* row=find(m_widget,"widgetTask-"+m_task);auto* error=find(m_widget,"widgetError");const bool laidOut=layout();
+    if(m_stage==1){if(!calendar->isVisible() || !m_widget->isVisible() || !layout() || list->property("interactive").toBool() || !capture(m_widget,"empty"))return fail("empty state and coexistence");m_workspace.createForTime(QStringLiteral("讨论方案与下一步安排"),m_workspace.dateOffset(0),540);}
+    if(m_stage==2){if(m_workspace.todayTasks()->rowCount()!=1)return fail("today fixture");m_task=m_workspace.todayTasks()->items().first().id;m_workspace.createSubtask(QStringLiteral("准备评审材料"),m_task);}
+    if(m_stage==3){auto* row=find(m_widget,"widgetTask-"+m_task);if(!row || row->property("summary").toString().isEmpty() || row->property("subtaskTotal").toInt()!=1 || !layout() || !capture(m_widget,"today-light") || !capture(calendar,"calendar-light"))return fail("shared schedule and relationship");click("widgetPin");}
+    if(m_stage==4){if(m_controller.alwaysOnTop())return fail("unpin");m_widgetModeGeometry=m_widget->geometry();m_widgetModeCollapse=qobject_cast<QQuickItem*>(find(m_widget,"widgetCollapse"))->mapToScene(QPointF());m_widgetModeMore=qobject_cast<QQuickItem*>(find(m_widget,"widgetMore"))->mapToScene(QPointF());click("widgetCollapse");}
+    if(m_stage==5){if(!m_controller.mini() || !layout() || !capture(m_widget,"mini-light"))return fail("mini summary");const auto expand=qobject_cast<QQuickItem*>(find(m_widget,"widgetExpand"))->mapToScene(QPointF()),more=qobject_cast<QQuickItem*>(find(m_widget,"miniMore"))->mapToScene(QPointF());if(m_widget->width()!=m_widgetModeGeometry.width() || m_widget->position()!=m_widgetModeGeometry.topLeft() || QLineF(expand,m_widgetModeCollapse).length()>1 || QLineF(more,m_widgetModeMore).length()>1)return fail("Mini preserves width, position and action slots");click("widgetMiniSummary");}
+    if(m_stage==6){if(m_controller.mini() || m_widget->size()!=QSize(340,360))return fail("single click restores floating geometry");m_controller.setLocked(true);m_controller.setMini(true);}
+    if(m_stage==7){expandWithKey(Qt::Key_Space);}
+    if(m_stage==8){if(m_controller.mini() || !m_controller.errorText().isEmpty())return fail("locked mini keyboard expansion");m_controller.setLocked(false);m_workspace.setTextScale(2);m_widget->resize(260,190);auto* row=find(m_widget,"widgetTask-"+m_task);row->setProperty("rowVersion",row->property("rowVersion").toLongLong()-1);QMetaObject::invokeMethod(row,"complete");}
+    if(m_stage==9){auto* row=find(m_widget,"widgetTask-"+m_task);auto* error=find(m_widget,"widgetError");const bool laidOut=layout();
         // The floating widget was resized to 260x190 in the previous stage while the
         // error row appears; Qt clamps the window to its new minimumHeight asynchronously,
         // so re-check layout for a bounded window instead of sampling the first frame.
         if(!laidOut && m_wait.elapsed()<1500)return {};
         if(!laidOut || !row || row->property("completing").toBool() || m_workspace.errorText().isEmpty() || !error->property("visible").toBool()){qCritical()<<"Stale completion state"<<laidOut<<bool(row)<<(row?row->property("completing"):QVariant())<<m_workspace.errorText()<<(error?error->property("visible"):QVariant())<<m_widget->property("errorMessage")<<m_widget->size()<<m_widget->property("minimumHeight");return fail("stale completion preserves row and error");}m_controller.setMini(true);}
-    else if(m_stage==10){if(m_widget->property("errorMessage").toString().isEmpty() || !capture(m_widget,"mini-error"))return fail("mini error retained");expandWithKey(Qt::Key_Return);}
-    else if(m_stage==11){if(m_controller.mini())return fail("Return expansion");m_workspace.clearError();find(m_widget,"widgetTask-"+m_task)->setProperty("rowVersion",m_workspace.task(m_task).value("rowVersion"));}
-    else if(m_stage==12){m_completedRow=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_task));m_count=m_workspace.todayTasks()->rowCount();if(!capture(m_widget,"completion-before"))return fail("completion source capture");click("widgetComplete-"+m_task);}
-    else if(m_stage==13){m_widget->grabWindow();if(m_workspace.todayTasks()->rowCount()>=m_count || (m_completedRow && !m_completedRow->property("removing").toBool()) || !capture(m_widget,"completion-feedback"))return fail("successful completion and feedback");}
-    else if(m_stage==14){if(m_wait.elapsed()<250)return {};if(m_completedRow)return fail("completion releases visual row");m_workspace.setPreference("reduceMotion",true);}
-    else if(m_stage>=15 && m_stage<=25){m_workspace.createTask(QStringLiteral("今日行动 %1：桌面任务验收").arg(m_stage-14));}
-    else if(m_stage==26){if(!list->property("interactive").toBool() || !capture(m_widget,"scrollable"))return fail("one overflowing scroll region");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_widget->resize(340,440);}
-    else if(m_stage==27){if(!layout() || !capture(m_widget,"dark-200"))return fail("floating large text");m_controller.setMini(true);}
-    else if(m_stage==28){if(!layout() || !capture(m_widget,"mini-dark-200"))return fail("mini readable at 200 percent");expandWithKey(Qt::Key_Return);calendar->resize(420,580);}
-    else if(m_stage==29){auto* panel=find(calendar,"desktopCalendarPanel");auto* toolbar=qobject_cast<QQuickItem*>(find(panel,"calendarToolbar"));if(!toolbar || toolbar->property("columns").toInt()!=1 || !capture(calendar,"calendar-dark-200")){qCritical()<<"Calendar geometry"<<calendar->size()<<(panel?panel->property("width"):QVariant())<<(toolbar?toolbar->property("width"):QVariant())<<(toolbar?toolbar->property("columns"):QVariant());capture(calendar,"calendar-layout-failure");return fail("calendar adaptive toolbar");}auto* more=find(calendar,"calendarMore-"+m_workspace.dateOffset(0));if(!more || !more->property("visible").toBool() || more->property("remainingCount").toInt()<1 || (more->property("compactOverflow").toBool() && more->property("text")!=QStringLiteral("…")))return fail("narrow calendar overflow remains readable");m_workspace.setPreference("solidWidget",true);m_workspace.setPreference("desktopCalendarOpacity",50);}
-    else if(m_stage==30){for(auto* window:{m_widget.data(),calendar}){auto* background=find(window,window==calendar?"desktopCalendarBackground":"widgetBackground");if(!background || background->property("color").value<QColor>().alpha()!=255)return fail("solid background on both desktop surfaces");}m_workspace.setPreference("highContrast",true);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_widget->resize(260,360);}
-    else if(m_stage==31){
+    if(m_stage==10){if(m_widget->property("errorMessage").toString().isEmpty() || !capture(m_widget,"mini-error"))return fail("mini error retained");expandWithKey(Qt::Key_Return);}
+    if(m_stage==11){if(m_controller.mini())return fail("Return expansion");m_workspace.clearError();find(m_widget,"widgetTask-"+m_task)->setProperty("rowVersion",m_workspace.task(m_task).value("rowVersion"));}
+    if(m_stage==12){m_completedRow=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_task));m_count=m_workspace.todayTasks()->rowCount();if(!capture(m_widget,"completion-before"))return fail("completion source capture");click("widgetComplete-"+m_task);}
+    if(m_stage==13){m_widget->grabWindow();if(m_workspace.todayTasks()->rowCount()>=m_count || (m_completedRow && !m_completedRow->property("removing").toBool()) || !capture(m_widget,"completion-feedback"))return fail("successful completion and feedback");}
+    if(m_stage==14){if(m_wait.elapsed()<250)return {};if(m_completedRow)return fail("completion releases visual row");m_workspace.setPreference("reduceMotion",true);}
+    if(m_stage>=15 && m_stage<=25){m_workspace.createTask(QStringLiteral("今日行动 %1：桌面任务验收").arg(m_stage-14));}
+    if(m_stage==26){if(!list->property("interactive").toBool() || !capture(m_widget,"scrollable"))return fail("one overflowing scroll region");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_widget->resize(340,440);}
+    if(m_stage==27){if(!layout() || !capture(m_widget,"dark-200"))return fail("floating large text");m_controller.setMini(true);}
+    if(m_stage==28){if(!layout() || !capture(m_widget,"mini-dark-200"))return fail("mini readable at 200 percent");expandWithKey(Qt::Key_Return);calendar->resize(420,580);}
+    if(m_stage==29){auto* panel=find(calendar,"desktopCalendarPanel");auto* toolbar=qobject_cast<QQuickItem*>(find(panel,"calendarToolbar"));if(!toolbar || toolbar->property("columns").toInt()!=1 || !capture(calendar,"calendar-dark-200")){qCritical()<<"Calendar geometry"<<calendar->size()<<(panel?panel->property("width"):QVariant())<<(toolbar?toolbar->property("width"):QVariant())<<(toolbar?toolbar->property("columns"):QVariant());capture(calendar,"calendar-layout-failure");return fail("calendar adaptive toolbar");}auto* more=find(calendar,"calendarMore-"+m_workspace.dateOffset(0));if(!more || !more->property("visible").toBool() || more->property("remainingCount").toInt()<1 || (more->property("compactOverflow").toBool() && more->property("text")!=QStringLiteral("…")))return fail("narrow calendar overflow remains readable");m_workspace.setPreference("solidWidget",true);m_workspace.setPreference("desktopCalendarOpacity",50);}
+    if(m_stage==30){for(auto* window:{m_widget.data(),calendar}){auto* background=find(window,window==calendar?"desktopCalendarBackground":"widgetBackground");if(!background || background->property("color").value<QColor>().alpha()!=255)return fail("solid background on both desktop surfaces");}m_workspace.setPreference("highContrast",true);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_widget->resize(260,360);}
+    if(m_stage==31){
         // Stage 30 resizes to 260x360 and turns on high contrast; on platforms whose
         // CJK font is wider/taller the error row and header can leave the list with no
         // height. Grow to the window's own minimumHeight (which already budgets for the
@@ -123,7 +124,7 @@ QString Ux38SmokeProbe::advance() {
         // focus a window that was never shown as active, so the menu stayed closed.
         if(!m_widget->isActive()){m_widget->show();m_widget->requestActivate();if(m_wait.elapsed()<800)return {};}
         QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
-    else if(m_stage==32){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
+    if(m_stage==32){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         // The menu is created and shown asynchronously after openVerificationMenu();
         // sampling the first frame reports "closed" on slower/first-run platforms.
         if(result!="PASS" && m_wait.elapsed()<3000)return {};
@@ -133,62 +134,64 @@ QString Ux38SmokeProbe::advance() {
             return fail("menu width: "+result.toString());
         }
         if(!capture(m_widget,"menu"))return fail("menu width: capture");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_task=m_workspace.todayTasks()->items().first().id;m_completedRow=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_task));m_count=m_workspace.todayTasks()->rowCount();}
-    else if(m_stage==33){auto* item=qobject_cast<QQuickItem*>(list);item->setProperty("currentIndex",0);item->forceActiveFocus();for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Space,Qt::NoModifier);QCoreApplication::sendEvent(item,&event);}}
-    else if(m_stage==34){if(m_workspace.todayTasks()->rowCount()!=m_count-1 || (m_completedRow && m_completedRow->property("removing").toBool()) || m_workspace.task(m_task).value("taskStatus")!="COMPLETED")return fail("reduced motion keyboard completion without delayed removal");m_workspace.setTextScale(2);m_widget->resize(800,600);QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
-    else if(m_stage==35){if(!find(m_widget,"widgetMenu")->property("visible").toBool() && m_wait.elapsed()<500){QMetaObject::invokeMethod(m_widget,"openVerificationMenu");return {};}QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));if(result!="PASS" || !capture(m_widget,"menu-200"))return fail("menu resolved font at 200 percent: "+result.toString());QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_workspace.setTextScale(1);m_controller.setMini(true);m_widget->resize(800,m_widget->height());}
-    else if(m_stage==36){if(find(m_widget,"widgetMiniTitle")->property("truncated").toBool())return fail("short mini tooltip fixture");hover(m_widget,"widgetMiniSummary");}
-    else if(m_stage==37){if(m_wait.elapsed()<750)return {};if(hint(m_widget).value("visible").toBool())return fail("complete mini title repeats tooltip");hover(m_widget,"widgetExpand");}
-    else if(m_stage==38){if(m_wait.elapsed()<750)return {};if(hint(find(m_widget,"widgetExpand")).value("visible").toBool())return fail("obvious expand arrow tooltip");expandWithKey(Qt::Key_Return);}
-    else if(m_stage==39){hover(m_widget,"widgetPin");}
-    else if(m_stage==40){if(m_wait.elapsed()<750)return {};auto* pin=qobject_cast<QQuickItem*>(find(m_widget,"widgetPin"));const auto help=hint(pin);if(!help.value("visible").toBool())return fail("necessary pin action hint absent");if(QRectF(0,0,pin->width(),pin->height()).intersects(QRectF(help.value("x").toDouble(),help.value("y").toDouble(),help.value("width").toDouble(),help.value("height").toDouble())))return fail("tooltip overlaps source operation");for(const auto& name:{"widgetMore","widgetExpand"})if(find(m_widget,name)->property("hintEnabled").toBool())return fail("standard action tooltip admitted");if(find(m_main,"pageOptionsAction")->property("hintEnabled").toBool())return fail("options menu tooltip admitted");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
-    else if(m_stage==41){if(hint(find(m_widget,"widgetPin")).value("visible").toBool())return fail("menu did not dismiss current tooltip");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_workspace.saveCatalog({{"kind","project"},{"title","123"}});}
-    else if(m_stage==42){m_workspace.saveCatalog({{"kind","project"},{"title",QStringLiteral("这是需要截断显示并且应该恢复完整名称的分类验收")}});}
-    else if(m_stage==43){for(const auto& value:m_workspace.categoryTree()){const auto row=value.toMap();if(row.value("title")=="123")m_shortCategory=row.value("id").toString();else if(row.value("title").toString().startsWith(QStringLiteral("这是需要截断")))m_longCategory=row.value("id").toString();}if(m_shortCategory.isEmpty() || m_longCategory.isEmpty())return fail("catalog hint fixtures");m_main->requestActivate();m_main->grabWindow();capture(m_main,"category-hints");hover(find(m_main,"categoryNav-"+m_shortCategory),"navigationLabel");}
-    else if(m_stage==44){if(m_wait.elapsed()<750)return {};if(hint(find(m_main,"categoryNav-"+m_shortCategory)).value("visible").toBool())return fail("short category repeats visible name");m_main->grabWindow();auto* row=find(m_main,"categoryNav-"+m_longCategory);auto* label=find(row,"navigationLabel");if(!label->property("truncated").toBool()){if(m_wait.elapsed()<1800)return {};qCritical()<<"Long hint geometry"<<label->property("width")<<label->property("text")<<label->property("visible")<<label->property("contentWidth")<<m_main->size();capture(m_main,"category-failure");return fail("long category fixture not truncated");}hover(row,"navigationLabel");}
-    else if(m_stage==45){if(m_wait.elapsed()<750)return {};const auto info=hint(find(m_main,"categoryNav-"+m_longCategory));if(!info.value("visible").toBool() || !info.value("text").toString().startsWith(QStringLiteral("这是需要截断")))return fail("truncated category did not reveal full text");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
-    else if(m_stage==46){if(hint(find(m_main,"categoryNav-"+m_longCategory)).value("visible").toBool())return fail("cross-window menu tooltip suppression");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");auto* row=qobject_cast<QQuickItem*>(find(m_main,"categoryNav-"+m_shortCategory));hover(m_main,"contentViewSwitch");row->forceActiveFocus();}
-    else if(m_stage==47){if(m_wait.elapsed()<750)return {};if(hint(find(m_main,"categoryNav-"+m_shortCategory)).value("visible").toBool())return fail("keyboard focus opened tooltip");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("highContrast",false);m_main->resize(1120,720);m_main->requestActivate();m_workspace.setView("inbox");}
-    else if(m_stage>=48 && m_stage<=53){m_main->grabWindow();const QStringList views={"inbox","today","scheduled","all","important","completed"};if(!checkSidebar() || m_workspace.scope()!=views[m_stage-48]){if(m_wait.elapsed()<1800)return {};return fail("sidebar layout or six-scope routing");}if(m_stage==48){QVariant rhythm;QMetaObject::invokeMethod(m_main,"verifyPageRhythm",Q_RETURN_ARG(QVariant,rhythm));if(rhythm!="PASS" || !capture(m_main,"sidebar-light"))return fail("page typography rhythm: "+rhythm.toString());}click("navigation-"+(m_stage<53?views[m_stage-47]:QString("inbox")),m_main);}
-    else if(m_stage==54){if(m_workspace.scope()!="inbox")return fail("scope return");click("sidebarTasksHeader",m_main);}
-    else if(m_stage==55){if(m_workspace.preferences().value("sidebarTasksExpanded").toBool())return fail("tasks group collapse");click("sidebarTasksHeader",m_main);}
-    else if(m_stage==56){if(!m_workspace.preferences().value("sidebarTasksExpanded").toBool())return fail("tasks group expand");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_main->resize(880,580);}
-    else if(m_stage==57){m_main->grabWindow();if(!checkSidebar() || find(m_main,"smartNavigationGrid")->property("columns").toInt()!=1){if(m_wait.elapsed()<1800)return {};return fail("large sidebar text/brand/footer");}QVariant rhythm;QMetaObject::invokeMethod(m_main,"verifyPageRhythm",Q_RETURN_ARG(QVariant,rhythm));if(rhythm!="PASS" || !capture(m_main,"sidebar-dark-200"))return fail("large page typography rhythm: "+rhythm.toString());click("toggleSidebar",m_main);}
-    else if(m_stage==58){if(m_main->property("sidebarWidth").toInt()!=44 || find(m_main,"sidebarWordmark")->property("visible").toBool())return fail("collapsed sidebar recovery");click("toggleSidebar",m_main);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_main->resize(1120,720);}
-    else if(m_stage==59){if(!checkSidebar()){if(m_wait.elapsed()<1800)return {};return fail("restored sidebar");}click("settingsAndTools",m_main);}
-    else if(m_stage==60){auto* settings=find(m_main,"settingsDialog");if(!settings->property("visible").toBool())return fail("settings entry");QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(2)));}
-    else if(m_stage==61){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));settings->grabWindow();if(!revealSettings("settingsHelp"))return fail("settings support scroll");}
-    else if(m_stage==62){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(!capture(settings,"settings-support"))return fail("support capture");click("settingsHelp",settings);}
-    else if(m_stage==63){if(find(m_main,"settingsDialog")->property("visible").toBool() || !find(m_main,"helpPanel")->property("visible").toBool())return fail("settings help routing");QMetaObject::invokeMethod(find(m_main,"helpPanel"),"close");click("settingsAndTools",m_main);}
-    else if(m_stage==64){if(!find(m_main,"settingsDialog")->property("visible").toBool() || !revealSettings("settingsData"))return fail("settings reopened");}
-    else if(m_stage==65){click("settingsData",find(m_main,"settingsDialog"));}
-    else if(m_stage==66){if(find(m_main,"settingsDialog")->property("visible").toBool() || !find(m_main,"dataToolsDialog")->property("visible").toBool())return fail("settings data routing");QMetaObject::invokeMethod(find(m_main,"dataToolsDialog"),"close");auto* settings=find(m_main,"settingsDialog");QMetaObject::invokeMethod(settings,"open");QMetaObject::invokeMethod(settings,"showOverview");}
-    else if(m_stage==67){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));QVariant result;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,result));if(result!="PASS" || find(settings,"settingsBack") || !capture(settings,"settings-two-column"))return fail("settings keeps sidebar beside active content: "+result.toString());click("settingsCategory-0",settings);}
-    else if(m_stage==68){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));QVariant check;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,check));if(settings->property("categoryIndex").toInt()!=0 || check!="PASS" || !capture(settings,"settings-appearance"))return fail("settings sidebar selects appearance");click("themeModePicker-segment-2",settings);}
-    else if(m_stage==69){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(m_workspace.themeMode()!=2 || !capture(settings,"settings-appearance-dark"))return fail("settings theme applies");click("themeModePicker-segment-1",settings);qobject_cast<QQuickItem*>(find(settings,"settingsCategory-0"))->forceActiveFocus();}
-    else if(m_stage==70){auto* settings=find(m_main,"settingsDialog");auto* row=qobject_cast<QQuickItem*>(find(settings,"settingsCategory-0"));if(settings->property("categoryIndex").toInt()!=0 || !row->hasActiveFocus())return fail("settings sidebar retains selection and focus");settingsKey(Qt::Key_Down);}
-    else if(m_stage==71){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->property("categoryIndex").toInt()!=1 || !capture(settings,"settings-widgets"))return fail("settings keyboard category entry");if(find(settings,"widgetOpacitySetting")->property("enabled").toBool())return fail("opaque background disables irrelevant opacity");click("widgetSolidBackgroundSetting",settings);qobject_cast<QQuickItem*>(find(settings,"calendarDesktopPinnedSetting"))->forceActiveFocus();}
-    else if(m_stage==72){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));auto* target=qobject_cast<QQuickItem*>(find(settings,"calendarDesktopPinnedSetting"));auto* scroll=qobject_cast<QQuickItem*>(find(settings,"settingsScroll"));const auto at=target->mapToItem(scroll,QPointF());if(!find(settings,"widgetOpacitySetting")->property("enabled").toBool() || at.y()<0 || at.y()+target->height()>scroll->height()+1 || !capture(settings,"settings-calendar-options"))return fail("settings focus reveals lower calendar group");m_settingsScroll=scroll->property("contentItem").value<QObject*>()->property("contentY").toDouble();}
-    else if(m_stage==73){auto* settings=find(m_main,"settingsDialog");click("settingsCategory-2",settings);}
-    else if(m_stage==74){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->property("categoryIndex").toInt()!=2 || !revealSettings("backupDaysPicker"))return fail("settings general and backup reachability");qobject_cast<QQuickItem*>(find(settings,"backupDaysPicker"))->forceActiveFocus();settingsKey(Qt::Key_Space);settingsKey(Qt::Key_End);settingsKey(Qt::Key_Return);}
-    else if(m_stage==75){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(m_workspace.preferences().value("backupDays").toInt()!=30 || !capture(settings,"settings-general"))return fail("settings grouped option persists");click("settingsCategory-1",settings);}
-    else if(m_stage==76){auto* settings=find(m_main,"settingsDialog");auto* scroll=find(settings,"settingsScroll")->property("contentItem").value<QObject*>();
+    if(m_stage==33){auto* item=qobject_cast<QQuickItem*>(list);item->setProperty("currentIndex",0);item->forceActiveFocus();for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Space,Qt::NoModifier);QCoreApplication::sendEvent(item,&event);}}
+    if(m_stage==34){if(m_workspace.todayTasks()->rowCount()!=m_count-1 || (m_completedRow && m_completedRow->property("removing").toBool()) || m_workspace.task(m_task).value("taskStatus")!="COMPLETED")return fail("reduced motion keyboard completion without delayed removal");m_workspace.setTextScale(2);m_widget->resize(800,600);QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
+    if(m_stage==35){if(!find(m_widget,"widgetMenu")->property("visible").toBool() && m_wait.elapsed()<500){QMetaObject::invokeMethod(m_widget,"openVerificationMenu");return {};}QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));if(result!="PASS" || !capture(m_widget,"menu-200"))return fail("menu resolved font at 200 percent: "+result.toString());QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_workspace.setTextScale(1);m_controller.setMini(true);m_widget->resize(800,m_widget->height());}
+    if(m_stage==36){if(find(m_widget,"widgetMiniTitle")->property("truncated").toBool())return fail("short mini tooltip fixture");hover(m_widget,"widgetMiniSummary");}
+    if(m_stage==37){if(m_wait.elapsed()<750)return {};if(hint(m_widget).value("visible").toBool())return fail("complete mini title repeats tooltip");hover(m_widget,"widgetExpand");}
+    if(m_stage==38){if(m_wait.elapsed()<750)return {};if(hint(find(m_widget,"widgetExpand")).value("visible").toBool())return fail("obvious expand arrow tooltip");expandWithKey(Qt::Key_Return);}
+    if(m_stage==39){hover(m_widget,"widgetPin");}
+    if(m_stage==40){if(m_wait.elapsed()<750)return {};auto* pin=qobject_cast<QQuickItem*>(find(m_widget,"widgetPin"));const auto help=hint(pin);if(!help.value("visible").toBool())return fail("necessary pin action hint absent");if(QRectF(0,0,pin->width(),pin->height()).intersects(QRectF(help.value("x").toDouble(),help.value("y").toDouble(),help.value("width").toDouble(),help.value("height").toDouble())))return fail("tooltip overlaps source operation");for(const auto& name:{"widgetMore","widgetExpand"})if(find(m_widget,name)->property("hintEnabled").toBool())return fail("standard action tooltip admitted");if(find(m_main,"pageOptionsAction")->property("hintEnabled").toBool())return fail("options menu tooltip admitted");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
+    if(m_stage==41){if(hint(find(m_widget,"widgetPin")).value("visible").toBool())return fail("menu did not dismiss current tooltip");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_workspace.saveCatalog({{"kind","project"},{"title","123"}});}
+    if(m_stage==42){m_workspace.saveCatalog({{"kind","project"},{"title",QStringLiteral("这是需要截断显示并且应该恢复完整名称的分类验收")}});}
+    if(m_stage==43){for(const auto& value:m_workspace.categoryTree()){const auto row=value.toMap();if(row.value("title")=="123")m_shortCategory=row.value("id").toString();else if(row.value("title").toString().startsWith(QStringLiteral("这是需要截断")))m_longCategory=row.value("id").toString();}if(m_shortCategory.isEmpty() || m_longCategory.isEmpty())return fail("catalog hint fixtures");m_main->requestActivate();m_main->grabWindow();capture(m_main,"category-hints");hover(find(m_main,"categoryNav-"+m_shortCategory),"navigationLabel");}
+    if(m_stage==44){if(m_wait.elapsed()<750)return {};if(hint(find(m_main,"categoryNav-"+m_shortCategory)).value("visible").toBool())return fail("short category repeats visible name");m_main->grabWindow();auto* row=find(m_main,"categoryNav-"+m_longCategory);auto* label=find(row,"navigationLabel");if(!label->property("truncated").toBool()){if(m_wait.elapsed()<1800)return {};qCritical()<<"Long hint geometry"<<label->property("width")<<label->property("text")<<label->property("visible")<<label->property("contentWidth")<<m_main->size();capture(m_main,"category-failure");return fail("long category fixture not truncated");}hover(row,"navigationLabel");}
+    if(m_stage==45){if(m_wait.elapsed()<750)return {};const auto info=hint(find(m_main,"categoryNav-"+m_longCategory));if(!info.value("visible").toBool() || !info.value("text").toString().startsWith(QStringLiteral("这是需要截断")))return fail("truncated category did not reveal full text");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
+    if(m_stage==46){if(hint(find(m_main,"categoryNav-"+m_longCategory)).value("visible").toBool())return fail("cross-window menu tooltip suppression");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");auto* row=qobject_cast<QQuickItem*>(find(m_main,"categoryNav-"+m_shortCategory));hover(m_main,"contentViewSwitch");row->forceActiveFocus();}
+    if(m_stage==47){if(m_wait.elapsed()<750)return {};if(hint(find(m_main,"categoryNav-"+m_shortCategory)).value("visible").toBool())return fail("keyboard focus opened tooltip");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("highContrast",false);m_main->resize(1120,720);m_main->requestActivate();m_workspace.setView("inbox");}
+    if(m_stage>=48 && m_stage<=53){m_main->grabWindow();const QStringList views={"inbox","today","scheduled","all","important","completed"};if(!checkSidebar() || m_workspace.scope()!=views[m_stage-48]){if(m_wait.elapsed()<1800)return {};return fail("sidebar layout or six-scope routing");}if(m_stage==48){QVariant rhythm;QMetaObject::invokeMethod(m_main,"verifyPageRhythm",Q_RETURN_ARG(QVariant,rhythm));if(rhythm!="PASS" || !capture(m_main,"sidebar-light"))return fail("page typography rhythm: "+rhythm.toString());}click("navigation-"+(m_stage<53?views[m_stage-47]:QString("inbox")),m_main);}
+    if(m_stage==54){if(m_workspace.scope()!="inbox")return fail("scope return");click("sidebarTasksHeader",m_main);}
+    if(m_stage==55){if(m_workspace.preferences().value("sidebarTasksExpanded").toBool())return fail("tasks group collapse");click("sidebarTasksHeader",m_main);}
+    if(m_stage==56){if(!m_workspace.preferences().value("sidebarTasksExpanded").toBool())return fail("tasks group expand");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_main->resize(880,580);}
+    if(m_stage==57){m_main->grabWindow();if(!checkSidebar() || find(m_main,"smartNavigationGrid")->property("columns").toInt()!=1){if(m_wait.elapsed()<1800)return {};return fail("large sidebar text/brand/footer");}QVariant rhythm;QMetaObject::invokeMethod(m_main,"verifyPageRhythm",Q_RETURN_ARG(QVariant,rhythm));if(rhythm!="PASS" || !capture(m_main,"sidebar-dark-200"))return fail("large page typography rhythm: "+rhythm.toString());click("toggleSidebar",m_main);}
+    if(m_stage==58){if(m_main->property("sidebarWidth").toInt()!=44 || find(m_main,"sidebarWordmark")->property("visible").toBool())return fail("collapsed sidebar recovery");click("toggleSidebar",m_main);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_main->resize(1120,720);}
+    if(m_stage==59){if(!checkSidebar()){if(m_wait.elapsed()<1800)return {};return fail("restored sidebar");}click("settingsAndTools",m_main);}
+    if(m_stage==60){auto* settings=find(m_main,"settingsDialog");if(!settings->property("visible").toBool())return fail("settings entry");QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(2)));}
+    if(m_stage==61){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));settings->grabWindow();if(!revealSettings("settingsHelp"))return fail("settings support scroll");}
+    if(m_stage==62){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(!capture(settings,"settings-support"))return fail("support capture");click("settingsHelp",settings);}
+    if(m_stage==63){if(find(m_main,"settingsDialog")->property("visible").toBool() || !find(m_main,"helpPanel")->property("visible").toBool())return fail("settings help routing");QMetaObject::invokeMethod(find(m_main,"helpPanel"),"close");click("settingsAndTools",m_main);}
+    if(m_stage==64){if(!find(m_main,"settingsDialog")->property("visible").toBool() || !revealSettings("settingsData"))return fail("settings reopened");}
+    if(m_stage==65){click("settingsData",find(m_main,"settingsDialog"));}
+    if(m_stage==66){if(find(m_main,"settingsDialog")->property("visible").toBool() || !find(m_main,"dataToolsDialog")->property("visible").toBool())return fail("settings data routing");QMetaObject::invokeMethod(find(m_main,"dataToolsDialog"),"close");auto* settings=find(m_main,"settingsDialog");QMetaObject::invokeMethod(settings,"open");QMetaObject::invokeMethod(settings,"showOverview");}
+    if(m_stage==67){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));QVariant result;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,result));if(result!="PASS" || find(settings,"settingsBack") || !capture(settings,"settings-two-column"))return fail("settings keeps sidebar beside active content: "+result.toString());click("settingsCategory-0",settings);}
+    if(m_stage==68){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));QVariant check;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,check));if(settings->property("categoryIndex").toInt()!=0 || check!="PASS" || !capture(settings,"settings-appearance"))return fail("settings sidebar selects appearance");click("themeModePicker-segment-2",settings);}
+    if(m_stage==69){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(m_workspace.themeMode()!=2 || !capture(settings,"settings-appearance-dark"))return fail("settings theme applies");click("themeModePicker-segment-1",settings);qobject_cast<QQuickItem*>(find(settings,"settingsCategory-0"))->forceActiveFocus();}
+    if(m_stage==70){auto* settings=find(m_main,"settingsDialog");auto* row=qobject_cast<QQuickItem*>(find(settings,"settingsCategory-0"));if(settings->property("categoryIndex").toInt()!=0 || !row->hasActiveFocus())return fail("settings sidebar retains selection and focus");settingsKey(Qt::Key_Down);}
+    if(m_stage==71){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->property("categoryIndex").toInt()!=1 || !capture(settings,"settings-widgets"))return fail("settings keyboard category entry");if(find(settings,"widgetOpacitySetting")->property("enabled").toBool())return fail("opaque background disables irrelevant opacity");click("widgetSolidBackgroundSetting",settings);qobject_cast<QQuickItem*>(find(settings,"calendarDesktopPinnedSetting"))->forceActiveFocus();}
+    if(m_stage==72){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));auto* target=qobject_cast<QQuickItem*>(find(settings,"calendarDesktopPinnedSetting"));auto* scroll=qobject_cast<QQuickItem*>(find(settings,"settingsScroll"));const auto at=target->mapToItem(scroll,QPointF());if(!find(settings,"widgetOpacitySetting")->property("enabled").toBool() || at.y()<0 || at.y()+target->height()>scroll->height()+1 || !capture(settings,"settings-calendar-options"))return fail("settings focus reveals lower calendar group");m_settingsScroll=scroll->property("contentItem").value<QObject*>()->property("contentY").toDouble();}
+    if(m_stage==73){auto* settings=find(m_main,"settingsDialog");click("settingsCategory-2",settings);}
+    if(m_stage==74){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->property("categoryIndex").toInt()!=2 || !revealSettings("backupDaysPicker"))return fail("settings general and backup reachability");qobject_cast<QQuickItem*>(find(settings,"backupDaysPicker"))->forceActiveFocus();settingsKey(Qt::Key_Space);settingsKey(Qt::Key_End);settingsKey(Qt::Key_Return);}
+    }
+    else if(m_stage>=75){
+    if(m_stage==75){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(m_workspace.preferences().value("backupDays").toInt()!=30 || !capture(settings,"settings-general"))return fail("settings grouped option persists");click("settingsCategory-1",settings);}
+    if(m_stage==76){auto* settings=find(m_main,"settingsDialog");auto* scroll=find(settings,"settingsScroll")->property("contentItem").value<QObject*>();
         if(settings->property("categoryIndex").toInt()==1 && qAbs(scroll->property("contentY").toDouble()-m_settingsScroll)>1 && m_wait.elapsed()<1500)return {};
         if(settings->property("categoryIndex").toInt()!=1 || qAbs(scroll->property("contentY").toDouble()-m_settingsScroll)>1){qInfo()<<"Settings scroll restore"<<scroll->property("contentY")<<m_settingsScroll<<settings->property("categoryScroll")<<settings->property("activeFocusItem");return fail("category change restores its own scroll");}click("settingsCategory-3",settings);}
-    else if(m_stage==77){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->property("categoryIndex").toInt()!=3 || !capture(settings,"settings-about"))return fail("settings about entry");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_main->resize(880,580);}
-    else if(m_stage==78){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));QVariant check;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,check));if(check!="PASS" || !capture(settings,"settings-about-dark-200"))return fail("settings large about");settingsKey(Qt::Key_Escape);}
-    else if(m_stage==79){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->isVisible())return fail("Escape closes split settings");QMetaObject::invokeMethod(settings,"open");if(settings->property("categoryIndex").toInt()!=3)return fail("reopen preserves selected category");}
-    else if(m_stage==80){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(!m_settingsHomeSent){qobject_cast<QQuickItem*>(find(settings,"settingsCategory-3"))->forceActiveFocus();settingsKey(Qt::Key_Home);m_settingsHomeSent=true;return {};}QVariant check;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,check));if(settings->property("categoryIndex").toInt()!=0 || check!="PASS" || !capture(settings,"settings-appearance-dark-200"))return fail("settings large preference rows and two columns: "+check.toString());qobject_cast<QQuickItem*>(find(settings,"settingsCategory-0"))->forceActiveFocus();settingsKey(Qt::Key_End);}
-    else if(m_stage==81){auto* settings=find(m_main,"settingsDialog");if(settings->property("categoryIndex").toInt()!=3)return fail("End selects final sidebar category");qobject_cast<QQuickItem*>(find(settings,"settingsCategory-3"))->forceActiveFocus();settingsKey(Qt::Key_Up);settingsKey(Qt::Key_Up);}
-    else if(m_stage==86){if(find(m_main,"settingsDialog")->property("visible").toBool())return fail("settings close action preserves main window");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_main->resize(1120,720);QMetaObject::invokeMethod(m_main,"showVerificationPage",Q_ARG(QVariant,QVariant("style")),Q_ARG(QVariant,QVariant("")));}
-    else if(m_stage==82){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));QVariant check;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,check));if(settings->property("categoryIndex").toInt()!=1 || check!="PASS" || !capture(settings,"settings-widgets-dark-200"))return fail("settings large widget page");qobject_cast<QQuickItem*>(find(settings,"calendarDesktopPinnedSetting"))->forceActiveFocus();}
-    else if(m_stage==83){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));auto* target=qobject_cast<QQuickItem*>(find(settings,"calendarDesktopPinnedSetting"));auto* scroll=qobject_cast<QQuickItem*>(find(settings,"settingsScroll"));const auto at=target->mapToItem(scroll,QPointF());if(at.y()<0 || at.y()+target->height()>scroll->height()+1 || !capture(settings,"settings-calendar-dark-200"))return fail("large lower settings stay reachable");m_workspace.setPreference("highContrast",true);}
-    else if(m_stage==84){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(find(settings,"widgetOpacitySetting")->property("enabled").toBool() || !capture(settings,"settings-contrast-200"))return fail("high contrast keeps setting boundaries and disables opacity");m_workspace.setPreference("highContrast",false);settingsKey(Qt::Key_Escape);}
-    else if(m_stage==85){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->isVisible())return fail("Escape closes large settings");QMetaObject::invokeMethod(settings,"open");if(settings->property("categoryIndex").toInt()!=1)return fail("reopen keeps widget category");click("settingsClose",settings);}
-    else if(m_stage==87){auto* gallery=find(m_main,"styleGallery");if(!gallery->property("visible").toBool())return fail("style matrix entry");QMetaObject::invokeMethod(gallery,"showVisualAudit",Q_ARG(QVariant,QVariant("icons")));}
-    else if(m_stage==88){capture(m_main,"glyph-debug");if(!glyphPainted("calendar") || !glyphPainted("check") || !glyphPainted("grip") || !glyphPainted("settings") || !capture(m_main,"glyph-matrix-light"))return fail("vector symbols paint distinct small shapes");m_workspace.setThemeMode(2);m_workspace.setTextScale(2);m_main->resize(880,580);QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("icons")));}
-    else if(m_stage==89){if(!glyphPainted("calendar") || !capture(m_main,"glyph-matrix-dark-200"))return fail("vector symbol follows theme and text scale");QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("clip")));}
-    else if(m_stage==91){QVariant result;auto* gallery=find(m_main,"styleGallery");QMetaObject::invokeMethod(gallery,"verifyVisualSystem",Q_RETURN_ARG(QVariant,result));if(result!="PASS" || !capture(m_main,"type-scale-dark-200"))return fail("shared type and radius hierarchy: "+result.toString());QMetaObject::invokeMethod(gallery,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("highContrast",false);m_workspace.setPreference("solidWidget",false);m_controller.setBackgroundOpacity(0.6);m_controller.setMini(false);m_widget->setPosition(160,90);m_widget->resize(700,m_widget->height());m_controller.setMini(true);}
-    else if(m_stage==92){
+    if(m_stage==77){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->property("categoryIndex").toInt()!=3 || !capture(settings,"settings-about"))return fail("settings about entry");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_main->resize(880,580);}
+    if(m_stage==78){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));QVariant check;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,check));if(check!="PASS" || !capture(settings,"settings-about-dark-200"))return fail("settings large about");settingsKey(Qt::Key_Escape);}
+    if(m_stage==79){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->isVisible())return fail("Escape closes split settings");QMetaObject::invokeMethod(settings,"open");if(settings->property("categoryIndex").toInt()!=3)return fail("reopen preserves selected category");}
+    if(m_stage==80){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(!m_settingsHomeSent){qobject_cast<QQuickItem*>(find(settings,"settingsCategory-3"))->forceActiveFocus();settingsKey(Qt::Key_Home);m_settingsHomeSent=true;return {};}QVariant check;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,check));if(settings->property("categoryIndex").toInt()!=0 || check!="PASS" || !capture(settings,"settings-appearance-dark-200"))return fail("settings large preference rows and two columns: "+check.toString());qobject_cast<QQuickItem*>(find(settings,"settingsCategory-0"))->forceActiveFocus();settingsKey(Qt::Key_End);}
+    if(m_stage==81){auto* settings=find(m_main,"settingsDialog");if(settings->property("categoryIndex").toInt()!=3)return fail("End selects final sidebar category");qobject_cast<QQuickItem*>(find(settings,"settingsCategory-3"))->forceActiveFocus();settingsKey(Qt::Key_Up);settingsKey(Qt::Key_Up);}
+    if(m_stage==86){if(find(m_main,"settingsDialog")->property("visible").toBool())return fail("settings close action preserves main window");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_main->resize(1120,720);QMetaObject::invokeMethod(m_main,"showVerificationPage",Q_ARG(QVariant,QVariant("style")),Q_ARG(QVariant,QVariant("")));}
+    if(m_stage==82){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));QVariant check;QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,check));if(settings->property("categoryIndex").toInt()!=1 || check!="PASS" || !capture(settings,"settings-widgets-dark-200"))return fail("settings large widget page");qobject_cast<QQuickItem*>(find(settings,"calendarDesktopPinnedSetting"))->forceActiveFocus();}
+    if(m_stage==83){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));auto* target=qobject_cast<QQuickItem*>(find(settings,"calendarDesktopPinnedSetting"));auto* scroll=qobject_cast<QQuickItem*>(find(settings,"settingsScroll"));const auto at=target->mapToItem(scroll,QPointF());if(at.y()<0 || at.y()+target->height()>scroll->height()+1 || !capture(settings,"settings-calendar-dark-200"))return fail("large lower settings stay reachable");m_workspace.setPreference("highContrast",true);}
+    if(m_stage==84){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(find(settings,"widgetOpacitySetting")->property("enabled").toBool() || !capture(settings,"settings-contrast-200"))return fail("high contrast keeps setting boundaries and disables opacity");m_workspace.setPreference("highContrast",false);settingsKey(Qt::Key_Escape);}
+    if(m_stage==85){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));if(settings->isVisible())return fail("Escape closes large settings");QMetaObject::invokeMethod(settings,"open");if(settings->property("categoryIndex").toInt()!=1)return fail("reopen keeps widget category");click("settingsClose",settings);}
+    if(m_stage==87){auto* gallery=find(m_main,"styleGallery");if(!gallery->property("visible").toBool())return fail("style matrix entry");QMetaObject::invokeMethod(gallery,"showVisualAudit",Q_ARG(QVariant,QVariant("icons")));}
+    if(m_stage==88){capture(m_main,"glyph-debug");if(!glyphPainted("calendar") || !glyphPainted("check") || !glyphPainted("grip") || !glyphPainted("settings") || !capture(m_main,"glyph-matrix-light"))return fail("vector symbols paint distinct small shapes");m_workspace.setThemeMode(2);m_workspace.setTextScale(2);m_main->resize(880,580);QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("icons")));}
+    if(m_stage==89){if(!glyphPainted("calendar") || !capture(m_main,"glyph-matrix-dark-200"))return fail("vector symbol follows theme and text scale");QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("clip")));}
+    if(m_stage==91){QVariant result;auto* gallery=find(m_main,"styleGallery");QMetaObject::invokeMethod(gallery,"verifyVisualSystem",Q_RETURN_ARG(QVariant,result));if(result!="PASS" || !capture(m_main,"type-scale-dark-200"))return fail("shared type and radius hierarchy: "+result.toString());QMetaObject::invokeMethod(gallery,"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("highContrast",false);m_workspace.setPreference("solidWidget",false);m_controller.setBackgroundOpacity(0.6);m_controller.setMini(false);m_widget->setPosition(160,90);m_widget->resize(700,m_widget->height());m_controller.setMini(true);}
+    if(m_stage==92){
         auto* more=find(m_widget,"miniMore");
         if(!more || !more->property("visible").toBool())return fail(QStringLiteral("mini more not reachable: mini=%1 size=%2x%3").arg(m_controller.mini()).arg(m_widget->width()).arg(m_widget->height()));
         // This stage verifies the Mini menu's anchor and surface, not the click
@@ -197,7 +200,7 @@ QString Ux38SmokeProbe::advance() {
         // the offscreen Linux backend, while the menu itself works there in the
         // floating layout (stages 32/35 pass).
         QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
-    else if(m_stage==93){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
+    if(m_stage==93){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         // Same asynchronous popup as stage 32: on runners that do not focus the widget
         // the menu becomes visible a frame or more after the click.
         if(result!="PASS" && m_wait.elapsed()<3000)return {};
@@ -206,13 +209,13 @@ QString Ux38SmokeProbe::advance() {
             qCritical()<<"Mini menu state"<<result<<(menu?menu->property("visible"):QVariant())<<(menu?menu->property("count"):QVariant())<<(menu?menu->property("opacity"):QVariant())<<m_widget->isActive()<<"mini"<<m_controller.mini()<<"size"<<m_widget->size()<<"moreVisible"<<(find(m_widget,"miniMore")?find(m_widget,"miniMore")->property("visible"):QVariant())<<QGuiApplication::platformName();
             return fail("Mini menu anchor and opaque surface: "+result.toString());
         }auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetMenu")->property("contentItem").value<QObject*>());if(!content)return fail("Mini menu content");const auto image=content->window()->grabWindow();int ink=0;for(int y=0;y<image.height();++y)for(int x=0;x<image.width();++x)if(image.pixelColor(x,y).lightness()<100)++ink;if(ink<30){if(m_wait.elapsed()<1500)return {};return fail("Mini opaque window must paint menu text");}if(!capture(content->window(),"mini-solid-menu"))return fail("Mini menu window capture");m_controller.setMini(false);}
-    else if(m_stage==94){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("mode change left stale menu open");click("widgetMore");}
-    else if(m_stage==95){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
+    if(m_stage==94){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("mode change left stale menu open");click("widgetMore");}
+    if(m_stage==95){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         if(result!="PASS" && m_wait.elapsed()<1500)return {};
         if(result!="PASS")return fail("expanded menu reacquires current anchor: "+result.toString());auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetMenu")->property("contentItem").value<QObject*>());if(!capture(content->window(),"floating-solid-menu"))return fail("floating menu capture");m_widget->setX(m_widget->x()+20);}
-    else if(m_stage==96){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("moving host left detached menu");click("desktopCalendarOptions",calendar);}
-    else if(m_stage==97){auto* button=find(calendar,"desktopCalendarOptions");auto* menu=find(button,"desktopCalendarOptionsMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(!menu || !menu->property("visible").toBool() || menu->property("anchorItem").value<QObject*>()!=button || !content || content->window()->color().alpha()!=255 || !capture(content->window(),"calendar-solid-menu"))return fail("desktop calendar explicit opaque menu anchor");QMetaObject::invokeMethod(menu,"close");m_stage=115;}
-    else if(m_stage==98){
+    if(m_stage==96){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("moving host left detached menu");click("desktopCalendarOptions",calendar);}
+    if(m_stage==97){auto* button=find(calendar,"desktopCalendarOptions");auto* menu=find(button,"desktopCalendarOptionsMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(!menu || !menu->property("visible").toBool() || menu->property("anchorItem").value<QObject*>()!=button || !content || content->window()->color().alpha()!=255 || !capture(content->window(),"calendar-solid-menu"))return fail("desktop calendar explicit opaque menu anchor");QMetaObject::invokeMethod(menu,"close");m_stage=115;}
+    if(m_stage==98){
         if(!m_workspace.syncState().contains("mode") || m_workspace.syncState().value("busy").toBool()){
             if(m_wait.elapsed()<5000)return {};
             return fail("registration waits for the local account profile to load");
@@ -224,7 +227,7 @@ QString Ux38SmokeProbe::advance() {
         if(!find(m_main,"accountEntry") || !find(m_main,"accountCollapsedEntry"))return fail("account entry in both sidebar modes");
         if(!capture(m_main,"account-entry"))return fail("account entry capture");
     }
-    else if(m_stage==99){
+    if(m_stage==99){
         auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(!capture(settings,"account-login-light"))return fail("dedicated login capture");
         auto* password=find(settings,"syncPassword");auto* confirm=find(settings,"syncConfirmPassword");
@@ -239,7 +242,7 @@ QString Ux38SmokeProbe::advance() {
         QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncConfirmPassword"))));
         QMetaObject::invokeMethod(confirm,"forceActiveFocus");
     }
-    else if(m_stage==100){
+    if(m_stage==100){
         auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(settings->activeFocusItem()!=find(settings,"syncConfirmPassword"))return fail("confirmation field keyboard focus");
         for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Return,Qt::NoModifier);QCoreApplication::sendEvent(settings,&event);}
@@ -254,12 +257,12 @@ QString Ux38SmokeProbe::advance() {
         if(!find(settings,"syncPassword")->property("text").toString().isEmpty() || !find(settings,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("leaving registration clears both passwords");
         settings->setProperty("syncRegisterMode",true);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
     }
-    else if(m_stage==101){
+    if(m_stage==101){
         auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(!QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncConfirmPassword")))))return fail("large confirmation field scroll");
         settings->grabWindow();
     }
-    else if(m_stage==102){
+    if(m_stage==102){
         auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         auto* field=qobject_cast<QQuickItem*>(find(settings,"syncConfirmPassword"));auto* view=qobject_cast<QQuickItem*>(find(settings,"accountScroll"));
         const auto at=field->mapToItem(view,QPointF());
@@ -269,7 +272,7 @@ QString Ux38SmokeProbe::advance() {
         }
         if(!QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncSubmit")))))return fail("large registration action scroll");
     }
-    else if(m_stage==103){
+    if(m_stage==103){
         auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         auto* button=qobject_cast<QQuickItem*>(find(settings,"syncSubmit"));auto* view=qobject_cast<QQuickItem*>(find(settings,"accountScroll"));const auto at=button->mapToItem(view,QPointF());
         if(at.y()<0 || at.y()+button->height()>view->height()+1 || !capture(settings,"registration-actions-dark-200"))return fail("registration action remains reachable at 200 percent");
@@ -277,7 +280,7 @@ QString Ux38SmokeProbe::advance() {
         if(settings->property("syncRegisterMode").toBool() || !find(settings,"syncPassword")->property("text").toString().isEmpty() || !find(settings,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("closing registration clears secrets and resets mode");
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);
     }
-    else if(m_stage==104){
+    if(m_stage==104){
         // Synthetic presentation states do not authenticate the coordinator or
         // touch a server. Real auth/sync remains covered by the Qt/Go TLS test.
         m_originalSyncState=m_workspace.syncState();auto state=m_originalSyncState;
@@ -285,7 +288,7 @@ QString Ux38SmokeProbe::advance() {
         state.insert("authenticated",false);state.insert("busy",false);m_accountDisplayState=state;m_workspace.setSyncState(state);
         QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("account")));
     }
-    else if(m_stage==105){
+    if(m_stage==105){
         m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(!find(window,"accountError")->property("visible").toBool() || !find(window,"syncPassword")->property("text").toString().isEmpty())return fail("dedicated login error and empty password");
@@ -293,7 +296,7 @@ QString Ux38SmokeProbe::advance() {
         if(!capture(window,"account-login-error"))return fail("account error capture");
         auto state=m_workspace.syncState();state.insert("busy",true);state.insert("safe_error_code",QString());state.insert("status",QStringLiteral("正在登录…"));m_accountDisplayState=state;m_workspace.setSyncState(state);
     }
-    else if(m_stage==106){
+    if(m_stage==106){
         m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(find(window,"syncSubmit")->property("enabled").toBool() || find(window,"syncLogin")->property("enabled").toBool() || find(window,"syncRegisterMode")->property("enabled").toBool())return fail("connecting disables duplicate auth and mode changes");
@@ -305,44 +308,44 @@ QString Ux38SmokeProbe::advance() {
         state.insert("conflicts",QVariantList{QVariantMap{{"id","fixture-conflict"},{"related_count",2},{"local_title",QStringLiteral("合成修改")},{"local_summary",QStringLiteral("此设备的内容")},{"remote_summary",QStringLiteral("另一设备的内容")}}});
         m_accountDisplayState=state;m_workspace.setSyncState(state);QMetaObject::invokeMethod(window,"open");
     }
-    else if(m_stage==107){
+    if(m_stage==107){
         m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(find(window,"syncLogin")->property("visible").toBool() || !find(window,"syncNow")->property("visible").toBool() || find(window,"syncProfiles")->property("count").toInt()!=2 || !find(window,"accountConflictLocal"))return fail("connected account management replaces auth form and keeps conflicts/profiles");
         if(!capture(window,"account-management-light"))return fail("account management capture");
         auto state=m_workspace.syncState();state.insert("busy",true);state.insert("phase","RECONCILE_REQUIRED");m_accountDisplayState=state;m_workspace.setSyncState(state);
     }
-    else if(m_stage==108){
+    if(m_stage==108){
         m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(!find(window,"syncRebuild")->property("visible").toBool() || find(window,"syncRebuild")->property("enabled").toBool() || find(window,"accountConflictLocal")->property("enabled").toBool())return fail("busy account keeps recovery visible and prevents repeated decisions");
         m_workspace.setTextScale(2);m_workspace.setThemeMode(2);window->resize(420,440);
     }
-    else if(m_stage==109){
+    if(m_stage==109){
         m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         QMetaObject::invokeMethod(window,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(window,"syncProfiles"))));
     }
-    else if(m_stage==110){
+    if(m_stage==110){
         m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));auto* footer=qobject_cast<QQuickItem*>(find(window,"accountContinueLocal"));
         const auto at=footer->mapToScene(QPointF());
         if(at.x()<0 || at.y()<0 || at.x()+footer->width()>window->width()+1 || at.y()+footer->height()>window->height()+1 || !capture(window,"account-management-dark-200-narrow"))return fail("account footer remains reachable in narrow large text window");
         QMetaObject::invokeMethod(window,"close");m_workspace.setSyncState(m_originalSyncState);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("sidebarCollapsed",true);
     }
-    else if(m_stage==111){
+    if(m_stage==111){
         auto* entry=qobject_cast<QQuickItem*>(find(m_main,"accountCollapsedEntry"));
         if(!entry || !entry->isVisible() || entry->mapToScene(QPointF()).x()<0 || !capture(m_main,"account-entry-collapsed"))return fail("collapsed account entry remains available");
         click("accountCollapsedEntry",m_main);
     }
-    else if(m_stage==112){
+    if(m_stage==112){
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(!window->isVisible())return fail("collapsed account button opens dedicated account window");
         for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(window,&event);}
         if(window->isVisible())return fail("Escape closes account window");
         m_workspace.setPreference("sidebarCollapsed",false);
     }
-    else if(m_stage==113){
+    if(m_stage==113){
         if(m_workspace.busy()){if(m_wait.elapsed()<5000)return {};return fail("account auth routing waits for local operations");}
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         window->setProperty("verificationAuthIntents",0);
@@ -356,7 +359,7 @@ QString Ux38SmokeProbe::advance() {
         find(window,"syncServerOrigin")->setProperty("text","https://127.0.0.1:1");find(window,"syncLogin")->setProperty("text","synthetic-user");find(window,"syncPassword")->setProperty("text","synthetic-long-password");
         QMetaObject::invokeMethod(find(window,"syncSubmit"),"clicked");
     }
-    else if(m_stage==114){
+    if(m_stage==114){
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(window->property("verificationAuthIntents").toInt()!=1 || window->property("verificationAuthAction")!="login" || !window->property("verificationAuthValues").toBool() || !find(window,"syncPassword")->property("text").toString().isEmpty())return fail("dedicated login routes exact transient credentials once and clears them");
         if(m_workspace.syncState().value("busy").toBool()){if(m_wait.elapsed()<5000)return {};return fail("loopback connection failure bounded");}
@@ -364,66 +367,66 @@ QString Ux38SmokeProbe::advance() {
         QMetaObject::invokeMethod(find(window,"syncRegisterMode"),"clicked");find(window,"syncPassword")->setProperty("text","synthetic-long-password");find(window,"syncConfirmPassword")->setProperty("text","synthetic-long-password");
         QMetaObject::invokeMethod(find(window,"syncSubmit"),"clicked");
     }
-    else if(m_stage==115){
+    if(m_stage==115){
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(window->property("verificationAuthIntents").toInt()!=2 || window->property("verificationAuthAction")!="register" || !window->property("verificationAuthValues").toBool() || !find(window,"syncPassword")->property("text").toString().isEmpty() || !find(window,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("dedicated registration routes credentials once and clears both fields");
         if(m_workspace.syncState().value("busy").toBool()){if(m_wait.elapsed()<5000)return {};return fail("registration loopback failure bounded");}
         if(m_workspace.syncState().value("authenticated").toBool())return fail("failed connection must not authenticate");
         QMetaObject::invokeMethod(window,"close");return "DONE";
     }
-    else if(m_stage==116){
+    if(m_stage==116){
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
         m_controller.clearError();m_controller.setVisible(true);m_controller.setMini(false);m_widget->resize(340,360);m_controller.setMini(true);
         QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("settings")));find(m_main,"settingsDialog")->setProperty("categoryIndex",1);
         find(m_main,"settingsDialog")->setProperty("restoringScroll",false);qobject_cast<QQuickItem*>(find(m_main,"miniAutoCollapseSetting"))->forceActiveFocus(Qt::TabFocusReason);
     }
-    else if(m_stage==117){
+    if(m_stage==117){
         auto* setting=find(m_main,"miniAutoCollapseSetting");if(!setting || !setting->property("enabled").toBool())return fail("mini ball setting available");
         if(!m_controller.miniAutoCollapse())click("miniAutoCollapseSetting",m_main);
         if(!m_controller.miniAutoCollapse())return fail("mini ball setting wired");
         QMetaObject::invokeMethod(find(m_main,"settingsDialog"),"close");QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     }
-    else if(m_stage==118){
+    if(m_stage==118){
         if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1400)return {};return fail("idle mini becomes ball");}
         if(!layout() || m_widget->size()!=QSize(36,36) || !capture(m_widget,"mini-ball-light"))return fail("compact ball geometry");
         hover(m_widget,"widgetMiniBall");
     }
-    else if(m_stage==119){
+    if(m_stage==119){
         if(m_controller.miniCollapsed() || m_widget->width()!=340 || !layout() || !capture(m_widget,"mini-hover-light"))return fail("pointer expands original mini width");
         click("miniMore");
     }
-    else if(m_stage==120){
+    if(m_stage==120){
         QMetaObject::invokeMethod(m_widget,"heightChanged",Q_ARG(int,m_widget->height()));
         if(!find(m_widget,"widgetMenu")->property("visible").toBool())return fail("mini menu opens");
         QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     }
-    else if(m_stage==121){
+    if(m_stage==121){
         if(m_wait.elapsed()<600)return {};
         if(m_controller.miniCollapsed())return fail("menu prevents idle collapse");
         QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");
         m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
     }
-    else if(m_stage==122){
+    if(m_stage==122){
         QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
         if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1400)return {};return fail("large text ball collapses");}
         if(!layout() || !capture(m_widget,"mini-ball-dark-200"))return fail("large text ball geometry");
         hover(m_widget,"widgetMiniBall");
     }
-    else if(m_stage==123){
+    if(m_stage==123){
         if(m_controller.miniCollapsed() || m_widget->width()!=340 || !layout() || !capture(m_widget,"mini-hover-dark-200"))return fail("large text mini expansion");
         expandWithKey(Qt::Key_Space);
     }
-    else if(m_stage==124){
+    if(m_stage==124){
         if(m_controller.mini() || m_widget->width()!=340)return fail("keyboard opens full widget");
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);calendar->resize(560,540);m_workspace.setPreference("desktopCalendarVisible",true);
         auto* panel=find(calendar,"desktopCalendarPanel");panel->setProperty("independentScale","month");panel->setProperty("agendaVisible",false);panel->setProperty("anchorDate",m_workspace.dateOffset(0));panel->setProperty("selectedDate",m_workspace.dateOffset(0));
     }
-    else if(m_stage==125){
+    if(m_stage==125){
         auto* panel=find(calendar,"desktopCalendarPanel");auto* metrics=panel->property("metrics").value<QObject*>();auto* mainPanel=find(m_main,"calendarPanel");auto* normal=mainPanel->property("metrics").value<QObject*>();
         if(!metrics || !normal || metrics->property("bodySize").toInt()!=12 || normal->property("bodySize").toInt()!=13 || !capture(calendar,"compact-calendar-light"))return fail("independent typography does not change main calendar");
         calendar->resize(360,380);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
     }
-    else if(m_stage==126){
+    if(m_stage==126){
         auto* panel=find(calendar,"desktopCalendarPanel");auto* picker=qobject_cast<QQuickItem*>(find(panel,"calendarScalePicker"));auto* grid=qobject_cast<QQuickItem*>(find(panel,"calendarMonthGrid"));
         if(!picker || !grid || picker->mapToScene(QPointF()).x()<0 || picker->mapToScene(QPointF(picker->width(),picker->height())).x()>calendar->width() || grid->height()<50 || !capture(calendar,"compact-calendar-dark-200"))return fail("small calendar large text controls reachable");
         auto* day=find(panel,"calendarDay-"+m_workspace.dateOffset(0));
@@ -433,35 +436,35 @@ QString Ux38SmokeProbe::advance() {
         }
         m_controller.setMini(true);if(!m_controller.setMiniAutoCollapse(false))return fail("disable mini ball");
     }
-    else if(m_stage==127){
+    if(m_stage==127){
         if(m_controller.miniAutoCollapse() || m_controller.miniCollapsed() || m_widget->width()!=340)return fail("disable ball restores persistent bar");
         m_controller.setMiniAutoCollapse(true);QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     }
-    else if(m_stage==128){
+    if(m_stage==128){
         if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1400)return {};return fail("ball ready for keyboard focus");}
         m_widget->requestActivate();
     }
-    else if(m_stage==129){qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"))->forceActiveFocus(Qt::TabFocusReason);}
-    else if(m_stage==130){
+    if(m_stage==129){qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"))->forceActiveFocus(Qt::TabFocusReason);}
+    if(m_stage==130){
         if(m_controller.miniCollapsed()){auto* ball=find(m_widget,"widgetMiniBall");qCritical()<<"Mini focus"<<m_widget->isActive()<<m_widget->activeFocusItem()<<(ball ? ball->property("activeFocus"):QVariant())<<(ball ? ball->property("focusReason"):QVariant());return fail("Tab focus opens mini");}
         QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     }
-    else if(m_stage==131){
+    if(m_stage==131){
         if(m_wait.elapsed()<600)return {};
         if(m_controller.miniCollapsed())return fail("keyboard focus keeps mini open");
         expandWithKey(Qt::Key_Return);
     }
-    else if(m_stage==132){
+    if(m_stage==132){
         if(m_controller.mini())return fail("keyboard opens widget after idle");
         m_controller.setMiniAutoCollapse(false);m_workspace.setTextScale(1);
     }
-    else if(m_stage==133){
+    if(m_stage==133){
         m_workspace.setThemeMode(1);m_widgetModeGeometry=m_widget->geometry();
         m_workspace.setPreference("reduceMotion",false);m_widget->setProperty("miniKeyboardInteraction",false);
         m_controller.setMiniAutoCollapse(true);m_controller.setMini(true);
         QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     }
-    else if(m_stage==134){
+    if(m_stage==134){
         if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1500)return {};return fail("animated mini idle collapse");}
         if(m_widget->position()!=m_widgetModeGeometry.topLeft())return fail("repeated transitions keep the original anchor");
         m_miniMotionGeometry=QRect(m_widgetModeGeometry.topLeft(),QSize(m_controller.miniWidth(),m_widget->property("miniBarHeight").toInt()));
@@ -477,7 +480,7 @@ QString Ux38SmokeProbe::advance() {
             m_miniMotionSampled=true;
         });
     }
-    else if(m_stage==135){
+    if(m_stage==135){
         if(!m_miniMotionSampled || m_widget->property("miniTransitionRunning").toBool()){if(m_wait.elapsed()<1500)return {};return fail("mini animation completes in bounded time");}
         if(!m_miniMotionValid || m_widget->geometry()!=m_miniMotionGeometry || !layout())return fail("animation keeps canonical native size and anchor");
         if(++m_miniMotionCycle<4){
@@ -489,7 +492,7 @@ QString Ux38SmokeProbe::advance() {
             QTimer::singleShot(50,m_widget,[this]{QMetaObject::invokeMethod(m_widget,"requestMiniCollapse",Q_ARG(QVariant,QVariant(false)),Q_ARG(QVariant,QVariant(false)));});
         }
     }
-    else if(m_stage==136){
+    if(m_stage==136){
         if(m_widget->property("miniTransitionRunning").toBool()){if(m_wait.elapsed()<1500)return {};return fail("rapid reversal settles");}
         if(m_controller.miniCollapsed() || m_widget->geometry()!=m_miniMotionGeometry || !layout() || !capture(m_widget,"mini-animation-settled"))return fail("rapid reversal preserves final geometry");
         m_workspace.setPreference("reduceMotion",true);
@@ -499,11 +502,12 @@ QString Ux38SmokeProbe::advance() {
         if(m_controller.miniCollapsed() || m_widget->geometry()!=m_miniMotionGeometry || m_widget->property("miniTransitionRunning").toBool())return fail("reduced motion expansion keeps geometry");
         m_controller.setMini(false);m_controller.setMiniAutoCollapse(false);m_workspace.setTextScale(1);return "DONE";
     }
-    else if(m_stage==137){
+    if(m_stage==137){
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
         m_controller.setVisible(true);m_controller.setMini(false);m_widget->resize(700,360);m_widget->setPosition(160,90);m_controller.setMini(true);m_stage=91;
     }
-    else if(m_stage==90){auto* glyph=qobject_cast<QQuickItem*>(find(m_main,"galleryGlyph-calendar"));const auto at=glyph->mapToScene(QPointF());if(at.y()<0 || at.y()+glyph->height()>m_main->height() || glyphPainted("calendar") || !capture(m_main,"glyph-scroll-clip-dark-200"))return fail("off-viewport vector cannot leak over dialog actions");QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("type")));}
+    if(m_stage==90){auto* glyph=qobject_cast<QQuickItem*>(find(m_main,"galleryGlyph-calendar"));const auto at=glyph->mapToScene(QPointF());if(at.y()<0 || at.y()+glyph->height()>m_main->height() || glyphPainted("calendar") || !capture(m_main,"glyph-scroll-clip-dark-200"))return fail("off-viewport vector cannot leak over dialog actions");QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("type")));}
+    }
     qInfo()<<"UX38 desktop scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};
 }
 }
