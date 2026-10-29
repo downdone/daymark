@@ -369,7 +369,10 @@ QString Ux38SmokeProbe::advance() {
     }
     if(m_stage==115){
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
-        if(window->property("verificationAuthIntents").toInt()!=2 || window->property("verificationAuthAction")!="register" || !window->property("verificationAuthValues").toBool() || !find(window,"syncPassword")->property("text").toString().isEmpty() || !find(window,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("dedicated registration routes credentials once and clears both fields");
+        const int intents=window->property("verificationAuthIntents").toInt();
+        const bool cleared=find(window,"syncPassword")->property("text").toString().isEmpty() && find(window,"syncConfirmPassword")->property("text").toString().isEmpty();
+        if((intents!=2 || !cleared) && m_wait.elapsed()<3000)return {};
+        if(intents!=2 || window->property("verificationAuthAction")!="register" || !window->property("verificationAuthValues").toBool() || !cleared){qCritical()<<"Registration state"<<intents<<window->property("verificationAuthAction")<<window->property("verificationAuthValues")<<find(window,"syncPassword")->property("text")<<find(window,"syncConfirmPassword")->property("text");return fail("dedicated registration routes credentials once and clears both fields");}
         if(m_workspace.syncState().value("busy").toBool()){if(m_wait.elapsed()<5000)return {};return fail("registration loopback failure bounded");}
         if(m_workspace.syncState().value("authenticated").toBool())return fail("failed connection must not authenticate");
         QMetaObject::invokeMethod(window,"close");return "DONE";
