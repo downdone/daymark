@@ -47,7 +47,10 @@ Window {
     function verifyLayout() {
         if(controller.mini) {
             if(miniSummary.width<80 || miniSummary.height<Theme.controlHeight || miniTitle.width<20)return "mini content clipped"
-        } else if(todayList.width<100 || todayList.height<24 || footer.y+footer.height>surface.height+1 || header.width<header.implicitWidth-1)return "floating layout clipped"
+        } else if(todayList.width<100 || todayList.height<24 || footer.y+footer.height>surface.height+1 || header.width<header.implicitWidth-1){
+            const details="width="+Math.round(header.width)+" implicit="+Math.round(header.implicitWidth)+" list="+Math.round(todayList.width)+"x"+Math.round(todayList.height)+" footerBottom="+Math.round(footer.y+footer.height)+" surfaceH="+Math.round(surface.height)
+            return "floating layout clipped ("+details+")"
+        }
         return "PASS"
     }
     Shortcut {sequences: [StandardKey.New];enabled: widget.active && !widget.controller.mini;onActivated: widget.newTaskRequested()}
@@ -80,7 +83,7 @@ Window {
                             RowLayout {
                                 width: parent.width
                                 spacing: 6
-                                Label {text: qsTr("今天");font.pixelSize: Theme.headingSize;font.weight: Font.DemiBold;color: Theme.text}
+                                Label {Layout.maximumWidth: parent.width*0.7;text: qsTr("今天");elide: Text.ElideRight;font.pixelSize: Theme.headingSize;font.weight: Font.DemiBold;color: Theme.text}
                                 Label {Layout.fillWidth: true;text: widget.workspace.todayTasks.count;font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight;Accessible.name: qsTr("%1 项待办").arg(text)}
                             }
                             Label {
