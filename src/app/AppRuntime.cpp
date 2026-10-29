@@ -449,7 +449,10 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto* row=findRow(dragSource);if(!row || !row->property("dragging").toBool() || !capture(QStringLiteral("long-press-reorder"))){qCritical()<<"Drag lift state"<<row<<(row?row->property("dragArmed"):QVariant())<<(row?row->property("dragOriginY"):QVariant())<<dragPosition<<mainWindow->property("toolPage")<<find("taskList")->property("visible");if(row){auto* hold=row->findChild<QObject*>(QStringLiteral("taskHoldDrag"));qCritical()<<"Hold area"<<hold<<(hold?hold->property("pressed"):QVariant());}capture(QStringLiteral("drag-lift-failure"));fail("long press drag lift feedback");return;}
                     QMouseEvent release(QEvent::MouseButtonRelease,dragPosition,mainWindow->mapToGlobal(dragPosition),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(mainWindow,&release);
                 } else if(phase==251) {
-                    if(m_workspace.taskIndex(dragSource)!=1 || mainWindow->property("draftDirty").toBool() || quick->property("editing").toBool()){fail("drag release reorders without opening editor");return;}m_workspace.reload();
+                    // The reorder is committed through the worker thread after the release event;
+        // sample it with a bounded wait instead of the first frame (macOS commits later).
+        if(m_workspace.taskIndex(dragSource)!=1 && inputClock->elapsed()<1500)return;
+        if(m_workspace.taskIndex(dragSource)!=1 || mainWindow->property("draftDirty").toBool() || quick->property("editing").toBool()){qCritical()<<"Drag reorder index"<<m_workspace.taskIndex(dragSource)<<mainWindow->property("draftDirty")<<quick->property("editing");fail("drag release reorders without opening editor");return;}m_workspace.reload();
                 } else if(phase==252) {
                     if(m_workspace.taskIndex(dragSource)!=1){fail("drag order persists");return;}m_workspace.setSearch(QStringLiteral("候选"));
                 } else if(phase==253) {
