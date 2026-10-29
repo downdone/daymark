@@ -104,7 +104,7 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==32){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         // The menu is created and shown asynchronously after openVerificationMenu();
         // sampling the first frame reports "closed" on slower/first-run platforms.
-        if(result=="closed" && m_wait.elapsed()<1500)return {};
+        if(result!="PASS" && m_wait.elapsed()<1500)return {};
         if(result!="PASS" || !capture(m_widget,"menu"))return fail("menu width: "+result.toString());QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_task=m_workspace.todayTasks()->items().first().id;m_completedRow=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_task));m_count=m_workspace.todayTasks()->rowCount();}
     else if(m_stage==33){auto* item=qobject_cast<QQuickItem*>(list);item->setProperty("currentIndex",0);item->forceActiveFocus();for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Space,Qt::NoModifier);QCoreApplication::sendEvent(item,&event);}}
     else if(m_stage==34){if(m_workspace.todayTasks()->rowCount()!=m_count-1 || (m_completedRow && m_completedRow->property("removing").toBool()) || m_workspace.task(m_task).value("taskStatus")!="COMPLETED")return fail("reduced motion keyboard completion without delayed removal");m_workspace.setTextScale(2);m_widget->resize(800,600);QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}

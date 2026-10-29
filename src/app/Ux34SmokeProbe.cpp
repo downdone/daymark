@@ -120,6 +120,10 @@ QString Ux34SmokeProbe::advance()
         auto* timelineItem=qobject_cast<QQuickItem*>(find("calendarTimeline"));
         const int dayMinutes=timelineItem ? int(timelineItem->property("timeline").toMap().value("minutes").toDouble()) : 0;
         const double scale=(dayMinutes>0 && day->height()>0) ? day->height()/dayMinutes : 0.8;
+        // The timeline is scrolled by earlier stages; a point that maps to the right
+        // hour but sits outside the viewport is never delivered to QML. Reveal 13:00
+        // first so the drop target is on screen on every platform.
+        if(timelineItem)QMetaObject::invokeMethod(timelineItem,"revealMinute",Q_ARG(QVariant,QVariant(13*60)));
         const auto to=day->mapToScene(QPointF(day->width()*0.3,13*60*scale));
         qInfo()<<"Drawer drop"<<"timeline" <<bool(timelineItem)<<"minutes"<<dayMinutes<<"dayH"<<day->height()<<"scale"<<scale<<"to"<<to;mouse(QEvent::MouseButtonPress,from,Qt::LeftButton,Qt::LeftButton);mouse(QEvent::MouseMove,to,Qt::NoButton,Qt::LeftButton);if(m_workspace.task(m_unscheduled)!=m_before)return fail("drawer preview wrote data");mouse(QEvent::MouseButtonRelease,to,Qt::LeftButton,Qt::NoButton);}
     else if(m_stage==22){const auto task=m_workspace.task(m_unscheduled);
