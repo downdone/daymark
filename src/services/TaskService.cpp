@@ -29,12 +29,13 @@ int QueryService::todayPeriod(const Task& task,const QDate& today)
 }
 bool QueryService::effectiveActive(const Task& t)
 {
-    return t.deletedAtUtc.isEmpty() && !t.areaArchived && t.status==QStringLiteral("OPEN") && t.planningState==QStringLiteral("ACTIVE")
+    return !t.syncRemoteDeletionPending && t.deletedAtUtc.isEmpty() && !t.areaArchived && t.status==QStringLiteral("OPEN") && t.planningState==QStringLiteral("ACTIVE")
         && (t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN") && t.projectPlanning==QStringLiteral("ACTIVE")));
 }
 bool QueryService::inView(const Task& input, const QString& view, const QDate& d)
 {
     const auto t=withUnifiedDates(input);
+    if(t.syncRemoteDeletionPending)return false;
     if(view==QStringLiteral("trash"))return !t.deletedAtUtc.isEmpty();
     if(!t.deletedAtUtc.isEmpty()) return false;
     if(view==QStringLiteral("cancelled"))return t.status==QStringLiteral("CANCELLED");
@@ -63,6 +64,7 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
 {
     QList<Task> output;
     for(const auto& task:tasks) {
+        if(task.syncRemoteDeletionPending)continue;
         if(!includeSubtasks && !task.parentTaskId.isEmpty())continue;
         const bool globalSearch=!search.isEmpty() && view!=QStringLiteral("logbook") && view!=QStringLiteral("completed") && view!=QStringLiteral("cancelled") && view!=QStringLiteral("trash");
         if(globalSearch) {
@@ -286,14 +288,15 @@ Result<Task> TaskService::editOne(const QString& id, qint64 version, const TaskP
             if(!t.startOn)t.startOn=m_clock.localToday();if(t.planningState==QStringLiteral("INBOX"))t.planningState=QStringLiteral("ACTIVE");
             r.anchor=*t.startOn;r.monthDay=r.anchor.day();r.yearMonth=r.anchor.month();r.title=t.title;r.notes=t.notes.isNull()?QStringLiteral(""):t.notes;r.id=QUuid::createUuid().toString(QUuid::WithoutBraces);r.sourceTaskId=t.id;r.rowVersion=1;r.active=true;
             if(r.interval<1 || r.interval>36500 || !QStringList{"DAILY","WEEKLY","MONTHLY","YEARLY","AFTER_DAYS"}.contains(r.frequency) || r.weekdays<0 || r.weekdays>127 || (r.frequency=="WEEKLY" && r.weekdays==0) || r.monthDay<1 || r.monthDay>31 || r.yearMonth<1 || r.yearMonth>12 || (r.frequency=="YEARLY" && !QDate(2000,r.yearMonth,r.monthDay).isValid()) || (r.end.isValid() && r.end<r.anchor))return Result<Task>::failure(ErrorCode::ValidationError,QStringLiteral("recurrenceInvalid"));
-            auto defaults=TaskRepository::seedFor(t);const auto previous=existing.value.repeat?QJsonDocument::fromJson(existing.value.repeat->defaultsJson.toUtf8()).object():QJsonObject();
+            if(r.frequency!=QStringLiteral("WEEKLY"))r.weekdays=0;
+            auto defaults=TaskRepository::seedFor(t);defaults.insert(QStringLiteral("recurrence_time_zone"),QString::fromUtf8(QTimeZone::systemTimeZoneId()));const auto previous=existing.value.repeat?QJsonDocument::fromJson(existing.value.repeat->defaultsJson.toUtf8()).object():QJsonObject();
             for(const auto& key:{QStringLiteral("legacy_event_task_id"),QStringLiteral("reminder_not_before_utc")})if(previous.contains(key))defaults.insert(key,previous.value(key));
             auto ancestors=previous.value(QStringLiteral("reminder_ancestors")).toArray(),sources=previous.value(QStringLiteral("reminder_sources")).toArray();
             if(!existing.value.recurrenceId.isEmpty() && !ancestors.contains(existing.value.recurrenceId))ancestors.append(existing.value.recurrenceId);
             if(!sources.contains(t.id))sources.append(t.id);if(existing.value.repeat && !existing.value.repeat->sourceTaskId.isEmpty() && !sources.contains(existing.value.repeat->sourceTaskId))sources.append(existing.value.repeat->sourceTaskId);
             defaults.insert(QStringLiteral("reminder_ancestors"),ancestors);defaults.insert(QStringLiteral("reminder_sources"),sources);
             defaults.insert(QStringLiteral("materialize_from"),(existing.value.recurrenceId.isEmpty()?qMax(m_clock.localToday(),r.anchor):t.repeatCutoff).toString(Qt::ISODate));
-            t.recurrenceId=r.id;t.occurrenceOn=r.anchor;r.defaultsJson=QString::fromUtf8(QJsonDocument(defaults).toJson(QJsonDocument::Compact));t.repeat=r;t.instanceOverridden=false;
+            t.recurrenceId=r.id;t.occurrenceOn=r.anchor;t.syncOccurrenceKey=QStringLiteral("D:")+r.anchor.toString(Qt::ISODate);t.syncOccurrenceOn=r.anchor;r.defaultsJson=QString::fromUtf8(QJsonDocument(defaults).toJson(QJsonDocument::Compact));t.repeat=r;t.instanceOverridden=false;
         }
     }
     const auto valid=validate(t);

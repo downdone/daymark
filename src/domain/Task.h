@@ -106,10 +106,15 @@ struct Task {
     QString reminderRepeat=QStringLiteral("NONE"),reminderAnchorUtc,reminderZone=QStringLiteral("UTC");
     int reminderEvery=1;
     QString recurrenceId;
+    QString syncOccurrenceKey;
+    QDate syncOccurrenceOn;
     QDate occurrenceOn;
     bool instanceOverridden=false;
     qint64 todayOrder=-1;
     bool projectDeleted = false;
+    // Read projection only: preserve the editable conflict candidate on disk,
+    // while a server deletion remains hidden until the user resolves it.
+    bool syncRemoteDeletionPending = false;
     bool operator==(const Task&) const = default;
 };
 

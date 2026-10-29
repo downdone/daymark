@@ -3,6 +3,7 @@
 #include <QTimeZone>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <algorithm>
 namespace daymark {
 QList<QDate> RecurrenceService::nextDates(const RecurrenceRule& rule,const QDate& from,int limit)
 {
@@ -56,24 +57,27 @@ Result<RecurrenceRule> RecurrenceService::save(RecurrenceRule r)
 }
 Result<void> RecurrenceService::stop(const QString& id,qint64 version,bool removeFuture)
 {return m_rules.stop(id,version,m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),removeFuture,m_clock.localToday());}
-Result<int> RecurrenceService::generate(const QDate& from,const QDate& through)
+Result<int> RecurrenceService::generate(const QDate& from,const QDate& through,const QStringList& completionPriority)
 {
     const auto rules=m_rules.all();if(!rules.ok())return {{},rules.error};
     const auto tasks=m_tasks.all();if(!tasks.ok())return {{},tasks.error};
     int generated=0;const auto today=m_clock.localToday();
     for(const auto& rule:rules.value) {
         if(!rule.active)continue;
-        QList<QDate> dates;QDate occurrenceKey;
+        if(!completionPriority.isEmpty() && (rule.frequency!=QStringLiteral("AFTER_DAYS") || !std::any_of(tasks.value.cbegin(),tasks.value.cend(),[&](const Task& t){return completionPriority.contains(t.id) && t.recurrenceId==rule.id && t.status==QStringLiteral("COMPLETED");})))continue;
+        QList<QDate> dates;QDate occurrenceKey;QString predecessorId;
         if(rule.frequency==QStringLiteral("AFTER_DAYS")) {
             bool hasOpen=false;QDateTime last;QDate highestOccurrence;
             for(const auto& task:tasks.value)if(task.recurrenceId==rule.id) {
                 if(task.status==QStringLiteral("OPEN") && task.deletedAtUtc.isEmpty())hasOpen=true;
                 highestOccurrence=qMax(highestOccurrence,task.occurrenceOn);
                 const auto completed=QDateTime::fromString(task.completedAtUtc,Qt::ISODateWithMs);
-                if(task.status==QStringLiteral("COMPLETED") && completed.isValid() && (!last.isValid() || completed>last))last=completed;
+                if(task.status==QStringLiteral("COMPLETED") && completed.isValid() && (!last.isValid() || completed>last || (completed==last && task.id<predecessorId))){last=completed;predecessorId=task.id;}
             }
+            if(!completionPriority.isEmpty()){QString preferred;for(const auto& task:tasks.value)if(task.recurrenceId==rule.id && task.status==QStringLiteral("COMPLETED") && completionPriority.contains(task.id) && (preferred.isEmpty() || task.id<preferred)){preferred=task.id;last=QDateTime::fromString(task.completedAtUtc,Qt::ISODateWithMs);predecessorId=task.id;}}
             if(!hasOpen) {
-                const auto next=last.isValid()?last.toLocalTime().date().addDays(rule.interval):rule.anchor;
+                const auto zoneId=QJsonDocument::fromJson(rule.defaultsJson.toUtf8()).object().value(QStringLiteral("recurrence_time_zone")).toString(QString::fromUtf8(QTimeZone::systemTimeZoneId()));const QTimeZone ruleZone(zoneId.toUtf8());if(!ruleZone.isValid())return Result<int>::failure(ErrorCode::ValidationError,QStringLiteral("recurrenceInvalid"));
+                const auto next=last.isValid()?last.toTimeZone(ruleZone).date().addDays(rule.interval):rule.anchor;
                 if(!rule.end.isValid() || next<=rule.end) {
                     dates.append(next);
                     // start_on is the schedule; occurrence_on is an immutable cycle identity.
@@ -85,7 +89,7 @@ Result<int> RecurrenceService::generate(const QDate& from,const QDate& through)
             const auto notBefore=QDate::fromString(QJsonDocument::fromJson(rule.defaultsJson.toUtf8()).object().value(QStringLiteral("materialize_from")).toString(),Qt::ISODate);
             for(auto date=qMax(qMax(rule.anchor,notBefore),(from.isValid()?from:today.addDays(-30)).addDays(-qMin(366,duration))),last=through.isValid()?through:today.addDays(30);date<=last;date=date.addDays(1))if(occursOn(rule,date))dates.append(date);
         }
-        const auto result=m_rules.materialize(rule,dates,m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),occurrenceKey);
+        const auto result=m_rules.materialize(rule,dates,m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),occurrenceKey,predecessorId);
         if(!result.ok())return result;generated+=result.value;
     }
     return {generated,{}};

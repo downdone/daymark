@@ -2,7 +2,9 @@
 
 ## 运行时组件
 
-Daymark 使用 Qt 6.10.2：Core、Gui、Qml、Quick、QuickControls2、Widgets、Sql、Network 及其 QML 运行模块。SQLite 由 Qt 的 QSQLITE 插件提供，未引入云 SDK、遥测或额外业务依赖。Windows 包另含 MinGW 运行时 libgcc、libstdc++、winpthread。
+Daymark 桌面使用 Qt 6.10.2：Core、Gui、Qml、Quick、QuickControls2、Widgets、Sql、Network 及其 QML 运行模块。桌面SQLite由Qt的QSQLITE插件提供，未引入云SDK或遥测。Windows包另含MinGW运行时libgcc、libstdc++、winpthread。
+
+可选服务端为独立Go1.27.0 module，直接依赖modernc.org/sqlite、golang.org/x/crypto、golang.org/x/sys及jsonschema/v6；必要性、版本、许可和替代方案见[ADR-029](ADR/029-server-runtime-dependencies.md)。13个选定直接/间接模块的原许可证/NOTICE见[server/licenses](../server/licenses/modules.json)，清单包含版本、Go sum及文本SHA256；CI验证清单与go.mod选定模块一致。SQLite引擎自身public domain与驱动/传递组件许可分开保留；发布服务二进制须同时分发该目录及Go工具链的适用声明。模块清单不是法律审查或生产部署认证。
 
 图标由本项目 QPainter/QML 绘制，或使用操作系统提供的字体字符；未复制 Things、Apple 字体或 SF Symbols 资源。UX-41 的 daymark 字标由本项目以 QML 矢量路径独立绘制，不捆绑外部字体资源。
 

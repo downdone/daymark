@@ -13,6 +13,7 @@
 #include <memory>
 #include <QWindow>
 #include <QTimeZone>
+#include <QJsonObject>
 
 namespace daymark {
 class QtWindowPlatform;
@@ -96,10 +97,25 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(QVariantMap preferences READ preferences NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap systemAccessibility READ systemAccessibility NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap backupInfo READ backupInfo NOTIFY stateChanged)
+    Q_PROPERTY(QVariantMap syncState READ syncState NOTIFY syncStateChanged)
+    Q_PROPERTY(bool syncApplyPaused READ syncApplyPaused WRITE setSyncApplyPaused NOTIFY syncApplyPausedChanged)
 public:
     explicit TaskWorkspace(QObject* parent=nullptr);
     ~TaskWorkspace() override;
     void start(const QString& databasePath);
+    QString databasePath() const {return m_path;}
+    QVariantMap syncState() const {return m_syncState;}
+    bool syncApplyPaused()const{return m_syncApplyPaused;}
+    void setSyncApplyPaused(bool paused){if(m_syncApplyPaused==paused)return;m_syncApplyPaused=paused;emit syncApplyPausedChanged();}
+    void setSyncState(const QVariantMap& state){m_syncState=state;emit syncStateChanged();}
+    void syncExecute(const QString& operation,const QJsonObject& input,std::function<void(Result<QJsonObject>)> completed);
+    void switchSyncDatabase(const QString& path,std::function<void(Result<void>)> completed);
+    Q_INVOKABLE void syncOpenProfile(const QString& id){emit syncActionRequested(QStringLiteral("open_profile"),{{"id",id}});}
+    Q_INVOKABLE void syncLogin(const QString& origin,const QString& login,const QString& password){emit syncActionRequested(QStringLiteral("login"),{{"origin",origin},{"login",login},{"password",password}});}
+    Q_INVOKABLE void syncLogout(){emit syncActionRequested(QStringLiteral("logout"),{});}
+    Q_INVOKABLE void syncNow(){emit syncActionRequested(QStringLiteral("now"),{});}
+    Q_INVOKABLE void syncRebuild(){emit syncActionRequested(QStringLiteral("rebuild"),{});}
+    Q_INVOKABLE void syncResolveConflict(const QString& id,const QString& decision){emit syncActionRequested(QStringLiteral("resolve"),{{"conflict_id",id},{"decision",decision}});}
     TaskListModel* tasks() { return &m_tasks; }
     TaskListModel* todayTasks() { return &m_todayTasks; }
     TaskListModel* deadlineTasks() {return &m_deadlineTasks;}
@@ -251,6 +267,9 @@ public:
     Q_INVOKABLE bool moveCatalog(const QString& kind,const QString& id,qint64 version,int direction);
     Q_INVOKABLE bool saveDetails(const QString& id,qint64 version,const QVariantMap& details);
 signals:
+    void syncStateChanged();
+    void syncApplyPausedChanged();
+    void syncActionRequested(const QString& action,const QVariantMap& values);
     void stateChanged();
     void interactionActiveChanged();
     void categoryRelocated(const QString& id);
@@ -261,6 +280,8 @@ signals:
     void historyChanged();
     void reminderReady(const QString& title,const QString& message);
 private:
+    QVariantMap m_syncState{{"phase",QStringLiteral("GUEST")},{"status",QStringLiteral("仅存储在此设备")},{"authenticated",false},{"busy",false}};
+    bool m_syncApplyPaused=false;
     QVariantList m_taskEditHistory;
     QVariantList m_lastBatchDeleted;
     QVariantMap timelineInZone(const QString& anchor,bool week,bool scoped,const QTimeZone& zone,const QString& omittedTask) const;

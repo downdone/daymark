@@ -7,9 +7,10 @@
 | 项 | 值 |
 |---|---|
 | 应用版本 | 1.1.0（`CMakeLists.txt` 与 `DAYMARK_VERSION`） |
-| 数据库 schema | 9 |
+| 数据库 schema | 10（追加账号/同步元数据，历史1～9未覆盖） |
 | 平台目标 | Windows 10/11 x64、macOS 13+ |
 | 技术栈 | C++20、Qt 6.10.2（LGPLv3 动态链接）、SQLite（QSQLITE） |
+| 可选服务 | Go1.27.0单体 + SQLite3.54.1；HTTP/JSON v1，见[服务指南](../server/README.md) |
 
 ## 构建与测试
 
@@ -21,11 +22,14 @@
 | macOS（CI，`macos-15`） | 构建、测试、QML lint 通过 |
 | QML lint | `daymark_qmllint`、`daymark_style_qmllint` 通过 |
 
-CI 双平台全绿：[run 40684920204](https://github.com/downdone/daymark/actions/runs/40684920204)（2026-10-28）。
+上述桌面CI是同步改动前的已验证基线：[run 40684920204](https://github.com/downdone/daymark/actions/runs/40684920204)（2026-10-28）。新增同步workflow及当前源码须以新一次GitHub检查为准，不沿用旧run宣称通过。
+
+账号/同步实现包含本地队列、完整批次应用、冲突、首次合并/大组、系统凭据、账号隔离与备份恢复。Go包测试/vet/race及真实两个Qt工作区↔Go TLS联调已有本机PASS；具体范围、最后修改后的门禁及未验证项见[PROGRESS](PROGRESS.md)与[实现验证清单](sync-verification.md)。源码实现不表示服务已部署。
 
 ## 已知问题
 
 - 平台专属门禁仍未验收：macOS 物理输入、读屏、通知、穿透、多屏/睡眠、干净机部署与签名。CI 通过不等于这些门禁通过。
+- 同步专项尚需原生平台验收：macOS Keychain、账号表单/冲突的完整原生键盘/200%/读屏、真实异机备份与断电恢复；未对私人资料或生产账号做测试。
 
 ## 报告规则
 

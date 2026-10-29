@@ -1,0 +1,140 @@
+{
+  "encoding": "daymark-canonical-1",
+  "purpose": "design fixtures for future Go/Qt unit tests",
+  "integer_semantics": "int64; protocol revisions remain strings",
+  "cases": [
+    {
+      "id": "null",
+      "semantic": null,
+      "expected_hex": "00",
+      "expected_sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+    },
+    {
+      "id": "false",
+      "semantic": false,
+      "expected_hex": "01",
+      "expected_sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a"
+    },
+    {
+      "id": "true",
+      "semantic": true,
+      "expected_hex": "02",
+      "expected_sha256": "dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986"
+    },
+    {
+      "id": "empty-string",
+      "semantic": "",
+      "expected_hex": "0300000000",
+      "expected_sha256": "a665e6b115dd56fd3e0c89be631e6eda8e9666b822e0bd7026bf0822c4bbc68f"
+    },
+    {
+      "id": "ascii",
+      "semantic": "A",
+      "expected_hex": "030000000141",
+      "expected_sha256": "2f5eed1c55015004a72296b9a0bf3644c820361c54ebc07a3c5ad70dbced6890"
+    },
+    {
+      "id": "unicode",
+      "semantic": "中",
+      "expected_hex": "0300000003e4b8ad",
+      "expected_sha256": "71039933ee01c95288026b3a87fe73b432cba72507122ef3f53080d8d76caff9"
+    },
+    {
+      "id": "one",
+      "semantic": 1,
+      "expected_hex": "040000000000000001",
+      "expected_sha256": "ac6aaa206e0db5e58df5a9b6c7099497dde6594faf10d625d5dc1f01feb47be0"
+    },
+    {
+      "id": "negative-one",
+      "semantic": -1,
+      "expected_hex": "04ffffffffffffffff",
+      "expected_sha256": "0806653bb73f9922b047d694edd1750c506c086957c9ee0608ddd1856d207de5"
+    },
+    {
+      "id": "empty-array",
+      "semantic": [],
+      "expected_hex": "0600000000",
+      "expected_sha256": "b45482224b439a3d548c65378929b7dcc16a42288530b7b20d5c8103cc879d10"
+    },
+    {
+      "id": "empty-object",
+      "semantic": {},
+      "expected_hex": "0500000000",
+      "expected_sha256": "49e8e3297545c15ab6a79471a7a34d43e24a8f1cb25ea3d8417c61f699267a3f"
+    },
+    {
+      "id": "array-order",
+      "semantic": [
+        null,
+        true
+      ],
+      "expected_hex": "06000000020002",
+      "expected_sha256": "3d7038ac3c3f8fa93fc868596f50d9315a7719523ba09f58732cb0878754c338"
+    },
+    {
+      "id": "sorted-object",
+      "semantic": {
+        "b": false,
+        "a": "A"
+      },
+      "expected_hex": "050000000203000000016103000000014103000000016201",
+      "expected_sha256": "1300c642337d94627b07cf90bb49351041de0a41c280a42c1efd959d96448259"
+    },
+    {
+      "id": "utf8-key-order",
+      "semantic": {
+        "😀": true,
+        "": false
+      },
+      "expected_hex": "05000000020300000003ee8080010300000004f09f988002",
+      "expected_sha256": "dea1be33da31d9f9c561a4bedc5d99207c4057daaf72d5fe3b0f60f7d0331c96"
+    },
+    {
+      "id": "composed-unicode",
+      "semantic": "é",
+      "expected_hex": "0300000002c3a9",
+      "expected_sha256": "8a3a76ae6dbcd360810dc3e06046db9a3a0f9f454d7f0f12f3749f3e26fb48ca"
+    },
+    {
+      "id": "decomposed-unicode",
+      "semantic": "é",
+      "expected_hex": "030000000365cc81",
+      "expected_sha256": "9b1f59d8801f0d7781c4d9155b766d762dec79cf2548bc345debd24cec2b45fc"
+    },
+    {
+      "id": "normalized-push",
+      "semantic": {
+        "protocol_version": 1,
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "installation_id": "44444444-4444-4444-8444-444444444444",
+        "client_seq": "18",
+        "preconditions": {
+          "entities": [
+            {
+              "type": "task",
+              "id": "55555555-5555-4555-8555-555555555555",
+              "revision": "3"
+            }
+          ],
+          "structures": []
+        },
+        "commands": [
+          {
+            "type": "task.patch",
+            "task_id": "55555555-5555-4555-8555-555555555555",
+            "patch": {
+              "title": "设计样例任务",
+              "deadline_on": null
+            },
+            "event_at_utc": "2026-10-28T08:00:00.000Z"
+          }
+        ],
+        "dataset_id": "20000000-0000-4000-8000-000000000001"
+      },
+      "expected_hex": "0500000008030000000a636c69656e745f736571030000000231380300000008636f6d6d616e647306000000010500000004030000000c6576656e745f61745f7574630300000018323032362d31302d32385430383a30303a30302e3030305a030000000570617463680500000002030000000b646561646c696e655f6f6e0003000000057469746c650300000012e8aebee8aea1e6a0b7e4be8be4bbbbe58aa103000000077461736b5f6964030000002435353535353535352d353535352d343535352d383535352d353535353535353535353535030000000474797065030000000a7461736b2e7061746368030000000a646174615f65706f6368030000002432323232323232322d323232322d343232322d383232322d323232323232323232323232030000000a646174617365745f6964030000002432303030303030302d303030302d343030302d383030302d303030303030303030303031030000000f696e7374616c6c6174696f6e5f6964030000002434343434343434342d343434342d343434342d383434342d343434343434343434343434030000000b6d75746174696f6e5f6964030000002433333333333333332d333333332d343333332d383333332d333333333333333333333333030000000d707265636f6e646974696f6e7305000000020300000008656e7469746965730600000001050000000303000000026964030000002435353535353535352d353535352d343535352d383535352d35353535353535353535353503000000087265766973696f6e03000000013303000000047479706503000000047461736b030000000a737472756374757265730600000000030000001070726f746f636f6c5f76657273696f6e040000000000000001",
+      "expected_sha256": "dc5dd7b3eb7d7fa3cb4dc27ffddc8eae4d5e87e816298a155a4abd9c67a39e45"
+    }
+  ]
+}

@@ -1,0 +1,1276 @@
+{
+  "description": "Synthetic design Schema cases only. Codec/domain cases below are planned, not executed by JSON Schema validation.",
+  "schema_cases": [
+    {
+      "id": "valid-task.create",
+      "schema": "TaskCreate",
+      "valid": true,
+      "value": {
+        "type": "task.create",
+        "task_id": "00000001-0000-4000-8000-000000000001",
+        "title": "合成任务",
+        "initial": {},
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-task.patch",
+      "schema": "TaskPatchCommand",
+      "valid": true,
+      "value": {
+        "type": "task.patch",
+        "task_id": "00000001-0000-4000-8000-000000000001",
+        "patch": {
+          "deadline_on": null,
+          "notes": ""
+        },
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-task.change_state",
+      "schema": "TaskChangeState",
+      "valid": true,
+      "value": {
+        "type": "task.change_state",
+        "task_ids": [
+          "00000001-0000-4000-8000-000000000001"
+        ],
+        "action": "complete",
+        "group_id": "00000010-0000-4000-8000-000000000001",
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-task.move_tree",
+      "schema": "TaskMoveTree",
+      "valid": true,
+      "value": {
+        "type": "task.move_tree",
+        "task_id": "00000001-0000-4000-8000-000000000001",
+        "category_id": null,
+        "parent_task_id": null,
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-category.save",
+      "schema": "CategorySave",
+      "valid": true,
+      "value": {
+        "type": "category.save",
+        "category_id": "00000002-0000-4000-8000-000000000001",
+        "title": "分类",
+        "description": "",
+        "color_key": "neutral",
+        "archived": false,
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-category.relocate",
+      "schema": "CategoryRelocate",
+      "valid": true,
+      "value": {
+        "type": "category.relocate",
+        "category_id": "00000002-0000-4000-8000-000000000001",
+        "target_id": "00000003-0000-4000-8000-000000000001",
+        "placement": "before",
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-category.remove",
+      "schema": "CategoryRemove",
+      "valid": true,
+      "value": {
+        "type": "category.remove",
+        "category_id": "00000002-0000-4000-8000-000000000001",
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-tag.save",
+      "schema": "TagSave",
+      "valid": true,
+      "value": {
+        "type": "tag.save",
+        "tag_id": "00000003-0000-4000-8000-000000000001",
+        "title": "标签",
+        "color_key": "blue",
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-tag.remove",
+      "schema": "TagRemove",
+      "valid": true,
+      "value": {
+        "type": "tag.remove",
+        "tag_id": "00000003-0000-4000-8000-000000000001",
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-recurrence.replace",
+      "schema": "RecurrenceReplace",
+      "valid": true,
+      "value": {
+        "type": "recurrence.replace",
+        "source_task_id": "00000001-0000-4000-8000-000000000001",
+        "new_rule_id": "00000004-0000-4000-8000-000000000001",
+        "rule": {
+          "mode": "FIXED",
+          "frequency": "DAILY",
+          "interval": 1,
+          "anchor_on": "2030-01-01",
+          "end_on": null,
+          "weekdays_mask": 0,
+          "month_day": 1,
+          "year_month": 1,
+          "time_zone": "Asia/Shanghai",
+          "defaults": {
+            "template_version": 1,
+            "title": "合成循环样例",
+            "notes": "",
+            "planning_state": "ACTIVE",
+            "category_id": null,
+            "parent_task_id": null,
+            "today_focus": false,
+            "evening": false,
+            "pinned": false,
+            "important": false,
+            "tag_ids": [],
+            "links": [],
+            "start_day_offset": 0,
+            "deadline_day_offset": 0,
+            "schedule": null,
+            "reminder": null
+          }
+        },
+        "cutoff_on": "2030-01-01",
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-recurrence.stop",
+      "schema": "RecurrenceStop",
+      "valid": true,
+      "value": {
+        "type": "recurrence.stop",
+        "rule_id": "00000004-0000-4000-8000-000000000001",
+        "remove_future": false,
+        "cutoff_on": "2030-01-01",
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-recurrence.materialize",
+      "schema": "RecurrenceMaterialize",
+      "valid": true,
+      "value": {
+        "type": "recurrence.materialize",
+        "rule_id": "00000004-0000-4000-8000-000000000001",
+        "from_on": "2030-01-01",
+        "through_on": "2030-01-01",
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-ordering.replace",
+      "schema": "OrderingReplace",
+      "valid": true,
+      "value": {
+        "type": "ordering.replace",
+        "scope_id": "00000011-0000-4000-8000-000000000001",
+        "kind": "today",
+        "subject_id": null,
+        "member_ids": [
+          "00000001-0000-4000-8000-000000000001"
+        ],
+        "ordered_ids": [
+          "00000001-0000-4000-8000-000000000001"
+        ],
+        "event_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "markdown-Capabilities",
+      "schema": "Capabilities",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "server_instance_id": "00000001-0000-4000-8000-000000000001",
+        "supported_protocol_versions": [
+          1
+        ],
+        "supported_dto_versions": [
+          1
+        ],
+        "dto_version": 1,
+        "command_types": [
+          "task.create",
+          "task.patch",
+          "task.change_state",
+          "task.move_tree",
+          "category.save",
+          "category.relocate",
+          "category.remove",
+          "tag.save",
+          "tag.remove",
+          "recurrence.replace",
+          "recurrence.stop",
+          "recurrence.materialize",
+          "ordering.replace"
+        ],
+        "max_inline_bytes": 1048576,
+        "max_inline_commands": 64,
+        "max_inline_entities": 512,
+        "max_chunk_bytes": 262144,
+        "max_job_bytes": "67108864",
+        "max_batch_reassembly_bytes": "268435456",
+        "features": {
+          "staged_payloads": false,
+          "snapshots": false,
+          "imports": false,
+          "account_export": false,
+          "account_deletion": false
+        }
+      }
+    },
+    {
+      "id": "markdown-PushRequest",
+      "schema": "PushRequest",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "installation_id": "44444444-4444-4444-8444-444444444444",
+        "client_seq": "18",
+        "preconditions": {
+          "entities": [
+            {
+              "type": "task",
+              "id": "55555555-5555-4555-8555-555555555555",
+              "revision": "3"
+            }
+          ],
+          "structures": []
+        },
+        "commands": [
+          {
+            "type": "task.patch",
+            "task_id": "55555555-5555-4555-8555-555555555555",
+            "patch": {
+              "title": "设计样例任务",
+              "deadline_on": null
+            },
+            "event_at_utc": "2026-10-28T08:00:00.000Z"
+          }
+        ]
+      }
+    },
+    {
+      "id": "markdown-Receipt",
+      "schema": "Receipt",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "result": "committed",
+        "batch_seq": "28",
+        "observed_head_seq": "28",
+        "entity_revisions": [
+          {
+            "type": "task",
+            "id": "55555555-5555-4555-8555-555555555555",
+            "revision": "4"
+          }
+        ],
+        "structure_revisions": [],
+        "committed_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "markdown-PullResponse",
+      "schema": "PullResponse",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "through_seq": "28",
+        "batches": [
+          {
+            "batch": {
+              "seq": "28",
+              "origin_mutation_id": "33333333-3333-4333-8333-333333333333",
+              "origin_installation_id": "44444444-4444-4444-8444-444444444444",
+              "changes": [
+                {
+                  "type": "task",
+                  "id": "55555555-5555-4555-8555-555555555555",
+                  "revision": "4",
+                  "operation": "replace",
+                  "value": {
+                    "id": "55555555-5555-4555-8555-555555555555",
+                    "title": "设计样例任务",
+                    "notes": "",
+                    "planning_state": "ACTIVE",
+                    "status": "OPEN",
+                    "today_focus": false,
+                    "evening": false,
+                    "pinned": false,
+                    "important": false,
+                    "category_id": null,
+                    "parent_task_id": null,
+                    "start_on": null,
+                    "deadline_on": null,
+                    "created_at_utc": "2026-10-28T07:00:00.000Z",
+                    "updated_at_utc": "2026-10-28T08:00:00.000Z",
+                    "completed_at_utc": null,
+                    "cancelled_at_utc": null,
+                    "deleted_at_utc": null,
+                    "deletion_group_id": null,
+                    "completion_group_id": null,
+                    "schedule": null,
+                    "reminder": null,
+                    "recurrence_id": null,
+                    "occurrence_on": null,
+                    "occurrence_key": null,
+                    "instance_overridden": false,
+                    "legacy_metadata": null,
+                    "tag_ids": [],
+                    "links": []
+                  }
+                }
+              ],
+              "structure_revisions": [],
+              "committed_at_utc": "2026-10-28T08:00:00.000Z",
+              "aliases": [],
+              "successor_edges": []
+            },
+            "after_cursor": "example-opaque-cursor"
+          }
+        ],
+        "next_cursor": "example-opaque-cursor",
+        "has_more": false
+      }
+    },
+    {
+      "id": "markdown-Problem",
+      "schema": "Problem",
+      "valid": true,
+      "value": {
+        "type": "urn:daymark:problem:revision-conflict",
+        "title": "Revision conflict",
+        "status": 409,
+        "instance": "urn:daymark:request:66666666-6666-4666-8666-666666666666",
+        "code": "revision_conflict",
+        "retryable": false,
+        "conflicts": [
+          {
+            "type": "task",
+            "id": "55555555-5555-4555-8555-555555555555",
+            "expected_revision": "3",
+            "actual_revision": "4"
+          }
+        ]
+      }
+    },
+    {
+      "id": "valid-boundary-1",
+      "schema": "TaskPatch",
+      "valid": true,
+      "value": {
+        "title": "set"
+      }
+    },
+    {
+      "id": "valid-boundary-2",
+      "schema": "TaskPatch",
+      "valid": true,
+      "value": {
+        "deadline_on": null
+      }
+    },
+    {
+      "id": "valid-boundary-3",
+      "schema": "TaskPatch",
+      "valid": true,
+      "value": {
+        "tag_ids": []
+      }
+    },
+    {
+      "id": "valid-boundary-4",
+      "schema": "TaskPatch",
+      "valid": true,
+      "value": {
+        "tag_ids": null
+      }
+    },
+    {
+      "id": "valid-boundary-5",
+      "schema": "Counter",
+      "valid": true,
+      "value": "0"
+    },
+    {
+      "id": "valid-boundary-6",
+      "schema": "Counter",
+      "valid": true,
+      "value": "9223372036854775807"
+    },
+    {
+      "id": "valid-boundary-7",
+      "schema": "Date",
+      "valid": true,
+      "value": "2000-02-29"
+    },
+    {
+      "id": "valid-boundary-8",
+      "schema": "Schedule",
+      "valid": true,
+      "value": {
+        "kind": "ALL_DAY",
+        "start_on": "2030-01-01",
+        "end_on": "2030-01-02"
+      }
+    },
+    {
+      "id": "valid-boundary-9",
+      "schema": "Schedule",
+      "valid": true,
+      "value": {
+        "kind": "TIMED",
+        "start_at_utc": "2026-10-28T08:00:00.000Z",
+        "end_at_utc": "2026-10-28T09:00:00.000Z",
+        "time_zone": "Asia/Shanghai"
+      }
+    },
+    {
+      "id": "valid-boundary-10",
+      "schema": "Reminder",
+      "valid": true,
+      "value": {
+        "kind": "RELATIVE",
+        "minutes_before": 15,
+        "repeat": "NONE",
+        "every": 1,
+        "time_zone": "Asia/Shanghai"
+      }
+    },
+    {
+      "id": "valid-boundary-11",
+      "schema": "Reminder",
+      "valid": true,
+      "value": {
+        "kind": "ABSOLUTE",
+        "anchor_at_utc": "2026-10-28T08:00:00.000Z",
+        "repeat": "MONTHLY",
+        "every": 1,
+        "time_zone": "Asia/Shanghai"
+      }
+    },
+    {
+      "id": "valid-full-task",
+      "schema": "Task",
+      "valid": true,
+      "value": {
+        "id": "55555555-5555-4555-8555-555555555555",
+        "title": "设计样例任务",
+        "notes": "",
+        "planning_state": "ACTIVE",
+        "status": "OPEN",
+        "today_focus": false,
+        "evening": false,
+        "pinned": false,
+        "important": false,
+        "category_id": null,
+        "parent_task_id": null,
+        "start_on": null,
+        "deadline_on": null,
+        "created_at_utc": "2026-10-28T07:00:00.000Z",
+        "updated_at_utc": "2026-10-28T08:00:00.000Z",
+        "completed_at_utc": null,
+        "cancelled_at_utc": null,
+        "deleted_at_utc": null,
+        "deletion_group_id": null,
+        "completion_group_id": null,
+        "schedule": null,
+        "reminder": null,
+        "recurrence_id": null,
+        "occurrence_on": null,
+        "occurrence_key": null,
+        "instance_overridden": false,
+        "legacy_metadata": null,
+        "tag_ids": [],
+        "links": []
+      }
+    },
+    {
+      "id": "valid-no-op",
+      "schema": "Receipt",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "result": "no_op",
+        "batch_seq": null,
+        "observed_head_seq": "28",
+        "entity_revisions": [
+          {
+            "type": "task",
+            "id": "55555555-5555-4555-8555-555555555555",
+            "revision": "4"
+          }
+        ],
+        "structure_revisions": [],
+        "committed_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-response-metadata",
+      "schema": "Receipt",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "result": "no_op",
+        "batch_seq": null,
+        "observed_head_seq": "28",
+        "entity_revisions": [
+          {
+            "type": "task",
+            "id": "55555555-5555-4555-8555-555555555555",
+            "revision": "4"
+          }
+        ],
+        "structure_revisions": [],
+        "committed_at_utc": "2026-10-28T08:00:00.000Z",
+        "metadata": {
+          "future_diagnostic": true
+        }
+      }
+    },
+    {
+      "id": "valid-staged-push",
+      "schema": "PushRequest",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "installation_id": "44444444-4444-4444-8444-444444444444",
+        "client_seq": "18",
+        "payload_ref": {
+          "job_id": "00000011-0000-4000-8000-000000000001",
+          "canonical_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "id": "valid-login",
+      "schema": "LoginRequest",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "login": "synthetic@example.invalid",
+        "password": "synthetic-only-password",
+        "installation_id": "00000006-0000-4000-8000-000000000001",
+        "device_name": "synthetic-device",
+        "platform": "windows"
+      }
+    },
+    {
+      "id": "valid-deletion-prepare",
+      "schema": "DeletionPrepare",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "operation_id": "00000010-0000-4000-8000-000000000001",
+        "current_password": "synthetic-only-password"
+      }
+    },
+    {
+      "id": "valid-deletion-intent",
+      "schema": "DeletionIntent",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "operation_id": "00000010-0000-4000-8000-000000000001",
+        "deletion_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "confirm_until_utc": "2026-10-28T08:05:00.000Z",
+        "expires_at_utc": "2026-11-27T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-deletion-confirm",
+      "schema": "DeletionConfirm",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "operation_id": "00000010-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "valid-deletion-status",
+      "schema": "DeletionStatus",
+      "valid": true,
+      "value": {
+        "protocol_version": 1,
+        "operation_id": "00000010-0000-4000-8000-000000000001",
+        "state": "PENDING_LEDGER",
+        "updated_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "valid-snapshot",
+      "schema": "SnapshotPayload",
+      "valid": true,
+      "value": {
+        "dto_version": 1,
+        "dataset_id": "00000008-0000-4000-8000-000000000001",
+        "data_epoch": "00000007-0000-4000-8000-000000000001",
+        "cutoff_seq": "0",
+        "entities": [],
+        "structure_revisions": [],
+        "aliases": [],
+        "successor_edges": []
+      }
+    },
+    {
+      "id": "valid-export",
+      "schema": "ExportBundle",
+      "valid": true,
+      "value": {
+        "export_format_version": 1,
+        "datasets": [
+          {
+            "dto_version": 1,
+            "dataset_id": "00000008-0000-4000-8000-000000000001",
+            "data_epoch": "00000007-0000-4000-8000-000000000001",
+            "cutoff_seq": "0",
+            "entities": [],
+            "structure_revisions": [],
+            "aliases": [],
+            "successor_edges": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "valid-import",
+      "schema": "ImportPayload",
+      "valid": true,
+      "value": {
+        "dto_version": 1,
+        "base_head_seq": "0",
+        "entities": [],
+        "aliases": [],
+        "successor_edges": []
+      }
+    },
+    {
+      "id": "invalid-1",
+      "schema": "TaskPatch",
+      "valid": false,
+      "value": {
+        "title": null
+      }
+    },
+    {
+      "id": "invalid-2",
+      "schema": "TaskPatch",
+      "valid": false,
+      "value": {
+        "notes": null
+      }
+    },
+    {
+      "id": "invalid-3",
+      "schema": "TaskPatch",
+      "valid": false,
+      "value": {
+        "pinned": null
+      }
+    },
+    {
+      "id": "invalid-4",
+      "schema": "TaskPatch",
+      "valid": false,
+      "value": {}
+    },
+    {
+      "id": "invalid-5",
+      "schema": "TaskPatch",
+      "valid": false,
+      "value": {
+        "server_revision": "5"
+      }
+    },
+    {
+      "id": "invalid-6",
+      "schema": "TaskPatch",
+      "valid": false,
+      "value": {
+        "tag_ids": [
+          "00000003-0000-4000-8000-000000000001",
+          "00000003-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    {
+      "id": "invalid-7",
+      "schema": "TaskInitial",
+      "valid": false,
+      "value": {
+        "title": "duplicate authority"
+      }
+    },
+    {
+      "id": "invalid-8",
+      "schema": "Counter",
+      "valid": false,
+      "value": "9223372036854775808"
+    },
+    {
+      "id": "invalid-9",
+      "schema": "Counter",
+      "valid": false,
+      "value": "00"
+    },
+    {
+      "id": "invalid-10",
+      "schema": "Counter",
+      "valid": false,
+      "value": 7
+    },
+    {
+      "id": "invalid-11",
+      "schema": "PositiveCounter",
+      "valid": false,
+      "value": "0"
+    },
+    {
+      "id": "invalid-12",
+      "schema": "ID",
+      "valid": false,
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "id": "invalid-13",
+      "schema": "ID",
+      "valid": false,
+      "value": "AB000000-0000-4000-8000-000000000001"
+    },
+    {
+      "id": "invalid-14",
+      "schema": "Date",
+      "valid": false,
+      "value": "0000-01-01"
+    },
+    {
+      "id": "invalid-15",
+      "schema": "Date",
+      "valid": false,
+      "value": "2030-02-30"
+    },
+    {
+      "id": "invalid-16",
+      "schema": "Instant",
+      "valid": false,
+      "value": "2026-10-28T08:00:00Z"
+    },
+    {
+      "id": "invalid-17",
+      "schema": "Instant",
+      "valid": false,
+      "value": "2026-10-28T08:00:00.000+00:00"
+    },
+    {
+      "id": "invalid-18",
+      "schema": "Title",
+      "valid": false,
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "id": "invalid-19",
+      "schema": "Command",
+      "valid": false,
+      "value": {
+        "type": "entity.upsert",
+        "id": "00000001-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "invalid-20",
+      "schema": "TaskPatchCommand",
+      "valid": false,
+      "value": {
+        "type": "task.patch",
+        "task_id": "00000001-0000-4000-8000-000000000001",
+        "patch": {
+          "deadline_on": null,
+          "notes": ""
+        }
+      }
+    },
+    {
+      "id": "invalid-21",
+      "schema": "Schedule",
+      "valid": false,
+      "value": {
+        "kind": "TIMED",
+        "start_on": "2030-01-01",
+        "end_on": "2030-01-02"
+      }
+    },
+    {
+      "id": "invalid-22",
+      "schema": "Schedule",
+      "valid": false,
+      "value": {
+        "kind": "ALL_DAY",
+        "start_on": "2030-01-01",
+        "end_on": "2030-01-02",
+        "time_zone": "UTC"
+      }
+    },
+    {
+      "id": "invalid-23",
+      "schema": "Reminder",
+      "valid": false,
+      "value": {
+        "kind": "RELATIVE",
+        "minutes_before": 10,
+        "repeat": "NONE",
+        "every": 1,
+        "time_zone": "UTC"
+      }
+    },
+    {
+      "id": "invalid-24",
+      "schema": "Task",
+      "valid": false,
+      "value": {
+        "id": "55555555-5555-4555-8555-555555555555",
+        "title": "设计样例任务",
+        "notes": "",
+        "planning_state": "ACTIVE",
+        "status": "OPEN",
+        "today_focus": false,
+        "evening": false,
+        "pinned": false,
+        "important": false,
+        "category_id": null,
+        "parent_task_id": null,
+        "start_on": null,
+        "deadline_on": null,
+        "created_at_utc": "2026-10-28T07:00:00.000Z",
+        "updated_at_utc": "2026-10-28T08:00:00.000Z",
+        "completed_at_utc": null,
+        "cancelled_at_utc": null,
+        "deleted_at_utc": null,
+        "deletion_group_id": null,
+        "completion_group_id": null,
+        "schedule": null,
+        "reminder": null,
+        "recurrence_id": null,
+        "occurrence_on": null,
+        "occurrence_key": null,
+        "instance_overridden": false,
+        "legacy_metadata": null,
+        "tag_ids": []
+      }
+    },
+    {
+      "id": "invalid-25",
+      "schema": "Task",
+      "valid": false,
+      "value": {
+        "id": "55555555-5555-4555-8555-555555555555",
+        "title": "设计样例任务",
+        "notes": "",
+        "planning_state": "ACTIVE",
+        "status": "OPEN",
+        "today_focus": false,
+        "evening": false,
+        "pinned": false,
+        "important": false,
+        "category_id": null,
+        "parent_task_id": null,
+        "start_on": null,
+        "deadline_on": null,
+        "created_at_utc": "2026-10-28T07:00:00.000Z",
+        "updated_at_utc": "2026-10-28T08:00:00.000Z",
+        "completed_at_utc": null,
+        "cancelled_at_utc": null,
+        "deleted_at_utc": null,
+        "deletion_group_id": null,
+        "completion_group_id": null,
+        "schedule": null,
+        "reminder": null,
+        "recurrence_id": null,
+        "occurrence_on": null,
+        "occurrence_key": null,
+        "instance_overridden": false,
+        "legacy_metadata": null,
+        "tag_ids": [],
+        "links": null
+      }
+    },
+    {
+      "id": "invalid-26",
+      "schema": "PushRequest",
+      "valid": false,
+      "value": {
+        "protocol_version": 1,
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "installation_id": "44444444-4444-4444-8444-444444444444",
+        "client_seq": "18",
+        "payload_ref": {
+          "job_id": "00000011-0000-4000-8000-000000000001",
+          "canonical_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "commands": [
+          [
+            "TaskCreate",
+            {
+              "type": "task.create",
+              "task_id": "00000001-0000-4000-8000-000000000001",
+              "title": "合成任务",
+              "initial": {},
+              "event_at_utc": "2026-10-28T08:00:00.000Z"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "id": "invalid-27",
+      "schema": "Receipt",
+      "valid": false,
+      "value": {
+        "protocol_version": 1,
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "result": "no_op",
+        "batch_seq": null,
+        "observed_head_seq": "28",
+        "entity_revisions": [
+          {
+            "type": "task",
+            "id": "55555555-5555-4555-8555-555555555555",
+            "revision": "4"
+          }
+        ],
+        "structure_revisions": [],
+        "committed_at_utc": "2026-10-28T08:00:00.000Z",
+        "unexpected_business_field": 1
+      }
+    },
+    {
+      "id": "invalid-28",
+      "schema": "DeletionConfirm",
+      "valid": false,
+      "value": {
+        "protocol_version": 1,
+        "operation_id": "00000010-0000-4000-8000-000000000001",
+        "password": "forbidden"
+      }
+    },
+    {
+      "id": "invalid-29",
+      "schema": "TaskTemplate",
+      "valid": false,
+      "value": {
+        "template_version": 1,
+        "title": "合成循环样例",
+        "notes": "",
+        "planning_state": "ACTIVE",
+        "category_id": null,
+        "parent_task_id": null,
+        "today_focus": false,
+        "evening": false,
+        "pinned": false,
+        "important": false,
+        "tag_ids": [],
+        "links": [],
+        "start_day_offset": 0,
+        "deadline_day_offset": 0,
+        "schedule": null,
+        "reminder": null,
+        "id": "00000001-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "id": "invalid-30",
+      "schema": "ChangeBatch",
+      "valid": false,
+      "value": {
+        "seq": "28",
+        "origin_mutation_id": "33333333-3333-4333-8333-333333333333",
+        "origin_installation_id": "44444444-4444-4444-8444-444444444444",
+        "changes": [
+          {
+            "type": "task",
+            "id": "55555555-5555-4555-8555-555555555555",
+            "revision": "4",
+            "operation": "replace",
+            "value": {
+              "id": "55555555-5555-4555-8555-555555555555",
+              "title": "设计样例任务",
+              "notes": "",
+              "planning_state": "ACTIVE",
+              "status": "OPEN",
+              "today_focus": false,
+              "evening": false,
+              "pinned": false,
+              "important": false,
+              "category_id": null,
+              "parent_task_id": null,
+              "start_on": null,
+              "deadline_on": null,
+              "created_at_utc": "2026-10-28T07:00:00.000Z",
+              "updated_at_utc": "2026-10-28T08:00:00.000Z",
+              "completed_at_utc": null,
+              "cancelled_at_utc": null,
+              "deleted_at_utc": null,
+              "deletion_group_id": null,
+              "completion_group_id": null,
+              "schedule": null,
+              "reminder": null,
+              "recurrence_id": null,
+              "occurrence_on": null,
+              "occurrence_key": null,
+              "instance_overridden": false,
+              "legacy_metadata": null,
+              "tag_ids": [],
+              "links": []
+            }
+          }
+        ],
+        "structure_revisions": [],
+        "committed_at_utc": "2026-10-28T08:00:00.000Z",
+        "successor_edges": []
+      }
+    },
+    {
+      "id": "invalid-31",
+      "schema": "Receipt",
+      "valid": false,
+      "value": {
+        "protocol_version": 1,
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "result": "committed",
+        "batch_seq": null,
+        "observed_head_seq": "28",
+        "entity_revisions": [
+          {
+            "type": "task",
+            "id": "55555555-5555-4555-8555-555555555555",
+            "revision": "4"
+          }
+        ],
+        "structure_revisions": [],
+        "committed_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "invalid-32",
+      "schema": "Receipt",
+      "valid": false,
+      "value": {
+        "protocol_version": 1,
+        "mutation_id": "33333333-3333-4333-8333-333333333333",
+        "data_epoch": "22222222-2222-4222-8222-222222222222",
+        "result": "no_op",
+        "batch_seq": "1",
+        "observed_head_seq": "28",
+        "entity_revisions": [
+          {
+            "type": "task",
+            "id": "55555555-5555-4555-8555-555555555555",
+            "revision": "4"
+          }
+        ],
+        "structure_revisions": [],
+        "committed_at_utc": "2026-10-28T08:00:00.000Z"
+      }
+    },
+    {
+      "id": "invalid-33",
+      "schema": "Task",
+      "valid": false,
+      "value": {
+        "id": "55555555-5555-4555-8555-555555555555",
+        "title": "设计样例任务",
+        "notes": "",
+        "planning_state": "ACTIVE",
+        "status": "OPEN",
+        "today_focus": false,
+        "evening": false,
+        "pinned": false,
+        "important": false,
+        "category_id": null,
+        "parent_task_id": null,
+        "start_on": null,
+        "deadline_on": null,
+        "created_at_utc": "2026-10-28T07:00:00.000Z",
+        "updated_at_utc": "2026-10-28T08:00:00.000Z",
+        "completed_at_utc": "2026-10-28T08:00:00.000Z",
+        "cancelled_at_utc": null,
+        "deleted_at_utc": null,
+        "deletion_group_id": null,
+        "completion_group_id": null,
+        "schedule": null,
+        "reminder": null,
+        "recurrence_id": null,
+        "occurrence_on": null,
+        "occurrence_key": null,
+        "instance_overridden": false,
+        "legacy_metadata": null,
+        "tag_ids": [],
+        "links": []
+      }
+    },
+    {
+      "id": "invalid-34",
+      "schema": "Task",
+      "valid": false,
+      "value": {
+        "id": "55555555-5555-4555-8555-555555555555",
+        "title": "设计样例任务",
+        "notes": "",
+        "planning_state": "ACTIVE",
+        "status": "OPEN",
+        "today_focus": false,
+        "evening": false,
+        "pinned": false,
+        "important": false,
+        "category_id": null,
+        "parent_task_id": null,
+        "start_on": null,
+        "deadline_on": null,
+        "created_at_utc": "2026-10-28T07:00:00.000Z",
+        "updated_at_utc": "2026-10-28T08:00:00.000Z",
+        "completed_at_utc": null,
+        "cancelled_at_utc": null,
+        "deleted_at_utc": null,
+        "deletion_group_id": null,
+        "completion_group_id": null,
+        "schedule": null,
+        "reminder": null,
+        "recurrence_id": null,
+        "occurrence_on": null,
+        "occurrence_key": "D:2030-01-01",
+        "instance_overridden": false,
+        "legacy_metadata": null,
+        "tag_ids": [],
+        "links": []
+      }
+    },
+    {
+      "id": "invalid-35",
+      "schema": "RuleSpec",
+      "valid": false,
+      "value": {
+        "mode": "AFTER_COMPLETION",
+        "frequency": "DAILY",
+        "interval": 1,
+        "anchor_on": "2030-01-01",
+        "end_on": null,
+        "weekdays_mask": 0,
+        "month_day": 1,
+        "year_month": 1,
+        "time_zone": "Asia/Shanghai",
+        "defaults": {
+          "template_version": 1,
+          "title": "合成循环样例",
+          "notes": "",
+          "planning_state": "ACTIVE",
+          "category_id": null,
+          "parent_task_id": null,
+          "today_focus": false,
+          "evening": false,
+          "pinned": false,
+          "important": false,
+          "tag_ids": [],
+          "links": [],
+          "start_day_offset": 0,
+          "deadline_day_offset": 0,
+          "schedule": null,
+          "reminder": null
+        }
+      }
+    },
+    {
+      "id": "invalid-36",
+      "schema": "Problem",
+      "valid": false,
+      "value": {
+        "type": "urn:daymark:problem:revision-conflict",
+        "title": "Revision conflict",
+        "status": 400,
+        "instance": "urn:daymark:request:66666666-6666-4666-8666-666666666666",
+        "code": "revision_conflict",
+        "retryable": false,
+        "conflicts": [
+          {
+            "type": "task",
+            "id": "55555555-5555-4555-8555-555555555555",
+            "expected_revision": "3",
+            "actual_revision": "4"
+          }
+        ]
+      }
+    }
+  ],
+  "codec_cases": [
+    {
+      "input": "{\"pinned\":true,\"pinned\":false}",
+      "expect": "malformed_request: duplicate key"
+    },
+    {
+      "input_hex": "7b227469746c65223a22ff227d",
+      "expect": "malformed_request: invalid UTF-8"
+    }
+  ],
+  "domain_cases": [
+    {
+      "name": "receipt result/batch correlation",
+      "expect": "no_op=>batch_seq null; committed=>positive"
+    },
+    {
+      "name": "date ordering",
+      "expect": "end > start and task/calendar endpoints consistent"
+    },
+    {
+      "name": "read set closure",
+      "expect": "missing empty-collection version rejected"
+    },
+    {
+      "name": "own echo and second local edit",
+      "expect": "receipt does not invent base; echo preserves newer local value"
+    },
+    {
+      "name": "per-batch cursor",
+      "expect": "first batch cannot persist whole-page end cursor"
+    },
+    {
+      "name": "deletion lost response",
+      "expect": "capability retry/status works after bearer revocation"
+    },
+    {
+      "name": "old contract replay",
+      "expect": "same frozen ID/hash/receipt across deployment"
+    }
+  ]
+}

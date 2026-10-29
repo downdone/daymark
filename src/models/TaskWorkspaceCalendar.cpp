@@ -299,7 +299,7 @@ QVariantList TaskWorkspace::eventsForTask(const QString& id) const {
     QVariantList result;for(const auto& e:m_events)for(const auto& link:e.links)if(link.taskId==id){auto item=eventMap(e);item.insert(QStringLiteral("role"),link.role);result.append(item);break;}return result;
 }
 QVariantList TaskWorkspace::eventTaskChoices(const QString& search) const {
-    QVariantList result;for(const auto& t:m_cache)if(t.deletedAtUtc.isEmpty() && (search.trimmed().isEmpty() || t.title.contains(search.trimmed(),Qt::CaseInsensitive) || t.notes.contains(search.trimmed(),Qt::CaseInsensitive))){result.append(TaskListModel::taskMap(t));if(result.size()>=200)break;}return result;
+    QVariantList result;for(const auto& t:m_cache)if(t.deletedAtUtc.isEmpty() && !t.syncRemoteDeletionPending && (search.trimmed().isEmpty() || t.title.contains(search.trimmed(),Qt::CaseInsensitive) || t.notes.contains(search.trimmed(),Qt::CaseInsensitive))){result.append(TaskListModel::taskMap(t));if(result.size()>=200)break;}return result;
 }
 QString TaskWorkspace::calendarTitle() const
 {

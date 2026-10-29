@@ -13,10 +13,14 @@
 #include "platform/common/ApplicationMenus.h"
 
 namespace daymark {
+class SyncCredentialStore;
+namespace sync {class Coordinator;}
 
 // Composition root. Business services will be injected here as slices are delivered.
 class AppRuntime final {
 public:
+    AppRuntime();
+    ~AppRuntime();
     bool start(bool smokeTest, const QString& dataDirectory = {}, const QString& screenshotPath = {},int soakSeconds=0,const QString& soakReport={},const QString& smokeProfile={});
     int verificationPhase() const {return m_verificationPhase;}
     bool verificationCompleted() const {return m_verificationCompleted;}
@@ -28,6 +32,8 @@ private:
     QtWindowPlatform m_windowPlatform;
     WidgetViewModel m_widget{m_windowPlatform};
     TaskWorkspace m_workspace;
+    std::unique_ptr<SyncCredentialStore> m_syncCredentials;
+    std::unique_ptr<sync::Coordinator> m_sync;
     std::unique_ptr<StartupController> m_startup;
     QQmlApplicationEngine m_engine;
     std::unique_ptr<DesktopTray> m_tray;

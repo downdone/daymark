@@ -40,12 +40,12 @@
 ### 3.4 桌面组件与窗口
 [桌面表面精修](design/desktop-surfaces-polish.md) · [桌面层与年焦点](design/desktop-layer-and-year-focus.md) · [桌面菜单锚点](design/desktop-menu-anchoring.md) · [架构](design/architecture.md) · [模块契约](design/contracts.md)
 
-### 3.5 同步服务（设计，未实施）
-[账号与同步](design/account-and-sync-service.md) · [工程架构](design/server-architecture.md) · [协议 v1](api/sync-v1.md) · [模块入口](design/sync-modules/README.md) · [强类型契约](design/sync-contracts/README.md)
+### 3.5 可选账号与同步
+[服务运行与恢复](../server/README.md) · [账号与同步](design/account-and-sync-service.md) · [工程架构](design/server-architecture.md) · [协议 v1](api/sync-v1.md) · [模块入口](design/sync-modules/README.md) · [强类型契约](design/sync-contracts/README.md) · [桌面实现契约](design/sync-client-implementation.md)
 
 ## 4. 决策记录
 
-[ADR 索引](ADR/README.md)：007～028，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
+[ADR 索引](ADR/README.md)：007～029，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
 
 ## 5. 交付与运维
 

@@ -1,5 +1,13 @@
 # 里程碑与可执行任务队列
 
+SYNC-05按用户后续“完整实现→测试→文档/CI→推送源码”指令推进；运行代码及命令见[server](../server/README.md)、桌面适配见[实现契约](design/sync-client-implementation.md)。SYNC-02～04下列条目记录原设计顺序，不能继续解释为禁止已获授权的实现；当前完成度及平台边界仍只见PROGRESS。
+
+SYNC-04在[强类型契约](design/sync-contracts/README.md)给出OpenAPI、Go/Qt声明、字段/默认值/三态/摘要映射及客户端同步DDL；开发前依[ADR-028](ADR/028-sync-api-contract-and-rpc.md)评审RPC与兼容门禁，DEV各批沿用相同用例/事务接口，不将传输格式耦合进领域。实际状态仅见PROGRESS。
+
+SYNC-03已将SYNC-02细化为[DEV-01～08模块开发顺序](design/sync-modules/README.md)：先逐模块UT，再真实SQLite/文件/HTTP组件CT，按[INT-01～22](design/sync-modules/testing-integration.md)逐层组合至双端/灾备/平台；DDL仅设计稿，实施按批次追加migration，不将设计校验当服务已通过。状态及真实证据只见PROGRESS。
+
+SYNC-02按[账号同步工程架构](design/server-architecture.md)第15节ARCH-1～6顺序推进：契约基线→真实SQLite事务→账号资料→普通任务双端纵片→完整业务/快照冲突→恢复与平台交付；首期Go单体+SQLite遵循ADR-026，网络契约见[v1协议](api/sync-v1.md)。不自动部署/真实上传；状态和门禁证据只见PROGRESS。
+
 UX-60按[全局字体与比例留白](design/typography-and-proportional-spacing.md)统一中西文字体管线、角色字级和字号对应的页面/行内空间，复用实际几何、原生截图与完整CTest；状态只见PROGRESS。
 
 UX-59按[提示与标题/工具栏契约](design/tooltip-and-layout-rhythm.md)落实P-18/19、单目标视图切换、低频显示选项收纳与垂直节奏；本地包按[ADR-025](ADR/025-minimal-portable-payload.md)精简，状态和交付证据仅见PROGRESS。

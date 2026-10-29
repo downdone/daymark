@@ -54,4 +54,4 @@
 
 ## 当前阶段
 
-按 `docs/milestones.md` 的执行队列推进；当前状态见 `docs/STATUS.md`。不提前做云同步/AI/移动端（同步服务仅有设计，见 ADR-026）。
+按 `docs/milestones.md` 的执行队列推进；当前状态见 `docs/STATUS.md`。可选账号同步已获用户显式实现授权，采用Go+SQLite/HTTP JSON，见ADR-026～029及server/README.md；不得据此自动部署或上传私人数据。不提前做AI/移动端。

@@ -1,3 +1,4 @@
+#include "ScopedTransaction.h"
 #include "DataTransfer.h"
 #include "UnifiedTaskMigration.h"
 #include "TaskRepository.h"
@@ -17,7 +18,7 @@
 namespace daymark {
 namespace {
 const QStringList tables={QStringLiteral("areas"),QStringLiteral("projects"),QStringLiteral("headings"),QStringLiteral("tags"),QStringLiteral("recurrence_templates"),QStringLiteral("tasks"),QStringLiteral("checklist_items"),QStringLiteral("task_tags"),QStringLiteral("task_view_order"),QStringLiteral("events"),QStringLiteral("event_tasks"),QStringLiteral("event_reminder_history"),QStringLiteral("task_edit_history"),QStringLiteral("task_reminder_history"),QStringLiteral("task_schedules"),QStringLiteral("task_links")};
-bool supportedSchema(const QJsonObject& root){const double v=root.value(QStringLiteral("schemaVersion")).toDouble(-1);return v==1 || v==2 || v==3 || v==4 || v==5 || v==6 || v==7 || v==8 || v==9;}
+bool supportedSchema(const QJsonObject& root){const double v=root.value(QStringLiteral("schemaVersion")).toDouble(-1);return v==1 || v==2 || v==3 || v==4 || v==5 || v==6 || v==7 || v==8 || v==9 || v==10;}
 QJsonObject normalized(QJsonObject root) {
     if(root.value(QStringLiteral("schemaVersion")).toInt()<3){auto data=root.value(QStringLiteral("tables")).toObject();for(const auto& table:{QStringLiteral("events"),QStringLiteral("event_tasks")})if(!data.contains(table))data.insert(table,QJsonArray{});root.insert(QStringLiteral("tables"),data);}
     if(root.value(QStringLiteral("schemaVersion")).toInt()<4){auto data=root.value(QStringLiteral("tables")).toObject();data.insert(QStringLiteral("event_reminder_history"),QJsonArray{});auto rows=data.value(QStringLiteral("events")).toArray();for(int i=0;i<rows.size();++i){auto row=rows[i].toObject();row.insert(QStringLiteral("repeat_frequency"),QStringLiteral("NONE"));row.insert(QStringLiteral("repeat_interval"),1);row.insert(QStringLiteral("repeat_until"),QJsonValue(QJsonValue::Null));row.insert(QStringLiteral("alert_minutes"),-1);rows[i]=row;}data.insert(QStringLiteral("events"),rows);root.insert(QStringLiteral("tables"),data);}if(root.value(QStringLiteral("schemaVersion")).toInt()<5) {
@@ -58,7 +59,8 @@ QJsonObject normalized(QJsonObject root) {
         auto rules=data.value(QStringLiteral("recurrence_templates")).toArray();for(int i=0;i<rules.size();++i){auto row=rules[i].toObject();row.insert(QStringLiteral("source_task_id"),QJsonValue::Null);rules[i]=row;}data.insert(QStringLiteral("recurrence_templates"),rules);root.insert(QStringLiteral("tables"),data);
     }
     if(root.value(QStringLiteral("schemaVersion")).toInt()<9){auto data=root.value(QStringLiteral("tables")).toObject();auto rows=data.value(QStringLiteral("tasks")).toArray();for(int i=0;i<rows.size();++i){auto row=rows[i].toObject();row.insert(QStringLiteral("deletion_group_id"),QJsonValue::Null);row.insert(QStringLiteral("completion_group_id"),QJsonValue::Null);rows[i]=row;}data.insert(QStringLiteral("tasks"),rows);root.insert(QStringLiteral("tables"),data);}
-    root.insert(QStringLiteral("schemaVersion"),9);return root;
+    if(root.value(QStringLiteral("schemaVersion")).toInt()<10){auto data=root.value(QStringLiteral("tables")).toObject();for(const auto& table:{QStringLiteral("tasks"),QStringLiteral("projects")}){auto rows=data.value(table).toArray();for(int i=0;i<rows.size();++i){auto row=rows[i].toObject();row.insert(QStringLiteral("sync_legacy_json"),QJsonValue::Null);if(table==QStringLiteral("tasks"))row.insert(QStringLiteral("sync_occurrence_on"),QJsonValue::Null);if(table==QStringLiteral("tasks"))row.insert(QStringLiteral("sync_occurrence_key"),QJsonValue::Null);else row.insert(QStringLiteral("color_key"),QStringLiteral("neutral"));rows[i]=row;}data.insert(table,rows);}root.insert(QStringLiteral("tables"),data);}
+    root.insert(QStringLiteral("schemaVersion"),10);return root;
 }
 template<class T> Result<T> invalid(){return Result<T>::failure(ErrorCode::ValidationError,QStringLiteral("importInvalid"));}
 template<class T> Result<T> ioError(){return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("transferFailed"));}
@@ -82,16 +84,16 @@ Result<QJsonObject> DataTransfer::document(QSqlDatabase db)
     QJsonObject portable{{QStringLiteral("sundayFirst"),settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool()},
         {QStringLiteral("themeMode"),qBound(0,settings.value(QStringLiteral("appearance/themeMode"),0).toInt(),2)},
         {QStringLiteral("textScale"),qBound(1.0,settings.value(QStringLiteral("appearance/textScale"),1.0).toDouble(),2.0)}};
-    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),9},
+    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),10},
         {QStringLiteral("createdAtUtc"),QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{QStringLiteral("tables"),data},{QStringLiteral("settings"),portable}}, {}};
 }
 Result<void> DataTransfer::exportJson(const QString& path) const
 {
     if(protectedOutput(path,m_database.connection().databaseName()))return invalid<void>();
     // Single read transaction makes all table reads share one WAL snapshot.
-    auto db=m_database.connection();if(!db.transaction())return ioError<void>();
-    const auto result=document(db);if(!result.ok()){db.rollback();return {result.error};}
-    if(!db.commit()){db.rollback();return ioError<void>();}
+    auto db=m_database.connection();ScopedTransaction writeScope(db);if(!writeScope.active())return ioError<void>();
+    const auto result=document(db);if(!result.ok()){writeScope.rollback();return {result.error};}
+    if(!writeScope.commit()){writeScope.rollback();return ioError<void>();}
     QSaveFile output(path);if(!output.open(QIODevice::WriteOnly))return ioError<void>();
     const auto bytes=QJsonDocument(result.value).toJson(QJsonDocument::Indented);
     if(output.write(bytes)!=bytes.size() || !output.commit())return ioError<void>();return {};
@@ -149,8 +151,8 @@ Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& in
            || settings.value(QStringLiteral("themeMode")).toInt(-1)<0 || settings.value(QStringLiteral("themeMode")).toInt()>2
            || !settings.value(QStringLiteral("textScale")).isDouble() || settings.value(QStringLiteral("textScale")).toDouble()<1 || settings.value(QStringLiteral("textScale")).toDouble()>2)return invalid<ImportOutcome>();
     }
-    if(!db.transaction())return ioError<ImportOutcome>();
-    auto fail=[&]{db.rollback();return invalid<ImportOutcome>();};
+    ScopedTransaction writeScope(db);if(!writeScope.active())return ioError<ImportOutcome>();
+    auto fail=[&]{writeScope.rollback();return invalid<ImportOutcome>();};
     {QSqlQuery deferred(db);if(!deferred.exec(QStringLiteral("PRAGMA defer_foreign_keys=ON")))return fail();}
     QSqlQuery q(db);ImportOutcome result;const auto data=root.value(QStringLiteral("tables")).toObject();QSet<QString> skippedEvents,skippedTasks;
     if(replace)for(auto it=tables.crbegin();it!=tables.crend();++it)if(!q.exec(QStringLiteral("DELETE FROM ")+*it))return fail();
@@ -227,7 +229,7 @@ Result<ImportOutcome> DataTransfer::insert(QSqlDatabase db,const QJsonObject& in
     if(!q.exec(QStringLiteral("PRAGMA foreign_key_check")) || q.next())return fail();q.finish();
     if(!q.exec(QStringLiteral("SELECT t.id FROM tasks t JOIN headings h ON h.id=t.heading_id WHERE h.project_id<>t.project_id LIMIT 1")) || q.next())return fail();q.finish();
     if(!q.exec(QStringLiteral("SELECT id FROM recurrence_templates WHERE (frequency='WEEKLY' AND weekdays_mask=0) OR (frequency='AFTER_DAYS' AND mode<>'AFTER_COMPLETION') OR (frequency<>'AFTER_DAYS' AND mode<>'FIXED') LIMIT 1")) || q.next())return fail();q.finish();
-    if(!db.commit()){db.rollback();return ioError<ImportOutcome>();}return {result,{}};
+    if(!writeScope.commit()){writeScope.rollback();return ioError<ImportOutcome>();}return {result,{}};
 }
 Result<ImportOutcome> DataTransfer::apply(const ImportPlan& plan,bool replace)
 {

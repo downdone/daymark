@@ -1,5 +1,6 @@
 #include "SqliteDatabase.h"
 #include "UnifiedTaskMigration.h"
+#include "migrations/010_account_sync.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -26,7 +27,7 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
     QSqlQuery query(db);
     if(!query.exec(QStringLiteral("PRAGMA user_version")) || !query.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     const int version=query.value(0).toInt();query.finish();
-    constexpr int latest=9;
+    constexpr int latest=10;
     if(version>latest)return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("schemaTooNew"));
     if(version==latest)return {};
     if(version<0)return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("unknownSchema"));
@@ -41,6 +42,7 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
     // All pending migrations commit together, so a later conversion failure also
     // rolls back earlier steps. The original WAL snapshot is kept by open().
     for(int i=version;i<latest;++i){
+        if(i==9){for(const auto& statement:accountSyncMigration10())if(!query.exec(statement))return failed(QStringLiteral("migrationFailed"));if(!initializeSyncTimeZones(db))return failed(QStringLiteral("migrationFailed"));continue;}
         QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/")+migrations[i]);if(!schema.open(QIODevice::ReadOnly))return failed(QStringLiteral("schemaResource"));
         for(const auto& statement:QString::fromUtf8(schema.readAll()).split(';',Qt::SkipEmptyParts))if(!statement.trimmed().isEmpty() && !query.exec(statement))return failed(QStringLiteral("migrationFailed"));
     }
@@ -74,7 +76,7 @@ Result<void> SqliteDatabase::open(const QString& path)
         QSqlQuery version(m_db);
         if(!version.exec(QStringLiteral("PRAGMA user_version")) || !version.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
         const int current=version.value(0).toInt();version.finish();
-        if(current>=1 && current<=8) {
+        if(current>=1 && current<=9) {
             const auto snapshot=createSnapshot(QFileInfo(path).dir().filePath(QStringLiteral("backups/migrations")));
             if(!snapshot.ok()){m_db.close();return {snapshot.error};}
         }

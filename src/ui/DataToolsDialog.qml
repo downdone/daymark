@@ -33,7 +33,7 @@ Dialog {
         }
         FormGroup {
             heading: qsTr("导入与恢复")
-            detail: qsTr("先预览，再选择仅添加或替换。")
+            detail: root.workspace.syncState.mode==="ACCOUNT" ? qsTr("合并导入会同步至当前账号；此设备的外观设置保持不变。") : qsTr("先预览，再选择仅添加或替换。")
         Flow {
             Layout.fillWidth: true;spacing: Theme.gap
             ActionButton {symbol: "import"; text: qsTr("预览JSON导入…"); onClicked: importJson.open() }
@@ -44,7 +44,7 @@ Dialog {
             Layout.fillWidth: true;spacing: Theme.gap
             visible: root.workspace.importSummary.length>0
             Button { highlighted: true;text: qsTr("仅添加，跳过相同ID"); onClicked: root.workspace.applyImport(false) }
-            Button { text: qsTr("替换当前数据…"); palette.buttonText: Theme.danger; flat: true; onClicked: replaceFirst.open() }
+            Button { visible:root.workspace.syncState.mode!=="ACCOUNT";text: qsTr("替换当前数据…"); palette.buttonText: Theme.danger; flat: true; onClicked: replaceFirst.open() }
         }
         }
         Label { text: root.workspace.errorText || root.workspace.infoText; Layout.fillWidth: true; wrapMode: Text.Wrap; color: root.workspace.errorText ? Theme.danger : Theme.success }

@@ -1,0 +1,13 @@
+{
+  "data_dir": "./var/daymark",
+  "listen": "127.0.0.1:8080",
+  "public_origin": "https://sync.example.com",
+  "development": false,
+  "writer_queue": 32,
+  "read_pool": 4,
+  "request_timeout_ms": 10000,
+  "busy_timeout_ms": 2000,
+  "kdf_parallelism": 1,
+  "max_artifact_bytes": 1073741824,
+  "backup_keep": 48
+}

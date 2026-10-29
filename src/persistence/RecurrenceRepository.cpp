@@ -1,3 +1,4 @@
+#include "ScopedTransaction.h"
 #include "RecurrenceRepository.h"
 #include "TaskRepository.h"
 #include <QSqlQuery>
@@ -23,8 +24,8 @@ Result<QList<RecurrenceRule>> RecurrenceRepository::all() const
 Result<RecurrenceRule> RecurrenceRepository::save(RecurrenceRule r,const QString& now,const QDate& today)
 {
     const bool creating=r.id.isEmpty();if(creating)r.id=QUuid::createUuid().toString(QUuid::WithoutBraces);
-    if(!m_db.transaction())return Result<RecurrenceRule>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
-    auto failed=[&](ErrorCode code=ErrorCode::PersistenceError){m_db.rollback();return Result<RecurrenceRule>::failure(code,code==ErrorCode::Conflict?QStringLiteral("conflict"):QStringLiteral("databaseWrite"));};
+    ScopedTransaction writeScope(m_db);if(!writeScope.active())return Result<RecurrenceRule>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+    auto failed=[&](ErrorCode code=ErrorCode::PersistenceError){writeScope.rollback();return Result<RecurrenceRule>::failure(code,code==ErrorCode::Conflict?QStringLiteral("conflict"):QStringLiteral("databaseWrite"));};
     QSqlQuery q(m_db);
     if(creating) {
         q.prepare(QStringLiteral("INSERT INTO recurrence_templates(id,title,note_text,mode,frequency,interval_n,anchor_on,weekdays_mask,month_day,year_month,end_on,active,created_at_utc,updated_at_utc) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"));
@@ -41,24 +42,24 @@ Result<RecurrenceRule> RecurrenceRepository::save(RecurrenceRule r,const QString
         q.addBindValue(now);q.addBindValue(now);q.addBindValue(r.id);q.addBindValue(today.toString(Qt::ISODate));if(!q.exec())return failed();
         ++r.rowVersion;
     }
-    if(!m_db.commit())return failed();return {r,{}};
+    if(!writeScope.commit())return failed();return {r,{}};
 }
 Result<void> RecurrenceRepository::stop(const QString& id,qint64 version,const QString& now,bool removeFuture,const QDate& today)
 {
-    if(!m_db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+    ScopedTransaction writeScope(m_db);if(!writeScope.active())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
     QSqlQuery q(m_db);
     q.prepare(QStringLiteral("UPDATE recurrence_templates SET active=0,deleted_at_utc=?,updated_at_utc=?,row_version=row_version+1 WHERE id=? AND row_version=? AND deleted_at_utc IS NULL"));
     q.addBindValue(now);q.addBindValue(now);q.addBindValue(id);q.addBindValue(version);
-    if(!q.exec() || q.numRowsAffected()!=1){m_db.rollback();return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));}
+    if(!q.exec() || q.numRowsAffected()!=1){writeScope.rollback();return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));}
     if(removeFuture) {
-        q.prepare(QStringLiteral("UPDATE tasks SET deleted_at_utc=?,updated_at_utc=?,row_version=row_version+1 WHERE recurrence_template_id=? AND status='OPEN' AND start_on>?"));
+        q.prepare(QStringLiteral("UPDATE tasks SET deleted_at_utc=?,updated_at_utc=?,row_version=row_version+1 WHERE recurrence_template_id=? AND status='OPEN' AND instance_overridden=0 AND deleted_at_utc IS NULL AND start_on>?"));
         q.addBindValue(now);q.addBindValue(now);q.addBindValue(id);q.addBindValue(today.toString(Qt::ISODate));
-        if(!q.exec()){m_db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
+        if(!q.exec()){writeScope.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
     }
-    if(!m_db.commit()){m_db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
+    if(!writeScope.commit()){writeScope.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
     return {};
 }
-Result<int> RecurrenceRepository::materialize(const RecurrenceRule& rule,const QList<QDate>& dates,const QString& now,const QDate& occurrenceKey)
+Result<int> RecurrenceRepository::materialize(const RecurrenceRule& rule,const QList<QDate>& dates,const QString& now,const QDate& occurrenceKey,const QString& predecessorId)
 {
     QSqlQuery q(m_db);if(!q.exec(QStringLiteral("SAVEPOINT materialize")))return Result<int>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
     auto fail=[&](Error error){q.exec(QStringLiteral("ROLLBACK TO materialize"));q.exec(QStringLiteral("RELEASE materialize"));return Result<int>{{},error};};
@@ -80,7 +81,8 @@ Result<int> RecurrenceRepository::materialize(const RecurrenceRule& rule,const Q
         if(!task.headingId.isEmpty()){q.prepare(QStringLiteral("SELECT id FROM headings WHERE id=? AND project_id=? AND deleted_at_utc IS NULL"));q.addBindValue(task.headingId);q.addBindValue(task.projectId);if(!q.exec())return fail({ErrorCode::PersistenceError,QStringLiteral("databaseRead")});if(!q.next())task.headingId.clear();q.finish();}
         QStringList tags;for(const auto& id:task.tagIds){q.prepare(QStringLiteral("SELECT id FROM tags WHERE id=? AND deleted_at_utc IS NULL"));q.addBindValue(id);if(!q.exec())return fail({ErrorCode::PersistenceError,QStringLiteral("databaseRead")});if(q.next())tags.append(id);q.finish();}task.tagIds=tags;
         task.occurrenceOn=occurrenceKey.isValid()?occurrenceKey:date;task.createdAtUtc=task.updatedAtUtc=now;
-        q.prepare(QStringLiteral("SELECT id,instance_overridden,status,deleted_at_utc FROM tasks WHERE recurrence_template_id=? AND occurrence_on=?"));q.addBindValue(rule.id);q.addBindValue(task.occurrenceOn.toString(Qt::ISODate));if(!q.exec())return fail({ErrorCode::PersistenceError,QStringLiteral("databaseRead")});
+        if(!predecessorId.isEmpty()){task.syncOccurrenceKey=QStringLiteral("A:")+predecessorId;task.id=QUuid::createUuidV5(QUuid(QStringLiteral("43e1f2a4-8d21-4a8c-bb70-16b813d3f5ab")),(rule.id+QLatin1Char(':')+task.syncOccurrenceKey).toUtf8()).toString(QUuid::WithoutBraces);}
+        q.prepare(QStringLiteral("SELECT id,instance_overridden,status,deleted_at_utc FROM tasks WHERE recurrence_template_id=? AND (sync_occurrence_key=? OR (sync_occurrence_key IS NULL AND occurrence_on=?))"));q.addBindValue(rule.id);q.addBindValue(task.syncOccurrenceKey);q.addBindValue(task.occurrenceOn.toString(Qt::ISODate));if(!q.exec())return fail({ErrorCode::PersistenceError,QStringLiteral("databaseRead")});
         QString restoreId;if(q.next()){if(q.value(1).toBool() || q.value(2).toString()!=QStringLiteral("OPEN") || q.value(3).isNull()){q.finish();continue;}restoreId=q.value(0).toString();}q.finish();
         if(!restoreId.isEmpty())task.id=restoreId;
         QString claimId,claimTaskId;
@@ -90,7 +92,7 @@ Result<int> RecurrenceRepository::materialize(const RecurrenceRule& rule,const Q
             if(claimId.isEmpty() && reminderCutoff.isValid() && QDateTime::fromString(task.remindAtUtc,Qt::ISODateWithMs)<reminderCutoff){task.remindAtUtc.clear();task.reminderAnchorUtc.clear();task.reminderRepeat=QStringLiteral("NONE");}
         }
         if(restoreId.isEmpty()){const auto created=tasks.insert(task);if(!created.ok())return fail(created.error);}
-        else {const auto old=tasks.find(restoreId);if(!old.ok())return fail(old.error);task.id=restoreId;task.createdAtUtc=old.value.createdAtUtc;const auto saved=tasks.update(task,old.value.rowVersion,false);if(!saved.ok())return fail(saved.error);}
+        else {const auto old=tasks.find(restoreId);if(!old.ok())return fail(old.error);task.id=restoreId;task.occurrenceOn=old.value.occurrenceOn;if(old.value.syncOccurrenceOn.isValid())task.syncOccurrenceOn=old.value.syncOccurrenceOn;task.createdAtUtc=old.value.createdAtUtc;const auto saved=tasks.update(task,old.value.rowVersion,false);if(!saved.ok())return fail(saved.error);}
         if(!claimId.isEmpty() && claimTaskId!=task.id){
             if(claimTaskId==legacy){q.prepare(QStringLiteral("UPDATE task_reminder_history SET task_id=? WHERE id=?"));q.addBindValue(task.id);q.addBindValue(claimId);}
             else {q.prepare(QStringLiteral("INSERT INTO task_reminder_history(id,task_id,scheduled_at_utc,fired_at_utc) VALUES(?,?,?,?) ON CONFLICT(task_id,scheduled_at_utc) DO NOTHING"));q.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));q.addBindValue(task.id);q.addBindValue(task.remindAtUtc);q.addBindValue(task.reminderFiredAtUtc);}

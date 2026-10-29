@@ -1,0 +1,6969 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "Daymark optional account sync API",
+    "version": "1.0.0",
+    "description": "Daymark optional account sync v1. Production HTTPS. Strict request decoding additionally rejects duplicate keys, invalid UTF-8 and overflow. All personal/credential responses use Cache-Control: no-store."
+  },
+  "servers": [
+    {
+      "url": "https://sync.example.invalid"
+    }
+  ],
+  "paths": {
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "getCapabilities",
+        "summary": "getCapabilities",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "login",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "operationId": "refresh",
+        "summary": "refresh",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "logout",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/auth/password": {
+      "post": {
+        "operationId": "changePassword",
+        "summary": "changePassword",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "operationId": "getMe",
+        "summary": "getMe",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/devices": {
+      "get": {
+        "operationId": "listDevices",
+        "summary": "listDevices",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sessions"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/devices/{session_id}": {
+      "delete": {
+        "operationId": "revokeDevice",
+        "summary": "revokeDevice",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/datasets/{dataset_id}/sync/push": {
+      "post": {
+        "operationId": "push",
+        "summary": "push",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets/{dataset_id}/sync/receipts/{mutation_id}": {
+      "get": {
+        "operationId": "getReceipt",
+        "summary": "getReceipt",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "mutation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "data_epoch",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/datasets/{dataset_id}/sync/pull": {
+      "get": {
+        "operationId": "pull",
+        "summary": "pull",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PullResponse"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Cursor"
+            }
+          },
+          {
+            "name": "max_batches",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/datasets/{dataset_id}/sync/progress": {
+      "post": {
+        "operationId": "reportProgress",
+        "summary": "reportProgress",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Progress"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets/{dataset_id}/snapshots": {
+      "post": {
+        "operationId": "requestSnapshot",
+        "summary": "requestSnapshot",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets/{dataset_id}/staged-mutations": {
+      "post": {
+        "operationId": "createStaged",
+        "summary": "createStaged",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StagedCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets/{dataset_id}/imports": {
+      "post": {
+        "operationId": "createImport",
+        "summary": "createImport",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets/{dataset_id}/jobs/{job_id}": {
+      "get": {
+        "operationId": "getJob",
+        "summary": "getJob",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "cancelJob",
+        "summary": "cancelJob",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "data_epoch",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/datasets/{dataset_id}/jobs/{job_id}/renew": {
+      "post": {
+        "operationId": "renewJob",
+        "summary": "renewJob",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets/{dataset_id}/jobs/{job_id}/seal": {
+      "post": {
+        "operationId": "sealJob",
+        "summary": "sealJob",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sealed"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SealRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets/{dataset_id}/imports/{job_id}/publish": {
+      "post": {
+        "operationId": "publishImport",
+        "summary": "publishImport",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets/{dataset_id}/snapshots/{job_id}": {
+      "get": {
+        "operationId": "getSnapshotManifest",
+        "summary": "getSnapshotManifest",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Manifest"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "data_epoch",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/datasets/{dataset_id}/snapshots/{job_id}/release": {
+      "post": {
+        "operationId": "releaseSnapshot",
+        "summary": "releaseSnapshot",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/datasets/{dataset_id}/jobs/{job_id}/manifest": {
+      "get": {
+        "operationId": "getJobManifest",
+        "summary": "getJobManifest",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Manifest"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "data_epoch",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/datasets/{dataset_id}/jobs/{job_id}/chunks/{index}": {
+      "put": {
+        "operationId": "putChunk",
+        "summary": "putChunk",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Chunk"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "data_epoch",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Chunk-SHA256",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Hash"
+            }
+          },
+          {
+            "name": "Content-Length",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 262144
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "maxLength": 262144
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getChunk",
+        "summary": "getChunk",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "X-Chunk-SHA256": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hash"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 262144
+                }
+              },
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "data_epoch",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/account/exports": {
+      "post": {
+        "operationId": "requestExport",
+        "summary": "requestExport",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/account/exports/{job_id}": {
+      "get": {
+        "operationId": "getExportJob",
+        "summary": "getExportJob",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/account/exports/{job_id}/manifest": {
+      "get": {
+        "operationId": "getExportManifest",
+        "summary": "getExportManifest",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Manifest"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/account/exports/{job_id}/chunks/{index}": {
+      "get": {
+        "operationId": "getExportChunk",
+        "summary": "getExportChunk",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/account/deletion-intents": {
+      "post": {
+        "operationId": "prepareAccountDeletion",
+        "summary": "prepareAccountDeletion",
+        "security": [
+          {
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionIntent"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeletionPrepare"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/account": {
+      "delete": {
+        "operationId": "confirmAccountDeletion",
+        "summary": "confirmAccountDeletion",
+        "security": [
+          {
+            "DeletionCapability": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionStatus"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeletionConfirm"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/v1/account/deletions/{operation_id}": {
+      "get": {
+        "operationId": "getAccountDeletionStatus",
+        "summary": "getAccountDeletionStatus",
+        "security": [
+          {
+            "DeletionCapability": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionStatus"
+                }
+              }
+            },
+            "headers": {
+              "X-Daymark-DTO-Version": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "X-Daymark-DTO-Version",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/health/live": {
+      "get": {
+        "operationId": "liveness",
+        "summary": "liveness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "readiness",
+        "summary": "readiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful result; durable semantics are defined by the operation contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; status and code must agree with the error mapping.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Seconds, only for retryable throttling/backpressure."
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "AccessToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque 32-byte base64url"
+      },
+      "DeletionCapability": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Deletion <opaque token>; confirm/read only the prepared operation, no dataset access."
+      }
+    },
+    "schemas": {
+      "Counter": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$",
+        "description": "Nonnegative signed int64 in canonical decimal; never a JSON number."
+      },
+      "PositiveCounter": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Counter"
+          },
+          {
+            "not": {
+              "const": "0"
+            }
+          }
+        ]
+      },
+      "UUID": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "format": "uuid"
+      },
+      "ID": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UUID"
+          },
+          {
+            "not": {
+              "const": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        ]
+      },
+      "Date": {
+        "type": "string",
+        "format": "date",
+        "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      },
+      "Instant": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+      },
+      "LocalTime": {
+        "type": "string",
+        "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\\.[0-9]{3}$"
+      },
+      "Zone": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "description": "Validated against the deployed IANA tzdb. No fixed server-local fallback."
+      },
+      "Hash": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "Token": {
+        "type": "string",
+        "minLength": 43,
+        "maxLength": 43,
+        "pattern": "^[A-Za-z0-9_-]{43}$"
+      },
+      "Cursor": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "Title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "Color": {
+        "type": "string",
+        "enum": [
+          "neutral",
+          "blue",
+          "green",
+          "orange",
+          "purple"
+        ]
+      },
+      "PlanningState": {
+        "type": "string",
+        "enum": [
+          "INBOX",
+          "ACTIVE",
+          "SOMEDAY"
+        ]
+      },
+      "EntityKind": {
+        "type": "string",
+        "enum": [
+          "task",
+          "category",
+          "tag",
+          "recurrence_rule",
+          "ordering_scope"
+        ]
+      },
+      "StructureKind": {
+        "type": "string",
+        "enum": [
+          "task_tree",
+          "category_tree",
+          "category_members",
+          "tag_members",
+          "recurrence_members",
+          "ordering_scope"
+        ]
+      },
+      "EntityVersion": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/EntityKind"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/Counter"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "revision"
+        ],
+        "additionalProperties": false
+      },
+      "StructureVersion": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/StructureKind"
+          },
+          "id": {
+            "$ref": "#/components/schemas/UUID"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/Counter"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "revision"
+        ],
+        "additionalProperties": false
+      },
+      "Preconditions": {
+        "type": "object",
+        "properties": {
+          "entities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityVersion"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "structures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StructureVersion"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          }
+        },
+        "required": [
+          "entities",
+          "structures"
+        ],
+        "additionalProperties": false
+      },
+      "AllDaySchedule": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "ALL_DAY",
+            "type": "string"
+          },
+          "start_on": {
+            "$ref": "#/components/schemas/Date"
+          },
+          "end_on": {
+            "$ref": "#/components/schemas/Date"
+          }
+        },
+        "required": [
+          "kind",
+          "start_on",
+          "end_on"
+        ],
+        "additionalProperties": false,
+        "description": "end_on exclusive; end_on > start_on."
+      },
+      "TimedSchedule": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "TIMED",
+            "type": "string"
+          },
+          "start_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "end_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "time_zone": {
+            "$ref": "#/components/schemas/Zone"
+          }
+        },
+        "required": [
+          "kind",
+          "start_at_utc",
+          "end_at_utc",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "Schedule": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AllDaySchedule"
+          },
+          {
+            "$ref": "#/components/schemas/TimedSchedule"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind"
+        }
+      },
+      "AbsoluteReminder": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "ABSOLUTE",
+            "type": "string"
+          },
+          "anchor_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "repeat": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "DAILY",
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY"
+            ]
+          },
+          "every": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36500
+          },
+          "time_zone": {
+            "$ref": "#/components/schemas/Zone"
+          }
+        },
+        "required": [
+          "kind",
+          "anchor_at_utc",
+          "repeat",
+          "every",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "RelativeReminder": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "RELATIVE",
+            "type": "string"
+          },
+          "minutes_before": {
+            "type": "integer",
+            "enum": [
+              0,
+              5,
+              15,
+              30,
+              60,
+              1440
+            ]
+          },
+          "repeat": {
+            "const": "NONE",
+            "type": "string"
+          },
+          "every": {
+            "const": 1,
+            "type": "integer"
+          },
+          "time_zone": {
+            "$ref": "#/components/schemas/Zone"
+          }
+        },
+        "required": [
+          "kind",
+          "minutes_before",
+          "repeat",
+          "every",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "Reminder": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AbsoluteReminder"
+          },
+          {
+            "$ref": "#/components/schemas/RelativeReminder"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind"
+        }
+      },
+      "TaskLink": {
+        "type": "object",
+        "properties": {
+          "target_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "preparation",
+              "followup"
+            ]
+          }
+        },
+        "required": [
+          "target_id",
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "TaskPatch": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1048576
+          },
+          "planning_state": {
+            "$ref": "#/components/schemas/PlanningState"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deadline_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "today_focus": {
+            "type": "boolean"
+          },
+          "evening": {
+            "type": "boolean"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "important": {
+            "type": "boolean"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Schedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reminder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Reminder"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tag_ids": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ID"
+                },
+                "minItems": 0,
+                "maxItems": 512,
+                "uniqueItems": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "links": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TaskLink"
+                },
+                "minItems": 0,
+                "maxItems": 512,
+                "uniqueItems": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "minProperties": 1,
+        "description": "Absent = unchanged. null = clear nullable field; tag_ids/links null clears the collection. [] replaces with an empty collection. null title/notes/bools is invalid."
+      },
+      "TaskInitial": {
+        "type": "object",
+        "properties": {
+          "notes": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1048576
+          },
+          "planning_state": {
+            "$ref": "#/components/schemas/PlanningState"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deadline_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "today_focus": {
+            "type": "boolean"
+          },
+          "evening": {
+            "type": "boolean"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "important": {
+            "type": "boolean"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Schedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reminder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Reminder"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tag_ids": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ID"
+                },
+                "minItems": 0,
+                "maxItems": 512,
+                "uniqueItems": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "links": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TaskLink"
+                },
+                "minItems": 0,
+                "maxItems": 512,
+                "uniqueItems": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "AllDayTemplate": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "ALL_DAY",
+            "type": "string"
+          },
+          "start_day_offset": {
+            "type": "integer",
+            "minimum": -36500,
+            "maximum": 36500
+          },
+          "end_day_offset": {
+            "type": "integer",
+            "minimum": -36500,
+            "maximum": 36500
+          }
+        },
+        "required": [
+          "kind",
+          "start_day_offset",
+          "end_day_offset"
+        ],
+        "additionalProperties": false
+      },
+      "TimedTemplate": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "TIMED",
+            "type": "string"
+          },
+          "start_day_offset": {
+            "type": "integer",
+            "minimum": -36500,
+            "maximum": 36500
+          },
+          "end_day_offset": {
+            "type": "integer",
+            "minimum": -36500,
+            "maximum": 36500
+          },
+          "start_local_time": {
+            "$ref": "#/components/schemas/LocalTime"
+          },
+          "end_local_time": {
+            "$ref": "#/components/schemas/LocalTime"
+          },
+          "time_zone": {
+            "$ref": "#/components/schemas/Zone"
+          }
+        },
+        "required": [
+          "kind",
+          "start_day_offset",
+          "end_day_offset",
+          "start_local_time",
+          "end_local_time",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "ScheduleTemplate": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AllDayTemplate"
+          },
+          {
+            "$ref": "#/components/schemas/TimedTemplate"
+          }
+        ]
+      },
+      "AbsoluteReminderTemplate": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "ABSOLUTE",
+            "type": "string"
+          },
+          "day_offset": {
+            "type": "integer",
+            "minimum": -36500,
+            "maximum": 36500
+          },
+          "local_time": {
+            "$ref": "#/components/schemas/LocalTime"
+          },
+          "repeat": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "DAILY",
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY"
+            ]
+          },
+          "every": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36500
+          },
+          "time_zone": {
+            "$ref": "#/components/schemas/Zone"
+          }
+        },
+        "required": [
+          "kind",
+          "day_offset",
+          "local_time",
+          "repeat",
+          "every",
+          "time_zone"
+        ],
+        "additionalProperties": false
+      },
+      "ReminderTemplate": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AbsoluteReminderTemplate"
+          },
+          {
+            "$ref": "#/components/schemas/RelativeReminder"
+          }
+        ]
+      },
+      "TaskTemplate": {
+        "type": "object",
+        "properties": {
+          "template_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1048576
+          },
+          "planning_state": {
+            "$ref": "#/components/schemas/PlanningState"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "today_focus": {
+            "type": "boolean"
+          },
+          "evening": {
+            "type": "boolean"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "important": {
+            "type": "boolean"
+          },
+          "tag_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ID"
+            },
+            "minItems": 0,
+            "maxItems": 512,
+            "uniqueItems": true
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskLink"
+            },
+            "minItems": 0,
+            "maxItems": 512,
+            "uniqueItems": true
+          },
+          "start_day_offset": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -36500,
+                "maximum": 36500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deadline_day_offset": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -36500,
+                "maximum": 36500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleTemplate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reminder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReminderTemplate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "template_version",
+          "title",
+          "notes",
+          "planning_state",
+          "category_id",
+          "parent_task_id",
+          "today_focus",
+          "evening",
+          "pinned",
+          "important",
+          "tag_ids",
+          "links",
+          "start_day_offset",
+          "deadline_day_offset",
+          "schedule",
+          "reminder"
+        ],
+        "additionalProperties": false
+      },
+      "RuleSpec": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "FIXED",
+              "AFTER_COMPLETION"
+            ]
+          },
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "DAILY",
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY",
+              "AFTER_DAYS"
+            ]
+          },
+          "interval": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36500
+          },
+          "anchor_on": {
+            "$ref": "#/components/schemas/Date"
+          },
+          "end_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "weekdays_mask": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "month_day": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 31
+          },
+          "year_month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "time_zone": {
+            "$ref": "#/components/schemas/Zone"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/TaskTemplate"
+          }
+        },
+        "required": [
+          "mode",
+          "frequency",
+          "interval",
+          "anchor_on",
+          "end_on",
+          "weekdays_mask",
+          "month_day",
+          "year_month",
+          "time_zone",
+          "defaults"
+        ],
+        "additionalProperties": false,
+        "description": "AFTER_COMPLETION iff frequency AFTER_DAYS; FIXED WEEKLY requires nonzero weekdays_mask. Other irrelevant calendar fields must match anchor; see field-mapping.md.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "mode": {
+                  "const": "AFTER_COMPLETION",
+                  "type": "string"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "frequency": {
+                  "const": "AFTER_DAYS",
+                  "type": "string"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "frequency": {
+                  "type": "string",
+                  "enum": [
+                    "DAILY",
+                    "WEEKLY",
+                    "MONTHLY",
+                    "YEARLY"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "frequency": {
+                  "const": "WEEKLY",
+                  "type": "string"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "weekdays_mask": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 127
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "weekdays_mask": {
+                  "const": 0,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "TaskCreate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "task.create",
+            "type": "string"
+          },
+          "task_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "initial": {
+            "$ref": "#/components/schemas/TaskInitial"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "task_id",
+          "title",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "TaskPatchCommand": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "task.patch",
+            "type": "string"
+          },
+          "task_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/TaskPatch"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "task_id",
+          "patch",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "TaskChangeState": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "task.change_state",
+            "type": "string"
+          },
+          "task_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ID"
+            },
+            "minItems": 1,
+            "maxItems": 100000,
+            "uniqueItems": true
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "reopen",
+              "delete",
+              "restore",
+              "cancel"
+            ]
+          },
+          "group_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "task_ids",
+          "action",
+          "group_id",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "TaskMoveTree": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "task.move_tree",
+            "type": "string"
+          },
+          "task_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "task_id",
+          "category_id",
+          "parent_task_id",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "CategorySave": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "category.save",
+            "type": "string"
+          },
+          "category_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1048576
+          },
+          "color_key": {
+            "$ref": "#/components/schemas/Color"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "category_id",
+          "title",
+          "description",
+          "color_key",
+          "archived",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "CategoryRelocate": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "category.relocate",
+            "type": "string"
+          },
+          "category_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "target_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "placement": {
+            "type": "string",
+            "enum": [
+              "before",
+              "after",
+              "inside"
+            ]
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "category_id",
+          "target_id",
+          "placement",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "CategoryRemove": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "category.remove",
+            "type": "string"
+          },
+          "category_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "category_id",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "TagSave": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "tag.save",
+            "type": "string"
+          },
+          "tag_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "color_key": {
+            "$ref": "#/components/schemas/Color"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "tag_id",
+          "title",
+          "color_key",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "TagRemove": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "tag.remove",
+            "type": "string"
+          },
+          "tag_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "tag_id",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "RecurrenceReplace": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "recurrence.replace",
+            "type": "string"
+          },
+          "source_task_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "new_rule_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RuleSpec"
+          },
+          "cutoff_on": {
+            "$ref": "#/components/schemas/Date"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "source_task_id",
+          "new_rule_id",
+          "rule",
+          "cutoff_on",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "RecurrenceStop": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "recurrence.stop",
+            "type": "string"
+          },
+          "rule_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "remove_future": {
+            "type": "boolean"
+          },
+          "cutoff_on": {
+            "$ref": "#/components/schemas/Date"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "rule_id",
+          "remove_future",
+          "cutoff_on",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "RecurrenceMaterialize": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "recurrence.materialize",
+            "type": "string"
+          },
+          "rule_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "from_on": {
+            "$ref": "#/components/schemas/Date"
+          },
+          "through_on": {
+            "$ref": "#/components/schemas/Date"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "rule_id",
+          "from_on",
+          "through_on",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "OrderingReplace": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "ordering.replace",
+            "type": "string"
+          },
+          "scope_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "category_siblings",
+              "task_siblings",
+              "today"
+            ]
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "member_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ID"
+            },
+            "minItems": 0,
+            "maxItems": 100000,
+            "uniqueItems": true
+          },
+          "ordered_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ID"
+            },
+            "minItems": 0,
+            "maxItems": 100000,
+            "uniqueItems": true
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "scope_id",
+          "kind",
+          "subject_id",
+          "member_ids",
+          "ordered_ids",
+          "event_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "Command": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TaskCreate"
+          },
+          {
+            "$ref": "#/components/schemas/TaskPatchCommand"
+          },
+          {
+            "$ref": "#/components/schemas/TaskChangeState"
+          },
+          {
+            "$ref": "#/components/schemas/TaskMoveTree"
+          },
+          {
+            "$ref": "#/components/schemas/CategorySave"
+          },
+          {
+            "$ref": "#/components/schemas/CategoryRelocate"
+          },
+          {
+            "$ref": "#/components/schemas/CategoryRemove"
+          },
+          {
+            "$ref": "#/components/schemas/TagSave"
+          },
+          {
+            "$ref": "#/components/schemas/TagRemove"
+          },
+          {
+            "$ref": "#/components/schemas/RecurrenceReplace"
+          },
+          {
+            "$ref": "#/components/schemas/RecurrenceStop"
+          },
+          {
+            "$ref": "#/components/schemas/RecurrenceMaterialize"
+          },
+          {
+            "$ref": "#/components/schemas/OrderingReplace"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "task.create": "#/components/schemas/TaskCreate",
+            "task.patch": "#/components/schemas/TaskPatchCommand",
+            "task.change_state": "#/components/schemas/TaskChangeState",
+            "task.move_tree": "#/components/schemas/TaskMoveTree",
+            "category.save": "#/components/schemas/CategorySave",
+            "category.relocate": "#/components/schemas/CategoryRelocate",
+            "category.remove": "#/components/schemas/CategoryRemove",
+            "tag.save": "#/components/schemas/TagSave",
+            "tag.remove": "#/components/schemas/TagRemove",
+            "recurrence.replace": "#/components/schemas/RecurrenceReplace",
+            "recurrence.stop": "#/components/schemas/RecurrenceStop",
+            "recurrence.materialize": "#/components/schemas/RecurrenceMaterialize",
+            "ordering.replace": "#/components/schemas/OrderingReplace"
+          }
+        }
+      },
+      "InlinePayload": {
+        "type": "object",
+        "properties": {
+          "preconditions": {
+            "$ref": "#/components/schemas/Preconditions"
+          },
+          "commands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Command"
+            },
+            "minItems": 1,
+            "maxItems": 100000
+          }
+        },
+        "required": [
+          "preconditions",
+          "commands"
+        ],
+        "additionalProperties": false
+      },
+      "InlinePush": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "mutation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "client_seq": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "preconditions": {
+            "$ref": "#/components/schemas/Preconditions"
+          },
+          "commands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Command"
+            },
+            "minItems": 1,
+            "maxItems": 100000
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "mutation_id",
+          "installation_id",
+          "client_seq",
+          "preconditions",
+          "commands"
+        ],
+        "additionalProperties": false
+      },
+      "PayloadRef": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "canonical_sha256": {
+            "$ref": "#/components/schemas/Hash"
+          }
+        },
+        "required": [
+          "job_id",
+          "canonical_sha256"
+        ],
+        "additionalProperties": false
+      },
+      "StagedPush": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "mutation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "client_seq": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "payload_ref": {
+            "$ref": "#/components/schemas/PayloadRef"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "mutation_id",
+          "installation_id",
+          "client_seq",
+          "payload_ref"
+        ],
+        "additionalProperties": false
+      },
+      "PushRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/InlinePush"
+          },
+          {
+            "$ref": "#/components/schemas/StagedPush"
+          }
+        ]
+      },
+      "LegacyMetadata": {
+        "type": "object",
+        "properties": {
+          "format_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "source_export_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "canonical_json": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1048576
+          }
+        },
+        "required": [
+          "format_version",
+          "source_export_version",
+          "canonical_json"
+        ],
+        "additionalProperties": false,
+        "description": "Validated JSON1..9 compatibility capsule; current patch cannot write this field."
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1048576
+          },
+          "planning_state": {
+            "$ref": "#/components/schemas/PlanningState"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deadline_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "today_focus": {
+            "type": "boolean"
+          },
+          "evening": {
+            "type": "boolean"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "important": {
+            "type": "boolean"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Schedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reminder": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Reminder"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tag_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ID"
+            },
+            "minItems": 0,
+            "maxItems": 512,
+            "uniqueItems": true
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskLink"
+            },
+            "minItems": 0,
+            "maxItems": 512,
+            "uniqueItems": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "created_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updated_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "completed_at_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelled_at_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deleted_at_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deletion_group_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completion_group_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recurrence_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurrence_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "occurrence_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "instance_overridden": {
+            "type": "boolean"
+          },
+          "legacy_metadata": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LegacyMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "notes",
+          "planning_state",
+          "category_id",
+          "parent_task_id",
+          "start_on",
+          "deadline_on",
+          "today_focus",
+          "evening",
+          "pinned",
+          "important",
+          "schedule",
+          "reminder",
+          "tag_ids",
+          "links",
+          "status",
+          "created_at_utc",
+          "updated_at_utc",
+          "completed_at_utc",
+          "cancelled_at_utc",
+          "deleted_at_utc",
+          "deletion_group_id",
+          "completion_group_id",
+          "recurrence_id",
+          "occurrence_on",
+          "occurrence_key",
+          "instance_overridden",
+          "legacy_metadata"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "OPEN",
+                  "type": "string"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "completed_at_utc": {
+                  "type": "null"
+                },
+                "cancelled_at_utc": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "COMPLETED",
+                  "type": "string"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "completed_at_utc": {
+                  "$ref": "#/components/schemas/Instant"
+                },
+                "cancelled_at_utc": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "CANCELLED",
+                  "type": "string"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "cancelled_at_utc": {
+                  "$ref": "#/components/schemas/Instant"
+                },
+                "completed_at_utc": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "recurrence_id": {
+                  "type": "null"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "occurrence_key": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "occurrence_key": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 128
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "created_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updated_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "deleted_at_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 1048576
+          },
+          "color_key": {
+            "$ref": "#/components/schemas/Color"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "legacy_metadata": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LegacyMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "created_at_utc",
+          "updated_at_utc",
+          "deleted_at_utc",
+          "parent_id",
+          "title",
+          "description",
+          "color_key",
+          "archived",
+          "legacy_metadata"
+        ],
+        "additionalProperties": false
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "created_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updated_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "deleted_at_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "$ref": "#/components/schemas/Title"
+          },
+          "color_key": {
+            "$ref": "#/components/schemas/Color"
+          }
+        },
+        "required": [
+          "id",
+          "created_at_utc",
+          "updated_at_utc",
+          "deleted_at_utc",
+          "title",
+          "color_key"
+        ],
+        "additionalProperties": false
+      },
+      "RecurrenceRule": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "created_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "updated_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "deleted_at_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_task_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RuleSpec"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "created_at_utc",
+          "updated_at_utc",
+          "deleted_at_utc",
+          "source_task_id",
+          "rule",
+          "active"
+        ],
+        "additionalProperties": false
+      },
+      "OrderingScope": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "category_siblings",
+              "task_siblings",
+              "today"
+            ]
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ordered_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ID"
+            },
+            "minItems": 0,
+            "maxItems": 100000,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "subject_id",
+          "ordered_ids"
+        ],
+        "additionalProperties": false
+      },
+      "TaskChange": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "task",
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "operation": {
+            "const": "replace",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/Task"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "revision",
+          "operation",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "CategoryChange": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "category",
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "operation": {
+            "const": "replace",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/Category"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "revision",
+          "operation",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "TagChange": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "tag",
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "operation": {
+            "const": "replace",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/Tag"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "revision",
+          "operation",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "RecurrenceRuleChange": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "recurrence_rule",
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "operation": {
+            "const": "replace",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/RecurrenceRule"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "revision",
+          "operation",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "OrderingScopeChange": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "ordering_scope",
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "operation": {
+            "const": "replace",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/OrderingScope"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "revision",
+          "operation",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "Change": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TaskChange"
+          },
+          {
+            "$ref": "#/components/schemas/CategoryChange"
+          },
+          {
+            "$ref": "#/components/schemas/TagChange"
+          },
+          {
+            "$ref": "#/components/schemas/RecurrenceRuleChange"
+          },
+          {
+            "$ref": "#/components/schemas/OrderingScopeChange"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "Alias": {
+        "type": "object",
+        "properties": {
+          "alias_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "canonical_id": {
+            "$ref": "#/components/schemas/ID"
+          }
+        },
+        "required": [
+          "alias_id",
+          "canonical_id"
+        ],
+        "additionalProperties": false
+      },
+      "SuccessorEdge": {
+        "type": "object",
+        "properties": {
+          "rule_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "predecessor_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "successor_id": {
+            "$ref": "#/components/schemas/ID"
+          }
+        },
+        "required": [
+          "rule_id",
+          "predecessor_id",
+          "successor_id"
+        ],
+        "additionalProperties": false
+      },
+      "ChangeBatch": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "origin_mutation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "origin_installation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "committed_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "structure_revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StructureVersion"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Alias"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "successor_edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuccessorEdge"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          }
+        },
+        "required": [
+          "seq",
+          "origin_mutation_id",
+          "origin_installation_id",
+          "committed_at_utc",
+          "changes",
+          "structure_revisions",
+          "aliases",
+          "successor_edges"
+        ],
+        "additionalProperties": false
+      },
+      "BatchRef": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "batch_ref": {
+            "type": "object",
+            "properties": {
+              "job_id": {
+                "$ref": "#/components/schemas/ID"
+              },
+              "sha256": {
+                "$ref": "#/components/schemas/Hash"
+              },
+              "byte_count": {
+                "$ref": "#/components/schemas/Counter"
+              }
+            },
+            "required": [
+              "job_id",
+              "sha256",
+              "byte_count"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "seq",
+          "batch_ref"
+        ],
+        "additionalProperties": false
+      },
+      "DeliveredBatch": {
+        "type": "object",
+        "properties": {
+          "batch": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ChangeBatch"
+              },
+              {
+                "$ref": "#/components/schemas/BatchRef"
+              }
+            ]
+          },
+          "after_cursor": {
+            "$ref": "#/components/schemas/Cursor"
+          }
+        },
+        "required": [
+          "batch",
+          "after_cursor"
+        ],
+        "additionalProperties": false,
+        "description": "Checkpoint bound to this complete batch, not the end of the whole page. Last delivery cursor equals next_cursor. Cursor is transport metadata, not immutable batch content."
+      },
+      "PullResponse": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "through_seq": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "batches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeliveredBatch"
+            },
+            "minItems": 0,
+            "maxItems": 128
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/Cursor"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "through_seq",
+          "batches",
+          "next_cursor",
+          "has_more"
+        ],
+        "additionalProperties": false
+      },
+      "Receipt": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "mutation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "committed",
+              "no_op"
+            ]
+          },
+          "batch_seq": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositiveCounter"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observed_head_seq": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "entity_revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityVersion"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "structure_revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StructureVersion"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "committed_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "mutation_id",
+          "data_epoch",
+          "result",
+          "batch_seq",
+          "observed_head_seq",
+          "entity_revisions",
+          "structure_revisions",
+          "committed_at_utc"
+        ],
+        "additionalProperties": false,
+        "description": "committed requires nonnull batch_seq; no_op requires null. observed_head never advances applied cursor.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "result": {
+                  "const": "committed",
+                  "type": "string"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "batch_seq": {
+                  "$ref": "#/components/schemas/PositiveCounter"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "batch_seq": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Conflict": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/EntityKind"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "expected_revision": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "actual_revision": {
+            "$ref": "#/components/schemas/Counter"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "expected_revision",
+          "actual_revision"
+        ],
+        "additionalProperties": false
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "instance": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "malformed_request",
+              "invalid_credentials",
+              "auth_expired",
+              "reauthentication_required",
+              "device_revoked",
+              "account_disabled",
+              "refresh_replayed",
+              "not_found",
+              "cancelled",
+              "timeout",
+              "revision_conflict",
+              "structure_conflict",
+              "mutation_payload_mismatch",
+              "import_rebase_required",
+              "job_state_conflict",
+              "chunk_hash_mismatch",
+              "lost_lease",
+              "epoch_changed",
+              "cursor_expired",
+              "snapshot_expired",
+              "payload_ref_expired",
+              "deletion_intent_expired",
+              "payload_too_large",
+              "unsupported_media_type",
+              "validation_failed",
+              "read_set_incomplete",
+              "title_invalid",
+              "date_invalid",
+              "date_order",
+              "ownership_invalid",
+              "category_depth",
+              "category_has_children",
+              "category_cycle",
+              "recurrence_invalid",
+              "recurrence_open_instance",
+              "legacy_format_unsupported",
+              "protocol_upgrade_required",
+              "rate_limited",
+              "internal_error",
+              "token_source_failed",
+              "busy",
+              "temporarily_unavailable",
+              "commit_result_unknown",
+              "storage_io",
+              "storage_corrupt",
+              "quota_exceeded",
+              "storage_full",
+              "method_not_allowed"
+            ]
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "field_path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "retry_after_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3600000
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Conflict"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "structure_conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StructureVersion"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "instance",
+          "code",
+          "retryable"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "malformed_request"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 400,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "invalid_credentials",
+                    "auth_expired",
+                    "reauthentication_required"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 401,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "device_revoked",
+                    "account_disabled",
+                    "refresh_replayed"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 403,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "not_found"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 404,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "cancelled",
+                    "timeout"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 408,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "revision_conflict",
+                    "structure_conflict",
+                    "mutation_payload_mismatch",
+                    "import_rebase_required",
+                    "job_state_conflict",
+                    "chunk_hash_mismatch",
+                    "lost_lease"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 409,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "epoch_changed",
+                    "cursor_expired",
+                    "snapshot_expired",
+                    "payload_ref_expired",
+                    "deletion_intent_expired"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 410,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "payload_too_large"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 413,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "unsupported_media_type"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 415,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "validation_failed",
+                    "read_set_incomplete",
+                    "title_invalid",
+                    "date_invalid",
+                    "date_order",
+                    "ownership_invalid",
+                    "category_depth",
+                    "category_has_children",
+                    "category_cycle",
+                    "recurrence_invalid",
+                    "recurrence_open_instance",
+                    "legacy_format_unsupported"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 422,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "protocol_upgrade_required"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 426,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "rate_limited"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 429,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "internal_error",
+                    "token_source_failed"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 500,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "busy",
+                    "temporarily_unavailable",
+                    "commit_result_unknown",
+                    "storage_io",
+                    "storage_corrupt"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 503,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "quota_exceeded",
+                    "storage_full"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 507,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "method_not_allowed"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": 405,
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Capabilities": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "server_instance_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "supported_protocol_versions": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true
+          },
+          "supported_dto_versions": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true
+          },
+          "dto_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "command_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "minItems": 1,
+            "maxItems": 1024,
+            "uniqueItems": true
+          },
+          "max_inline_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1048576
+          },
+          "max_inline_commands": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "max_inline_entities": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "max_chunk_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 262144
+          },
+          "max_job_bytes": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "max_batch_reassembly_bytes": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "features": {
+            "type": "object",
+            "properties": {
+              "staged_payloads": {
+                "type": "boolean"
+              },
+              "snapshots": {
+                "type": "boolean"
+              },
+              "imports": {
+                "type": "boolean"
+              },
+              "account_export": {
+                "type": "boolean"
+              },
+              "account_deletion": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "staged_payloads",
+              "snapshots",
+              "imports",
+              "account_export",
+              "account_deletion"
+            ],
+            "additionalProperties": false
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "server_instance_id",
+          "supported_protocol_versions",
+          "supported_dto_versions",
+          "dto_version",
+          "command_types",
+          "max_inline_bytes",
+          "max_inline_commands",
+          "max_inline_entities",
+          "max_chunk_bytes",
+          "max_job_bytes",
+          "max_batch_reassembly_bytes",
+          "features"
+        ],
+        "additionalProperties": false
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "login": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 512,
+            "description": "Normalize trim + ASCII lowercase, then require [a-z0-9._@+-], length 3..254; not a verified email."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "writeOnly": true
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "device_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "windows",
+              "macos"
+            ]
+          }
+        },
+        "required": [
+          "protocol_version",
+          "login",
+          "password",
+          "installation_id",
+          "device_name",
+          "platform"
+        ],
+        "additionalProperties": false
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "refresh_token": {
+            "$ref": "#/components/schemas/Token",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "protocol_version",
+          "refresh_token"
+        ],
+        "additionalProperties": false
+      },
+      "TokenPair": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "access_token": {
+            "$ref": "#/components/schemas/Token",
+            "writeOnly": false
+          },
+          "refresh_token": {
+            "$ref": "#/components/schemas/Token",
+            "writeOnly": false
+          },
+          "access_expires_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "refresh_expires_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "session_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "generation": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "access_token",
+          "refresh_token",
+          "access_expires_at_utc",
+          "refresh_expires_at_utc",
+          "session_id",
+          "generation"
+        ],
+        "additionalProperties": false
+      },
+      "PasswordChange": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "current_password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "writeOnly": true
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "writeOnly": true,
+            "description": "Policy checks UTF-8 byte length 12..1024 without trimming or Unicode normalization."
+          }
+        },
+        "required": [
+          "protocol_version",
+          "current_password",
+          "new_password"
+        ],
+        "additionalProperties": false
+      },
+      "Dataset": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "head_seq": {
+            "$ref": "#/components/schemas/Counter"
+          }
+        },
+        "required": [
+          "id",
+          "data_epoch",
+          "head_seq"
+        ],
+        "additionalProperties": false
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "user_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "login": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 254,
+            "pattern": "^[a-z0-9._@+\\-]{3,254}$"
+          },
+          "datasets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Dataset"
+            },
+            "minItems": 0,
+            "maxItems": 32
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "user_id",
+          "login",
+          "datasets"
+        ],
+        "additionalProperties": false
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "device_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "windows",
+              "macos"
+            ]
+          },
+          "created_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "expires_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "current": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "installation_id",
+          "device_name",
+          "platform",
+          "created_at_utc",
+          "expires_at_utc",
+          "current"
+        ],
+        "additionalProperties": false
+      },
+      "Sessions": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            },
+            "minItems": 0,
+            "maxItems": 128
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "sessions"
+        ],
+        "additionalProperties": false
+      },
+      "Progress": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "applied_seq": {
+            "$ref": "#/components/schemas/Counter"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "applied_seq"
+        ],
+        "additionalProperties": false
+      },
+      "OperationRequest": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/ID"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "operation_id"
+        ],
+        "additionalProperties": false
+      },
+      "StagedCreate": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "mutation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "client_seq": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "expected_bytes": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "operation_id",
+          "mutation_id",
+          "installation_id",
+          "client_seq",
+          "expected_bytes"
+        ],
+        "additionalProperties": false
+      },
+      "ImportCreate": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "mutation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "installation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "client_seq": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "expected_bytes": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "base_head_seq": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "dto_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "source_export_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "operation_id",
+          "mutation_id",
+          "installation_id",
+          "client_seq",
+          "expected_bytes",
+          "base_head_seq",
+          "dto_version",
+          "source_export_version"
+        ],
+        "additionalProperties": false
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "dataset_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_epoch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SNAPSHOT",
+              "STAGED",
+              "IMPORT",
+              "EXPORT",
+              "BATCH"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "UPLOADING",
+              "SEALED",
+              "BUILDING",
+              "READY",
+              "PUBLISHING",
+              "COMMITTED",
+              "FAILED",
+              "CANCELLED",
+              "EXPIRED"
+            ]
+          },
+          "expires_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "bytes_reserved": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "safe_error_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "id",
+          "dataset_id",
+          "data_epoch",
+          "kind",
+          "state",
+          "expires_at_utc",
+          "bytes_reserved",
+          "safe_error_code"
+        ],
+        "additionalProperties": false
+      },
+      "Chunk": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "byte_count": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "sha256": {
+            "$ref": "#/components/schemas/Hash"
+          }
+        },
+        "required": [
+          "index",
+          "byte_count",
+          "sha256"
+        ],
+        "additionalProperties": false
+      },
+      "SealRequest": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Chunk"
+            },
+            "minItems": 1,
+            "maxItems": 65536
+          },
+          "total_bytes": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "payload_sha256": {
+            "$ref": "#/components/schemas/Hash"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "chunks",
+          "total_bytes",
+          "payload_sha256"
+        ],
+        "additionalProperties": false
+      },
+      "Sealed": {
+        "type": "object",
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/Job"
+          },
+          "payload_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayloadRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "job",
+          "payload_ref"
+        ],
+        "additionalProperties": false,
+        "description": "IMPORT has null payload_ref; STAGED has its canonical expanded request hash."
+      },
+      "Manifest": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "job_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "dataset_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_epoch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SNAPSHOT",
+              "EXPORT",
+              "BATCH"
+            ]
+          },
+          "dto_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "cutoff_seq": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Counter"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "entity_count": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "total_bytes": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Chunk"
+            },
+            "minItems": 1,
+            "maxItems": 65536
+          },
+          "payload_sha256": {
+            "$ref": "#/components/schemas/Hash"
+          },
+          "manifest_sha256": {
+            "$ref": "#/components/schemas/Hash"
+          },
+          "expires_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "resume_cursor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Cursor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "job_id",
+          "dataset_id",
+          "data_epoch",
+          "kind",
+          "dto_version",
+          "cutoff_seq",
+          "entity_count",
+          "total_bytes",
+          "chunks",
+          "payload_sha256",
+          "manifest_sha256",
+          "expires_at_utc",
+          "resume_cursor"
+        ],
+        "additionalProperties": false
+      },
+      "SnapshotPayload": {
+        "type": "object",
+        "properties": {
+          "dto_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "dataset_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "cutoff_seq": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "entities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "structure_revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StructureVersion"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Alias"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "successor_edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuccessorEdge"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          }
+        },
+        "required": [
+          "dto_version",
+          "dataset_id",
+          "data_epoch",
+          "cutoff_seq",
+          "entities",
+          "structure_revisions",
+          "aliases",
+          "successor_edges"
+        ],
+        "additionalProperties": false
+      },
+      "ExportBundle": {
+        "type": "object",
+        "properties": {
+          "export_format_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "datasets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SnapshotPayload"
+            },
+            "minItems": 0,
+            "maxItems": 32
+          }
+        },
+        "required": [
+          "export_format_version",
+          "datasets"
+        ],
+        "additionalProperties": false
+      },
+      "ImportPayload": {
+        "type": "object",
+        "properties": {
+          "dto_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "base_head_seq": {
+            "$ref": "#/components/schemas/Counter"
+          },
+          "entities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Alias"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          },
+          "successor_edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuccessorEdge"
+            },
+            "minItems": 0,
+            "maxItems": 100000
+          }
+        },
+        "required": [
+          "dto_version",
+          "base_head_seq",
+          "entities",
+          "aliases",
+          "successor_edges"
+        ],
+        "additionalProperties": false,
+        "description": "Incoming revision is a comparison hint, not authority to write server revisions. Complete identities/facts, never credentials or local projections."
+      },
+      "RenewRequest": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "extend_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "extend_seconds"
+        ],
+        "additionalProperties": false
+      },
+      "ReleaseRequest": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "data_epoch": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "applied_seq": {
+            "$ref": "#/components/schemas/Counter"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "data_epoch",
+          "applied_seq"
+        ],
+        "additionalProperties": false
+      },
+      "ExportRequest": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/ID"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "operation_id"
+        ],
+        "additionalProperties": false
+      },
+      "DeletionPrepare": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "current_password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "protocol_version",
+          "operation_id",
+          "current_password"
+        ],
+        "additionalProperties": false
+      },
+      "DeletionIntent": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "deletion_token": {
+            "$ref": "#/components/schemas/Token",
+            "writeOnly": false
+          },
+          "confirm_until_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "expires_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "operation_id",
+          "deletion_token",
+          "confirm_until_utc",
+          "expires_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "DeletionConfirm": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/ID"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "operation_id"
+        ],
+        "additionalProperties": false
+      },
+      "DeletionStatus": {
+        "type": "object",
+        "properties": {
+          "protocol_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "operation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "INTENT",
+              "PENDING_LEDGER",
+              "LEDGER_CONFIRMED",
+              "COMPLETED",
+              "CANCELLED",
+              "EXPIRED"
+            ]
+          },
+          "updated_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Metadata"
+          }
+        },
+        "required": [
+          "protocol_version",
+          "operation_id",
+          "state",
+          "updated_at_utc"
+        ],
+        "additionalProperties": false
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "not_ready"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "Metadata": {
+        "type": "object",
+        "additionalProperties": {
+          "type": [
+            "string",
+            "integer",
+            "boolean",
+            "null"
+          ]
+        },
+        "description": "Non-business diagnostics only. Unknown keys may be ignored; never round-trip or hash as business facts."
+      }
+    }
+  },
+  "x-error-status-map": {
+    "400": [
+      "malformed_request"
+    ],
+    "401": [
+      "invalid_credentials",
+      "auth_expired",
+      "reauthentication_required"
+    ],
+    "403": [
+      "device_revoked",
+      "account_disabled",
+      "refresh_replayed"
+    ],
+    "404": [
+      "not_found"
+    ],
+    "408": [
+      "cancelled",
+      "timeout"
+    ],
+    "409": [
+      "revision_conflict",
+      "structure_conflict",
+      "mutation_payload_mismatch",
+      "import_rebase_required",
+      "job_state_conflict",
+      "chunk_hash_mismatch",
+      "lost_lease"
+    ],
+    "410": [
+      "epoch_changed",
+      "cursor_expired",
+      "snapshot_expired",
+      "payload_ref_expired",
+      "deletion_intent_expired"
+    ],
+    "413": [
+      "payload_too_large"
+    ],
+    "415": [
+      "unsupported_media_type"
+    ],
+    "422": [
+      "validation_failed",
+      "read_set_incomplete",
+      "title_invalid",
+      "date_invalid",
+      "date_order",
+      "ownership_invalid",
+      "category_depth",
+      "category_has_children",
+      "category_cycle",
+      "recurrence_invalid",
+      "recurrence_open_instance",
+      "legacy_format_unsupported"
+    ],
+    "426": [
+      "protocol_upgrade_required"
+    ],
+    "429": [
+      "rate_limited"
+    ],
+    "500": [
+      "internal_error",
+      "token_source_failed"
+    ],
+    "503": [
+      "busy",
+      "temporarily_unavailable",
+      "commit_result_unknown",
+      "storage_io",
+      "storage_corrupt"
+    ],
+    "507": [
+      "quota_exceeded",
+      "storage_full"
+    ],
+    "405": [
+      "method_not_allowed"
+    ]
+  }
+}

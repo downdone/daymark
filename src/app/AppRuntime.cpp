@@ -5,6 +5,7 @@
 #include "Ux38SmokeProbe.h"
 #include "Ux39SmokeProbe.h"
 #include "SoakRunner.h"
+#include "sync/Coordinator.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -30,6 +31,8 @@
 #endif
 
 namespace daymark {
+AppRuntime::AppRuntime()=default;
+AppRuntime::~AppRuntime()=default;
 namespace {
 void activateSmokeWindow(QQuickWindow* window)
 {
@@ -100,7 +103,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     QObject::connect(&m_instance,&SingleInstance::activationRequested,&m_engine,[mainWindow]{
         if(mainWindow) {mainWindow->showNormal();mainWindow->requestActivate();}
     });
-    m_workspace.start(QDir(directory).filePath(QStringLiteral("daymark.sqlite")));
+    m_workspace.start(sync::ProfileIndex(directory).activePath());
+    m_syncCredentials=std::make_unique<SystemSyncCredentials>();
+    m_sync=std::make_unique<sync::Coordinator>(m_workspace,directory,*m_syncCredentials);
     // Restore geometry and load appearance before exposing either window. The
     // QML root stays hidden while the composition root prepares its first scene.
     QTimer::singleShot(0,&m_engine,[this,mainWindow,smokeTest,activate=!smokeProfile.isEmpty()]{

@@ -25,6 +25,7 @@ ADR-001～006 的原文在[原始 TDD](../02_TECHNICAL_DESIGN.md) §1。后续�
 | 023 | [macOS 日历核心操作](023-macos-calendar-interaction.md) | 现行 |
 | 024 | [本地预览包范围](024-local-preview-package.md) | 部分取代：包内容由 025 覆盖 |
 | 025 | [最小便携运行包白名单](025-minimal-portable-payload.md) | 现行 |
-| 026 | [可选登录同步与单体 Go + SQLite 服务](026-go-sqlite-sync-service.md) | 已接受方向；待实施 |
+| 026 | [可选登录同步与单体 Go + SQLite 服务](026-go-sqlite-sync-service.md) | 现行，按显式实现授权扩展原V1范围 |
 | 027 | [CI 使用开源 Qt（LGPLv3）与依赖合规](027-open-source-qt-ci.md) | 现行 |
-| 028 | [同步接口契约、RPC 选型与兼容性门禁](028-sync-api-contract-and-rpc.md) | 提案，待评审 |
+| 028 | [同步接口契约、RPC 选型与兼容性门禁](028-sync-api-contract-and-rpc.md) | 现行，HTTP/JSON强契约 |
+| 029 | [同步服务实现依赖](029-server-runtime-dependencies.md) | 现行，版本及许可证锁定 |

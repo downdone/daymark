@@ -94,6 +94,7 @@ ApplicationWindow {
     property bool editorManualScroll: false
     property string editorFocusLayoutKey: ""
     Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property: "interactionActive";value: !!mainWindow.taskPointerRow || mainWindow.catalogDragActive || calendarPanel.timelineDragging}
+    Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property:"syncApplyPaused";value:mainWindow.draftDirty || mainWindow.editorSaving || (organization.visible && organization.dirty) || mainWindow.taskWorkspace.interactionActive}
     readonly property bool editingActive: editor.visible || quickEditor.editing
     readonly property bool transientMenuOpen: libraryMenu.visible || libraryCreateMenu.visible || categoryContextMenu.visible || catalogDeleteConfirm.visible || pageMenu.visible || categorySectionMenu.visible || tagSectionMenu.visible || batchContextMenu.visible || trashContextMenu.visible
     readonly property bool toolModalOpen: inspectorPicker.active || transientMenuOpen || catalogEdit.visible || deleteParentConfirm.visible || catalogCreate.visible || quickEditor.editing || organization.modalOpen || windowSettings.visible || dataTools.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen || timingFields.modalOpen || extraFields.parentPickerVisible || startDate.pickerVisible || deadline.pickerVisible || reminder.pickerVisible
@@ -1586,6 +1587,10 @@ ApplicationWindow {
         onHelpRequested: {windowSettings.close();helpPanel.open()}
         onQuitRequested: {windowSettings.close();mainWindow.forceQuit=true;mainWindow.close()}
         onCalendarVisibilityRequested: function(visible){if(visible)mainWindow.taskWorkspace.setPreference("desktopCalendarVisible",true);else desktopCalendar.close()}
+        onSyncLoginRequested:function(origin,login,password){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncLogin(origin,login,password)})}
+        onSyncProfileRequested:function(id){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncOpenProfile(id)})}
+        onSyncResolveRequested:function(id,decision){mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.syncResolveConflict(id,decision)})}
+        onSyncRebuildRequested:mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncRebuild()})
         workspace: mainWindow.taskWorkspace
         widgetController: mainWindow.widgetController
         startupController: mainWindow.startupController

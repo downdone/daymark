@@ -8,7 +8,7 @@ public:
     Result<QList<RecurrenceRule>> all() const;
     Result<RecurrenceRule> save(RecurrenceRule rule,const QString& now,const QDate& today);
     Result<void> stop(const QString& id,qint64 version,const QString& now,bool removeFuture,const QDate& today);
-    Result<int> materialize(const RecurrenceRule& rule,const QList<QDate>& dates,const QString& now,const QDate& occurrenceKey={});
+    Result<int> materialize(const RecurrenceRule& rule,const QList<QDate>& dates,const QString& now,const QDate& occurrenceKey={},const QString& predecessorId={});
 private:
     QSqlDatabase m_db;
 };

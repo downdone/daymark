@@ -11,11 +11,19 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <memory>
+#ifndef Q_MOC_RUN
+#define DAYMARK_ACCOUNT_SYNC_EMBEDDED
+#include "AccountSyncTest.cpp"
+#endif
 
 using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void accountSyncRealServer() {
+        if(qEnvironmentVariableIsEmpty("DAYMARK_SYNC_E2E_URL"))QSKIP("Run the Go TestQtDesktopEndToEnd harness with DAYMARK_QT_SYNC_TEST_EXE pointing to this target");
+        QCOMPARE(daymark::test::sync_account::run(),0);
+    }
     void repeatWeekdayUsesLocalCalendarAnchor() {
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("repeat-anchor.sqlite"));QVERIFY(daymark::test::awaitIdle(w));
         QCOMPARE(w.recurrenceWeekdayMask("2026-10-27"),2);

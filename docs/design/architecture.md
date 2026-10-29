@@ -2,6 +2,8 @@
 
 日期：2026-10-22。需求基线为 PRD 1.0；Qt 版本由 ADR-007 固定为 6.10.2。
 
+2026-10-28追加的可选账号同步方向见[ADR-026](../ADR/026-go-sqlite-sync-service.md)；其Go+SQLite服务端、客户端同步模块及可靠性目标见[工程架构](server-architecture.md)，协议以[v1草案](../api/sync-v1.md)为准。以下原桌面架构保留，不将新增设计视为当前实现，状态仍只见PROGRESS。
+
 ## 1. 已实现与计划边界
 
 已实现：CMake、QApplication、AppRuntime、Daymark QML模块、主窗口及独立组件；W-01的窗口控制，以及BASIC-01的初始schema、单实例、worker线程、任务CRUD/软删恢复、六个统一视图、搜索、同源今日组件和手动一致快照。窗口设置持久化、托盘/穿透和完整项目组织尚未实现。

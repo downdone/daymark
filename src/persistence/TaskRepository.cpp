@@ -1,3 +1,4 @@
+#include "ScopedTransaction.h"
 #include "TaskRepository.h"
 #include "services/ReminderSchedule.h"
 #include <QSqlQuery>
@@ -14,7 +15,7 @@ const QString selectTasks = QStringLiteral(
     "t.today_focus,t.evening,t.created_at_utc,t.updated_at_utc,t.completed_at_utc,t.cancelled_at_utc,"
     "t.deleted_at_utc,t.row_version,t.sort_order,t.project_id,p.planning_state,p.status,CASE WHEN p.archived=1 THEN 'archived' ELSE p.deleted_at_utc END,"
     "t.direct_area_id,t.heading_id,p.title,t.remind_at_utc,t.reminder_fired_at_utc,o.sort_order,COALESCE(p.parent_id,p.area_id),t.recurrence_template_id,t.occurrence_on,t.instance_overridden,h.title,h.sort_order "
-    ",COALESCE(c.title,a.name),CASE WHEN c.id IS NOT NULL THEN (c.archived=1 OR c.status<>'OPEN' OR c.planning_state<>'ACTIVE' OR c.deleted_at_utc IS NOT NULL) ELSE COALESCE(a.archived,0) END,t.parent_task_id,t.pinned,t.important,pt.title,t.reminder_repeat,t.reminder_every,t.reminder_anchor_utc,t.reminder_zone,t.deletion_group_id,t.completion_group_id FROM tasks t LEFT JOIN tasks pt ON pt.id=t.parent_task_id LEFT JOIN projects p ON p.id=t.project_id LEFT JOIN projects c ON c.id=p.parent_id LEFT JOIN headings h ON h.id=t.heading_id LEFT JOIN areas a ON a.id=COALESCE(t.direct_area_id,p.area_id) LEFT JOIN task_view_order o ON o.task_id=t.id AND o.view_code='today' ");
+    ",COALESCE(c.title,a.name),CASE WHEN c.id IS NOT NULL THEN (c.archived=1 OR c.status<>'OPEN' OR c.planning_state<>'ACTIVE' OR c.deleted_at_utc IS NOT NULL) ELSE COALESCE(a.archived,0) END,t.parent_task_id,t.pinned,t.important,pt.title,t.reminder_repeat,t.reminder_every,t.reminder_anchor_utc,t.reminder_zone,t.deletion_group_id,t.completion_group_id,t.sync_occurrence_key,t.sync_occurrence_on FROM tasks t LEFT JOIN tasks pt ON pt.id=t.parent_task_id LEFT JOIN projects p ON p.id=t.project_id LEFT JOIN projects c ON c.id=p.parent_id LEFT JOIN headings h ON h.id=t.heading_id LEFT JOIN areas a ON a.id=COALESCE(t.direct_area_id,p.area_id) LEFT JOIN task_view_order o ON o.task_id=t.id AND o.view_code='today' ");
 std::optional<QDate> dateValue(const QVariant& value)
 { return value.isNull() ? std::nullopt : std::optional<QDate>(QDate::fromString(value.toString(), Qt::ISODate)); }
 QVariant dateSql(const std::optional<QDate>& date)
@@ -41,11 +42,12 @@ Task readTask(const QSqlQuery& q)
     t.areaArchived=q.value(33).toBool();
     t.parentTaskId=q.value(34).toString();t.pinned=q.value(35).toBool();t.important=q.value(36).toBool();t.parentTitle=q.value(37).toString();
     t.reminderRepeat=q.value(38).toString();t.reminderEvery=q.value(39).toInt();t.reminderAnchorUtc=q.value(40).toString();t.reminderZone=q.value(41).toString();t.deletionGroupId=q.value(42).toString();t.completionGroupId=q.value(43).toString();
-    return t;
+    t.syncOccurrenceKey=q.value(44).toString();t.syncOccurrenceOn=QDate::fromString(q.value(45).toString(),Qt::ISODate);return t;
 }
 
 bool loadDetails(QSqlDatabase db,QList<Task>& tasks,const QString& taskId={})
 {
+    if(tasks.isEmpty())return true;
     QHash<QString,int> indices;for(int i=0;i<tasks.size();++i)indices.insert(tasks[i].id,i);
     QSqlQuery q(db);
     q.prepare(QStringLiteral("SELECT tt.task_id,t.id,t.name FROM task_tags tt JOIN tags t ON t.id=tt.tag_id WHERE t.deleted_at_utc IS NULL ")
@@ -58,6 +60,17 @@ bool loadDetails(QSqlDatabase db,QList<Task>& tasks,const QString& taskId={})
     q.prepare(QStringLiteral("SELECT s.task_id,s.all_day,s.start_on,s.end_on,s.start_at_utc,s.end_at_utc,s.time_zone,s.alert_minutes FROM task_schedules s ")+(taskId.isEmpty()?QString():QStringLiteral("WHERE s.task_id=?")));if(!taskId.isEmpty())q.addBindValue(taskId);if(!q.exec())return false;
     while(q.next())if(indices.contains(q.value(0).toString())){TaskSchedule s;s.allDay=q.value(1).toBool();s.startOn=QDate::fromString(q.value(2).toString(),Qt::ISODate);s.endOn=QDate::fromString(q.value(3).toString(),Qt::ISODate);s.startUtc=QDateTime::fromString(q.value(4).toString(),Qt::ISODateWithMs);s.endUtc=QDateTime::fromString(q.value(5).toString(),Qt::ISODateWithMs);s.timeZone=q.value(6).toString();s.alertMinutes=q.value(7).toInt();tasks[indices.value(q.value(0).toString())].schedule=s;}
     q.prepare(QStringLiteral("SELECT source_id,target_id,role FROM task_links ")+(taskId.isEmpty()?QString():QStringLiteral("WHERE source_id=?")));if(!taskId.isEmpty())q.addBindValue(taskId);if(!q.exec())return false;while(q.next())if(indices.contains(q.value(0).toString()))tasks[indices.value(q.value(0).toString())].links.append({q.value(1).toString(),q.value(2).toString()});
+    q.finish();
+    if(!q.exec(QStringLiteral("SELECT c.entity_id,p.graph_meta_json FROM sync_conflicts c JOIN sync_profiles p ON p.profile_id=c.profile_id WHERE c.state='OPEN' AND c.entity_type='task' AND json_type(c.remote_json,'$.value.deleted_at_utc')='text'")))return false;
+    QHash<QString,QHash<QString,QString>> reverseBindings;
+    while(q.next()){
+        const auto metadata=q.value(1).toString();
+        if(!reverseBindings.contains(metadata)){QHash<QString,QString> reverse;const auto bindings=QJsonDocument::fromJson(metadata.toUtf8()).object().value("physical_task_ids").toObject();for(auto it=bindings.begin();it!=bindings.end();++it)reverse.insert(it.value().toString(),it.key());reverseBindings.insert(metadata,reverse);}
+        const auto canonical=q.value(0).toString(),physical=reverseBindings.value(metadata).value(canonical,canonical);
+        if(indices.contains(physical))tasks[indices.value(physical)].syncRemoteDeletionPending=true;
+    }
+    q.finish();
+    if(taskId.isEmpty())for(const auto& task:tasks)if(task.syncRemoteDeletionPending && task.deletedAtUtc.isEmpty() && task.status==QStringLiteral("OPEN") && indices.contains(task.parentTaskId)){auto& parent=tasks[indices.value(task.parentTaskId)];parent.pendingSubtasks=qMax(0,parent.pendingSubtasks-1);}
     if(!taskId.isEmpty() && tasks.first().recurrenceId.isEmpty())return true;
     q.prepare(QStringLiteral("SELECT id,title,note_text,frequency,interval_n,anchor_on,weekdays_mask,month_day,year_month,end_on,active,row_version,source_task_id,task_defaults_json,deleted_at_utc FROM recurrence_templates")+(taskId.isEmpty()?QString():QStringLiteral(" WHERE id=?")));if(!taskId.isEmpty())q.addBindValue(tasks.first().recurrenceId);if(!q.exec())return false;
     QHash<QString,RecurrenceRule> rules;while(q.next()){RecurrenceRule r;r.id=q.value(0).toString();r.title=q.value(1).toString();r.notes=q.value(2).toString();r.frequency=q.value(3).toString();r.interval=q.value(4).toInt();r.anchor=QDate::fromString(q.value(5).toString(),Qt::ISODate);r.weekdays=q.value(6).toInt();r.monthDay=q.value(7).toInt();r.yearMonth=q.value(8).toInt();r.end=QDate::fromString(q.value(9).toString(),Qt::ISODate);r.active=q.value(10).toBool() && q.value(14).isNull();r.rowVersion=q.value(11).toLongLong();r.sourceTaskId=q.value(12).toString();r.defaultsJson=q.value(13).toString();rules.insert(r.id,r);}
@@ -169,50 +182,52 @@ Result<void> TaskRepository::atomically(const std::function<Result<void>()>& com
 
 Result<QList<Task>> TaskRepository::claimDueReminders(const QString& now)
 {
-    if(!m_db.transaction())return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+    ScopedTransaction writeScope(m_db);if(!writeScope.active())return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
     QSqlQuery q(m_db);
     if(!q.exec(selectTasks+QStringLiteral("WHERE t.deleted_at_utc IS NULL AND COALESCE(c.archived,a.archived,0)=0 AND (c.id IS NULL OR (c.deleted_at_utc IS NULL AND c.status='OPEN' AND c.planning_state='ACTIVE')) AND COALESCE(p.archived,0)=0 AND t.status='OPEN' AND t.planning_state='ACTIVE' AND (t.project_id IS NULL OR (p.deleted_at_utc IS NULL AND p.status='OPEN' AND p.planning_state='ACTIVE')) AND t.remind_at_utc IS NOT NULL AND (t.reminder_fired_at_utc IS NULL OR t.reminder_repeat<>'NONE') ORDER BY t.remind_at_utc"))) {
-        m_db.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
+        writeScope.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     }
     QList<Task> due;
     const auto instant=QDateTime::fromString(now,Qt::ISODateWithMs);
     while(q.next()) {auto task=readTask(q);const auto at=QDateTime::fromString(task.remindAtUtc,Qt::ISODateWithMs);if(at.isValid() && at<=instant)due.append(task);}
     q.finish();
+    if(!loadDetails(m_db,due)){writeScope.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));}
     QList<Task> claimed;
     for(auto& task:due) {
+        if(task.syncRemoteDeletionPending)continue;
         const auto scheduled=task.remindAtUtc;
         QDateTime next;if(task.reminderRepeat!=QStringLiteral("NONE"))next=ReminderSchedule::nextAfter(QDateTime::fromString(task.reminderAnchorUtc,Qt::ISODateWithMs),task.reminderRepeat,task.reminderEvery,QTimeZone(task.reminderZone.toUtf8()),instant);
-        if(task.reminderRepeat!=QStringLiteral("NONE") && !next.isValid()){m_db.rollback();return Result<QList<Task>>::failure(ErrorCode::ValidationError,QStringLiteral("reminderInvalid"));}
+        if(task.reminderRepeat!=QStringLiteral("NONE") && !next.isValid()){writeScope.rollback();return Result<QList<Task>>::failure(ErrorCode::ValidationError,QStringLiteral("reminderInvalid"));}
         q.prepare(QStringLiteral("INSERT INTO task_reminder_history(id,task_id,scheduled_at_utc,fired_at_utc) VALUES(?,?,?,?) ON CONFLICT(task_id,scheduled_at_utc) DO NOTHING"));
-        q.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));q.addBindValue(task.id);q.addBindValue(scheduled);q.addBindValue(now);if(!q.exec()){m_db.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
+        q.addBindValue(QUuid::createUuid().toString(QUuid::WithoutBraces));q.addBindValue(task.id);q.addBindValue(scheduled);q.addBindValue(now);if(!q.exec()){writeScope.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
         const bool newlyClaimed=q.numRowsAffected()==1;
         q.prepare(QStringLiteral("UPDATE tasks SET reminder_fired_at_utc=?,remind_at_utc=?,row_version=row_version+1 WHERE id=? AND row_version=? AND remind_at_utc=?"));
         q.addBindValue(now);q.addBindValue(next.isValid()?next.toString(Qt::ISODateWithMs):scheduled);q.addBindValue(task.id);q.addBindValue(task.rowVersion);q.addBindValue(scheduled);
-        if(!q.exec() || q.numRowsAffected()!=1){m_db.rollback();return Result<QList<Task>>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));}
+        if(!q.exec() || q.numRowsAffected()!=1){writeScope.rollback();return Result<QList<Task>>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));}
         task.reminderFiredAtUtc=now;if(next.isValid())task.remindAtUtc=next.toString(Qt::ISODateWithMs);++task.rowVersion;if(newlyClaimed)claimed.append(task);
     }
-    if(!m_db.commit()){m_db.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
+    if(!writeScope.commit()){writeScope.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
     return {claimed,{}};
 }
 Result<void> TaskRepository::reorder(const QList<Task>& tasks,bool today,const QString& now,const OrderChange& change)
 {
-    if(!m_db.transaction())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+    ScopedTransaction writeScope(m_db);if(!writeScope.active())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
     QSqlQuery q(m_db);int order=0;QSet<QString> seen;
     for(const auto& task:tasks) {
-        if(seen.contains(task.id)){m_db.rollback();return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("orderInvalid"));}seen.insert(task.id);
+        if(seen.contains(task.id)){writeScope.rollback();return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("orderInvalid"));}seen.insert(task.id);
         q.prepare(today?QStringLiteral("UPDATE tasks SET evening=?,heading_id=?,instance_overridden=CASE WHEN recurrence_template_id IS NOT NULL THEN 1 ELSE instance_overridden END,row_version=row_version+1,updated_at_utc=? WHERE id=? AND row_version=? AND deleted_at_utc IS NULL"):QStringLiteral("UPDATE tasks SET sort_order=?,evening=?,heading_id=?,instance_overridden=CASE WHEN recurrence_template_id IS NOT NULL THEN 1 ELSE instance_overridden END,row_version=row_version+1,updated_at_utc=? WHERE id=? AND row_version=? AND deleted_at_utc IS NULL"));
         if(!today)q.addBindValue(order);
         q.addBindValue(change.taskId==task.id && change.evening?*change.evening:task.evening);
         const auto heading=change.taskId==task.id && change.headingId?*change.headingId:task.headingId;
         q.addBindValue(heading.isEmpty()?QVariant():QVariant(heading));q.addBindValue(now);q.addBindValue(task.id);q.addBindValue(task.rowVersion);
-        if(!q.exec() || q.numRowsAffected()!=1){m_db.rollback();return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));}
+        if(!q.exec() || q.numRowsAffected()!=1){writeScope.rollback();return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));}
         if(today) {
             q.prepare(QStringLiteral("INSERT INTO task_view_order(view_code,task_id,sort_order) VALUES('today',?,?) ON CONFLICT(view_code,task_id) DO UPDATE SET sort_order=excluded.sort_order"));
-            q.addBindValue(task.id);q.addBindValue(order);if(!q.exec()){m_db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
+            q.addBindValue(task.id);q.addBindValue(order);if(!q.exec()){writeScope.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
         }
         ++order;
     }
-    if(!m_db.commit()){m_db.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}return {};
+    if(!writeScope.commit()){writeScope.rollback();return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}return {};
 }
 Result<bool> TaskRepository::hasOpenCompletionSibling(const Task& task) const
 {

@@ -12,6 +12,7 @@
 #include "services/EventService.h"
 #include "services/RecurrenceService.h"
 #include "persistence/DataTransfer.h"
+#include "sync/Journal.h"
 #include <QUrl>
 #include <QSettings>
 #include <QDir>
@@ -132,6 +133,14 @@ public:
     std::unique_ptr<RecurrenceService> recurrenceService;
     std::optional<ImportPlan> pendingImport;
     SystemClock clock;
+    template<class T,class F> Result<T> mutate(F command){
+        sync::Journal journal(database.connection());const auto profile=journal.profile();if(!profile.ok())return Result<T>::failure(profile.error.code,profile.error.key);const bool capture=profile.value.value("mode")==QStringLiteral("ACCOUNT");
+        ScopedTransaction tx(database.connection());if(!tx.active())return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+        const auto before=capture?sync::Mapping(database.connection()).capture():Result<sync::Graph>{};if(!before.ok())return Result<T>::failure(before.error.code,before.error.key);
+        auto result=command();if(!result.ok())return result;
+        if(capture){const auto after=sync::Mapping(database.connection()).capture();if(!after.ok())return Result<T>::failure(after.error.code,after.error.key);const auto recorded=journal.record(before.value,after.value);if(!recorded.ok())return Result<T>::failure(recorded.error.code,recorded.error.key);}
+        if(!tx.commit())return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));return result;
+    }
     Result<QList<Task>> load(const QString& path)
     {
         recurrenceService.reset();recurrence.reset();service.reset();repository.reset();catalogService.reset();catalog.reset();
@@ -143,7 +152,7 @@ public:
         service=std::make_unique<TaskService>(*repository,clock,catalogService.get());
         recurrence=std::make_unique<RecurrenceRepository>(database.connection());
         recurrenceService=std::make_unique<RecurrenceService>(*recurrence,*repository,clock);
-        const auto generated=recurrenceService->generate();if(!generated.ok())return {{},generated.error};
+        const auto generated=mutate<int>([&]{return recurrenceService->generate();});if(!generated.ok())return {{},generated.error};
         return repository->all();
     }
 };
@@ -286,10 +295,44 @@ void TaskWorkspace::setSearch(const QString& search)
     emit stateChanged();
 }
 void TaskWorkspace::refreshClock(){m_today=m_clock.localToday();refresh();emit stateChanged();m_refreshPending=true;m_pendingMaintenance.start(0);}
+void TaskWorkspace::switchSyncDatabase(const QString& path,std::function<void(Result<void>)> completed)
+{
+    if(!m_ready || !begin()){completed(Result<void>::failure(ErrorCode::Cancelled,QStringLiteral("syncWorkspaceBusy")));return;}
+    const auto previous=m_path;m_ready=false;m_undoTimer.stop();m_lastDeleted.clear();m_lastBatchDeleted.clear();m_taskEditHistory.clear();m_historyTaskId.clear();m_collapsedTasks.clear();m_eventUndoId.clear();m_view=QStringLiteral("inbox");m_scope=m_view;m_search.clear();m_tagFilter.clear();m_projectFilter.clear();
+    QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
+    QMetaObject::invokeMethod(worker,[self,worker,path,previous,completed=std::move(completed)]{
+        auto tasks=worker->load(path);const auto loadError=tasks.error;if(!tasks.ok())tasks=worker->load(previous);
+        const auto catalog=tasks.ok()?worker->catalog->all():Result<QList<CatalogItem>>{};const auto rules=tasks.ok()?worker->recurrence->all():Result<QList<RecurrenceRule>>{};
+        if(self)QMetaObject::invokeMethod(self.data(),[self,path,previous,tasks,catalog,rules,loadError,completed]{if(!self)return;self->m_busy=false;self->m_ready=tasks.ok() && catalog.ok() && rules.ok();self->m_path=loadError.code==ErrorCode::None?path:previous;if(self->m_ready){self->m_cache=tasks.value;self->m_catalog=catalog.value;self->m_rules=rules.value;self->refresh();}self->m_error=loadError;emit self->stateChanged();completed(Result<void>{loadError});},Qt::QueuedConnection);
+    },Qt::QueuedConnection);
+}
+void TaskWorkspace::syncExecute(const QString& operation,const QJsonObject& input,std::function<void(Result<QJsonObject>)> completed)
+{
+    if((operation==QStringLiteral("batch") || operation==QStringLiteral("snapshot")) && m_syncApplyPaused){
+        if(input.contains(QStringLiteral("generation")) && m_syncState.contains(QStringLiteral("generation")) && input.value(QStringLiteral("generation")).toVariant()!=m_syncState.value(QStringLiteral("generation"))){completed(Result<QJsonObject>::failure(ErrorCode::Cancelled,QStringLiteral("syncStaleCallback")));return;}
+        QPointer<TaskWorkspace> self(this);QTimer::singleShot(100,this,[self,operation,input,completed=std::move(completed)]()mutable{if(self)self->syncExecute(operation,input,std::move(completed));});return;
+    }
+    if(!m_ready){completed(Result<QJsonObject>::failure(ErrorCode::Cancelled,QStringLiteral("syncWorkspaceNotReady")));return;}
+    QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
+    QMetaObject::invokeMethod(worker,[self,worker,operation,input,completed=std::move(completed)]{
+        Result<QJsonObject> result;
+        if(operation==QStringLiteral("bind") || operation==QStringLiteral("reconcile") || operation==QStringLiteral("rebuild")){
+            const auto backup=worker->database.createSnapshot(QFileInfo(worker->database.connection().databaseName()).dir().filePath(QStringLiteral("backups/accounts")));
+            if(!backup.ok())result.error=backup.error;
+        }
+        if(result.ok()){
+            ScopedTransaction tx(worker->database.connection());if(!tx.active())result=Result<QJsonObject>::failure(ErrorCode::PersistenceError,QStringLiteral("syncDatabaseWrite"));
+            else{result=sync::Journal(worker->database.connection()).execute(operation,input);if(result.ok() && !tx.commit())result=Result<QJsonObject>::failure(ErrorCode::PersistenceError,QStringLiteral("syncDatabaseWrite"));}
+        }
+        const bool changed=result.ok() && (operation==QStringLiteral("batch") || operation==QStringLiteral("snapshot") || operation==QStringLiteral("resolve"));
+        const auto tasks=changed?worker->repository->all():Result<QList<Task>>{};const auto catalog=changed?worker->catalog->all():Result<QList<CatalogItem>>{};const auto rules=changed?worker->recurrence->all():Result<QList<RecurrenceRule>>{};
+        if(self)QMetaObject::invokeMethod(self.data(),[self,result,changed,tasks,catalog,rules,completed]{if(!self)return;auto final=result;if(changed){if(!tasks.ok())final.error=tasks.error;else if(!catalog.ok())final.error=catalog.error;else if(!rules.ok())final.error=rules.error;else{self->m_cache=tasks.value;self->m_catalog=catalog.value;self->m_rules=rules.value;self->refresh();emit self->stateChanged();}}completed(final);},Qt::QueuedConnection);
+    },Qt::QueuedConnection);
+}
 QVariantMap TaskWorkspace::task(const QString& id) const
 {
     const auto item=m_taskIndex.constFind(id);
-    if(item!=m_taskIndex.cend() && item->deletedAtUtc.isEmpty())return TaskListModel::taskMap(item.value());
+    if(item!=m_taskIndex.cend() && item->deletedAtUtc.isEmpty() && !item->syncRemoteDeletionPending)return TaskListModel::taskMap(item.value());
     return {};
 }
 bool TaskWorkspace::runTask(const QString& operation,std::function<Result<Task>(TaskWorker&)> command)
@@ -297,7 +340,7 @@ bool TaskWorkspace::runTask(const QString& operation,std::function<Result<Task>(
     if(!m_ready || !begin()) return false;
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
     QMetaObject::invokeMethod(worker,[self,worker,operation,command=std::move(command)]{
-        const auto result=command(*worker);
+        const auto result=worker->mutate<Task>([&]{auto result=command(*worker);if(result.ok() && operation==QStringLiteral("complete") && !result.value.recurrenceId.isEmpty()){const auto generated=worker->recurrenceService->generate({},{},{result.value.id});if(!generated.ok())return Result<Task>{{},generated.error};}return result;});
         const auto snapshot=result.ok()?worker->repository->all():Result<QList<Task>>{};
         if(self) QMetaObject::invokeMethod(self.data(),[self,operation,result,snapshot]{if(!self)return;if(result.ok() && !snapshot.ok()){self->finishTask(operation,Result<Task>{{},snapshot.error});return;}if(result.ok())self->m_cache=snapshot.value;self->finishTask(operation,result);},Qt::QueuedConnection);
     },Qt::QueuedConnection);
@@ -491,7 +534,9 @@ bool TaskWorkspace::batchTasks(const QVariantList& selection,const QString& acti
     return runCatalog([items,action,patch,deleted](TaskWorker& w){
         return w.repository->atomically([&] {
             const auto command=QStringList{"complete","reopen","delete","restore"}.contains(action)?action:QStringLiteral("edit");
-            const auto result=w.service->batch(items,command,patch);if(!result.ok() || action!=QStringLiteral("delete"))return result;
+            const auto result=w.service->batch(items,command,patch);if(!result.ok())return result;
+            if(action==QStringLiteral("complete")){QStringList completedIds;for(const auto& item:items)completedIds.append(item.first);const auto generated=w.recurrenceService->generate({},{},completedIds);return Result<void>{generated.error};}
+            if(action!=QStringLiteral("delete"))return result;
             QSet<QString> groups;
             for(const auto& item:items){const auto task=w.repository->find(item.first);if(!task.ok())return Result<void>{task.error};groups.insert(task.value.deletionGroupId);}
             const auto all=w.repository->all();if(!all.ok())return Result<void>{all.error};
@@ -532,6 +577,7 @@ QString TaskWorkspace::errorText() const
 {
     if(m_error.code==ErrorCode::None)return {};
     const auto& key=m_error.key;
+    if(key==QStringLiteral("syncReplaceSeparateProfile"))return tr("账号资料支持合并导入。替换恢复请使用独立本地资料，避免覆盖服务器及其他设备的数据。");
     if(key==QStringLiteral("windowLayer"))return tr("未能应用日历窗口层级，原设置已保留。请关闭固定或置顶后重试。");
     if(key==QStringLiteral("titleInvalid"))return tr("标题不能为空，且不能超过512个Unicode字符。");
     if(key==QStringLiteral("dateInvalid"))return tr("日期无效。请使用 yyyy-MM-dd，或留空清除日期。");
@@ -608,8 +654,7 @@ bool TaskWorkspace::runCatalog(std::function<Result<void>(TaskWorker&)> command,
     if(!m_ready || !begin(operation!=QStringLiteral("maintenance") && operation!=QStringLiteral("calendarRange")))return false;
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
     QMetaObject::invokeMethod(worker,[self,worker,operation,command=std::move(command),completed=std::move(completed)]{
-        const auto result=command(*worker);
-        const auto generated=result.ok() && operation!=QStringLiteral("batch") && operation!=QStringLiteral("integrity")?worker->recurrenceService->generate():Result<int>{{},result.error};
+        Result<int> generated;const auto result=worker->mutate<void>([&]{auto r=command(*worker);if(r.ok() && operation!=QStringLiteral("batch") && operation!=QStringLiteral("integrity")){generated=worker->recurrenceService->generate();if(!generated.ok())return Result<void>{generated.error};}return r;});
         const auto tasks=worker->repository->all();const auto catalog=worker->catalog->all();const auto rules=worker->recurrence->all();
         const auto events=EventRepository(worker->database.connection()).all();const auto history=worker->repository->reminderHistory();
         if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,history,generated,operation,completed]{
@@ -872,7 +917,13 @@ bool TaskWorkspace::applyImport(bool replace)
 {
     return runTransfer(QStringLiteral("applyImport"),[replace](TaskWorker& w){
         if(!w.pendingImport)return Result<QString>::failure(ErrorCode::ValidationError,QStringLiteral("importInvalid"));
-        DataTransfer transfer(w.database);const auto result=transfer.apply(*w.pendingImport,replace);if(!result.ok())return Result<QString>{{},result.error};
+        sync::Journal journal(w.database.connection());const auto profile=journal.profile();if(!profile.ok())return Result<QString>{{},profile.error};const bool account=profile.value.value("mode")==QStringLiteral("ACCOUNT");
+        if(account && replace)return Result<QString>::failure(ErrorCode::ValidationError,QStringLiteral("syncReplaceSeparateProfile"));
+        std::unique_ptr<ScopedTransaction> scope;if(account){scope=std::make_unique<ScopedTransaction>(w.database.connection());if(!scope->active())return Result<QString>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
+        const auto before=account?sync::Mapping(w.database.connection()).capture():Result<sync::Graph>{};if(!before.ok())return Result<QString>{{},before.error};
+        auto plan=*w.pendingImport;if(account)plan.document.remove(QStringLiteral("settings"));
+        DataTransfer transfer(w.database);const auto result=transfer.apply(plan,replace);if(!result.ok())return Result<QString>{{},result.error};
+        if(account){const auto after=sync::Mapping(w.database.connection()).capture();if(!after.ok())return Result<QString>{{},after.error};const auto recorded=journal.recordImport(before.value,after.value);if(!recorded.ok())return Result<QString>{{},recorded.error};if(!scope->commit())return Result<QString>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
         w.pendingImport.reset();return Result<QString>{tr("已导入 %1 行，跳过 %2 行ID冲突。%3%4").arg(result.value.added).arg(result.value.skipped).arg(replace?tr("替换前已创建完整备份。"):QString()).arg(result.value.settingsApplied?QString():tr("数据已提交，但外观设置未能保存；请在设置页重试。")),{}};
     });
 }
