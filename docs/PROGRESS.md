@@ -1,5 +1,11 @@
 # Daymark 实施进度
 
+### SYNC-05 源码推送与远端同步门禁（2026-10-29，PUSHED / SYNC-CI-PASS）
+
+实现及最终修复已推送main，Git SSH核对origin/main为6cfc6d7c8bebdd9da5c43cebb999aa9f1529a5ba。[Account and sync run 40802576795](https://github.com/downdone/daymark/actions/runs/40802576795)四个job全部success：Windows/macOS/Linux实际Go测试、Linux race及Windows MSVC真实Qt双端TLS联调；合成账号、临时资料与真实作业过期恢复均在此源码运行。与本机Release25/25、Go/vet/race、lint及文档/许可/隐私检查形成独立证据。
+
+同期[完整桌面run 40802576805](https://github.com/downdone/daymark/actions/runs/40802576805)仍在执行，保留独立状态，不将同步专项成功等同所有CI成功。未改其他agent的未提交历史记录/结构路线图，未创建发布tag、上传真实资料或部署服务。后续仅同步本段验收记录与STATUS文档，业务源码保持6cfc6d7。
+
 ### SYNC-05 完整实现与最终本机验证（2026-10-29，IMPLEMENTED / WINDOWS-AUTO-PASS）
 
 已完成可选账号同步的Go服务和Qt接入：默认本地、登录同步、账号资料隔离；13类类型化命令、严格协议/幂等回执/逐批游标、离线冻结队列/完整冲突、首次合并/大组传输、恢复与删除账本/备份运维，入口server/README.md。追加schema10，未改历史1～9。主实现已随共享工作区提交e4303c8进入origin/main，不重写该共享提交；本次最后的因果前驱及作业失效恢复修复另作后续提交。
