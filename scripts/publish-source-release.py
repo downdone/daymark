@@ -37,10 +37,21 @@ def source_release_payload(tag, version, notes):
             "draft": False, "prerelease": False, "make_latest": "true"}
 
 
+# Names this repository is allowed to attach to a release. The tag build workflow
+# attaches archives produced from the tag itself (LGPLv3 Qt, see ADR-027); anything
+# else means a hand-edited release and must not be silently accepted.
+RELEASE_ASSET_PATTERN = re.compile(
+    r"^Daymark-(?:\d+\.\d+\.\d+)-(?:windows-x64|macos-arm64|linux-x64)\.tar\.gz(?:\.sha256)?$"
+    r"|^Daymark-(?:\d+\.\d+\.\d+)-windows-x64\.zip(?:\.sha256)?$"
+    r"|^SHA256SUMS\.txt$")
+
+
 def validate_release_record(record, tag, version, notes):
+    unexpected = [asset["name"] for asset in record.get("assets", [])
+                  if not RELEASE_ASSET_PATTERN.fullmatch(asset["name"])]
     if (record["tag_name"] != tag or record["name"] != f"Daymark {version}"
             or record["body"] != notes or record["draft"] or record["prerelease"]
-            or record["assets"]):
+            or unexpected):
         raise ValueError("An incompatible release exists; it was not modified")
 
 

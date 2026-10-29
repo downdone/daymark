@@ -1,0 +1,170 @@
+name: Publish tagged build
+
+# Tag pushes build the three desktop targets and attach archives to the
+# source-only GitHub Release created by release-source.yml. Tagged source is
+# already gated there (annotated tag, version, notes, main reachability), so
+# this workflow only adds build artifacts and never edits release metadata.
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-build-${{ github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            label: windows-x64
+            arch: win64_msvc2022_64
+          - os: macos-15
+            label: macos-arm64
+            arch: clang_64
+          - os: ubuntu-24.04
+            label: linux-x64
+            arch: linux_gcc_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # The release guard is the same one the source workflow runs, so a build
+      # can never be produced for a tag whose metadata is inconsistent.
+      - name: Verify tag metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/publish-source-release.py --tag "$RELEASE_TAG" --check
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build libgl1-mesa-dev \
+            libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 libxcb-randr0 \
+            libxcb-render-util0 libxcb-image0 libxcb-xkb1 libdbus-1-3 \
+            fonts-noto-cjk fonts-dejavu-core
+      # Open-source Qt (LGPLv3) only; see ADR-027.
+      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          version: '6.10.2'
+          arch: ${{ matrix.arch }}
+          cache: true
+          aqtversion: '==3.3.0'
+          install-deps: false
+      - name: Configure
+        run: cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+      - name: Build
+        run: cmake --build build/release --config Release --parallel 4
+      - name: Test
+        shell: bash
+        run: |
+          set +e
+          report="$PWD/build/ctest-report.xml"
+          log="$PWD/build/ctest-console.log"
+          ctest --test-dir build/release -C Release --output-on-failure --no-tests=error \
+                --output-junit "$report" >"$log" 2>&1
+          status=$?
+          cat "$log"
+          python3 scripts/report-ctest-failures.py "$report" "$log" || true
+          exit $status
+      - name: QML lint
+        run: cmake --build build/release --config Release --target daymark_qmllint daymark_style_qmllint
+      # Windows: windeployqt against the MSVC kit produces the portable ZIP.
+      # The stricter local-preview audit (scripts/package-windows.ps1) targets the
+      # MinGW preset and is not usable here.
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          DAYMARK_QT: ${{ env.QT_ROOT_DIR }}
+        run: |
+          $version = (Select-String -Path CMakeLists.txt -Pattern 'set\(DAYMARK_VERSION "([^"]+)"\)').Matches[0].Groups[1].Value
+          & ./scripts/package-tagged-windows.ps1 -BuildDirectory build/release -OutputDirectory build/artifacts -Version $version
+      # macOS and Linux ship an executable archive only; signing/notarisation
+      # and a clean-machine gate are still open (see release-policy).
+      - name: Package (macOS/Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="Daymark-${GITHUB_REF_NAME#v}-${{ matrix.label }}"
+          mkdir -p "build/artifacts" "build/stage/$name"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            bin="build/release/bin/daymark.app"
+            [ -d "$bin" ] || { echo "::error::daymark.app missing"; exit 1; }
+            cp -R "$bin" "build/stage/$name/"
+            QTDIR="${QT_ROOT_DIR:-$Qt6_DIR}"
+            macdeployqt "build/stage/$name/daymark.app" -always-overwrite
+          else
+            bin="build/release/bin/daymark"
+            [ -x "$bin" ] || { echo "::error::daymark binary missing"; exit 1; }
+            cp "$bin" "build/stage/$name/"
+          fi
+          cp LICENSE CONTRIBUTING.md "build/stage/$name/" 2>/dev/null || true
+          cp packaging/THIRD-PARTY-NOTICES.md "build/stage/$name/"
+          cat > "build/stage/$name/README.txt" <<'TXT'
+          Daymark - unofficial build artifact
+          Qt runtime is licensed under LGPLv3 and linked dynamically; see
+          THIRD-PARTY-NOTICES.md. This archive is not signed and has not been
+          validated on a clean machine.
+          TXT
+          (cd build/stage && tar -czf "../artifacts/$name.tar.gz" "$name")
+          (cd build/artifacts && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
+      - name: Record artifact digests
+        shell: bash
+        run: |
+          cd build/artifacts
+          ls -l
+          sha256sum * > SHA256SUMS.txt || true
+          cat SHA256SUMS.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ matrix.label }}
+          path: build/artifacts/*
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Attach archives to the tagged release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ls -l dist
+          # The release record is created by release-source.yml; wait briefly in
+          # case the two tag workflows start together.
+          for attempt in $(seq 1 30); do
+            if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then break; fi
+            echo "release not visible yet (attempt $attempt)"; sleep 10
+          done
+          gh release view "$RELEASE_TAG" >/dev/null
+          # Uploading the same name twice fails; skip names already attached so a
+          # re-run is idempotent instead of silently replacing an artifact.
+          existing=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
+          for file in dist/*; do
+            name=$(basename "$file")
+            if grep -qxF "$name" <<<"$existing"; then
+              echo "already attached: $name"
+            else
+              gh release upload "$RELEASE_TAG" "$file"
+            fi
+          done
+          gh release view "$RELEASE_TAG" --json tagName,assets --jq '{tag:.tagName,assets:[.assets[].name]}'

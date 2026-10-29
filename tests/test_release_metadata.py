@@ -19,6 +19,12 @@ class ReleaseGuards(unittest.TestCase):
         self.assertNotIn("target_commitish", payload)
         record=dict(payload, assets=[], target_commitish="main")
         release.validate_release_record(record, "v1.1.0", "1.1.0", "only source")
+        # Archives produced by the tag build workflow are expected on a release
+        # since LGPLv3 distribution was decided (ADR-027).
+        shipped=dict(record, assets=[{"name":"Daymark-1.1.0-linux-x64.tar.gz"},
+                                     {"name":"Daymark-1.1.0-windows-x64.zip"},
+                                     {"name":"SHA256SUMS.txt"}])
+        release.validate_release_record(shipped, "v1.1.0", "1.1.0", "only source")
         for changed in ({"tag_name":"v1.0.1"},{"body":"different notes"},{"draft":True},
                         {"prerelease":True},{"assets":[{"name":"runtime.dll"}]}):
             with self.subTest(changed=changed), self.assertRaises(ValueError):
