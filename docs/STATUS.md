@@ -19,7 +19,7 @@
 | Windows MinGW Release | 完整构建及26/26 CTest PASS，275.50秒 |
 | QML lint | daymark_qmllint、daymark_style_qmllint PASS |
 | 源码发布守卫 | 14/14、版本/隐私、文档/样式/颜色/同步契约 PASS |
-| Windows本地包 | 待固定提交后重新打包与SDK隔离校验 |
+| Windows本地包 | 05c3ddb再次26/26 PASS；原生200%菜单定位失败已修复，原生437阶段/相关2项通过，最终包待复验 |
 | Windows MSVC / macOS / Linux CI | 本次推送及tag结果待核验，不能沿用旧run |
 | Windows MinGW Debug | 本版未复验 |
 

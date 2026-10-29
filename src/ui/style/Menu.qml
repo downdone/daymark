@@ -23,13 +23,22 @@ T.Menu {
     property Item anchorItem: null
     readonly property var anchorWindow: anchorItem ? anchorItem.Window.window : null
     readonly property var menuWindow: contentItem ? contentItem.Window.window : null
+    function anchorPosition(source) {
+        const host=source.Window.window,screen=host ? host.screen : null
+        const edge=source.mapToGlobal(source.width,source.height)
+        const left=screen ? Math.max(screen.virtualX+6,Math.min(edge.x-width,screen.virtualX+screen.width-width-6)) : edge.x-width
+        return source.mapFromGlobal(left,edge.y+4)
+    }
     function popupAt(source) {
         anchorItem=source
         recordHostGeometry()
-        popup(source,source.width-width,source.height+4)
+        const at=anchorPosition(source)
+        popup(source,at.x,at.y)
     }
     function refreshAnchor() {
-        if(visible && anchorItem)popup(anchorItem,anchorItem.width-width,anchorItem.height+4)
+        if(!visible || !anchorItem)return
+        const at=anchorPosition(anchorItem)
+        x=at.x;y=at.y
     }
     onWidthChanged: if(visible && anchorItem)Qt.callLater(refreshAnchor)
     onHeightChanged: if(visible && anchorItem)Qt.callLater(refreshAnchor)

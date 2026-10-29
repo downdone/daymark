@@ -1176,6 +1176,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     widget->resize(260,360);QMetaObject::invokeMethod(widget,"openVerificationMenu");
                 } else if(phase==118 || phase==120) {
                     QVariant result;QMetaObject::invokeMethod(widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
+                    // Popup.Window content geometry settles after the native resize
+                    // at 200% text. Await the same complete predicate, with a bound.
+                    if(result.toString()!=QStringLiteral("PASS") && inputClock->elapsed()-smokeProgress->load()<1500)return;
                     if(result.toString()!=QStringLiteral("PASS")){qCritical()<<result;fail("widget menu labels fit");return;}
                     if(!screenshotPath.isEmpty()) {
                         bool captured=false;

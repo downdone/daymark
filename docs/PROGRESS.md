@@ -1,5 +1,10 @@
 # Daymark 实施进度
 
+### RELEASE-1.8.0 原生包门禁修正（2026-10-29，NATIVE-PASS / FINAL-PACKAGE-NEXT）
+
+05c3ddb完整26/26再次PASS（269.71秒），但默认SDK隔离原生全链在phase120的200%菜单锚点失败，未生成ZIP。1.5秒等待完整谓词后仍失败，排除单纯过渡帧；诊断显示Popup.Window反复popup/屏边自动定位后坐标负向漂移。按HIG稳定布局与可访问性、UX-10/11/13和桌面菜单契约，先将目标全局水平边界夹紧到所属屏幕，再映射到来源局部坐标；已打开菜单仅更新x/y，不反复popup。保留完整断言、原watchdog与键盘/窗口变动关闭路径；真实Windows原生完整437阶段已退出0、warnings=false（13.544秒到完成检查）；100/200%菜单截图已逐张查看，文字完整、实体表面及选中标记清晰。两项QML lint及widget_window/desktop_surfaces 2/2 PASS（26.42秒），待固定源码后完整CTest/最终包验证，tag尚未创建。证据release180-menu-fix.log、release180-menu-native.log、release180-menu-related.log与widget-menu/200截图。
+
+
 ### RELEASE-1.8.0 本机预检（2026-10-29，WINDOWS-AUTO-PASS / PACKAGING-NEXT）
 
 Qt6.10.2 MinGW Release完整构建、两项QML lint及完整26/26 CTest PASS（275.50秒）；desktop_surfaces 25.74秒、account_access 10.62秒、qml_watchdog_late 97.48秒。发布守卫14/14、149份文档链接、92 QML样式、四主题颜色、106份同步契约和跟踪源码隐私检查PASS。证据build/release180-build.log、release180-confirm.log、release180-lint.log、release180-tests.log与JUnit；未增加watchdog预算或删断言。
