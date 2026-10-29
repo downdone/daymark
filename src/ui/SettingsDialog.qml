@@ -9,14 +9,6 @@ ApplicationWindow {
     signal dataRequested()
     signal helpRequested()
     signal calendarVisibilityRequested(bool visible)
-    signal syncLoginRequested(string origin,string login,string password)
-    signal syncRegisterRequested(string origin,string login,string password)
-    property bool syncRegisterMode:false
-    onSyncFormOpenChanged:if(syncFormOpen){syncOrigin.text=root.workspace.syncState.server_origin || "";syncLogin.text=root.workspace.syncState.login_label || ""}
-    signal syncProfileRequested(string id)
-    signal syncResolveRequested(string id,string decision)
-    signal syncRebuildRequested()
-    property bool syncFormOpen:false
     required property TaskWorkspace workspace
     required property WidgetViewModel widgetController
     required property StartupController startupController
@@ -75,9 +67,6 @@ ApplicationWindow {
     }
     Connections {target:root.viewport();function onMovementStarted(){root.restoringScroll=false}}
     onClosing:function(event){event.accepted=false;root.close()}
-    onVisibleChanged:if(!visible){syncPassword.clear();syncConfirmPassword.clear();syncRegisterMode=false}
-    onSyncRegisterModeChanged:{syncPassword.clear();syncConfirmPassword.clear()}
-    Connections {target:root.workspace;function onSyncStateChanged(){if(root.workspace.syncState.authenticated){root.syncFormOpen=false;root.syncRegisterMode=false}}}
     Shortcut {sequence:"Escape";enabled:root.visible;onActivated:root.close()}
     RowLayout {
         anchors.fill:parent;spacing:0
@@ -115,7 +104,6 @@ ApplicationWindow {
                         background:Rectangle {radius:Theme.rowRadius;color:categoryRow.down ? Theme.pressed : categoryRow.checked ? Theme.selected : categoryRow.hovered ? Theme.hover : "transparent";border.width:categoryRow.visualFocus ? 1 : 0;border.color:Theme.accent}
                     }
                 }
-                Label {text:qsTr("本地保存 · 无需账号");Layout.fillWidth:true;Layout.leftMargin:8;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary}
             }
         }
         ColumnLayout {
@@ -201,51 +189,6 @@ ApplicationWindow {
                 }
                 ColumnLayout {
                     id:general;visible:root.categoryIndex===2;Layout.fillWidth:true;spacing:Theme.blockGap
-                    SettingsGroup {
-                        heading:qsTr("账号与同步")
-                        detail:root.workspace.syncState.status || qsTr("仅存储在此设备")
-                        ColumnLayout {
-                            Layout.fillWidth:true;Layout.margins:12;spacing:12
-                            Label {visible:!!root.workspace.syncState.login_label;Layout.fillWidth:true;wrapMode:Text.Wrap;text:(root.workspace.syncState.login_label || "")+"\n"+(root.workspace.syncState.server_origin || "");font.pixelSize:Theme.bodySize}
-                            ColumnLayout {
-                                visible:root.syncFormOpen && !root.workspace.syncState.authenticated;Layout.fillWidth:true;spacing:8
-                                TextField {id:syncOrigin;objectName:"syncServerOrigin";Layout.fillWidth:true;placeholderText:qsTr("服务器地址 · https://sync.example.com");Accessible.name:qsTr("同步服务器地址");selectByMouse:true;enabled:!root.workspace.syncState.busy}
-                                TextField {id:syncLogin;objectName:"syncLogin";Layout.fillWidth:true;placeholderText:qsTr("账号");Accessible.name:qsTr("账号");selectByMouse:true;enabled:!root.workspace.syncState.busy}
-                                TextField {id:syncPassword;objectName:"syncPassword";Layout.fillWidth:true;placeholderText:qsTr("密码");Accessible.name:qsTr("密码");echoMode:TextInput.Password;enabled:!root.workspace.syncState.busy;onAccepted:syncSubmit.clicked()}
-                                TextField {id:syncConfirmPassword;objectName:"syncConfirmPassword";visible:root.syncRegisterMode;Layout.fillWidth:true;placeholderText:qsTr("再次输入密码");Accessible.name:qsTr("确认密码");echoMode:TextInput.Password;enabled:!root.workspace.syncState.busy;onAccepted:syncSubmit.clicked()}
-                                Label {visible:root.syncRegisterMode;Layout.fillWidth:true;wrapMode:Text.Wrap;text:syncConfirmPassword.text.length>0 && syncConfirmPassword.text!==syncPassword.text ? qsTr("两次密码不一致。") : qsTr("账号使用3～254位英文字母、数字或 . _ @ + -；密码至少15个字符。");font.pixelSize:Theme.captionSize;color:Theme.secondary}
-                                Button {id:syncSubmit;objectName:"syncSubmit";text:root.workspace.syncState.busy ? qsTr("正在连接…") : root.syncRegisterMode ? qsTr("注册并同步") : qsTr("登录并同步");enabled:!root.workspace.syncState.busy && syncOrigin.text.trim().length>0 && syncLogin.text.trim().length>0 && syncPassword.text.length>0 && (!root.syncRegisterMode || (Array.from(syncPassword.text).length>=15 && syncConfirmPassword.text===syncPassword.text));onClicked:{if(!enabled)return;if(root.syncRegisterMode)root.syncRegisterRequested(syncOrigin.text,syncLogin.text,syncPassword.text);else root.syncLoginRequested(syncOrigin.text,syncLogin.text,syncPassword.text);syncPassword.clear();syncConfirmPassword.clear()}}
-                                Button {objectName:"syncRegisterMode";text:root.syncRegisterMode ? qsTr("已有账号？登录") : qsTr("没有账号？注册");enabled:!root.workspace.syncState.busy;onClicked:{root.syncRegisterMode=!root.syncRegisterMode;syncLogin.forceActiveFocus()}}
-                                Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("登录后将合并此设备与服务器的资料。");font.pixelSize:Theme.captionSize;color:Theme.secondary}
-                            }
-                            Button {visible:!root.syncFormOpen && !root.workspace.syncState.authenticated;text:root.workspace.syncState.mode==="ACCOUNT" ? qsTr("重新登录") : qsTr("登录账号");enabled:!root.workspace.syncState.busy;onClicked:{root.syncFormOpen=true;syncOrigin.forceActiveFocus()}}
-                            RowLayout {
-                                visible:!!root.workspace.syncState.authenticated;Layout.fillWidth:true
-                                Button {objectName:"syncNow";text:root.workspace.syncState.busy ? qsTr("正在同步…") : qsTr("立即同步");enabled:!root.workspace.syncState.busy;onClicked:root.workspace.syncNow()}
-                                Button {objectName:"syncLogout";text:qsTr("退出账号");onClicked:root.workspace.syncLogout()}
-                            }
-                            Button {objectName:"syncRebuild";visible:root.workspace.syncState.phase==="RECONCILE_REQUIRED" && !!root.workspace.syncState.authenticated;text:qsTr("备份并重新合并");enabled:!root.workspace.syncState.busy;onClicked:root.syncRebuildRequested()}
-                            Label {visible:(root.workspace.syncState.pending_count || 0)>0;Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("%1 组修改保留在此设备，等待同步。").arg(root.workspace.syncState.pending_count || 0);font.pixelSize:Theme.captionSize;color:Theme.secondary}
-                            Repeater {
-                                model:root.workspace.syncState.conflicts || []
-                                delegate:ColumnLayout {
-                                    id:syncConflict
-                                    required property var modelData
-                                    Layout.fillWidth:true;spacing:8
-                                    Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("修改冲突：%1").arg(syncConflict.modelData.local_title || syncConflict.modelData.remote_title || qsTr("相关资料"));font.pixelSize:Theme.bodySize}
-                                    Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("此选择处理 %1 项相关修改，两个版本保留在恢复记录中。").arg(syncConflict.modelData.related_count || 1);font.pixelSize:Theme.captionSize;color:Theme.secondary}
-                                    Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("此设备\n%1").arg(syncConflict.modelData.local_summary || "");font.pixelSize:Theme.captionSize}
-                                    Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("服务器\n%1").arg(syncConflict.modelData.remote_summary || "");font.pixelSize:Theme.captionSize}
-                                    Flow {
-                                        Layout.fillWidth:true;spacing:8
-                                        Button {text:qsTr("保留此设备");enabled:!root.workspace.syncState.busy;onClicked:root.syncResolveRequested(syncConflict.modelData.id,"local")}
-                                        Button {text:qsTr("使用服务器版本");enabled:!root.workspace.syncState.busy && syncConflict.modelData.remote_available!==false;onClicked:root.syncResolveRequested(syncConflict.modelData.id,"remote")}
-                                    }
-                                }
-                            }
-                            ComboBox {id:syncProfiles;objectName:"syncProfiles";visible:count>1;Layout.fillWidth:true;Accessible.name:qsTr("本地账号资料");model:root.workspace.syncState.profiles || [];textRole:"label";onActivated:root.syncProfileRequested(model[currentIndex].id)}
-                        }
-                    }
                     SettingsGroup {
                         heading:qsTr("启动与关闭")
                         detail:root.startupController.supported ? qsTr("移动程序后需重新开启开机启动。") : qsTr("当前平台暂不支持开机启动。")

@@ -4,6 +4,7 @@
 #include <QString>
 #include <QRect>
 #include <QPointF>
+#include <QVariantMap>
 class QQuickItem;
 class QQuickWindow;
 namespace daymark {
@@ -31,6 +32,7 @@ private:
     bool m_settingsHomeSent=false;
     QRect m_widgetModeGeometry;
     QPointF m_widgetModeCollapse,m_widgetModeMore;
+    QVariantMap m_originalSyncState,m_accountDisplayState;
     QElapsedTimer m_wait;
 };
 }

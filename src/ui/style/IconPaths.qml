@@ -48,7 +48,8 @@ QtObject {
         undo:"M8 4L3.5 8.5 8 13 M3.5 8.5h10a6 6 0 0 1 0 12H11",
         eye:"M2.5 12C7 4 17 4 21.5 12C17 20 7 20 2.5 12z M15 12a3 3 0 1 1-6 0a3 3 0 1 1 6 0",
         eyeOff:"M2.5 12C7 4 17 4 21.5 12C17 20 7 20 2.5 12z M15 12a3 3 0 1 1-6 0a3 3 0 1 1 6 0 M3 3l18 18",
-        filterClear:"M3.5 5.5h17 M6.5 11.5h9 M9.5 17.5h2 M16 15l5 5 M21 15l-5 5"
+        filterClear:"M3.5 5.5h17 M6.5 11.5h9 M9.5 17.5h2 M16 15l5 5 M21 15l-5 5",
+        account:"M16.5 7a4.5 4.5 0 1 1-9 0a4.5 4.5 0 1 1 9 0 M3.5 21v-2a8.5 8.5 0 0 1 17 0v2"
     })
     function path(name) {
         const aliases={project:"folder",logbook:"check",collapse:"down",reset:"reload",batch:"list",desktop:"window"};

@@ -16,8 +16,8 @@
 
 | 项 | 状态 |
 |---|---|
-| 测试数量 | 25 个 CTest（分层见[测试方法](testing-method.md)） |
-| Windows MinGW Release | 注册切片曾25/25；后续UX38 stage76复验失败，注册专项另验（见PROGRESS） |
+| 测试数量 | Windows 26个CTest，新增account_access；其他平台不含Windows包校验（分层见[测试方法](testing-method.md)） |
+| Windows MinGW Release | 本轮全量24/25；修复后相关套件复验通过，新增账号专项通过（见PROGRESS） |
 | Windows MinGW Debug | 之前基线25/25；当前同步切片未复验 |
 | Windows MSVC（CI） | 6cfc6d7同步双端通过；完整桌面新run执行中 |
 | macOS（CI，`macos-15`） | 6cfc6d7服务端通过；完整桌面contextual_workspace失败 |
@@ -32,7 +32,11 @@
 
 ## 自助注册（SYNC-06，2026-10-29）
 
-提供POST /v1/auth/register及设置中的“注册并同步”；旧服务器配置默认关闭，示例registration_enabled=true。用户名/密码注册不表示邮箱验证。Go全包test/vet、注册相关race、真实Qt注册后双端同步已通过；Windows Release曾25/25；后续完整探针在既有UX38 stage76失败。注册独立切片连续3轮、浅色/深色200%渲染检查通过，最终针对性回归及证据见PROGRESS。前述6cfc6d7远端基线不包含本轮注册，注册提交的CI另行核验；macOS原生和生产部署未验证。
+提供POST /v1/auth/register及独立账号窗口中的“注册并同步”；旧服务器配置默认关闭，示例registration_enabled=true。用户名/密码注册不表示邮箱验证。Go全包test/vet、注册相关race、真实Qt注册后双端同步已通过；Windows Release曾25/25；后续完整探针在既有UX38 stage76失败。注册独立切片连续3轮、浅色/深色200%渲染检查通过，最终针对性回归及证据见PROGRESS。前述6cfc6d7远端基线不包含本轮注册，注册提交的CI另行核验；macOS原生和生产部署未验证。
+
+## 独立账号窗口（SYNC-07/UX-61，2026-10-29）
+
+主窗侧栏及折叠态提供独立账号入口，设置移除账号内容；[设计、实现前评审与实现后复核](design/account-window.md)已记录。Windows Release构建/lint、18段账号状态及接线、真实Qt/Go TLS联调PASS。完整回归曾24/25，修复样式预览裁剪定位后相关套件复验通过；最终desktop_surfaces/account_access 2/2 PASS，不将其称为单轮26/26。原生/平台边界见下方及PROGRESS，新提交CI需单独核验。
 
 ## 已知问题
 

@@ -1,5 +1,23 @@
 # Daymark 实施进度
 
+### SYNC-07 独立账号窗口交付与复验（2026-10-29，IMPLEMENTED / UI-AUTO-PASS）
+
+按用户“重新设计→评审→实现”完成[独立账号窗口](design/account-window.md)，设计第4节为实现前评审，第5节为实现后视觉/交互复核。主窗侧栏底部“登录账号/账号与同步”及折叠态账号图标打开独立AccountWindow，设置页移除全部账号表单/冲突/资料入口及旧“无需账号”说明。品牌、持续字段标签、显式服务器、全宽主动作、密码显示/确认、错误/忙碌/后台继续、可选本地使用分层；成功转账号概览，完整冲突/恢复/本地资料/退出仍经原Main草稿门。退出保留本地队列；无新服务接口/依赖/schema。
+
+实际Qt6.10.2/MinGW Release构建PASS（sync07-build.log及sync07-ui-build.log），两项QML lint最终无QML诊断；91QML/47原创图形、148文档链接、106Schema副本与diff检查PASS。曾出现焦点揭示缺顶部留白的真实布局失败，改为Flickable内容坐标；关闭重开保留账号/服务器但不保留口令，身份改变才预填；页脚独立、200%窄窗可达。已查看真实渲染的浅色登录/注册/错误/连接中/账号概览及深色200%窄窗（build/sync07-account.png.desktop-*.png），不是静态原型或原生OS验收。
+
+账号状态18段（98～115）通过：设置无账号残留、主窗和折叠入口、密码不一致Enter零提交、模式/关闭清理、输入保留、错误/忙碌/账号概览/冲突/本地资料与恢复显示、Esc、两次真实Main→TaskWorkspace/Coordinator提交。成功态为合成syncState，仅用于呈现；真实接线向关闭的loopback端口验证安全失败，记录仅计数/种类/参数匹配布尔值，不记录口令。独立真实Qt↔Go TLS双端另PASS：Qt64.28秒/Go70.109秒（sync07-e2e.log），涵盖注册、同步、离线、冲突与资料隔离等既有闭环。
+
+完整25项曾两轮24/25（245.47/251.88秒），唯一desktop_surfaces失败于旧样式预览裁剪定位（UX38 stage90）。图标词表追加新账号图形时保持原顺序；预览改为定位实际被测calendar图形，原裁剪/像素断言保留，不放松门槛。修复后qml_startup/desktop_surfaces 2/2 PASS 73.29秒。随后按责任将原注册及新增账号段完整迁移至独立CTest account_access，desktop_surfaces恢复至97，不重复账号断言、不延长原预算；当前Windows完整清单26项、fast仍17项。最后desktop_surfaces 18.11秒、account_access 10.88秒，2/2 PASS（sync07-account-final-tests.log）；未将“全量24/25+修复后复验”写成一次完整26/26。最后补测显示密码动作与模式切换复位，account_access 18.68秒PASS（sync07-password-test.log）。
+
+本轮只改CMake的QML资源清单与新测试登记/标签/字体环境，不改CI workflow或编译脚本；旧探针全部保留并有[测试责任映射](testing-method.md)。原生Windows密码/键盘/读屏、真实DPI/多屏与macOS仍UNVERIFIED；没有部署、真实账号登录、私人资料上传、发行tag或二进制发布。其他agent的源码/历史记录及结构路线图保持原样。
+
+### SYNC-07 独立登录体验：设计与实现前评审（2026-10-29，DESIGN-REVIEWED / IN_PROGRESS）
+
+用户明确要求专门设计登录UI、移出设置、重新设计评审后实现。已先读现状与强制HIG/UX契约，完成[独立账号窗口设计及评审](design/account-window.md)：主窗独立入口、拥有者账号窗口、登录/注册单列与身份/同步管理两种结构、显式服务器、持续标签、可选本地使用、连接后台继续、密码清理、草稿门和完整键盘/缩放。评审逐项否决“原设置卡片直接搬家”、虚构默认域名/同步成功时间和伪取消注册。采用方案进入实现，尚未以设计结论计功能或截图PASS。
+
+范围FR-042/UX-01/02/07/09/10/11；仅QtUI及必要资源清单/探针，保持服务/协议/队列不变。现有其他agent的CI脚本/历史进度/结构路线图不覆盖。验证计划：真实Qt构建/lint、注册与账号管理状态探针、浅深/200%渲染、原工作区/草稿回归及完整CTest尝试；原生键盘/读屏和macOS未测仍UNVERIFIED。
+
 ### SYNC-06 注册实现与验证（2026-10-29，IMPLEMENTED / REGISTRATION-AUTO-PASS）
 
 已提供严格POST /v1/auth/register，RegistrationRequest后204再独立登录；账号/空dataset原子建立。重复标准化账号同样204，不覆盖密码、状态或资料；删除身份不可借注册复活。密码至少15个Unicode码点、最多1024 UTF-8字节；KDF前socket-IP5次/分钟和全局20次/分钟，现有登录限流及Argon2并发门保留。registration_enabled默认false，示例true；能力仅以可选metadata作注册可用性提示，不改DTO1的封闭features、同步命令或实体；邮箱验证/邮件找回未实现，也无相关承诺。

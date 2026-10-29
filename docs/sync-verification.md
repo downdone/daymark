@@ -25,4 +25,6 @@ FR-042、AR-01～10；设计编号的输入/oracle仍见[模块测试方案](des
 
 可复制命令见[服务指南](../server/README.md)及[测试方法](testing-method.md)。CI的[Account and sync](../.github/workflows/sync.yml)执行三平台Go门禁、Linux race与Windows实际双端；已有Build and test继续承担完整桌面CTest和QML lint。新增CI在推送后才会产生执行证据，本地通过不替代远端检查。
 
-注册表单切片仍使用生产QML和真实临时workspace，默认desktop_surfaces包含98～103阶段；调试渲染可显式选择该切片，不替代整套门禁。PowerShell：`$env:DAYMARK_SMOKE_UI_SLICE="registration"` 后运行 `daymark.exe --desktop-surfaces-smoke --screenshot <输出.png>`，执行后移除该环境变量。macOS/Linux：`DAYMARK_SMOKE_UI_SLICE=registration ./daymark --desktop-surfaces-smoke --screenshot <输出.png>`。Qt平台/软件渲染设置沿测试方法；系统认证操作不由这些合成事件证明。
+SYNC-07/UX-61将注册表单切片迁至独立AccountWindow，移除旧设置表单，并扩展到错误/连接中/账号概览/冲突/本地资料/窄窗和折叠入口。合成syncState仅证明展示；另观察两种提交经过真实Main保存门/Coordinator的loopback连接失败，校验临时参数和秘密清理。真实成功认证沿Qt/Go双端测试。
+
+注册表单切片仍使用生产QML和真实临时workspace，独立CTest account_access包含98～115阶段，desktop_surfaces恢复到97，不重复运行同一账号切片；调试渲染可显式选择该切片，不替代整套门禁。PowerShell：`$env:DAYMARK_SMOKE_UI_SLICE="registration"` 后运行 `daymark.exe --desktop-surfaces-smoke --screenshot <输出.png>`，执行后移除该环境变量。macOS/Linux：`DAYMARK_SMOKE_UI_SLICE=registration ./daymark --desktop-surfaces-smoke --screenshot <输出.png>`。Qt平台/软件渲染设置沿测试方法；系统认证操作不由这些合成事件证明。

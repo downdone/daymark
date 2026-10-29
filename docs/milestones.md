@@ -1,5 +1,7 @@
 # 里程碑与可执行任务队列
 
+SYNC-07/UX-61按用户要求先完成[独立账号窗口设计/评审](design/account-window.md)，再迁移入口与完整账号状态；原设置账号块移除。实际实现/验证状态见PROGRESS，不以设计评审代替渲染与测试。
+
 SYNC-05按用户后续“完整实现→测试→文档/CI→推送源码”指令推进；运行代码及命令见[server](../server/README.md)、桌面适配见[实现契约](design/sync-client-implementation.md)。SYNC-02～04下列条目记录原设计顺序，不能继续解释为禁止已获授权的实现；当前完成度及平台边界仍只见PROGRESS。
 
 SYNC-04在[强类型契约](design/sync-contracts/README.md)给出OpenAPI、Go/Qt声明、字段/默认值/三态/摘要映射及客户端同步DDL；开发前依[ADR-028](ADR/028-sync-api-contract-and-rpc.md)评审RPC与兼容门禁，DEV各批沿用相同用例/事务接口，不将传输格式耦合进领域。实际状态仅见PROGRESS。

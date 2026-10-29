@@ -12,9 +12,12 @@ Dialog {
     height: Math.min(650,parent.height-32)
     standardButtons: Dialog.Close
     function showState(state) {if(state==="menu")sampleMenu.open();else if(state==="choice")choice.popup.open();else if(state==="focus")field.forceActiveFocus()}
+    property Item clipAuditGlyph: null
     function showVisualAudit(kind) {
         Qt.callLater(function(){
-            const target=kind==="icons" || kind==="clip" ? glyphMatrix : typeSamples;
+            // Position the actual tested glyph outside the scroll viewport,
+            // even when the vocabulary or Flow column count changes.
+            const target=kind==="clip" && gallery.clipAuditGlyph ? gallery.clipAuditGlyph : kind==="icons" ? glyphMatrix : typeSamples;
             const view=galleryScroll.contentItem as Flickable;
             if(view)view.contentY=Math.max(0,Math.min(Math.max(0,view.contentHeight-view.height),target.mapToItem(galleryContent,0,0).y-(kind==="clip" ? view.height+6 : 0)));
         })
@@ -128,7 +131,7 @@ Dialog {
                         id:glyphCell
                         required property string modelData
                         width:Math.max(80,Theme.captionSize*7);height:Math.max(56,Theme.captionSize*4)
-                        AppIcon {objectName:"galleryGlyph-"+glyphCell.modelData;name:glyphCell.modelData;Layout.alignment:Qt.AlignHCenter;Layout.preferredWidth:Theme.iconSize;Layout.preferredHeight:Theme.iconSize}
+                        AppIcon {id:auditGlyph;Component.onCompleted:if(glyphCell.modelData==="calendar")gallery.clipAuditGlyph=auditGlyph;objectName:"galleryGlyph-"+glyphCell.modelData;name:glyphCell.modelData;Layout.alignment:Qt.AlignHCenter;Layout.preferredWidth:Theme.iconSize;Layout.preferredHeight:Theme.iconSize}
                         Label {text:glyphCell.modelData;font.pixelSize:Theme.footnoteSize;Layout.fillWidth:true;horizontalAlignment:Text.AlignHCenter;elide:Text.ElideRight}
                     }
                 }

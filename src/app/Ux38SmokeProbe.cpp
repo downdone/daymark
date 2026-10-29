@@ -174,7 +174,7 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==94){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("mode change left stale menu open");click("widgetMore");}
     else if(m_stage==95){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));if(result!="PASS")return fail("expanded menu reacquires current anchor: "+result.toString());auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetMenu")->property("contentItem").value<QObject*>());if(!capture(content->window(),"floating-solid-menu"))return fail("floating menu capture");m_widget->setX(m_widget->x()+20);}
     else if(m_stage==96){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("moving host left detached menu");click("desktopCalendarOptions",calendar);}
-    else if(m_stage==97){auto* button=find(calendar,"desktopCalendarOptions");auto* menu=find(button,"desktopCalendarOptionsMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(!menu || !menu->property("visible").toBool() || menu->property("anchorItem").value<QObject*>()!=button || !content || content->window()->color().alpha()!=255 || !capture(content->window(),"calendar-solid-menu"))return fail("desktop calendar explicit opaque menu anchor");QMetaObject::invokeMethod(menu,"close");}
+    else if(m_stage==97){auto* button=find(calendar,"desktopCalendarOptions");auto* menu=find(button,"desktopCalendarOptionsMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(!menu || !menu->property("visible").toBool() || menu->property("anchorItem").value<QObject*>()!=button || !content || content->window()->color().alpha()!=255 || !capture(content->window(),"calendar-solid-menu"))return fail("desktop calendar explicit opaque menu anchor");QMetaObject::invokeMethod(menu,"close");return "DONE";}
     else if(m_stage==98){
         if(!m_workspace.syncState().contains("mode") || m_workspace.syncState().value("busy").toBool()){
             if(m_wait.elapsed()<5000)return {};
@@ -189,11 +189,14 @@ QString Ux38SmokeProbe::advance() {
     }
     else if(m_stage==99){
         auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        if(!capture(settings,"account-login-light"))return fail("dedicated login capture");
         auto* password=find(settings,"syncPassword");auto* confirm=find(settings,"syncConfirmPassword");
         find(settings,"syncServerOrigin")->setProperty("text","https://example.invalid");find(settings,"syncLogin")->setProperty("text","synthetic-user");
         password->setProperty("text","discard-on-mode-switch");
+        QMetaObject::invokeMethod(find(settings,"accountShowPassword"),"clicked");
+        if(!settings->property("showPassword").toBool() || password->property("echoMode").toInt()!=0)return fail("show password action changes the input echo mode");
         QMetaObject::invokeMethod(find(settings,"syncRegisterMode"),"clicked");
-        if(!settings->property("syncRegisterMode").toBool() || !password->property("text").toString().isEmpty() || !confirm->property("visible").toBool())return fail("registration switch clears password and reveals confirmation");
+        if(!settings->property("syncRegisterMode").toBool() || settings->property("showPassword").toBool() || !password->property("text").toString().isEmpty() || !confirm->property("visible").toBool())return fail("registration switch clears password and reveals confirmation");
         password->setProperty("text","synthetic-long-password");confirm->setProperty("text","different");
         if(find(settings,"syncSubmit")->property("enabled").toBool())return fail("mismatched registration password cannot submit");
         QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncConfirmPassword"))));
@@ -223,7 +226,10 @@ QString Ux38SmokeProbe::advance() {
         auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         auto* field=qobject_cast<QQuickItem*>(find(settings,"syncConfirmPassword"));auto* view=qobject_cast<QQuickItem*>(find(settings,"accountScroll"));
         const auto at=field->mapToItem(view,QPointF());
-        if(at.y()<0 || at.y()+field->height()>view->height()+1 || !capture(settings,"registration-dark-200"))return fail("registration confirmation remains reachable at 200 percent");
+        if(at.y()<0 || at.y()+field->height()>view->height()+1 || !capture(settings,"registration-dark-200")){
+            qCritical()<<"Account scroll"<<at<<field->size()<<view->size()<<find(settings,"accountScroll")->property("contentHeight");capture(settings,"registration-geometry-failure");
+            return fail("registration confirmation remains reachable at 200 percent");
+        }
         if(!QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncSubmit")))))return fail("large registration action scroll");
     }
     else if(m_stage==103){
@@ -239,42 +245,49 @@ QString Ux38SmokeProbe::advance() {
         // touch a server. Real auth/sync remains covered by the Qt/Go TLS test.
         m_originalSyncState=m_workspace.syncState();auto state=m_originalSyncState;
         state.insert("safe_error_code","invalid_credentials");state.insert("status",QStringLiteral("账号或密码不正确。"));
-        state.insert("authenticated",false);state.insert("busy",false);m_workspace.setSyncState(state);
+        state.insert("authenticated",false);state.insert("busy",false);m_accountDisplayState=state;m_workspace.setSyncState(state);
         QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("account")));
     }
     else if(m_stage==105){
+        m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(!find(window,"accountError")->property("visible").toBool() || !find(window,"syncPassword")->property("text").toString().isEmpty())return fail("dedicated login error and empty password");
+        if(find(window,"syncServerOrigin")->property("text")!="https://example.invalid" || find(window,"syncLogin")->property("text")!="synthetic-user")return fail("closing and reopening preserves server/account input, without retaining password");
         if(!capture(window,"account-login-error"))return fail("account error capture");
-        auto state=m_workspace.syncState();state.insert("busy",true);state.insert("safe_error_code",QString());m_workspace.setSyncState(state);
+        auto state=m_workspace.syncState();state.insert("busy",true);state.insert("safe_error_code",QString());state.insert("status",QStringLiteral("正在登录…"));m_accountDisplayState=state;m_workspace.setSyncState(state);
     }
     else if(m_stage==106){
+        m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(find(window,"syncSubmit")->property("enabled").toBool() || find(window,"syncLogin")->property("enabled").toBool() || find(window,"syncRegisterMode")->property("enabled").toBool())return fail("connecting disables duplicate auth and mode changes");
         if(!capture(window,"account-login-busy"))return fail("connecting capture");
         QMetaObject::invokeMethod(window,"close");
-        auto state=m_originalSyncState;state.insert("authenticated",true);state.insert("busy",false);state.insert("login_label","synthetic-user");state.insert("server_origin","https://example.invalid");
+        auto state=m_originalSyncState;state.insert("mode","ACCOUNT");state.insert("authenticated",true);state.insert("busy",false);state.insert("login_label","synthetic-user");state.insert("server_origin","https://example.invalid");
         state.insert("status",QStringLiteral("已连接，修改将自动同步"));state.insert("pending_count",2);state.insert("phase","ACTIVE");
         state.insert("profiles",QVariantList{QVariantMap{{"id","one"},{"label","synthetic-user"}},QVariantMap{{"id","two"},{"label","other-user"}}});
         state.insert("conflicts",QVariantList{QVariantMap{{"id","fixture-conflict"},{"related_count",2},{"local_title",QStringLiteral("合成修改")},{"local_summary",QStringLiteral("此设备的内容")},{"remote_summary",QStringLiteral("另一设备的内容")}}});
-        m_workspace.setSyncState(state);QMetaObject::invokeMethod(window,"open");
+        m_accountDisplayState=state;m_workspace.setSyncState(state);QMetaObject::invokeMethod(window,"open");
     }
     else if(m_stage==107){
+        m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(find(window,"syncLogin")->property("visible").toBool() || !find(window,"syncNow")->property("visible").toBool() || find(window,"syncProfiles")->property("count").toInt()!=2 || !find(window,"accountConflictLocal"))return fail("connected account management replaces auth form and keeps conflicts/profiles");
         if(!capture(window,"account-management-light"))return fail("account management capture");
-        auto state=m_workspace.syncState();state.insert("busy",true);state.insert("phase","RECONCILE_REQUIRED");m_workspace.setSyncState(state);
+        auto state=m_workspace.syncState();state.insert("busy",true);state.insert("phase","RECONCILE_REQUIRED");m_accountDisplayState=state;m_workspace.setSyncState(state);
     }
     else if(m_stage==108){
+        m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(!find(window,"syncRebuild")->property("visible").toBool() || find(window,"syncRebuild")->property("enabled").toBool() || find(window,"accountConflictLocal")->property("enabled").toBool())return fail("busy account keeps recovery visible and prevents repeated decisions");
         m_workspace.setTextScale(2);m_workspace.setThemeMode(2);window->resize(420,440);
     }
     else if(m_stage==109){
+        m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         QMetaObject::invokeMethod(window,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(window,"syncProfiles"))));
     }
     else if(m_stage==110){
+        m_workspace.setSyncState(m_accountDisplayState);
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));auto* footer=qobject_cast<QQuickItem*>(find(window,"accountContinueLocal"));
         const auto at=footer->mapToScene(QPointF());
         if(at.x()<0 || at.y()<0 || at.x()+footer->width()>window->width()+1 || at.y()+footer->height()>window->height()+1 || !capture(window,"account-management-dark-200-narrow"))return fail("account footer remains reachable in narrow large text window");
@@ -290,7 +303,36 @@ QString Ux38SmokeProbe::advance() {
         if(!window->isVisible())return fail("collapsed account button opens dedicated account window");
         for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(window,&event);}
         if(window->isVisible())return fail("Escape closes account window");
-        m_workspace.setPreference("sidebarCollapsed",false);return "DONE";
+        m_workspace.setPreference("sidebarCollapsed",false);
+    }
+    else if(m_stage==113){
+        if(m_workspace.busy()){if(m_wait.elapsed()<5000)return {};return fail("account auth routing waits for local operations");}
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        window->setProperty("verificationAuthIntents",0);
+        QObject::connect(&m_workspace,&TaskWorkspace::syncActionRequested,window,[window](const QString& action,const QVariantMap& values){
+            if(action!="login" && action!="register")return;
+            window->setProperty("verificationAuthIntents",window->property("verificationAuthIntents").toInt()+1);
+            window->setProperty("verificationAuthAction",action);
+            window->setProperty("verificationAuthValues",values.value("origin")=="https://127.0.0.1:1" && values.value("login")=="synthetic-user" && values.value("password")=="synthetic-long-password");
+        });
+        QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("account")));
+        find(window,"syncServerOrigin")->setProperty("text","https://127.0.0.1:1");find(window,"syncLogin")->setProperty("text","synthetic-user");find(window,"syncPassword")->setProperty("text","synthetic-long-password");
+        QMetaObject::invokeMethod(find(window,"syncSubmit"),"clicked");
+    }
+    else if(m_stage==114){
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        if(window->property("verificationAuthIntents").toInt()!=1 || window->property("verificationAuthAction")!="login" || !window->property("verificationAuthValues").toBool() || !find(window,"syncPassword")->property("text").toString().isEmpty())return fail("dedicated login routes exact transient credentials once and clears them");
+        if(m_workspace.syncState().value("busy").toBool()){if(m_wait.elapsed()<5000)return {};return fail("loopback connection failure bounded");}
+        if(m_workspace.syncState().value("authenticated").toBool() || !find(window,"accountError")->property("visible").toBool())return fail("real coordinator connection failure stays local and actionable");
+        QMetaObject::invokeMethod(find(window,"syncRegisterMode"),"clicked");find(window,"syncPassword")->setProperty("text","synthetic-long-password");find(window,"syncConfirmPassword")->setProperty("text","synthetic-long-password");
+        QMetaObject::invokeMethod(find(window,"syncSubmit"),"clicked");
+    }
+    else if(m_stage==115){
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        if(window->property("verificationAuthIntents").toInt()!=2 || window->property("verificationAuthAction")!="register" || !window->property("verificationAuthValues").toBool() || !find(window,"syncPassword")->property("text").toString().isEmpty() || !find(window,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("dedicated registration routes credentials once and clears both fields");
+        if(m_workspace.syncState().value("busy").toBool()){if(m_wait.elapsed()<5000)return {};return fail("registration loopback failure bounded");}
+        if(m_workspace.syncState().value("authenticated").toBool())return fail("failed connection must not authenticate");
+        QMetaObject::invokeMethod(window,"close");return "DONE";
     }
     else if(m_stage==90){auto* glyph=qobject_cast<QQuickItem*>(find(m_main,"galleryGlyph-calendar"));const auto at=glyph->mapToScene(QPointF());if(at.y()<0 || at.y()+glyph->height()>m_main->height() || glyphPainted("calendar") || !capture(m_main,"glyph-scroll-clip-dark-200"))return fail("off-viewport vector cannot leak over dialog actions");QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("type")));}
     qInfo()<<"UX38 desktop scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};

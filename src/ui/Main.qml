@@ -97,7 +97,7 @@ ApplicationWindow {
     Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property:"syncApplyPaused";value:mainWindow.draftDirty || mainWindow.editorSaving || (organization.visible && organization.dirty) || mainWindow.taskWorkspace.interactionActive}
     readonly property bool editingActive: editor.visible || quickEditor.editing
     readonly property bool transientMenuOpen: libraryMenu.visible || libraryCreateMenu.visible || categoryContextMenu.visible || catalogDeleteConfirm.visible || pageMenu.visible || categorySectionMenu.visible || tagSectionMenu.visible || batchContextMenu.visible || trashContextMenu.visible
-    readonly property bool toolModalOpen: inspectorPicker.active || transientMenuOpen || catalogEdit.visible || deleteParentConfirm.visible || catalogCreate.visible || quickEditor.editing || organization.modalOpen || windowSettings.visible || dataTools.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen || timingFields.modalOpen || extraFields.parentPickerVisible || startDate.pickerVisible || deadline.pickerVisible || reminder.pickerVisible
+    readonly property bool toolModalOpen: inspectorPicker.active || transientMenuOpen || catalogEdit.visible || deleteParentConfirm.visible || catalogCreate.visible || quickEditor.editing || organization.modalOpen || windowSettings.visible || accountWindow.visible || dataTools.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen || timingFields.modalOpen || extraFields.parentPickerVisible || startDate.pickerVisible || deadline.pickerVisible || reminder.pickerVisible
     property string toolPage: ""
     readonly property bool toolPageVisible: toolPage.length>0
     readonly property bool taskContentVisible: !toolPageVisible && !calendarVisible
@@ -553,6 +553,7 @@ ApplicationWindow {
         navigateSafely(function(){
             if(name==="recurrence" || name==="schedules"){toolPage="";taskWorkspace.setView("repeating")}
             else if(["organization","notifications"].indexOf(name)>=0)activateToolPage(name)
+            else if(name === "account"){editor.close();accountWindow.open()}
             else if(name === "settings"){editor.close();windowSettings.open()}
             else if(name === "data"){editor.close();dataTools.open()}
         })
@@ -797,6 +798,7 @@ ApplicationWindow {
                 Layout.fillWidth: true;Layout.margins: 10;spacing: 2
                 Rectangle {Layout.fillWidth: true;implicitHeight: 1;color: Theme.separator;Layout.bottomMargin: 6}
                 NavRow {objectName: "navigation-trash";iconBadge: false;Layout.fillWidth: true;text: qsTr("最近删除");symbol: "trash";count: mainWindow.taskWorkspace.viewCounts.trash || 0;selected: !mainWindow.toolPageVisible && mainWindow.taskWorkspace.view==="trash";onClicked: mainWindow.changeView("trash")}
+                NavRow {id:accountEntry;objectName:"accountEntry";Layout.fillWidth:true;symbol:"account";text:mainWindow.taskWorkspace.syncState.mode==="ACCOUNT" ? qsTr("账号与同步") : qsTr("登录账号");selected:accountWindow.visible;onClicked:mainWindow.openTool("account")}
                 RowLayout {
                     Layout.fillWidth: true;spacing: 4
                     WidgetAction {objectName:"settingsAndTools";symbol:"settings";description:qsTr("设置");onClicked:mainWindow.openTool("settings")}
@@ -804,6 +806,7 @@ ApplicationWindow {
                     Item {Layout.fillWidth:true}
                 }
             }
+            WidgetAction {id:accountCompactEntry;objectName:"accountCollapsedEntry";visible:mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.alignment:Qt.AlignHCenter;Layout.bottomMargin:10;symbol:"account";description:qsTr("账号与同步");onClicked:mainWindow.openTool("account")}
             }
         }
         ColumnLayout {
@@ -1580,6 +1583,18 @@ ApplicationWindow {
         }
     }
 
+    AccountWindow {
+        id: accountWindow
+        workspace: mainWindow.taskWorkspace
+        transientParent: mainWindow
+        onSyncLoginRequested:function(origin,login,password){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncLogin(origin,login,password)})}
+        onSyncRegisterRequested:function(origin,login,password){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncRegister(origin,login,password)})}
+        onSyncProfileRequested:function(id){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncOpenProfile(id)})}
+        onSyncResolveRequested:function(id,decision){mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.syncResolveConflict(id,decision)})}
+        onSyncRebuildRequested:mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncRebuild()})
+        onDismissed: Qt.callLater(function(){if(mainWindow.taskWorkspace.preferences.sidebarCollapsed)accountCompactEntry.forceActiveFocus();else accountEntry.forceActiveFocus()})
+    }
+
     SettingsDialog {
         id: windowSettings
         transientParent: mainWindow
@@ -1587,11 +1602,6 @@ ApplicationWindow {
         onHelpRequested: {windowSettings.close();helpPanel.open()}
         onQuitRequested: {windowSettings.close();mainWindow.forceQuit=true;mainWindow.close()}
         onCalendarVisibilityRequested: function(visible){if(visible)mainWindow.taskWorkspace.setPreference("desktopCalendarVisible",true);else desktopCalendar.close()}
-        onSyncLoginRequested:function(origin,login,password){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncLogin(origin,login,password)})}
-        onSyncRegisterRequested:function(origin,login,password){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncRegister(origin,login,password)})}
-        onSyncProfileRequested:function(id){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncOpenProfile(id)})}
-        onSyncResolveRequested:function(id,decision){mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.syncResolveConflict(id,decision)})}
-        onSyncRebuildRequested:mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncRebuild()})
         workspace: mainWindow.taskWorkspace
         widgetController: mainWindow.widgetController
         startupController: mainWindow.startupController
