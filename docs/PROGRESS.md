@@ -1,5 +1,19 @@
 # Daymark 实施进度
 
+### SYNC-WSL 服务启动与Windows验收（2026-10-29，LOCAL-SERVICE-RUNNING / WINDOWS-SYNC-PASS）
+
+已在Ubuntu22.04/WSL2启动真正Linux amd64静态Go服务，数据/配置/私钥位于专用ext4用户目录，由用户级daymark-local-sync.service管理、失败自动重启。端点https://127.0.0.1:9443，仅loopback、HTTPS、开放注册。Linux服务二进制SHA256为7b617bc3585e9b5f94185d92075e56ce525a0876ce1d59b04b25f50d8e166d2a。保留独立隐藏WSL会话，防止最后前台会话退出后用户服务停止；未做Windows开机启动。配置与私钥0700/0600，私钥未复制出WSL，原有WSL服务与本机任务未改动。
+
+用户明确确认后，仅将本次本地CA加入CurrentUser Root，未改LocalMachine；公开证书有效至2026-11-28，完整指纹及撤销说明见忽略的build/wsl-local-sync运行记录。Windows默认系统信任HTTPS live/ready均200；未跳过证书校验。Qt真实双工作区external模式分别通过专用CA与系统默认信任，后者3/3无skip、8.263秒，覆盖注册/登录、A→B及B→A复制、退出零网络/离线恢复、完整冲突与重复后继；本地数据库使用QTemporaryDir，凭据为合成条目。原Go TestQtDesktopEndToEnd故障全矩阵独立PASS（Qt/Go用例59.95秒，包64.702秒），1000任务/掉响应/过期作业等原断言保留；task_workspace回归1/1 PASS 6.81秒。Linux服务重启后server_instance_id及users/datasets/tasks/recurrence_rules/change_batches计数完全一致，再由Windows客户端成功连接。
+
+另使用computer-use只读检查独立空资料的Windows主窗和账号窗口，随后退出该测试实例；未通过UI替用户填写/提交账号。注册/登录的真实证据来自Qt引擎↔WSL服务，不将界面存在冒充认证成功。全部测试为合成账号，不登录或上传个人资料。仅新增外部服务验证模式及文档，未改生产协议、编译脚本或便携包。
+
+服务继续运行。操作入口保留在忽略build/wsl-local-sync/README.md、start.ps1、stop.ps1；start已验证幂等且不重复创建保活进程，stop按PID和启动时间匹配本任务进程、保留数据库。证据windows-qt-system-trust.log、windows-qt-sync.log、original-fault-harness.log、restart-verification.json、windows-health.json、trust-installation.json。WSL未安装Go SDK，Linux二进制由Windows Go1.27交叉编译；不将本次联调称为Linux原生全套Go/race或公网生产部署验收。
+
+### SYNC-WSL Windows↔WSL真实服务验证（2026-10-29，IN_PROGRESS）
+
+用户要求WSL启动服务、Windows验证。现有Ubuntu22.04/WSL2、systemd用户会话可用，Windows Go1.27.0可交叉编译Linux无CGo服务；不改编译脚本。计划在独立WSL ext4目录创建TLS/配置/SQLite，通过用户级systemd保持运行，Windows验证健康/注册/真实Qt双工作区同步及重启持久性；全部合成账号与临时Qt资料，保持系统证书库不变，专用CA只注入测试进程。现有Qt完整联调依赖httptest故障注入，新增明确的external模式仅覆盖普通服务可执行链，保留原完整故障矩阵。
+
 ### UX-63 修复版便携包（2026-10-29，WINDOWS-AUTO-PASS / LOCAL-PACKAGE-PASS）
 
 源码180345f8eba3efe2dee40d7bd1293b5d940e4c79在干净工作区完整Release构建及26/26 CTest PASS，262.76秒；fullTestGatePassed=true，knownTestFailures=[]。SDK隔离原生启动/39个运行库来源审计、212项载荷清单、ZIP逐项及SHA256、复制后复核均PASS。再用实际交付目录里的exe清除SDK搜索路径运行Mini专项：116～136场景退出0、warnings=false，四轮中间进度约0.48～0.67，固定(80,80)、340×56/340×62；快速反转、键盘/菜单与减少动态保持。新包直接覆盖本次用户截图对应的展开高度记忆与过渡错位问题；不是用旧包或静态原型作为证据。

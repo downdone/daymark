@@ -79,3 +79,36 @@ SQLite 使用 WAL、`synchronous=FULL`、外键和校验迁移；业务、变更
 `internal/domain` 实现纯命令规划、整树状态组、日期/时区和重复身份；`application` 编排账号、复制、传输与删除；`ports` 定义事务端口；`storage` 独占 SQLite；`httpapi` 负责严格协议与错误映射；`artifact` 负责不可变分块；`maintenance` 负责加密备份、独立删除账本与恢复；`cmd` 组装进程生命周期。
 
 首期单写者/有界队列和只读池；不支持多副本共享 SQLite，不使用网络文件系统承载数据库。单备份明文上限 256 MiB，桌面单下载上限 64 MiB，作业总配额可配置；超限明确拒绝并保留本地数据。提供可关闭的自助注册；没有 E2EE、第三方登录、邮箱验证、邮件找回、移动端或自动部署。实际跨机备份恢复、macOS 桌面原生交互与生产运维演练仍须单独验收。
+
+## WSL 服务与 Windows 客户端验证
+
+本机调试可将 Linux 服务二进制和数据放在 WSL 的 ext4 用户目录，例如 `~/.local/share/daymark-local-sync`，使用用户级 `daymark-local-sync.service`。WSL 内监听 `127.0.0.1:9443`，Windows 通过 `https://127.0.0.1:9443` 连接；启用服务端 TLS，证书 SAN 包含 localhost/127.0.0.1。配置与私钥仅用户可读，数据库不放挂载的源码目录。此为本地联调布局，外部部署仍按上文运维要求。
+
+```powershell
+wsl -d Ubuntu-22.04 -- systemctl --user status daymark-local-sync.service
+wsl -d Ubuntu-22.04 -- systemctl --user restart daymark-local-sync.service
+wsl -d Ubuntu-22.04 -- journalctl --user -u daymark-local-sync.service -n 50 --no-pager
+wsl -d Ubuntu-22.04 -- systemctl --user stop daymark-local-sync.service
+```
+
+本机 WSL 在最后一个前台会话退出时会停止用户服务，因此联调保留独立的隐藏 WSL 会话；相关进程与停止方法记录在忽略的本地运行目录。不要为停止此服务而终止整个发行版，以免影响其他 WSL 服务。没有配置 Windows 开机启动或全机证书。
+
+现有 Qt 集成测试支持连接普通、未注入故障的外部服务：
+
+```powershell
+$env:DAYMARK_SYNC_E2E_MODE='external'
+$env:DAYMARK_SYNC_E2E_URL='https://127.0.0.1:9443'
+$env:DAYMARK_SYNC_E2E_LOGIN='unique-synthetic@example.invalid'
+$secret=Read-Host '仅用于合成测试账号的口令' -MaskInput
+try {
+    $env:DAYMARK_SYNC_E2E_PASSWORD=$secret
+    & ./build/windows-release/bin/test_task_workspace.exe accountSyncRealServer
+} finally {
+    Remove-Item Env:DAYMARK_SYNC_E2E_PASSWORD,Env:DAYMARK_SYNC_E2E_MODE,Env:DAYMARK_SYNC_E2E_LOGIN,Env:DAYMARK_SYNC_E2E_URL -ErrorAction SilentlyContinue
+    Remove-Variable secret
+}
+```
+
+依然使用真实 Qt Coordinator、临时本地资料、系统凭据的合成条目及严格 TLS；不操作用户现有任务。external 模式覆盖注册/登录、双端双向任务复制、退出后的零网络与离线恢复、冲突和完成后重复后继，结束后退出会话。它不冒充原 `TestQtDesktopEndToEnd` 的丢响应、过期作业、1000任务与重基故障矩阵；原入口保持独立执行。
+
+可用 `DAYMARK_SYNC_E2E_CA` 为测试进程提供专用 CA；external 模式不设置该值时使用系统默认信任，仍强制校验证书。若希望普通 Windows 客户端也信任本地服务，只能经用户明确确认后将该公开 CA 导入 `Cert:\CurrentUser\Root`；不得静默导入全机根证书，不忽略证书错误。证书有到期日，撤销时按该次安装记录的准确指纹删除。私钥不复制到 Windows 验证目录，不提交配置、证书、账号口令、数据库或运行日志。

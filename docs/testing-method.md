@@ -1,5 +1,7 @@
 # 测试方法与链路责任（1.0）
 
+SYNC-WSL：`accountSyncRealServer` 的 external 模式连接普通 WSL TLS 服务，用新合成账号/临时资料验证 Windows 双工作区、双向复制、退出与离线恢复、冲突和重复后继；可验证专用CA或获确认的当前用户系统信任。完整故障矩阵仍由原Go `TestQtDesktopEndToEnd` 入口执行，不将external子集称为全矩阵PASS。操作说明见[服务指南](../server/README.md)。
+
 UX-63补充widget_window：原生最小尺寸通知顺序、30轮含故意污染宽高的固定目标/锚点、屏边10轮和布局参数失败回滚；desktop_surfaces 133～136：100/200%四轮动画中间帧、固定窗口矩形、快速反向与减少动态。旧菜单fixture先在允许用户缩放的小窗设宽再切Mini，保留原菜单/锚点/不透明及字级断言。
 
 UX-62复用widget_window验证Mini球几何往返、临时设置持久化/重启、拒绝时回滚与穿透恢复；desktop_surfaces在既有97段后执行116～136段，覆盖设置接线、合成悬停/离开、菜单保持、键盘展开及独立日历浅深100/200%紧凑排版。98～115仍仅account_access负责，不重复断言；预算不增加。

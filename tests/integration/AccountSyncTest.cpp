@@ -104,12 +104,18 @@ int run() {
                password = qEnvironmentVariable("DAYMARK_SYNC_E2E_PASSWORD");
     if (url.isEmpty() || password.isEmpty())
         return 2;
-    QFile ca(qEnvironmentVariable("DAYMARK_SYNC_E2E_CA"));
-    if (!ca.open(QIODevice::ReadOnly))
+    const auto login=qEnvironmentVariable("DAYMARK_SYNC_E2E_LOGIN",QStringLiteral("synthetic@example.invalid"));
+    const bool external=qEnvironmentVariable("DAYMARK_SYNC_E2E_MODE")==QStringLiteral("external");
+    const auto caPath=qEnvironmentVariable("DAYMARK_SYNC_E2E_CA");
+    QList<QSslCertificate> certs;
+    if(!caPath.isEmpty()) {
+        QFile ca(caPath);
+        if(!ca.open(QIODevice::ReadOnly))return failed("CA file");
+        certs=QSslCertificate::fromData(ca.readAll());
+        if(certs.size()!=1)return failed("CA parse");
+    } else if(!external) {
         return failed("CA file");
-    const auto certs = QSslCertificate::fromData(ca.readAll());
-    if (certs.size() != 1)
-        return failed("CA parse");
+    }
     auto tls = QSslConfiguration::defaultConfiguration();
     tls.addCaCertificates(certs);
     tls.setPeerVerifyMode(QSslSocket::VerifyPeer);
@@ -146,10 +152,10 @@ int run() {
     coordinatorB.setTlsConfiguration(tls);
     if (!until([&] { return a.syncState().contains("mode") && b.syncState().contains("mode"); }))
         return failed("coordinator init", &a, &b);
-    a.syncRegister(url, "synthetic@example.invalid", password);
+    a.syncRegister(url, login, password);
     if (!settle(a))
         return failed("first import and own echo", &a, &b);
-    b.syncRegister(url, "synthetic@example.invalid", password);
+    b.syncRegister(url, login, password);
     if (!settle(b) || b.task(id).value("title") != "合成离线任务")
         return failed("second device snapshot", &a, &b);
     auto t = a.task(id);
@@ -180,7 +186,7 @@ int run() {
     until([] { return false; }, 100);
     if (requests != count || !credentialsA.values.isEmpty())
         return failed("signed out must make zero network requests", &a);
-    a.syncLogin(url, "synthetic@example.invalid", password);
+    a.syncLogin(url, login, password);
     if (!settle(a))
         return failed("same account offline queue resume", &a);
     b.syncNow();
@@ -202,10 +208,10 @@ int run() {
                     false) ||
         !idle(b))
         return failed("second conflict candidate");
-    a.syncLogin(url, "synthetic@example.invalid", password);
+    a.syncLogin(url, login, password);
     if (!settle(a))
         return failed("first conflict commit", &a);
-    b.syncLogin(url, "synthetic@example.invalid", password);
+    b.syncLogin(url, login, password);
     if (!until([&] {
             return !b.syncState().value("busy").toBool() &&
                    !b.syncState().value("conflicts").toList().isEmpty();
@@ -250,6 +256,23 @@ int run() {
         if (successor.isEmpty() || b.task(successor).isEmpty())
             return failed("successor identity on both devices", &a, &b);
         predecessor = successor;
+    }
+    if(external) {
+        const auto title=QStringLiteral("External device B ")+sync::uuid();
+        if(!b.createTask(title) || !idle(b))return failed("external second device create",&a,&b);
+        QString created;
+        for(int row=0;row<b.tasks()->rowCount();++row){const auto candidate=b.tasks()->taskIdAt(row);if(b.task(candidate).value("title")==title)created=candidate;}
+        if(created.isEmpty() || !settle(b))return failed("external second device push",&a,&b);
+        a.syncNow();
+        if(!settle(a) || a.task(created).value("title")!=title)return failed("external second-to-first replication",&a,&b);
+        a.syncLogout();b.syncLogout();
+        if(!until([&]{return !a.syncState().value("busy").toBool() && !b.syncState().value("busy").toBool();}))
+            return failed("external service logout",&a,&b);
+        std::cout << "PASS external server: native credentials; registration/login; two Qt workspaces; "
+                     "offline import; bidirectional state; logout and resume; conflict resolution; "
+                     "atomic recurrence successors; verified TLS; temporary local data; "
+                  << (certs.isEmpty() ? "default system trust" : "explicit test CA") << std::endl;
+        return 0;
     }
     const auto importPath = temporary.filePath("bulk.json");
     QString lastBulk;
@@ -359,7 +382,7 @@ int run() {
     const auto profiles = a.syncState().value("profiles").toList();
     QString original;
     for (const auto &x : profiles)
-        if (x.toMap().value("label") == "synthetic@example.invalid")
+        if (x.toMap().value("label") == login)
             original = x.toMap().value("id").toString();
     if (original.isEmpty())
         return failed("local profile recovery entry", &a);
