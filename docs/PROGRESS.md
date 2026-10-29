@@ -1,5 +1,13 @@
 # Daymark 实施进度
 
+### UX-62 最终便携包交付（2026-10-29，WINDOWS-AUTO-PASS / LOCAL-PACKAGE-PASS）
+
+源码44661dfc57a130e58a41b951f3c424673cd421c9（含已提交CI修复及UX-62）在干净独立工作区完整Release构建和26/26 CTest PASS，275.06秒；不是修复后子集拼接。Qt6.10.2，schema10。package-windows.ps1 -LocalPreview的完整门禁为true、knownTestFailures为空，SDK隔离原生验证/39个运行库来源审计、清单/ZIP逐文件/SHA256及复制后复核均PASS。源码隐私与主工作区149文档链接检查PASS；临时工作区的历史结构路线图链接依赖另一agent尚未提交的文档，不据此宣称干净源码文档门禁全部通过。
+
+产物dist/Daymark-1.1.0-windows-x64-local-20261029-144244.zip，39,466,619字节；SHA256：7fbbd5626444672dde69243aad1796fd0c62d4dd0e82e0bdbfa109586ffd0ad0。另附.zip.sha256；212项载荷清单，另有manifest.json。部署exe SHA256：5567aeb7b82ae536d50c4d12833ae8d538b38ab3cd21c15329799d7dff8aeb32。包含独立账号/注册窗口、可选Mini悬停球及独立日历紧凑排版；原手动日历几何仍尊重，可拖边缩小。退出旧版托盘后解压到新目录并运行daymark.exe；数据默认仍在系统应用数据目录。
+
+证据保留在忽略build：ux62-portable.log、ux62-portable-tests.xml、ux62-package-native/report.json、ux62-final-related.log、ux62-final-lint.log、ux62-windows-native.log及浅深/200%截图。旧140812包保留，不冒充包含UX-62。当前是未签名本地验证候选，不创建tag/远端二进制发行；干净机、物理多屏/DPI/读屏与macOS仍UNVERIFIED，无真实账号或私人资料操作。临时构建工作区在保存产物/报告后归档。
+
 ### UX-62 实现与相关验证（2026-10-29，IMPLEMENTED / RELATED-PASS）
 
 已实现设置开关、450ms闲置收球/悬停恢复、菜单/拖动/Tab焦点保持、Enter/Space小窗展开，以及正常几何独立持久化。C++临时设置库覆盖保存重启、关闭恢复、平台拒绝回滚和穿透恢复。独立日历默认560×540、最小360×380；CalendarMetrics统一12/11/15字级、8边距/4间距与日周月年密度，窗口头部承担日期标题，主窗保持原值。WindowStateStore读取实际QML最小尺寸。

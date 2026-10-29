@@ -17,7 +17,7 @@
 | 项 | 状态 |
 |---|---|
 | 测试数量 | Windows 26个CTest，新增account_access；其他平台不含Windows包校验（分层见[测试方法](testing-method.md)） |
-| Windows MinGW Release | 本轮全量24/25；修复后相关套件复验通过，新增账号专项通过（见PROGRESS） |
+| Windows MinGW Release | 44661df 完整26/26 PASS（275.06秒），新版便携包隔离验证通过 |
 | Windows MinGW Debug | 之前基线25/25；当前同步切片未复验 |
 | Windows MSVC（CI） | 6cfc6d7同步双端通过；完整桌面新run执行中 |
 | macOS（CI，`macos-15`） | 6cfc6d7服务端通过；完整桌面contextual_workspace失败 |
@@ -37,6 +37,12 @@
 ## 独立账号窗口（SYNC-07/UX-61，2026-10-29）
 
 主窗侧栏及折叠态提供独立账号入口，设置移除账号内容；[设计、实现前评审与实现后复核](design/account-window.md)已记录。Windows Release构建/lint、18段账号状态及接线、真实Qt/Go TLS联调PASS。完整回归曾24/25，修复样式预览裁剪定位后相关套件复验通过；最终desktop_surfaces/account_access 2/2 PASS，不将其称为单轮26/26。原生/平台边界见下方及PROGRESS，新提交CI需单独核验。
+
+## Mini悬停球与紧凑日历（UX-62，2026-10-29）
+
+设置→桌面组件选择Mini后可开启闲置收球；悬停恢复条形，菜单/拖动/键盘保持展开，尺寸持久化与平台失败回滚有临时设置单测。独立日历默认560×540、最小360×380，正文/辅助/标题12/11/15及月格、时间轴、年视图统一收紧；已有手动窗口尺寸保留。设计与复核见[UX-62](design/compact-desktop-surfaces.md)。完整26项、Windows合成输入与实际渲染、SDK隔离原生包验证PASS；物理平台边界仍见下方。
+
+本地新包Daymark-1.1.0-windows-x64-local-20261029-144244.zip（39,466,619字节），源码44661df，未签名；路径、校验和、原始失败与最终证据见PROGRESS，不代表正式远端二进制发布。
 
 ## 已知问题
 
