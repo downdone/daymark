@@ -105,7 +105,15 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==28){if(!layout() || !capture(m_widget,"mini-dark-200"))return fail("mini readable at 200 percent");expandWithKey(Qt::Key_Return);calendar->resize(420,580);}
     else if(m_stage==29){auto* panel=find(calendar,"desktopCalendarPanel");auto* toolbar=qobject_cast<QQuickItem*>(find(panel,"calendarToolbar"));if(!toolbar || toolbar->property("columns").toInt()!=1 || !capture(calendar,"calendar-dark-200")){qCritical()<<"Calendar geometry"<<calendar->size()<<(panel?panel->property("width"):QVariant())<<(toolbar?toolbar->property("width"):QVariant())<<(toolbar?toolbar->property("columns"):QVariant());capture(calendar,"calendar-layout-failure");return fail("calendar adaptive toolbar");}auto* more=find(calendar,"calendarMore-"+m_workspace.dateOffset(0));if(!more || !more->property("visible").toBool() || more->property("remainingCount").toInt()<1 || (more->property("compactOverflow").toBool() && more->property("text")!=QStringLiteral("…")))return fail("narrow calendar overflow remains readable");m_workspace.setPreference("solidWidget",true);m_workspace.setPreference("desktopCalendarOpacity",50);}
     else if(m_stage==30){for(auto* window:{m_widget.data(),calendar}){auto* background=find(window,window==calendar?"desktopCalendarBackground":"widgetBackground");if(!background || background->property("color").value<QColor>().alpha()!=255)return fail("solid background on both desktop surfaces");}m_workspace.setPreference("highContrast",true);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_widget->resize(260,360);}
-    else if(m_stage==31){if(!layout() || !capture(m_widget,"narrow-high-contrast"))return fail("260 DIP high contrast");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
+    else if(m_stage==31){
+        // Stage 30 resizes to 260x360 and turns on high contrast; on platforms whose
+        // CJK font is wider/taller the error row and header can leave the list with no
+        // height. Grow to the window's own minimumHeight (which already budgets for the
+        // error row) before asserting, instead of accepting a collapsed list.
+        const int minHeight=m_widget->minimumHeight();
+        if(m_widget->height()<minHeight){m_widget->resize(m_widget->width(),minHeight);if(m_wait.elapsed()<800)return {};}
+        if(!layout() || !capture(m_widget,"narrow-high-contrast"))return fail(QStringLiteral("260 DIP high contrast: min=%1 h=%2").arg(minHeight).arg(m_widget->height()));
+        QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
     else if(m_stage==32){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         // The menu is created and shown asynchronously after openVerificationMenu();
         // sampling the first frame reports "closed" on slower/first-run platforms.
