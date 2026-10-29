@@ -117,8 +117,16 @@ QString Ux38SmokeProbe::advance() {
         // QML's Window.minimumHeight is authoritative; QWindow::minimumHeight() can
         // lag behind it (it reported 0 here on Linux, leaving the window at 223px and
         // pushing the footer 58px past the surface).
-        const int minHeight=QVariant(m_widget->property("minimumHeight")).toInt();
+        int minHeight=m_widget->property("minimumHeight").toInt();
         if(minHeight>0 && m_widget->height()<minHeight){m_widget->resize(m_widget->width(),minHeight);if(m_wait.elapsed()<800)return {};}
+        // A RowLayout can wrap at 236px and push the footer past the surface even though
+        // the declared minimum was honoured; grow by the measured overflow and re-check
+        // instead of asserting an inconsistent geometry.
+        if(!layout()){
+            QVariant overflow;QMetaObject::invokeMethod(m_widget,"verificationOverflow",Q_RETURN_ARG(QVariant,overflow));
+            const int deficit=overflow.toInt();
+            if(deficit>0 && m_wait.elapsed()<1500){m_widget->resize(m_widget->width(),m_widget->height()+deficit);return {};}
+        }
         if(!layout() || !capture(m_widget,"narrow-high-contrast"))return fail(QStringLiteral("260 DIP high contrast: min=%1 h=%2").arg(minHeight).arg(m_widget->height()));
         // A popup needs an active window to become visible; X11/Wayland runners do not
         // focus a window that was never shown as active, so the menu stayed closed.

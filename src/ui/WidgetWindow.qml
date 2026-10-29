@@ -20,7 +20,7 @@ Window {
     onBallDiameterChanged: Qt.callLater(syncMiniLayout)
     Component.onCompleted: syncMiniLayout()
     minimumWidth: controller.mini && controller.miniAutoCollapse ? ballDiameter : 260
-    minimumHeight: controller.mini && controller.miniAutoCollapse ? ballDiameter : controller.mini ? Math.max(48,Theme.controlHeight+2*Theme.panelPadding) : Math.max(190,header.implicitHeight+footer.implicitHeight+(widgetError.visible ? widgetError.implicitHeight : 0)+2*Theme.panelPadding+4*Theme.fieldGap+48)
+    minimumHeight: controller.mini && controller.miniAutoCollapse ? ballDiameter : controller.mini ? Math.max(48,Theme.controlHeight+2*Theme.panelPadding) : Math.max(190,header.implicitHeight+footer.implicitHeight+(widgetError.visible ? widgetError.implicitHeight : 0)+2*Theme.panelPadding+4*Theme.fieldGap+48+Theme.listInset*2+ (width<300 ? footer.implicitHeight : 0))
     x: 80;y: 80;visible: false;color: "transparent"
     title: qsTr("Daymark 今日任务")
     readonly property string errorMessage: workspace.errorText || controller.errorText
@@ -115,6 +115,11 @@ Window {
         return "PASS"
     }
     function hintForVerification() {const tip=miniSummary.ToolTip.toolTip;return {visible:tip ? tip.visible && tip.parent===miniSummary : false,text:tip ? tip.text : ""}}
+    // How far the footer extends past the surface, in DIP; 0 when it fits. Used by the
+    // smoke probe to grow a window whose declared minimum undercounted a wrapped row.
+    function verificationOverflow() {
+        return Math.ceil(Math.max(0, footer.y + footer.height - surface.height))
+    }
     function openVerificationMenu() {widgetMenu.popupAt(controller.mini ? miniMore : widgetMore)}
     function closeVerificationMenu() {widgetMenu.close()}
     function verifyLayout() {
