@@ -1,5 +1,17 @@
 # Daymark 实施进度
 
+### RELEASE-1.8.0 本机预检（2026-10-29，WINDOWS-AUTO-PASS / PACKAGING-NEXT）
+
+Qt6.10.2 MinGW Release完整构建、两项QML lint及完整26/26 CTest PASS（275.50秒）；desktop_surfaces 25.74秒、account_access 10.62秒、qml_watchdog_late 97.48秒。发布守卫14/14、149份文档链接、92 QML样式、四主题颜色、106份同步契约和跟踪源码隐私检查PASS。证据build/release180-build.log、release180-confirm.log、release180-lint.log、release180-tests.log与JUnit；未增加watchdog预算或删断言。
+
+版本、README、发行索引与说明已同步1.8.0；修正tag发布在无checkout的publish作业缺少GH_REPO、三份同名SHA256SUMS覆盖，并补齐GPL/LGPL、Qt源码取得说明和4份模块SBOM。删除干净源码导航中指向未提交草稿的孤链，未删除/提交另一agent的本地路线图。接下来从干净固定提交重新构建测试、SDK隔离校验和生成本地包，成功后非强制原子推送main与本次annotated tag；远端CI和包结果需另行核验，不沿用旧绿灯。
+
+### RELEASE-1.8.0 计划（2026-10-29，IN_PROGRESS）
+
+用户明确授权构建1.8.0、推送GitHub及annotated v1.8.0标签。范围为版本元数据/发行说明、首次tag发布所需仓库定位与校验和/许可载荷修正，保留编译入口和其他agent未提交文档。远端无同名tag，main为c9d6b71；最新该提交Linux CI在desktop_surfaces stage117失败，之前8c9d41f三平台通过，不能沿用旧绿灯。先修正设置页异步布局下的真实点击就绪检查，再完整Windows Release/CTest、发布守卫与本地包验证；tag触发三平台开源Qt候选归档，未签名/干净机/物理平台验收仍UNVERIFIED。WSL服务及本地信任保留。
+
+
+
 ### SYNC-WSL 服务启动与Windows验收（2026-10-29，LOCAL-SERVICE-RUNNING / WINDOWS-SYNC-PASS）
 
 已在Ubuntu22.04/WSL2启动真正Linux amd64静态Go服务，数据/配置/私钥位于专用ext4用户目录，由用户级daymark-local-sync.service管理、失败自动重启。端点https://127.0.0.1:9443，仅loopback、HTTPS、开放注册。Linux服务二进制SHA256为7b617bc3585e9b5f94185d92075e56ce525a0876ce1d59b04b25f50d8e166d2a。保留独立隐藏WSL会话，防止最后前台会话退出后用户服务停止；未做Windows开机启动。配置与私钥0700/0600，私钥未复制出WSL，原有WSL服务与本机任务未改动。

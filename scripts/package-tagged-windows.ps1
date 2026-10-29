@@ -43,6 +43,15 @@ try {
 # target machine, so state it rather than copying DLLs we cannot verify.
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../LICENSE') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../packaging/THIRD-PARTY-NOTICES.md') -Destination $stage
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../LICENSE') -Destination (Join-Path $stage 'LGPL-3.0.txt')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../packaging/licenses/GPL-3.0.txt') -Destination $stage
+$bomDirectory = Join-Path $stage 'qt-sbom'
+New-Item -ItemType Directory -Path $bomDirectory | Out-Null
+foreach ($module in @('qtbase','qtdeclarative','qtshadertools','qtsvg')) {
+    $bom = Join-Path $env:DAYMARK_QT "sbom/$module-6.10.2.spdx.json"
+    if (!(Test-Path -LiteralPath $bom)) { throw 'Required Qt SBOM missing; archive was not created.' }
+    Copy-Item -LiteralPath $bom -Destination $bomDirectory
+}
 @'
 Daymark - tagged build artifact
 

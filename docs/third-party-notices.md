@@ -12,7 +12,7 @@ Daymark 桌面使用 Qt 6.10.2：Core、Gui、Qml、Quick、QuickControls2、Wid
 
 本项目按 **LGPLv3 动态链接**使用 Qt：不修改 Qt 源码、不静态链接 Qt 库，用户可替换 Qt 共享库。公开分发二进制时须随包提供 LGPLv3 文本、Qt 版权声明及对应 Qt 源码的获取方式。
 
-许可依据与部署条件见 [Qt 许可说明](https://doc.qt.io/qt-6/licensing.html)、[Qt 6.10 部署](https://doc.qt.io/qt-6.10/deployment.html)。本项目尚未替用户指定源码开放许可。
+许可依据与部署条件见 [Qt 许可说明](https://doc.qt.io/qt-6/licensing.html)、[Qt 6.10 部署](https://doc.qt.io/qt-6.10/deployment.html)。Daymark源码使用LGPLv3，全文见[LICENSE](../LICENSE)；其并入的GPLv3条款见[GPL文本](../packaging/licenses/GPL-3.0.txt)。
 
 ## 构建与 CI
 

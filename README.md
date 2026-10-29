@@ -14,7 +14,7 @@ Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick
 - **离线优先**：默认仅本地保存，无遥测，核心操作不依赖网络。
 - **可选同步**：登录后同步到自管Go + SQLite服务，支持离线队列、冲突处理与独立账号资料；[服务端指南](server/README.md)。
 
-当前版本 **1.1.0**，数据库 schema 10。实现与验证状态只以[进度](docs/PROGRESS.md)为准。
+当前版本 **1.8.0**，数据库 schema 10。实现与验证状态只以[进度](docs/PROGRESS.md)为准。
 
 ## 构建
 
@@ -68,6 +68,6 @@ Windows 与 macOS 是工程目标。CI 在两端执行构建、完整 CTest 与 
 - [详细设计](docs/design/architecture.md)、[模块契约](docs/design/contracts.md)。
 - UI：[调研](docs/design/ui-research.md)、[设计基准](docs/design/ui-baseline.md)、[验收](docs/design/ui-acceptance.md)。
 - [里程碑](docs/milestones.md)、[平台矩阵](docs/platform-test-matrix.md)、[发布规则](docs/release-policy.md)。
-- 发行说明：[1.1.0](docs/release-notes-v1.1.0.md)。
+- 发行说明：[1.8.0](docs/release-notes-v1.8.0.md)。
 
 Things 仅为交互原则参考，未复制其图标、字体或二进制资产。

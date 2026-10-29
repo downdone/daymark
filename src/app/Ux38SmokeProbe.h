@@ -29,7 +29,7 @@ private:
     QString m_shortCategory,m_longCategory;
     int m_stage=0,m_count=0;
     double m_settingsScroll=0;
-    bool m_settingsHomeSent=false;
+    bool m_settingsHomeSent=false,m_miniSettingClicked=false;
     QRect m_widgetModeGeometry;
     QRect m_miniMotionGeometry;
     int m_miniMotionCycle=0;

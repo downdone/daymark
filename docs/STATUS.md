@@ -6,7 +6,7 @@
 
 | 项 | 值 |
 |---|---|
-| 应用版本 | 1.1.0（`CMakeLists.txt` 与 `DAYMARK_VERSION`） |
+| 应用版本 | 1.8.0（`CMakeLists.txt` 与 `DAYMARK_VERSION`） |
 | 数据库 schema | 10（追加账号/同步元数据，历史1～9未覆盖） |
 | 平台目标 | Windows 10/11 x64、macOS 13+ |
 | 技术栈 | C++20、Qt 6.10.2（LGPLv3 动态链接）、SQLite（QSQLITE） |
@@ -14,21 +14,18 @@
 
 ## 构建与测试
 
-| 项 | 状态 |
+| 项 | 1.8.0本轮状态 |
 |---|---|
-| 测试数量 | Windows 26个CTest，新增account_access；其他平台不含Windows包校验（分层见[测试方法](testing-method.md)） |
-| Windows MinGW Release | 180345f 完整26/26 PASS（262.76秒），Mini修复版便携包隔离验证通过 |
-| Windows MinGW Debug | 之前基线25/25；当前同步切片未复验 |
-| Windows MSVC（CI） | 构建、测试、QML lint 通过 |
-| macOS（CI，`macos-15`） | 构建、测试、QML lint 通过 |
-| Linux（CI，`ubuntu-24.04`） | 构建、测试、QML lint 通过 |
-| QML lint | `daymark_qmllint`、`daymark_style_qmllint` 通过 |
+| Windows MinGW Release | 完整构建及26/26 CTest PASS，275.50秒 |
+| QML lint | daymark_qmllint、daymark_style_qmllint PASS |
+| 源码发布守卫 | 14/14、版本/隐私、文档/样式/颜色/同步契约 PASS |
+| Windows本地包 | 待固定提交后重新打包与SDK隔离校验 |
+| Windows MSVC / macOS / Linux CI | 本次推送及tag结果待核验，不能沿用旧run |
+| Windows MinGW Debug | 本版未复验 |
 
-三平台完整桌面CI全绿：[run 40855720727](https://github.com/downdone/daymark/actions/runs/40855720727)（2026-10-29，Windows/macOS/Linux 构建+完整CTest+QML lint）。打 `v*` 标签时 [release-build.yml](../.github/workflows/release-build.yml) 会构建三平台并附加归档到源码 Release；tag 流水线本身尚未以真实 tag 运行验证。
+之前三平台全绿[run40855720727](https://github.com/downdone/daymark/actions/runs/40855720727)属于8c9d41f；随后c9d6b71的Linux在desktop_surfaces stage117失败。本版保留真实点击及接线断言，先等设置分类/字号布局并reveal至视口后只点击一次；本机完整回归通过。新tag将触发三平台完整构建/CTest/QML lint及候选归档，尚不能预称通过。
 
-账号/同步实现包含本地队列、完整批次应用、冲突、首次合并/大组、系统凭据、账号隔离与备份恢复。Go包测试/vet/race及真实两个Qt工作区↔Go TLS联调已有本机PASS；具体范围、最后修改后的门禁及未验证项见[PROGRESS](PROGRESS.md)与[实现验证清单](sync-verification.md)。源码实现不表示服务已部署。
-
-业务源码6cfc6d7已推送并核对origin/main；其[Account and sync](https://github.com/downdone/daymark/actions/runs/40802576795)三平台Go（含Linux race）与Windows MSVC真实双端全部通过。[完整桌面run](https://github.com/downdone/daymark/actions/runs/40802576805)的macOS仍失败于UX34；Linux仍失败于UX34/UX38/UX39（contextual_workspace/desktop_surfaces/calendar_interaction），失败清单不再包含recurrence_service。Windows完整测试尚未完成；该workflow不能称为通过。此后文档提交不改变已验证业务源码。
+账号同步先前Go test/vet/race、Windows真实Qt双工作区↔Go TLS完整故障矩阵及Windows↔WSL普通HTTPS服务已PASS，具体范围见PROGRESS及[同步验证](sync-verification.md)。本次未改变服务生产代码/协议，不以本机联调代替生产部署或macOS原生验收。
 
 ## 自助注册（SYNC-06，2026-10-29）
 

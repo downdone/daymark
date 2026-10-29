@@ -126,6 +126,12 @@ jobs:
           fi
           cp LICENSE CONTRIBUTING.md "$stage/" 2>/dev/null || true
           cp packaging/THIRD-PARTY-NOTICES.md "$stage/"
+          cp LICENSE "$stage/LGPL-3.0.txt"
+          cp packaging/licenses/GPL-3.0.txt "$stage/"
+          mkdir -p "$stage/qt-sbom"
+          for module in qtbase qtdeclarative qtshadertools qtsvg; do
+            cp "$QTDIR/sbom/$module-6.10.2.spdx.json" "$stage/qt-sbom/"
+          done
           printf '%s\n' 'Daymark - tagged build artifact' ''             'Qt runtime is licensed under LGPLv3 and linked dynamically; see THIRD-PARTY-NOTICES.md.'             'This archive is not code-signed and has not been validated on a clean machine.' > "$stage/README.txt"
           (cd build/stage && tar -czf "../artifacts/$name.tar.gz" "$name")
           (cd build/artifacts && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
@@ -135,8 +141,7 @@ jobs:
         run: |
           cd build/artifacts
           ls -l
-          sha256sum * > SHA256SUMS.txt || true
-          cat SHA256SUMS.txt
+          cat *.sha256
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ matrix.label }}
@@ -158,8 +163,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # Sidecars have unique platform names; create one complete index after
+          # merging artifacts instead of overwriting three SHA256SUMS.txt files.
+          (cd dist && sha256sum --check *.sha256 && cat *.sha256 > SHA256SUMS.txt)
           ls -l dist
           # The release record is created by release-source.yml; wait briefly in
           # case the two tag workflows start together.

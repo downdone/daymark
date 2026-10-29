@@ -398,8 +398,25 @@ QString Ux38SmokeProbe::advance() {
     }
     if(m_stage==117){
         auto* setting=find(m_main,"miniAutoCollapseSetting");if(!setting || !setting->property("enabled").toBool())return fail("mini ball setting available");
-        if(!m_controller.miniAutoCollapse())click("miniAutoCollapseSetting",m_main);
-        if(!m_controller.miniAutoCollapse())return fail("mini ball setting wired");
+        if(!m_controller.miniAutoCollapse() && !m_miniSettingClicked){
+            // Category/scale changes polish asynchronously. Reveal and hit-test the
+            // real control before sending exactly one click, including offscreen CI.
+            auto* settings=find(m_main,"settingsDialog");
+            auto* target=qobject_cast<QQuickItem*>(setting);
+            auto* scroll=qobject_cast<QQuickItem*>(find(settings,"settingsScroll"));
+            QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(setting)));
+            m_main->grabWindow();
+            const auto at=target->mapToItem(scroll,QPointF());
+            if(!target->isVisible() || target->width()<=0 || at.y()<0 || at.y()+target->height()>scroll->height()+1){
+                if(m_wait.elapsed()<1500)return {};
+                return fail("mini ball setting revealed before click");
+            }
+            click("miniAutoCollapseSetting",m_main);m_miniSettingClicked=true;
+        }
+        if(!m_controller.miniAutoCollapse()){
+            if(m_wait.elapsed()<1500)return {};
+            return fail("mini ball setting wired");
+        }
         QMetaObject::invokeMethod(find(m_main,"settingsDialog"),"close");QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     }
     if(m_stage==118){
