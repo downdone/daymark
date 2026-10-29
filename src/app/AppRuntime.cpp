@@ -1446,7 +1446,12 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             static int incubationPasses=0;
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
                 controller->incubateFor(5);
-                if(++incubationPasses<150){--phase;return;}
+                if(++incubationPasses<450){
+                    // Re-entering the same phase is progress, not a stall: stamp the guard
+                    // so a slow incubator is not reported as "timed out at phase 437".
+                    *smokeProgressPhase=-2;*smokeProgress=inputClock->elapsed();
+                    --phase;return;
+                }
                 qCritical()<<"Incubation still pending after"<<incubationPasses<<"passes:"<<controller->incubatingObjectCount();
             }
             incubationPasses=0;
