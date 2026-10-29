@@ -113,8 +113,11 @@ QString Ux38SmokeProbe::advance() {
         // CJK font is wider/taller the error row and header can leave the list with no
         // height. Grow to the window's own minimumHeight (which already budgets for the
         // error row) before asserting, instead of accepting a collapsed list.
-        const int minHeight=m_widget->minimumHeight();
-        if(m_widget->height()<minHeight){m_widget->resize(m_widget->width(),minHeight);if(m_wait.elapsed()<800)return {};}
+        // QML's Window.minimumHeight is authoritative; QWindow::minimumHeight() can
+        // lag behind it (it reported 0 here on Linux, leaving the window at 223px and
+        // pushing the footer 58px past the surface).
+        const int minHeight=QVariant(m_widget->property("minimumHeight")).toInt();
+        if(minHeight>0 && m_widget->height()<minHeight){m_widget->resize(m_widget->width(),minHeight);if(m_wait.elapsed()<800)return {};}
         if(!layout() || !capture(m_widget,"narrow-high-contrast"))return fail(QStringLiteral("260 DIP high contrast: min=%1 h=%2").arg(minHeight).arg(m_widget->height()));
         // A popup needs an active window to become visible; X11/Wayland runners do not
         // focus a window that was never shown as active, so the menu stayed closed.
