@@ -1,5 +1,13 @@
 # Daymark 实施进度
 
+### UX-63 修复版便携包（2026-10-29，WINDOWS-AUTO-PASS / LOCAL-PACKAGE-PASS）
+
+源码180345f8eba3efe2dee40d7bd1293b5d940e4c79在干净工作区完整Release构建及26/26 CTest PASS，262.76秒；fullTestGatePassed=true，knownTestFailures=[]。SDK隔离原生启动/39个运行库来源审计、212项载荷清单、ZIP逐项及SHA256、复制后复核均PASS。再用实际交付目录里的exe清除SDK搜索路径运行Mini专项：116～136场景退出0、warnings=false，四轮中间进度约0.48～0.67，固定(80,80)、340×56/340×62；快速反转、键盘/菜单与减少动态保持。新包直接覆盖本次用户截图对应的展开高度记忆与过渡错位问题；不是用旧包或静态原型作为证据。
+
+产物dist/Daymark-1.1.0-windows-x64-local-20261029-153905.zip，39,479,871字节。SHA256：3845d7f35e7c8676e74039afbe49e5bf304754e52d51a7f3e85509c65c726812；部署exe SHA256：24d1924ac8c7c0b23fbc2f1882df19c061f64f45145bd4afd385c4bddd55b268。附.zip.sha256，旧包保留。退出旧版及托盘，解压到新目录运行daymark.exe；不删除原有数据。160ms轻微揭示，正常宽高与左上锚点固定；减少动态直接切换。
+
+证据：build/ux63-portable.log、ux63-portable-tests.xml、ux63-package-native/report.json、ux63-package-mini.log、ux63-package.png.desktop-*、ux63-related-confirm.log与ux63-verified-lint.log。文档149链接/源码隐私检查PASS。保留其他agent历史文档与CI改动，未改编译脚本、部署、登录真实账号或上传私人数据；未推送/上传二进制。当前仍是未签名本地验证包，独立干净机、物理多屏DPI/读屏及macOS为UNVERIFIED。此任务主工作区受保护，继续保留以供复现。
+
 ### UX-63 实现及相关回归（2026-10-29，IMPLEMENTED / RELATED-PASS）
 
 用户确认轻微平滑展开；已实现160ms OutCubic背景揭示/内容淡入、快速反转和减少动态直接切换。原生窗口仅切到固定目标，行内容不随揭示拉伸。WidgetViewModel持有正常宽度与明确Mini高度，状态/最小约束先通知再提交几何，QML不写Window.height；不从临时大帧记忆Mini尺寸。临时设置/平台测试含故意污染宽高的30轮往返、屏边10轮、字号布局及失败回滚。旧菜单宽度fixture改为小窗缩放后切Mini，保留全部锚点/字级/不透明断言。

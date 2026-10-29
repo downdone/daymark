@@ -17,7 +17,7 @@
 | 项 | 状态 |
 |---|---|
 | 测试数量 | Windows 26个CTest，新增account_access；其他平台不含Windows包校验（分层见[测试方法](testing-method.md)） |
-| Windows MinGW Release | 44661df 完整26/26 PASS（275.06秒），新版便携包隔离验证通过 |
+| Windows MinGW Release | 180345f 完整26/26 PASS（262.76秒），Mini修复版便携包隔离验证通过 |
 | Windows MinGW Debug | 之前基线25/25；当前同步切片未复验 |
 | Windows MSVC（CI） | 6cfc6d7同步双端通过；完整桌面新run执行中 |
 | macOS（CI，`macos-15`） | 6cfc6d7服务端通过；完整桌面contextual_workspace失败 |
@@ -43,6 +43,12 @@
 设置→桌面组件选择Mini后可开启闲置收球；悬停恢复条形，菜单/拖动/键盘保持展开，尺寸持久化与平台失败回滚有临时设置单测。独立日历默认560×540、最小360×380，正文/辅助/标题12/11/15及月格、时间轴、年视图统一收紧；已有手动窗口尺寸保留。设计与复核见[UX-62](design/compact-desktop-surfaces.md)。完整26项、Windows合成输入与实际渲染、SDK隔离原生包验证PASS；物理平台边界仍见下方。
 
 本地新包Daymark-1.1.0-windows-x64-local-20261029-144244.zip（39,466,619字节），源码44661df，未签名；路径、校验和、原始失败与最终证据见PROGRESS，不代表正式远端二进制发布。
+
+## Mini 展开动效与漂移修正（UX-63，2026-10-29）
+
+按用户确认采用160ms OutCubic揭示，固定左上锚点和目标宽高；减少动态直接切换。C++统一正常宽度及Mini高度、先更新模式/约束再提交几何，QML不写Window高度；不再记忆过渡帧尺寸。共享菜单忽略同值原生尺寸回执，真实移动/缩放仍关闭。30轮污染帧往返、屏边、快速反转和实际交付exe的100/200%中间帧已有PASS，详细范围见[设计](design/compact-desktop-surfaces.md)与PROGRESS。
+
+修复包Daymark-1.1.0-windows-x64-local-20261029-153905.zip（39,479,871字节），源码180345f。完整26项及SDK隔离/清单/ZIP/SHA256全部PASS；未签名本地试用，未发布远端二进制。
 
 ## 已知问题
 
