@@ -68,11 +68,16 @@ Result<int> RecurrenceService::generate(const QDate& from,const QDate& through,c
         QList<QDate> dates;QDate occurrenceKey;QString predecessorId;
         if(rule.frequency==QStringLiteral("AFTER_DAYS")) {
             bool hasOpen=false;QDateTime last;QDate highestOccurrence;
+            QSet<QString> issuedPredecessors;QDate lastSlot;
+            for(const auto& task:tasks.value)if(task.recurrenceId==rule.id && task.syncOccurrenceKey.startsWith(QStringLiteral("A:")))issuedPredecessors.insert(task.syncOccurrenceKey.mid(2));
             for(const auto& task:tasks.value)if(task.recurrenceId==rule.id) {
                 if(task.status==QStringLiteral("OPEN") && task.deletedAtUtc.isEmpty())hasOpen=true;
                 highestOccurrence=qMax(highestOccurrence,task.occurrenceOn);
                 const auto completed=QDateTime::fromString(task.completedAtUtc,Qt::ISODateWithMs);
-                if(task.status==QStringLiteral("COMPLETED") && completed.isValid() && (!last.isValid() || completed>last || (completed==last && task.id<predecessorId))){last=completed;predecessorId=task.id;}
+                // Follow the causal tail, including when clocks are equal or
+                // roll backwards. Legacy rows without A: keys retain their
+                // monotonically allocated physical occurrence slots.
+                if(task.status==QStringLiteral("COMPLETED") && completed.isValid() && !issuedPredecessors.contains(task.id) && (!last.isValid() || task.occurrenceOn>lastSlot || (task.occurrenceOn==lastSlot && (completed>last || (completed==last && task.id<predecessorId))))){last=completed;lastSlot=task.occurrenceOn;predecessorId=task.id;}
             }
             if(!completionPriority.isEmpty()){QString preferred;for(const auto& task:tasks.value)if(task.recurrenceId==rule.id && task.status==QStringLiteral("COMPLETED") && completionPriority.contains(task.id) && (preferred.isEmpty() || task.id<preferred)){preferred=task.id;last=QDateTime::fromString(task.completedAtUtc,Qt::ISODateWithMs);predecessorId=task.id;}}
             if(!hasOpen) {

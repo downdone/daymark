@@ -40,6 +40,11 @@ private slots:
         QCOMPARE(edit.changeState(occurrence.id,tasks.find(occurrence.id).value.rowVersion,QStringLiteral("reopen")).error.key,QStringLiteral("recurrenceOpenInstance"));
         QVERIFY(edit.changeState(next.id,next.rowVersion,QStringLiteral("complete")).ok());QCOMPARE(service.generate().value,1);QCOMPARE(service.generate().value,0);
         open=0;for(const auto& task:tasks.all().value)if(task.recurrenceId==after.value.id && task.status==QStringLiteral("OPEN")){++open;QCOMPARE(task.startOn.value(),clock.day.addDays(3));QVERIFY(task.occurrenceOn>next.occurrenceOn);}QCOMPARE(open,1);
+        Task tail;for(const auto& task:tasks.all().value)if(task.recurrenceId==after.value.id && task.status==QStringLiteral("OPEN"))tail=task;
+        clock.day=clock.day.addDays(-1);
+        QVERIFY(edit.changeState(tail.id,tail.rowVersion,QStringLiteral("complete")).ok());
+        QCOMPARE(service.generate().value,1);QCOMPARE(service.generate().value,0);
+        for(const auto& task:tasks.all().value)if(task.recurrenceId==after.value.id && task.status==QStringLiteral("OPEN")){QCOMPARE(task.syncOccurrenceKey,QStringLiteral("A:")+tail.id);QCOMPARE(task.startOn.value(),clock.day.addDays(3));}
     }
 };
 QTEST_GUILESS_MAIN(RecurrenceServiceTest)

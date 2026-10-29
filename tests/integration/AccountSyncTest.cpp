@@ -223,11 +223,12 @@ int run() {
     QString predecessor = id;
     for (int cycle = 0; cycle < 2; ++cycle) {
         t = a.task(predecessor);
-        const bool accepted = cycle == 0
-            ? a.changeState(predecessor, t.value("rowVersion").toLongLong(), "complete")
-            : a.batchTasks({QVariantMap{{"taskId",predecessor},{"rowVersion",t.value("rowVersion")}}}, "complete", "");
-        if (!accepted ||
-            !idle(a) || !settle(a) || !settle(b))
+        const bool accepted =
+            cycle == 0 ? a.changeState(predecessor, t.value("rowVersion").toLongLong(), "complete")
+                       : a.batchTasks({QVariantMap{{"taskId", predecessor},
+                                                   {"rowVersion", t.value("rowVersion")}}},
+                                      "complete", "");
+        if (!accepted || !idle(a) || !settle(a) || !settle(b))
             return failed("rapid completion and atomic successor", &a, &b);
         QString successor;
         const auto name = sync::uuid();
@@ -273,8 +274,21 @@ int run() {
         if (!tx.commit() || !DataTransfer(source).exportJson(importPath).ok())
             return failed("bulk export");
     }
-    if (!a.previewImport(importPath) || !idle(a) || !a.applyImport(false) || !idle(a) || !settle(a))
-        return failed("atomic bulk import and staged ordering", &a, &b);
+    if (!a.previewImport(importPath) || !idle(a) || !a.applyImport(false) || !idle(a))
+        return failed("atomic bulk import", &a, &b);
+    a.syncNow();
+    if (!until(
+            [&] {
+                return !a.syncState().value("busy").toBool() &&
+                       a.syncState().value("phase") == "RECONCILE_REQUIRED";
+            },
+            45000) ||
+        !a.syncState().value("authenticated").toBool() || a.task(lastBulk).isEmpty() ||
+        a.syncState().value("pending_count").toInt() == 0)
+        return failed("expired upload retains facts and exposes explicit recovery", &a, &b);
+    a.syncRebuild();
+    if (!settle(a))
+        return failed("backup and explicit remerge after expired staged job", &a, &b);
     b.syncNow();
     if (!settle(b) || b.task(lastBulk).isEmpty())
         return failed("large batch reference download", &a, &b);

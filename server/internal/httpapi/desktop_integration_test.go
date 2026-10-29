@@ -29,7 +29,7 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 	if executable == "" {
 		t.Skip("set DAYMARK_QT_SYNC_TEST_EXE to the built AccountSyncTest executable")
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 180*time.Second)
 	defer cancel()
 	root := t.TempDir()
 	db, e := storage.Open(ctx, filepath.Join(root, "db"), storage.DefaultOptions())
@@ -74,6 +74,7 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 	var staged atomic.Int32
 	var rebased atomic.Bool
 	var droppedPush, droppedLogout atomic.Bool
+	var expiredStage atomic.Bool
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/publish") && !rebased.Load() {
 			principal, authError := auth.Authenticate(r.Context(), strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
@@ -135,6 +136,30 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 		}
 		if recorder.Code < 300 && r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/staged-mutations") {
 			staged.Add(1)
+			if expiredStage.CompareAndSwap(false, true) {
+				var result domain.Job
+				if e := json.Unmarshal(recorder.Body.Bytes(), &result); e != nil {
+					t.Error(e)
+					return
+				}
+				_, e := db.Update(r.Context(), func(tx ports.Tx) error {
+					job, e := tx.Job(r.Context(), result.ID)
+					if e != nil {
+						return e
+					}
+					oldState, attempt := job.State, job.Attempt
+					job.State, job.Reserved = "EXPIRED", 0
+					job.ExpiresAt = domain.At(clock.Now().Add(-time.Second))
+					result = *job
+					return tx.UpdateJob(r.Context(), *job, oldState, attempt)
+				})
+				if e != nil {
+					t.Errorf("expire real staged job: %v", e)
+					return
+				}
+				recorder.Body.Reset()
+				_ = json.NewEncoder(recorder.Body).Encode(result)
+			}
 		}
 		if recorder.Code >= 400 {
 			var p struct {
@@ -172,7 +197,7 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 	if !strings.Contains(string(output), "PASS native credentials;") {
 		t.Fatalf("missing integration completion evidence: %s", output)
 	}
-	if staged.Load() == 0 || !rebased.Load() || !droppedPush.Load() || !droppedLogout.Load() {
+	if staged.Load() == 0 || !rebased.Load() || !droppedPush.Load() || !droppedLogout.Load() || !expiredStage.Load() {
 		t.Fatal("large mutation/rebase path not exercised")
 	}
 	clientJSON, e := os.ReadFile(graphPath)

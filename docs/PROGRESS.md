@@ -1,5 +1,101 @@
 # Daymark 实施进度
 
+### SYNC-05 完整实现与最终本机验证（2026-10-29，IMPLEMENTED / WINDOWS-AUTO-PASS）
+
+已完成可选账号同步的Go服务和Qt接入：默认本地、登录同步、账号资料隔离；13类类型化命令、严格协议/幂等回执/逐批游标、离线冻结队列/完整冲突、首次合并/大组传输、恢复与删除账本/备份运维，入口server/README.md。追加schema10，未改历史1～9。主实现已随共享工作区提交e4303c8进入origin/main，不重写该共享提交；本次最后的因果前驱及作业失效恢复修复另作后续提交。
+
+**最终真实证据**：Qt6.10.2/MinGW Release全量构建、25/25 CTest（257.44秒）及两项QML lint PASS；Go全包test/vet PASS，全包Windows race PASS，HTTP新增矩阵的race复查PASS。77共享Schema样本/16独立编码向量、105 Schema副本漂移、13模块许可/sum检查、147文件文档链接、14/14发布守卫及源码隐私检查通过。日志build/sync05-final-build.log、sync05-final-full.log、sync05-final-qmllint.log、sync05-final-go.log、sync05-final-go-race.log、sync05-final-http-race.log。
+
+修复同一毫秒完成/时钟回拨时按时间选回旧前驱的真实回归：以已持久化A:后继边排除已有后继的前驱，旧无key资料沿历史单调槽选择；保留批量完成的显式因果优先。原RecurrenceServiceTest补时钟回拨断言，20次独立随机规则运行全部通过，不以无输出进程退出误判为环境成功。删除冲突查询/搜索/日历/提醒隐藏候选、显式决定后恢复也已通过真实临时库用例。
+
+**最新双端TLS联调PASS**：Qt57.83秒/Go62.016秒，两个真实Qt工作区与Go/SQLite完整事实最终相等。在此前离线/冲突/账号隔离/1000任务/rebase/staged/大batch/分类标签/层级/日程提醒/整树恢复及丢push/logout成功响应基础上，再将真实staged job持久化为EXPIRED；客户端备份、保留本地内容和未确认队列、停止无效重试，用户显式重新合并后收敛。备份失败不再误报成功；服务端epoch_changed进入明确恢复路径。日志build/sync05-desktop-e2e.log。
+
+**远端CI已核验的基线**：e4303c8的[Account and sync 40800033839](https://github.com/downdone/daymark/actions/runs/40800033839)已success，覆盖三平台Go及Windows MSVC真实双端。同期[Build and test 40800033857](https://github.com/downdone/daymark/actions/runs/40800033857)仍failure：Windows contextual_workspace；macOS另含recurrence_service；Linux还含desktop_surfaces/calendar_interaction。最后因果修复将在后续提交重跑；其余UX探针保留原失败，由另一CI工作流修复，不将新增同步绿灯等同整个仓库绿灯。
+
+**边界**：10k实际文件SQLite基准已记录于推进记录3；服务Linux amd64/macOS arm64交叉编译PASS，当前Go平台CI亦有基线。原生Windows仅查看隔离设置/账号本地态；账号完整原生键盘/200%/读屏、macOS Keychain/桌面、真实独立故障域/断电演练及生产部署UNVERIFIED；当前同步切片Debug未复验。没有真实账号/私人数据上传、部署、发布新tag或发行二进制。运维与验证对应关系已补文档，旧设计记录保留作追溯。
+
+### SYNC-05 推进记录3（2026-10-29，VERIFY）
+
+用户追加授权“完成→测试→完善文档/CI→推送GitHub”，原先暂不改CI的限制随本轮指令解除；仍单代理、不部署、不登录真实账号或上传用户资料。新增独立Account and sync workflow，不改已有桌面编译脚本及另一个agent维护的发布流程。
+
+Go全包test/vet、Windows race、真实进程kill/事务恢复及10k文件SQLite导入/读取/编辑通过；10k一次测得规划207ms、写入1.832s、读取103ms、编辑及复查442ms（非跨硬件承诺）。Linux amd64与macOS arm64服务交叉编译通过，未执行其原生运行。105 Schema的服务/Qt副本增加可重现生成及漂移检查；13个选定Go模块的原许可证/NOTICE和版本/sum/文件摘要清单已收集，不含本机模块缓存路径。
+
+真实两个Qt工作区↔Go TLS最新一次PASS（Qt59.29s/Go65.308s）：在原路径上增加丢push成功响应、丢logout成功响应、离线撤销义务、同日连续AFTER_DAYS及批量完成后继、分类/标签、整树移动、全天日程与提醒配置、整树软删/同组恢复、删除分类保留任务；最终逐实体完整业务事实与真实服务器相等。补齐稳定身份与旧随机ID的边界映射、实际日期与历史物理槽分离、无关星期参数归一化及服务端确认的实例创建时间。快照/增量不能借成功状态掩盖字段漂移。
+
+完整Release CTest首轮暴露Settings Flow只读implicitHeight赋值导致7个启动失败，已修复；下一轮24/25通过，calendar_interaction的Today跨帧恢复断言失败，补真实完成条件下的有界等待，未删断言/增watchdog。同期原生Windows隔离资料已查看设置及“通用→账号与同步”的本地默认态；登录表单/账号冲突的原生键盘和200%完整矩阵尚未计PASS。另补删除冲突只读投影：隐藏主视图/提醒中的服务端已删任务，候选原文继续保留供显式恢复；新增测试并重新全量构建中。后续变更不沿用先前PASS；macOS Keychain/桌面实机、独立故障域/断电演练仍UNVERIFIED。
+
+### SYNC-05 推进记录2（2026-10-28，IN-PROGRESS）
+
+服务端全部Go包测试及race已通过；新增真实子进程kill覆盖business后、receipt前、commit前、commit后，WAL重启与native锁恢复符合整组原子性。管理员口令恢复、签名删除账本/旧备份重放删除与epoch轮换、加密备份READY续传/已验证恢复点轮换、过期会话与pin约束日志清理已有代码及相应临时库/文件测试。实际远端故障域和Linux断电语义不据本机测试宣称通过。
+
+Qt迁移10与savepoint组合事务、严格JSON/105Schema验证、77正反样本及16独立编码向量、业务DTO映射、outbox冻结/依赖/receipt-echo/冲突候选、账号独立资料、系统凭据、QtNetwork单请求协调器及设置入口已接入现有源码；未修改CMake、编译/测试脚本、workflow。Release fast17/17及后续data_transfer/task_workspace针对性回归PASS。真实Qt↔Go测试已接入原TaskWorkspaceTest的可选accountSyncRealServer用例，普通fast缺服务fixture时该用例明确SKIP，不冒充联调PASS。
+
+真实Go httptest TLS+两个Qt工作区已通过：Windows系统凭据合成条目读写删除、首次本地上传、服务器快照、增量、退出零网络、离线重连、冲突选择、账号隔离/旧资料离线重开、1000任务原子导入、并发服务器写引发import_rebase_required后重建冻结请求、staged大命令、大batch引用下载；逐实体完整业务图与服务器相等，日志build/sync05-desktop-e2e.log（最近一次27.85秒，Go合计32.33秒）。随后增加退出服务器撤销及离线撤销待办、凭据与账号/服务器绑定、丢成功响应故障代理、草稿期间暂停远端落库和更多分类/循环边界，仍在联合回归；这些后续变化不能沿用前一轮PASS。正在补循环稳定身份/旧数据、同日AFTER_DAYS及UI/10k/完整门禁；macOS实机仍UNVERIFIED，无部署、真实账号或用户资料上传。
+
+### SYNC-05 账号与同步完整实现（2026-10-28，IN-PROGRESS）
+
+用户已授权按设计完整实现；保持未登录本地、登录同步，Go单体+SQLite/HTTP JSON契约。用户明确另一个agent修复CI，本轮不修改CMake、编译/测试脚本及GitHub workflow；不覆盖Ux37/Ux38等其他工作树改动。采用单代理与autonomous-project-loop，每个纵向闭环实现后真实验证；无部署、真实用户登录/上传或推送。
+
+完成目标：可运行Go服务及Qt账号/同步接入，全部13类业务命令、离线队列/冲突/快照与传输作业/恢复运维具备对应单元和集成证据。队列：**进行中DEV-01基础/真实SQLite存储及协议codec**；待办DEV-02领域/摘要、DEV-03账号、DEV-04复制、DEV-05客户端、DEV-06完整业务、DEV-07传输、DEV-08恢复/删除/集成。需求FR-042及AR-01～10；接口以OpenAPI与sync-contracts为准，测试按76UT/8CT/22INT设计逐步实现。已知风险：桌面新文件接入不能修改构建清单、SQLite驱动实际版本/引擎与文件锁、现有本机投递字段向配置/执行分离迁移、跨平台凭据能力；只记录实际PASS/FAIL/UNVERIFIED。
+
+推进记录1：server独立Go1.27 module已实现严格codec/规范摘要（77个Schema样本、16黄金向量）、真实modernc SQLite3.54.1/WAL/FULL/FK/只读池/进程锁/迁移、全部13类纯领域命令、Argon2id会话/刷新重放持久撤销、push/receipt/pull/progress及TLS测试，含并发同mutation只提交一次、失去Commit确认后查真实receipt。已实现快照/导出、分块暂存/seal/原子导入、大batch引用、逐attempt产物/fencing/pin/read lease及恢复清理；独立签名删除账本、能力token删除、AES-256-GCM备份/验证复制和新目录恢复/epoch轮换亦已有真实临时库/文件测试。当前Go包测试PASS；并不代表原76UT/8CT/22INT全部逐项完成，HTTP完整矩阵/竞态/进程故障/10k基准仍须补齐。服务端尚无部署或真实用户数据。
+
+队列推进到**进行中DEV-05 Qt事务捕获/协议映射与账号同步接入**；DEV-01～04及06～08主体已实现，仍待联合门禁/故障补测。现有Qt6.10.2 Release构建、fast17/17（26.18s）PASS，日志build/sync05-qt-baseline-*。不修改构建脚本/CI；工作区其他agent的Ux37/Ux38/CI改动保持隔离。桌面同步需将现有Repository transaction组合为savepoint，再在外层命令中原子记录差异推导出的类型化命令；账号切换保存门、提醒配置/本机执行分离、旧循环身份兼容和系统凭据将按模块逐个接入/验证。
+
+### SYNC-04 强类型接口、数据结构与机器契约细化（2026-10-28，DESIGN-DELIVERED；未开始服务编码）
+
+用户继续要求细化接口和数据结构，并追加RPC与兼容性问题。本轮交付[强类型接口入口](design/sync-contracts/README.md)、[字段映射](design/sync-contracts/field-mapping.md)、文档目录内可编译的Go领域/13类命令/wire/基础运行/用例及事务端口、Qt6.10.2头文件设计稿；[OpenAPI 3.1](api/sync-v1.openapi.json)含32路径、34操作、105组件schema，覆盖认证/会话、push/receipt/pull/progress、作业分块/seal/publish/续期/取消/释放、快照、导出和删除。服务器29表DDL补充平台字段/BATCH副本/删除意图，新增12表客户端同步元数据DDL（均非已交付migration）。没有建立运行server工程或实现服务逻辑。
+
+补齐三态/nullable、UTC与日历日期、现有Qt端点、复制/本机版本、模板/完整实体、严格codec、默认值/集合摘要及异步身份。修正两个重要边界：receipt只有revision不能推测正文更新base，后继等完整echo落基线再冻结；分页每批带after_cursor，不能落第一批却保存整页末cursor。账号删除新增prepare取得独立有限能力→confirm撤销会话→同能力幂等重试/查询，解决删除后Bearer失效导致结果不可恢复；账本/恢复流程仍必要。
+
+[ADR-028建议](ADR/028-sync-api-contract-and-rpc.md)：当前采用OpenAPI强契约的HTTP/JSON命令接口，进程内直接调用Go端口，暂不引入gRPC。比较了gRPC/Protobuf、ProtoJSON及JSON-RPC，记录Qt6.10模块依赖/许可事实及重评触发；增加主版本/DTO/feature协商、严格业务字段、可忽略metadata、旧冻结队列/receipt兼容与发布矩阵门禁。此取舍是待用户评审建议，不声称用户已接受，也不声称换RPC即可保证语义兼容。
+
+**实际设计校验**：Go1.27.0下`go test ./...`/`go vet ./...`PASS（仅标准库声明包，输出[no test files]；不是业务UT）；Qt6.10.2/MinGW C++20头文件fsyntax-only PASS。OpenAPI标准验证、105个2020-12 schema、[77个样本](api/fixtures/contract-v1.json)（41正/36反）、1008个int64字符串正则样本PASS。忽略build内独立校验工具jsonschema4.23.0/openapi-spec-validator0.7.2不进入服务依赖；Python SQLite3.49.1临时文件库18项本地/删除DDL检查PASS（build/sync04-design-tfrux7su/report.json），原服务器13项检查重跑PASS（sync03-design-kucn64f5/report.json）。16个编码向量、76UT/8CT/22INT设计ID审计与140文件Markdown链接、diff whitespace检查PASS。codec/domain/兼容矩阵样本仍是待实现用例，SQL校验不是候选Go驱动/引擎验证。
+
+**现有工程基线**：Qt6.10.2标准Windows Release构建PASS（build/sync04-contracts-build.log）；首次fast未注入kit运行PATH，测试可执行体因0xc0000135启动失败，补齐Qt/MinGW PATH后17/17、13.92秒PASS（sync04-contracts-fast-tests.log）。Go服务真实认证/事务/网络/跨端、76UT/8CT/22INT执行、完整UI与macOS本轮未验证；不抹除其他轮证据或替代正式发布门禁。期间CI/CMake/README/第三方说明及桌面源码属于其他工作树改动，未由本轮修改/提交；无部署、真实登录、任务上传或推送。
+
+### SYNC-03 模块详细设计与测试契约（2026-10-28，DESIGN-DELIVERED；未开始服务编码）
+
+用户要求按SYNC-02架构细化全部模块，达到能指导开发、先单元测试再集成测试。本轮仅设计及隔离的设计产物校验：共享类型/端口、配置启动/存储、账号/HTTP、业务策略、push/pull、传输作业/运维、Qt客户端、单元用例及分层集成步骤。计划提供字段/约束明确的服务器DDL设计稿，并在临时库验证基础DDL/FK/事务；不把Python SQLite或文档示例校验记为Go服务已验证。
+
+保持未登录本地、登录同步及Go单体+SQLite；不生成运行工程、不安装依赖、不执行真实登录/上传/部署/推送。架构与协议引用保持单一事实来源，既有AppRuntime/Ux37源码和结构草案不动。主要细化风险为事务所有权、刷新重放需提交撤销、依赖版本/关系完整性、游标分页租期、跨文件作业恢复以及本地连续修改合并。将尝试Qt6.10.2标准Windows构建/fast CTest并记录实际结果。
+
+已交付[模块开发入口](design/sync-modules/README.md)和6组模块详设：FND/STO、AUTH/HTTP、DOM、SYN、TRA/OPS、CLI，分别给出方法/数据字段、依赖、状态转换、事务/取消、错误与逐项断言；附[测试集成方案](design/sync-modules/testing-integration.md)和DEV-01～08顺序。静态审计定义76个UT、8个CT、22条INT，编号唯一、INT连续；这些是测试契约，尚未作为服务测试实现/执行。v1协议补齐进度/回执epoch、完整任务身份字段及tail游标，摘要算法细化到类型字节编码，附[16个基准向量](api/fixtures/canonical-v1.json)，15个基础字节独立手工核对及一个规范push的参考编码/摘要。
+
+[服务器DDL设计稿](design/sync-modules/server-schema-v1.sql)含29表，明确复合作用域FK、任务/关系/循环唯一键、会话/回执、作业/read lease/pin及恢复记录；不是已交付migration。隔离到忽略build内临时文件库，以Python sqlite3 3.49.1验证13项（DDL、跨资料FK/self-check、NULL约束、周期/后继唯一、最后回执失败整组回滚、日志清理保留receipt、单writer及一致备份/完整性）PASS，报告build/sync03-design-lq9oqaiq/report.json。此引擎不是候选Go引擎/驱动，不能计Go组件、WAL补丁或服务可靠性通过；自动测试未打开私人任务库。
+
+本轮执行时Qt6.10.2标准Windows Release构建PASS（build/sync03-modules-build.log），fast CTest17/17、21.48秒PASS（sync03-modules-fast-tests.log）。137个Markdown链接、5个协议JSON解析、16向量摘要一致性、用例ID审计及diff whitespace PASS。检查仅代表设计产物与执行时既有工程基线；Go test/vet/race、服务端/Qt同步实现、完整UI/watchdog、真实双端/恢复及macOS仍未验证，原完整门禁失败不消除。期间另有CI/CMake/第三方说明及桌面源码工作树改动出现，均未由本轮编辑或提交；无服务依赖安装/部署/登录/上传/推送。下一步可按DEV-01锁定实际Go/SQLite驱动版本/许可，实施最小存储及其UT/CT，再按依赖表逐层集成。
+
+### SYNC-02 工程架构与可靠性设计（2026-10-28，DESIGN-DELIVERED；待实施评审）
+
+用户要求在既定未登录本地/登录同步、Go单体+SQLite方向上完成工程化、可扩展、高可靠架构设计。本轮仅细化设计：包/模块依赖和事务端口、服务端数据与客户端接入、协议和状态机、幂等/冲突/快照/备份恢复、安全/运维/质量门禁及演进路线；不生成空工程、不安装依赖、不开始服务实现或真实数据传输。
+
+计划形成架构主文档和可审阅的v1协议契约，连接既有需求/ADR/执行队列。重点风险为单写者背压、提交结果不确定、游标与本地待传叠加、快照截点/压缩竞争、恢复后旧设备与令牌复活。尝试标准Windows Release构建和fast CTest只作既有工作树基线；AppRuntime.cpp/Ux37SmokeProbe.cpp及无关结构草案为既有改动，保持不动。服务端/跨设备/macOS能力不因设计完成记PASS。
+
+已交付[工程架构](design/server-architecture.md)及[v1协议草案](api/sync-v1.md)，覆盖AR-01～10、Go分层/模块责任/事务端口、服务端数据和四类版本、串行writer/有界背压、提交不确定与幂等、客户端连续离线编辑/自己的回声/冲突、快照pin/日志压缩、首次合并/大组、权限会话、安全日志、启动退出、异机备份/删除账本/epoch恢复、观测/资源目标及ARCH-1～6交付门禁。同步更新总览/架构/ADR引用、文档导航和执行队列，路径/错误详细事实统一在协议。候选RPO（异机可恢复备份年龄≤1小时）和RTO≤2小时要求真实演练；明确单机可恢复不等于多节点高可用。认证/公开注册/E2EE等未接受取舍未标已接受；未预建空工程或安装依赖。
+
+本轮Qt6.10.2标准Windows Release构建PASS（build/sync02-architecture-build.log），现有AppRuntime.cpp warning和许可诊断保留，不修改无关源码；fast CTest17/17、20.40秒PASS（sync02-architecture-fast-tests.log）。128个Markdown本地链接、5个协议JSON示例解析及diff whitespace检查PASS；JSON解析不代替真实协议/语义测试。无Go工程，未运行/伪报Go test/race/vet、服务端SQLite、故障注入或灾备演练；完整UI/watchdog、真实跨设备、macOS仍未在本轮验证，原完整门禁失败不因fast通过消除。无部署、真实登录、数据上传、提交或推送。下一步按ARCH-1评审并冻结真实依赖/引擎补丁、协议schema和业务样本，再授权最小可靠存储纵片。
+
+### SYNC-01A 本地/登录模式与Go+SQLite修订（2026-10-28，方向已确认；DESIGN-REVISED）
+
+用户明确指定：不登录账号时本地存储，登录账号时同步至服务器；服务端小数据量、低性能需求，先采用单体Go+SQLite，后续按实际需要升级。本轮把这两项写入产品补充需求和ADR，修订原PostgreSQL/Keycloak提案。登录同步继续先本地提交、离线待传；不把登录解释成取消本地库，也不为正常首次同步增加重复确认。账号隔离、软删除、幂等、冲突及可恢复备份继续适用。
+
+计划仅更新设计/追踪：明确单实例SQLite事务与备份、集成式账号登录候选、退出/切号行为及后续迁移触发条件；未确认的认证/注册/隐私细节保持建议，不自动开始业务实现。将尝试Windows标准构建和fast测试，真实服务端与同步能力仍UNVERIFIED；原工作树源码修改不属于本轮。
+
+已更新[详细设计](design/account-and-sync-service.md)，新增FR-042及[ADR-026](ADR/026-go-sqlite-sync-service.md)，同步文档/ADR导航。服务器按单Go进程、本机单SQLite文件、WAL/串行短写事务、有限busy timeout、显式账号隔离及一致备份设计；普通登录自动安全合并，退出不清库、切账号不串传。集成账号/密码、Argon2id和随机可撤销会话是新的轻量候选，未标用户已接受；驱动/哈希库未安装。PostgreSQL及独立身份服务不再是首期默认，后续以锁等待、同步延迟、恢复窗口或多实例需求触发评估；不承诺换连接串即可迁移。
+
+本轮标准Qt6.10.2 Windows Release构建PASS（build/sync01a-design-build.log）；Kit只读取既有CMakeCache后通过环境注入，保留既有许可诊断和AppRuntime.cpp编译warning。fast CTest 17/17、14.51秒PASS（sync01a-design-fast-tests.log）；126个Markdown本地链接与diff whitespace检查PASS。本轮只更新设计文档及追踪，未新增服务代码/迁移/依赖、未部署或上传，未改动既有源码工作树；完整UI/watchdog、服务端真实SQLite、登录/跨设备及macOS均未在本轮验证，不消除原完整门禁失败。下一步仍为认证/同步细节评审，再按S0冻结接口。
+
+### SYNC-01 账号与服务器同步方案（2026-10-28，DESIGN；待用户确认）
+
+用户明确要求先系统分析账号登录、任务上传及服务器同步需求与技术选型，确认后再实施。本轮仅调查当前schema9、统一任务/分类/循环/提醒写入路径及官方技术资料，形成可审阅设计；不新增服务、依赖、migration或网络数据传输，不将提案写成已接受PRD。继续保留离线核心能力。已存在的AppRuntime.cpp修改及code-structure-roadmap.md草案不属于本轮，不覆盖、不提交。
+
+计划：给出范围/需求ID、服务与客户端边界、身份方案比较、增量同步/冲突/首次接入/账号隔离、部署与验证清单，记录仍需用户决定的产品取舍。主要风险为循环实例随机身份、多设备完成后循环分叉、提醒配置与执行状态混存、批量写漏记、游标提交顺序及旧设备删除复活。验证将尝试标准Windows Release构建与fast CTest作为现有工作树基线；服务端与macOS均不因设计完成标PASS。结果完成后追加。
+
+已形成[需求与技术选型提案](design/account-and-sync-service.md)，包含SYNC-R01～15、Go/PostgreSQL/Keycloak与备选方案、服务器/进程内同步边界、事务outbox/幂等/提交有序游标、冲突/快照/账号隔离、循环/提醒专项、HIG与UX目标映射、S0～S5切片及待确认决策。推荐可选账号和个人/邀请自托管，E2EE、公开注册及全设备提醒语义待用户取舍；Qt NetworkAuth的Commercial/GPLv3许可单列依赖评估，不默认加入。未改PRD/ADR为已接受，未新增服务端代码/依赖/schema、未部署或上传。
+
+本轮验证：首次标准构建因当前shell未设置DAYMARK_QT失败（build/sync01-design-build.log）；从既有Release CMakeCache只读恢复Kit并通过环境变量注入，核验Qt6.10.2后，build-windows -Preset windows-release PASS（sync01-design-confirmed-build.log），test-windows -Preset windows-release -Suite fast 17/17、17.03秒PASS（sync01-design-fast-tests.log）。构建保留既有Qt许可客户端诊断及AppRuntime.cpp的misleading-indentation warning，不修改许可配置、不处理无关源码。check-docs的125个Markdown本地链接及diff whitespace检查PASS。构建/测试针对含既有源码改动的工作树，只证明原工程fast基线；未运行本轮完整UI/watchdog或10k性能门禁，历史完整门禁失败不因此消除；后端/真实认证/同步/跨设备/macOS全部UNVERIFIED。本轮仅改此状态记录、文档导航和提案，未提交/推送；下一步为用户确认后S0契约冻结。
+
 ### UX-60 本地便携包与源码推送（2026-10-28，LOCAL-PREVIEW已交付 / SOURCE-PUSH已核验）
 
 用户授权构建便携包并推送GitHub。先同步远端、审查此前本地提交与当前排版改动，提交明确文件，排除无关架构草案及构建/数据/日志；使用项目身份与UTC元数据。保持工程1.1.0和既有公开tag，以真实提交SHA区分本地预览；按ADR-024/025重新Release构建、完整CTest、最小运行负载、SDK隔离原生探针/模块来源、清单与ZIP/SHA校验。仅允许两个已知长链失败，其他失败阻止出包；本地交付运行包，遵守先前未确认Qt公开再分发许可时只推源码的决定。打包及推送真实结果后续追加，不预记成功，不访问私人库或覆盖旧包。

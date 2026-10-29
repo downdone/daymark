@@ -20,4 +20,6 @@ FR-042、AR-01～10；设计编号的输入/oracle仍见[模块测试方案](des
 
 模块内测试与集成测试共用生产实现；仅时钟、确定性凭据或故障边界使用替身。不能把普通运行时Qt联调的SKIP统计为PASS。双端日志只包含合成数据，不上传真实任务或系统凭据。
 
+补充故障覆盖：RecurrenceServiceTest执行相同完成时间及设备时钟回拨；双端测试把真实staged job改为EXPIRED，验证一致备份、候选/未确认队列保留及显式重新合并，结束时仍逐实体比较完整事实。
+
 可复制命令见[服务指南](../server/README.md)及[测试方法](testing-method.md)。CI的[Account and sync](../.github/workflows/sync.yml)执行三平台Go门禁、Linux race与Windows实际双端；已有Build and test继续承担完整桌面CTest和QML lint。新增CI在推送后才会产生执行证据，本地通过不替代远端检查。

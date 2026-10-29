@@ -692,15 +692,26 @@ class Coordinator final : public QObject {
     void fail(const QString &code) {
         safeCode = code;
         busy = false;
-        if (code == "data_epoch_mismatch" || code == "cursor_expired" ||
-            code == "cursor_epoch_mismatch") {
+        if (code == "data_epoch_mismatch" || code == "epoch_changed" || code == "cursor_expired" ||
+            code == "cursor_epoch_mismatch" || code == "snapshot_expired" ||
+            code == "job_state_conflict") {
+            const bool keepSession = code == "snapshot_expired" || code == "job_state_conflict";
             timer.stop();
-            db("reconcile", {}, [this](auto r) {
-                if (r.ok())
-                    profile = r.value;
-                authenticated = false;
-                message = tr(
-                    "服务器已恢复或同步记录已过期。原数据和待同步修改已备份，请重新建立同步基线。");
+            db("reconcile", {}, [this, keepSession](auto r) {
+                if (!r.ok()) {
+                    safeCode = r.error.key;
+                    message =
+                        tr("同步恢复前的备份未完成。原资料仍保留，请检查磁盘空间和权限后重试。");
+                    publish();
+                    return;
+                }
+                profile = r.value;
+                if (!keepSession)
+                    authenticated = false;
+                message =
+                    keepSession
+                        ? tr("传输作业已失效。原资料和待传修改已备份，请选择“备份并重新合并”。")
+                        : tr("服务器已恢复或同步记录已过期。原资料已备份，请重新登录后重新合并。");
                 publish();
             });
             return;
@@ -729,7 +740,8 @@ class Coordinator final : public QObject {
         }
     }
     void cycle() {
-        if (busy || !authenticated || !workspace.ready())
+        if (busy || !authenticated || !workspace.ready() ||
+            profile.value("phase") == "RECONCILE_REQUIRED")
             return;
         if (workspace.syncApplyPaused()) {
             timer.start(500);
@@ -1179,6 +1191,10 @@ class Coordinator final : public QObject {
                         return;
                     }
                     const auto state = r.object.value("state").toString();
+                    if (state == "EXPIRED" || state == "CANCELLED") {
+                        fail("snapshot_expired");
+                        return;
+                    }
                     if (state == "READY") {
                         ready(id);
                         return;
@@ -1272,6 +1288,14 @@ class Coordinator final : public QObject {
             }
             const auto id = r.object.value("id").toString(),
                        state = r.object.value("state").toString();
+            if (state == "EXPIRED" || state == "CANCELLED") {
+                fail("snapshot_expired");
+                return;
+            }
+            if (state == "FAILED") {
+                fail("job_state_conflict");
+                return;
+            }
             if (state == "COMMITTED") {
                 ready(id, {});
                 return;
