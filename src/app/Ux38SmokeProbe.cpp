@@ -370,6 +370,11 @@ QString Ux38SmokeProbe::advance() {
     if(m_stage==115){
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         const int intents=window->property("verificationAuthIntents").toInt();
+        // Stage 97 jumps straight here on the default path, which never runs the
+        // registration stages (98-114) that issue the intent. Only the registration
+        // slice (account_access) reaches this point with an intent to verify; on the
+        // default path there is nothing to assert, so continue to the next stage.
+        if(intents==0 && qgetenv("DAYMARK_SMOKE_UI_SLICE")!="registration"){++m_stage;m_wait.restart();return {};}
         const bool cleared=find(window,"syncPassword")->property("text").toString().isEmpty() && find(window,"syncConfirmPassword")->property("text").toString().isEmpty();
         if((intents!=2 || !cleared) && m_wait.elapsed()<3000)return {};
         if(intents!=2 || window->property("verificationAuthAction")!="register" || !window->property("verificationAuthValues").toBool() || !cleared){qCritical()<<"Registration state"<<intents<<window->property("verificationAuthAction")<<window->property("verificationAuthValues")<<find(window,"syncPassword")->property("text")<<find(window,"syncConfirmPassword")->property("text");return fail("dedicated registration routes credentials once and clears both fields");}
