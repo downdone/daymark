@@ -181,13 +181,14 @@ QString Ux38SmokeProbe::advance() {
             return fail("registration waits for the local account profile to load");
         }
         m_workspace.setPreference("desktopCalendarVisible",true);m_workspace.setThemeMode(1);m_workspace.setTextScale(1);
-        auto* settings=find(m_main,"settingsDialog");QMetaObject::invokeMethod(settings,"open");
-        QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(2)));
-        settings->setProperty("syncFormOpen",true);settings->setProperty("syncRegisterMode",false);
-        revealSettings("syncLogin");
+        auto* settings=find(m_main,"accountWindow");QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("account")));
+        if(find(find(m_main,"settingsDialog"),"syncPassword"))return fail("settings must not retain an account form");
+        settings->setProperty("syncRegisterMode",false);
+        if(!find(m_main,"accountEntry") || !find(m_main,"accountCollapsedEntry"))return fail("account entry in both sidebar modes");
+        if(!capture(m_main,"account-entry"))return fail("account entry capture");
     }
     else if(m_stage==99){
-        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         auto* password=find(settings,"syncPassword");auto* confirm=find(settings,"syncConfirmPassword");
         find(settings,"syncServerOrigin")->setProperty("text","https://example.invalid");find(settings,"syncLogin")->setProperty("text","synthetic-user");
         password->setProperty("text","discard-on-mode-switch");
@@ -195,13 +196,13 @@ QString Ux38SmokeProbe::advance() {
         if(!settings->property("syncRegisterMode").toBool() || !password->property("text").toString().isEmpty() || !confirm->property("visible").toBool())return fail("registration switch clears password and reveals confirmation");
         password->setProperty("text","synthetic-long-password");confirm->setProperty("text","different");
         if(find(settings,"syncSubmit")->property("enabled").toBool())return fail("mismatched registration password cannot submit");
-        revealSettings("syncConfirmPassword");
+        QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncConfirmPassword"))));
         QMetaObject::invokeMethod(confirm,"forceActiveFocus");
     }
     else if(m_stage==100){
-        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
         if(settings->activeFocusItem()!=find(settings,"syncConfirmPassword"))return fail("confirmation field keyboard focus");
-        settingsKey(Qt::Key_Return);
+        for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Return,Qt::NoModifier);QCoreApplication::sendEvent(settings,&event);}
         if(m_workspace.syncState().value("busy").toBool() || find(settings,"syncPassword")->property("text").toString().isEmpty())return fail("Enter on mismatched confirmation must keep input and avoid request");
         if(!capture(settings,"registration-light-mismatch"))return fail("registration light capture");
         find(settings,"syncConfirmPassword")->setProperty("text","synthetic-long-password");
@@ -214,24 +215,82 @@ QString Ux38SmokeProbe::advance() {
         settings->setProperty("syncRegisterMode",true);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
     }
     else if(m_stage==101){
-        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
-        if(!revealSettings("syncConfirmPassword"))return fail("large confirmation field scroll");
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        if(!QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncConfirmPassword")))))return fail("large confirmation field scroll");
         settings->grabWindow();
     }
     else if(m_stage==102){
-        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
-        auto* field=qobject_cast<QQuickItem*>(find(settings,"syncConfirmPassword"));auto* view=qobject_cast<QQuickItem*>(find(settings,"settingsScroll"));
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        auto* field=qobject_cast<QQuickItem*>(find(settings,"syncConfirmPassword"));auto* view=qobject_cast<QQuickItem*>(find(settings,"accountScroll"));
         const auto at=field->mapToItem(view,QPointF());
         if(at.y()<0 || at.y()+field->height()>view->height()+1 || !capture(settings,"registration-dark-200"))return fail("registration confirmation remains reachable at 200 percent");
-        if(!revealSettings("syncSubmit"))return fail("large registration action scroll");
+        if(!QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncSubmit")))))return fail("large registration action scroll");
     }
     else if(m_stage==103){
-        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
-        auto* button=qobject_cast<QQuickItem*>(find(settings,"syncSubmit"));auto* view=qobject_cast<QQuickItem*>(find(settings,"settingsScroll"));const auto at=button->mapToItem(view,QPointF());
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        auto* button=qobject_cast<QQuickItem*>(find(settings,"syncSubmit"));auto* view=qobject_cast<QQuickItem*>(find(settings,"accountScroll"));const auto at=button->mapToItem(view,QPointF());
         if(at.y()<0 || at.y()+button->height()>view->height()+1 || !capture(settings,"registration-actions-dark-200"))return fail("registration action remains reachable at 200 percent");
         QMetaObject::invokeMethod(settings,"close");
         if(settings->property("syncRegisterMode").toBool() || !find(settings,"syncPassword")->property("text").toString().isEmpty() || !find(settings,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("closing registration clears secrets and resets mode");
-        return "DONE";
+        m_workspace.setTextScale(1);m_workspace.setThemeMode(1);
+    }
+    else if(m_stage==104){
+        // Synthetic presentation states do not authenticate the coordinator or
+        // touch a server. Real auth/sync remains covered by the Qt/Go TLS test.
+        m_originalSyncState=m_workspace.syncState();auto state=m_originalSyncState;
+        state.insert("safe_error_code","invalid_credentials");state.insert("status",QStringLiteral("账号或密码不正确。"));
+        state.insert("authenticated",false);state.insert("busy",false);m_workspace.setSyncState(state);
+        QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("account")));
+    }
+    else if(m_stage==105){
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        if(!find(window,"accountError")->property("visible").toBool() || !find(window,"syncPassword")->property("text").toString().isEmpty())return fail("dedicated login error and empty password");
+        if(!capture(window,"account-login-error"))return fail("account error capture");
+        auto state=m_workspace.syncState();state.insert("busy",true);state.insert("safe_error_code",QString());m_workspace.setSyncState(state);
+    }
+    else if(m_stage==106){
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        if(find(window,"syncSubmit")->property("enabled").toBool() || find(window,"syncLogin")->property("enabled").toBool() || find(window,"syncRegisterMode")->property("enabled").toBool())return fail("connecting disables duplicate auth and mode changes");
+        if(!capture(window,"account-login-busy"))return fail("connecting capture");
+        QMetaObject::invokeMethod(window,"close");
+        auto state=m_originalSyncState;state.insert("authenticated",true);state.insert("busy",false);state.insert("login_label","synthetic-user");state.insert("server_origin","https://example.invalid");
+        state.insert("status",QStringLiteral("已连接，修改将自动同步"));state.insert("pending_count",2);state.insert("phase","ACTIVE");
+        state.insert("profiles",QVariantList{QVariantMap{{"id","one"},{"label","synthetic-user"}},QVariantMap{{"id","two"},{"label","other-user"}}});
+        state.insert("conflicts",QVariantList{QVariantMap{{"id","fixture-conflict"},{"related_count",2},{"local_title",QStringLiteral("合成修改")},{"local_summary",QStringLiteral("此设备的内容")},{"remote_summary",QStringLiteral("另一设备的内容")}}});
+        m_workspace.setSyncState(state);QMetaObject::invokeMethod(window,"open");
+    }
+    else if(m_stage==107){
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        if(find(window,"syncLogin")->property("visible").toBool() || !find(window,"syncNow")->property("visible").toBool() || find(window,"syncProfiles")->property("count").toInt()!=2 || !find(window,"accountConflictLocal"))return fail("connected account management replaces auth form and keeps conflicts/profiles");
+        if(!capture(window,"account-management-light"))return fail("account management capture");
+        auto state=m_workspace.syncState();state.insert("busy",true);state.insert("phase","RECONCILE_REQUIRED");m_workspace.setSyncState(state);
+    }
+    else if(m_stage==108){
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        if(!find(window,"syncRebuild")->property("visible").toBool() || find(window,"syncRebuild")->property("enabled").toBool() || find(window,"accountConflictLocal")->property("enabled").toBool())return fail("busy account keeps recovery visible and prevents repeated decisions");
+        m_workspace.setTextScale(2);m_workspace.setThemeMode(2);window->resize(420,440);
+    }
+    else if(m_stage==109){
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        QMetaObject::invokeMethod(window,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(window,"syncProfiles"))));
+    }
+    else if(m_stage==110){
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));auto* footer=qobject_cast<QQuickItem*>(find(window,"accountContinueLocal"));
+        const auto at=footer->mapToScene(QPointF());
+        if(at.x()<0 || at.y()<0 || at.x()+footer->width()>window->width()+1 || at.y()+footer->height()>window->height()+1 || !capture(window,"account-management-dark-200-narrow"))return fail("account footer remains reachable in narrow large text window");
+        QMetaObject::invokeMethod(window,"close");m_workspace.setSyncState(m_originalSyncState);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("sidebarCollapsed",true);
+    }
+    else if(m_stage==111){
+        auto* entry=qobject_cast<QQuickItem*>(find(m_main,"accountCollapsedEntry"));
+        if(!entry || !entry->isVisible() || entry->mapToScene(QPointF()).x()<0 || !capture(m_main,"account-entry-collapsed"))return fail("collapsed account entry remains available");
+        click("accountCollapsedEntry",m_main);
+    }
+    else if(m_stage==112){
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        if(!window->isVisible())return fail("collapsed account button opens dedicated account window");
+        for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(window,&event);}
+        if(window->isVisible())return fail("Escape closes account window");
+        m_workspace.setPreference("sidebarCollapsed",false);return "DONE";
     }
     else if(m_stage==90){auto* glyph=qobject_cast<QQuickItem*>(find(m_main,"galleryGlyph-calendar"));const auto at=glyph->mapToScene(QPointF());if(at.y()<0 || at.y()+glyph->height()>m_main->height() || glyphPainted("calendar") || !capture(m_main,"glyph-scroll-clip-dark-200"))return fail("off-viewport vector cannot leak over dialog actions");QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("type")));}
     qInfo()<<"UX38 desktop scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};

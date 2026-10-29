@@ -54,16 +54,17 @@ def failure_context(path):
     found = []
     for pattern in (
         r'Basic UI smoke failed at .{0,200}',
-        r'UX\d+ stage \d+:.{0,200}',
+        r'UX\d+ stage \d+:[^\n]{0,300}',
         r'Verification exited before all scenarios completed.{0,80}',
-        r'Compact insets.{0,200}',
-        r'Stale completion state.{0,200}',
-        r'List title axes.{0,200}',
-        r'Wheel geometry.{0,200}',
-        r'Desktop layout.{0,200}',
+        r'Compact insets.{0,300}',
+        r'Stale completion state.{0,300}',
+        r'List title axes.{0,300}',
+        r'Wheel geometry.{0,300}',
+        r'Desktop layout.{0,300}',
+        r'Drawer drop.{0,300}',
     ):
         found.extend(m.strip() for m in re.findall(pattern, text))
-    return found[:12]
+    return found[:20]
 
 
 def main(argv):
