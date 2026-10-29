@@ -6,7 +6,7 @@
 
 产物dist/Daymark-1.1.0-windows-x64-local-20261029-144244.zip，39,466,619字节；SHA256：7fbbd5626444672dde69243aad1796fd0c62d4dd0e82e0bdbfa109586ffd0ad0。另附.zip.sha256；212项载荷清单，另有manifest.json。部署exe SHA256：5567aeb7b82ae536d50c4d12833ae8d538b38ab3cd21c15329799d7dff8aeb32。包含独立账号/注册窗口、可选Mini悬停球及独立日历紧凑排版；原手动日历几何仍尊重，可拖边缩小。退出旧版托盘后解压到新目录并运行daymark.exe；数据默认仍在系统应用数据目录。
 
-证据保留在忽略build：ux62-portable.log、ux62-portable-tests.xml、ux62-package-native/report.json、ux62-final-related.log、ux62-final-lint.log、ux62-windows-native.log及浅深/200%截图。旧140812包保留，不冒充包含UX-62。当前是未签名本地验证候选，不创建tag/远端二进制发行；干净机、物理多屏/DPI/读屏与macOS仍UNVERIFIED，无真实账号或私人资料操作。临时构建工作区在保存产物/报告后归档。
+证据保留在忽略build：ux62-portable.log、ux62-portable-tests.xml、ux62-package-native/report.json、ux62-final-related.log、ux62-final-lint.log、ux62-windows-native.log及浅深/200%截图。旧140812包保留，不冒充包含UX-62。当前是未签名本地验证候选，不创建tag/远端二进制发行；干净机、物理多屏/DPI/读屏与macOS仍UNVERIFIED，无真实账号或私人资料操作。产物/报告已复制；归档工具以“当前任务主工作区不能移除”拒绝清理，因此保留工作区，未手动删除。
 
 ### UX-62 实现与相关验证（2026-10-29，IMPLEMENTED / RELATED-PASS）
 
