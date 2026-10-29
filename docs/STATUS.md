@@ -16,11 +16,11 @@
 
 | 项 | 1.8.0本轮状态 |
 |---|---|
-| Windows MinGW Release | 完整构建及26/26 CTest PASS，275.50秒 |
+| Windows MinGW Release | c02f36e完整构建及26/26 CTest PASS，269.96秒 |
 | QML lint | daymark_qmllint、daymark_style_qmllint PASS |
 | 源码发布守卫 | 14/14、版本/隐私、文档/样式/颜色/同步契约 PASS |
-| Windows本地包 | 05c3ddb再次26/26 PASS；原生200%菜单定位失败已修复，原生437阶段/相关2项通过，最终包待复验 |
-| Windows MSVC / macOS / Linux CI | 本次推送及tag结果待核验，不能沿用旧run |
+| Windows本地包 | 1.8.0常规包PASS：SDK隔离原生437阶段、清单/ZIP/SHA256通过，非预览模式 |
+| Windows MSVC / macOS / Linux CI | 05c3ddb三平台及同步CI已绿；最终tag作业结果待核验 |
 | Windows MinGW Debug | 本版未复验 |
 
 之前三平台全绿[run40855720727](https://github.com/downdone/daymark/actions/runs/40855720727)属于8c9d41f；随后c9d6b71的Linux在desktop_surfaces stage117失败。本版保留真实点击及接线断言，先等设置分类/字号布局并reveal至视口后只点击一次；本机完整回归通过。新tag将触发三平台完整构建/CTest/QML lint及候选归档，尚不能预称通过。

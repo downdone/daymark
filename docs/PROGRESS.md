@@ -1,5 +1,14 @@
 # Daymark 实施进度
 
+### RELEASE-1.8.0 最终本地门禁（2026-10-29，FULL-TEST-PASS / LOCAL-PACKAGE-PASS）
+
+固定源码c02f36e完整Release构建及26/26 CTest再次PASS（269.96秒）；常规package-windows -Version 1.8.0，无LocalPreview，完整门禁true、失败清单空。SDK隔离Windows原生完整437阶段、版本1.8.0、39个运行库来源、211项载荷清单及ZIP逐项/SHA256和复制后复核全部PASS。真实交付exe SHA256：9d14ee6316bf25e699f0cb05fc60ec214f28d266bad2798fc5ee71cdf15306a0。此前05c3ddb原生菜单失败保留，最终包确实包含屏边定位修复，未放宽断言/超时或跳过原生全链。
+
+产物dist/Daymark-1.8.0-windows-x64-local-20261029-214801.zip，39,485,758字节；SHA256：9f6fde51867363bb35d9b826e98f59dab5b88dba789fc34147cc051bb1168b25，附.zip.sha256。包的BUILD-INFO精确记录源码c02f36e；本条及随后tag前提交仅补发行证据/文档，不将先前二进制重标为新源码。Qt6.10.2、schema10、未签名，本地SDK许可/独立干净机/物理多屏DPI/读屏及macOS原生门禁仍未认证；公开候选由tag上的开源Qt CI重新构建。
+
+首轮版本提交05c3ddb远端Build and test run40882208126与Account and sync run40882208176均Success；这是菜单热修前的CI基线。最终tag将单独触发新构建，不复用该CI作为最终tag通过证据。日志release180-final-package.log、release180-package-native/report.json、release180-menu-related.log及100/200%菜单截图。WSL服务/当前用户CA保留。用户已授权推送main及annotated v1.8.0，远端tag与Release待下面实际核验。
+
+
 ### RELEASE-1.8.0 原生包门禁修正（2026-10-29，NATIVE-PASS / FINAL-PACKAGE-NEXT）
 
 05c3ddb完整26/26再次PASS（269.71秒），但默认SDK隔离原生全链在phase120的200%菜单锚点失败，未生成ZIP。1.5秒等待完整谓词后仍失败，排除单纯过渡帧；诊断显示Popup.Window反复popup/屏边自动定位后坐标负向漂移。按HIG稳定布局与可访问性、UX-10/11/13和桌面菜单契约，先将目标全局水平边界夹紧到所属屏幕，再映射到来源局部坐标；已打开菜单仅更新x/y，不反复popup。保留完整断言、原watchdog与键盘/窗口变动关闭路径；真实Windows原生完整437阶段已退出0、warnings=false（13.544秒到完成检查）；100/200%菜单截图已逐张查看，文字完整、实体表面及选中标记清晰。两项QML lint及widget_window/desktop_surfaces 2/2 PASS（26.42秒），待固定源码后完整CTest/最终包验证，tag尚未创建。证据release180-menu-fix.log、release180-menu-native.log、release180-menu-related.log与widget-menu/200截图。
