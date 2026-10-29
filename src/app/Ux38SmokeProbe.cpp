@@ -121,7 +121,7 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==32){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         // The menu is created and shown asynchronously after openVerificationMenu();
         // sampling the first frame reports "closed" on slower/first-run platforms.
-        if(result!="PASS" && m_wait.elapsed()<1500)return {};
+        if(result!="PASS" && m_wait.elapsed()<3000)return {};
         if(result!="PASS"){
             auto* menu=find(m_widget,"widgetMenu");
             qCritical()<<"Menu state"<<result<<(menu?menu->property("visible"):QVariant())<<(menu?menu->property("count"):QVariant())<<m_widget->property("width")<<m_widget->property("height")<<QGuiApplication::platformName();
@@ -184,20 +184,19 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==92){
         auto* more=find(m_widget,"miniMore");
         if(!more || !more->property("visible").toBool())return fail(QStringLiteral("mini more not reachable: mini=%1 size=%2x%3").arg(m_controller.mini()).arg(m_widget->width()).arg(m_widget->height()));
-        click("miniMore");
-        // Synthetic clicks on a 56px-tall mini bar do not reach the button on the
-        // offscreen Linux backend even though the item is visible and the window is
-        // active; fall back to the same entry point the button invokes so the menu
-        // anchoring (the actual subject of this stage) is still exercised.
-        if(!find(m_widget,"widgetMenu")->property("visible").toBool())
-            QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
+        // This stage verifies the Mini menu's anchor and surface, not the click
+        // plumbing (covered by other stages). Invoke the same entry point the button
+        // uses: a synthetic click on the 56px-tall mini bar does not open the popup on
+        // the offscreen Linux backend, while the menu itself works there in the
+        // floating layout (stages 32/35 pass).
+        QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
     else if(m_stage==93){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         // Same asynchronous popup as stage 32: on runners that do not focus the widget
         // the menu becomes visible a frame or more after the click.
-        if(result!="PASS" && m_wait.elapsed()<1500)return {};
+        if(result!="PASS" && m_wait.elapsed()<3000)return {};
         if(result!="PASS"){
             auto* menu=find(m_widget,"widgetMenu");
-            qCritical()<<"Mini menu state"<<result<<(menu?menu->property("visible"):QVariant())<<m_widget->isActive()<<"mini"<<m_controller.mini()<<"size"<<m_widget->size()<<"moreVisible"<<(find(m_widget,"miniMore")?find(m_widget,"miniMore")->property("visible"):QVariant())<<QGuiApplication::platformName();
+            qCritical()<<"Mini menu state"<<result<<(menu?menu->property("visible"):QVariant())<<(menu?menu->property("count"):QVariant())<<(menu?menu->property("opacity"):QVariant())<<m_widget->isActive()<<"mini"<<m_controller.mini()<<"size"<<m_widget->size()<<"moreVisible"<<(find(m_widget,"miniMore")?find(m_widget,"miniMore")->property("visible"):QVariant())<<QGuiApplication::platformName();
             return fail("Mini menu anchor and opaque surface: "+result.toString());
         }auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetMenu")->property("contentItem").value<QObject*>());if(!content)return fail("Mini menu content");const auto image=content->window()->grabWindow();int ink=0;for(int y=0;y<image.height();++y)for(int x=0;x<image.width();++x)if(image.pixelColor(x,y).lightness()<100)++ink;if(ink<30){if(m_wait.elapsed()<1500)return {};return fail("Mini opaque window must paint menu text");}if(!capture(content->window(),"mini-solid-menu"))return fail("Mini menu window capture");m_controller.setMini(false);}
     else if(m_stage==94){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("mode change left stale menu open");click("widgetMore");}

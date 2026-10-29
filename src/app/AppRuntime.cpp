@@ -1444,6 +1444,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             // keeps queuing delegates (macOS here) would otherwise spin until the stall
             // guard fires and the whole run is reported as timed out at phase 437.
             static int incubationPasses=0;
+            if(incubationPasses==0)qInfo()<<"Completion check at phase 437"<<inputClock->elapsed();
             if(auto* controller=m_engine.incubationController();controller && controller->incubatingObjectCount()>0) {
                 controller->incubateFor(5);
                 if(++incubationPasses<450){
