@@ -181,6 +181,10 @@ Window {
                 }
                 Item {
                     Layout.fillWidth: true;Layout.fillHeight: true
+                    // A wrapped error row plus a taller CJK header can squeeze this to
+                    // zero height; keep at least one row visible so verifyLayout()'s
+                    // todayList.height>=24 check reflects a usable widget.
+                    Layout.minimumHeight: 24
                     Column {
                         anchors.centerIn: parent;width: parent.width
                         visible: todayList.count===0 && todayList.contentHeight<1

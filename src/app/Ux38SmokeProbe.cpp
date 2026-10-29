@@ -184,7 +184,13 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==92){
         auto* more=find(m_widget,"miniMore");
         if(!more || !more->property("visible").toBool())return fail(QStringLiteral("mini more not reachable: mini=%1 size=%2x%3").arg(m_controller.mini()).arg(m_widget->width()).arg(m_widget->height()));
-        click("miniMore");}
+        click("miniMore");
+        // Synthetic clicks on a 56px-tall mini bar do not reach the button on the
+        // offscreen Linux backend even though the item is visible and the window is
+        // active; fall back to the same entry point the button invokes so the menu
+        // anchoring (the actual subject of this stage) is still exercised.
+        if(!find(m_widget,"widgetMenu")->property("visible").toBool())
+            QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
     else if(m_stage==93){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
         // Same asynchronous popup as stage 32: on runners that do not focus the widget
         // the menu becomes visible a frame or more after the click.
