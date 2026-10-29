@@ -6,6 +6,7 @@ Control {
     id: picker
     required property var model
     property int currentIndex: 0
+    property int textPixelSize: Theme.bodySize
     property bool selectionIsExternal: false
     signal activated(int index)
     Layout.fillWidth: true
@@ -40,6 +41,7 @@ Control {
                 implicitHeight: Math.max(28,Theme.bodySize+10)
                 text: modelData
                 checked: picker.currentIndex===index
+                font.pixelSize: picker.textPixelSize
                 font.weight: checked ? Font.DemiBold : Font.Normal
                 palette.buttonText: checked ? Theme.text : Theme.secondary
                 Accessible.role: Accessible.RadioButton

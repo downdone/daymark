@@ -8,6 +8,8 @@ ScrollView {
     objectName: "calendarYearView"
     implicitWidth: 640
     implicitHeight: 480
+    property bool smallSurface: false
+    readonly property CalendarMetrics metrics: CalendarMetrics {smallSurface: root.smallSurface}
     required property TaskWorkspace workspace
     property string anchorDate: workspace.dateOffset(0)
     property var months: []
@@ -16,7 +18,7 @@ ScrollView {
     property string selectedMonth: ""
     property bool revealPending: false
     property bool revealWithFocus: false
-    readonly property real monthHeadingHeight: Math.max(32, Theme.headingSize + 12)
+    readonly property real monthHeadingHeight: Math.max(32, root.metrics.headingSize + 12)
     readonly property var pinnedMonths: {
         const flick = contentItem as Flickable;
         if (!flick || flick.contentY <= 0)
@@ -96,7 +98,7 @@ ScrollView {
         Layout.preferredWidth: 1
         Layout.minimumWidth: 0
         implicitWidth: 28
-        implicitHeight: Math.max(28, Theme.captionSize + 10)
+        implicitHeight: Math.max(28, root.metrics.captionSize + 10)
         padding: 1
         horizontalPadding: 0
         text: modelData.day
@@ -114,7 +116,7 @@ ScrollView {
             border.width: dateButton.visualFocus ? 1 : 0;border.color: Theme.accent
         }
         palette.buttonText: modelData.inMonth ? Theme.text : Theme.secondary
-        font.pixelSize: Theme.captionSize
+        font.pixelSize: root.metrics.captionSize
         Accessible.name: modelData.date
         onClicked: root.dateHighlighted(modelData.date)
         onDoubleClicked: root.daySelected(modelData.date)
@@ -151,7 +153,7 @@ ScrollView {
             objectName: "calendarYearMonth-"+month.modelData.anchor
             text: month.modelData.month + qsTr("月")
             flat: true
-            font.pixelSize: Theme.headingSize
+            font.pixelSize: root.metrics.headingSize
             onClicked: root.selectedMonth=month.modelData.anchor
             highlighted: root.selectedMonth===month.modelData.anchor
             onDoubleClicked: root.monthSelected(month.modelData.anchor)
@@ -169,7 +171,7 @@ ScrollView {
                     text: modelData
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: Theme.captionSize
+                    font.pixelSize: root.metrics.captionSize
                     color: Theme.secondary
                 }
             }
@@ -184,9 +186,9 @@ ScrollView {
         id: yearGrid
         width: root.availableWidth
         onImplicitHeightChanged: if(root.revealPending)Qt.callLater(root.applyReveal)
-        columns: Math.max(1, Math.min(4, Math.floor(width / (240 * Theme.scale))))
-        columnSpacing: 24
-        rowSpacing: 24
+        columns: Math.max(1, Math.min(4, Math.floor(width / ((root.smallSurface ? 196 : 240) * Theme.scale))))
+        columnSpacing: root.smallSurface ? 12 : 24
+        rowSpacing: root.smallSurface ? 12 : 24
         Repeater {
             id: monthCells
             model: root.months
@@ -209,7 +211,7 @@ ScrollView {
                 objectName: "calendarPinnedMonth-" + modelData.month
                 x: modelData.x;width: modelData.width;height: root.monthHeadingHeight
                 text: modelData.month + qsTr("月")
-                font.pixelSize: Theme.headingSize
+                font.pixelSize: root.metrics.headingSize
                 horizontalAlignment: Text.AlignHCenter;verticalAlignment: Text.AlignVCenter
             }
         }

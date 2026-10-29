@@ -153,6 +153,7 @@ ApplicationWindow {
                             ComboBox {Layout.fillWidth:true;Accessible.name:qsTr("任务组件展示形态");model:[qsTr("小窗"),qsTr("迷你条")];currentIndex:root.widgetController.mini ? 1 : 0;onActivated:root.widgetController.setMini(currentIndex===1)}
                         }
                         SettingsToggle {objectName:"widgetSolidBackgroundSetting";text:qsTr("使用不透明背景");enabled:!Theme.highContrast;checked:root.workspace.preferences.solidWidget;onClicked:root.workspace.setPreference("solidWidget",checked)}
+                        SettingsToggle {objectName:"miniAutoCollapseSetting";text:qsTr("迷你条闲置时收为小圆球");enabled:root.widgetController.mini;checked:root.widgetController.miniAutoCollapse;onClicked:root.widgetController.setMiniAutoCollapse(checked)}
                         SettingsRow {
                             objectName:"widgetOpacitySetting";label:qsTr("背景透明度");separator:false
                             enabled:!Theme.highContrast && !root.workspace.preferences.solidWidget

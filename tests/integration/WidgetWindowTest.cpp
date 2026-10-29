@@ -28,6 +28,7 @@ public:
     WindowResult setDesktopPinned(QWindow* w,bool enabled)override
     {return rejectDesktop?WindowResult{WindowError::OperationRejected}:qt.setDesktopPinned(w,enabled);}
     WindowResult setVisible(QWindow* w, bool visible) override { return qt.setVisible(w, visible); }
+    WindowResult setClickThrough(QWindow* w,bool enabled) override {return qt.setClickThrough(w,enabled);}
     WindowResult startMove(QWindow*) override { return {WindowError::MoveUnsupported}; }
 };
 
@@ -43,6 +44,35 @@ public:
 class WidgetWindowTest : public QObject {
     Q_OBJECT
 private slots:
+    void miniBallKeepsNormalGeometryAcrossSaveAndRestart()
+    {
+        QTemporaryDir dir;QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;
+        window.setGeometry(80,100,400,240);model.configureSettings(dir.filePath("mini.ini"));QVERIFY(model.attachWindow(&window));
+        window.setGeometry(80,100,400,240);
+        QVERIFY(!model.setMiniCollapsed(true));QVERIFY(model.setMiniAutoCollapse(true));QVERIFY(model.setMini(true));
+        window.resize(400,72); // A larger text setting can make the bar taller.
+        QVERIFY(model.setMiniCollapsed(true));QCOMPARE(window.size(),QSize(36,36));QVERIFY(model.miniCollapsed());
+        model.saveSettings();
+        WidgetViewModel restored(platform);QWindow second;second.resize(340,360);restored.configureSettings(dir.filePath("mini.ini"));QVERIFY(restored.attachWindow(&second));
+        QVERIFY(restored.miniAutoCollapse());QVERIFY(restored.mini());QVERIFY(!restored.miniCollapsed());QCOMPARE(second.width(),400);
+        QVERIFY(restored.setMini(false));QCOMPARE(second.size(),QSize(400,240));
+        QVERIFY(model.setMiniCollapsed(false));QCOMPARE(window.size(),QSize(400,72));
+        QVERIFY(model.setMiniCollapsed(true));QVERIFY(model.setMiniAutoCollapse(false));QCOMPARE(window.size(),QSize(400,72));QVERIFY(!model.miniCollapsed());
+        QVERIFY(!model.setMiniCollapsed(true));QVERIFY(model.setMini(false));QCOMPARE(window.size(),QSize(400,240));
+    }
+    void miniBallFailureDoesNotCommitModeOrPreference()
+    {
+        RejectingPlatform platform;WidgetViewModel model(platform);QWindow window;window.setGeometry(80,80,400,240);QVERIFY(model.attachWindow(&window));
+        QVERIFY(model.setMiniAutoCollapse(true));QVERIFY(model.setMini(true));platform.rejectResize=true;
+        QVERIFY(!model.setMiniCollapsed(true));QVERIFY(!model.miniCollapsed());QCOMPARE(window.size(),QSize(400,48));
+        platform.rejectResize=false;QVERIFY(model.setMiniCollapsed(true));platform.rejectResize=true;
+        QVERIFY(!model.setMiniAutoCollapse(false));QVERIFY(model.miniAutoCollapse());QVERIFY(model.miniCollapsed());QCOMPARE(window.size(),QSize(36,36));
+        QVERIFY(!model.setMini(false));QVERIFY(model.mini());QVERIFY(model.miniCollapsed());
+        platform.rejectResize=false;model.setTrayAvailable(true);QVERIFY(model.setClickThrough(true));QVERIFY(!model.miniCollapsed());QCOMPARE(window.size(),QSize(400,48));
+        QVERIFY(!model.setMiniCollapsed(true));QVERIFY(model.setClickThrough(false));QVERIFY(model.setMiniCollapsed(true));
+        window.setPosition(-100000,-100000);QVERIFY(model.setMiniCollapsed(false));QVERIFY(QGuiApplication::primaryScreen()->availableGeometry().contains(window.geometry()));
+        QVERIFY(model.setMiniCollapsed(true));QVERIFY(model.setMini(false));QCOMPARE(window.size(),QSize(400,240));
+    }
     void trayCommandsAreGroupedAndRecoveryTracksState()
     {
         QTemporaryDir dir;QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;TrayCommandWindow main;

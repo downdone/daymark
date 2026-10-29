@@ -38,7 +38,7 @@
 [日历工作区 v2](design/calendar-workspace-v2.md) · [连续月历](design/continuous-month-calendar.md) · [日历创建与密度](design/calendar-creation-and-density.md) · [直接时段选择](design/direct-time-range-picker.md) · [年定位与尺寸](design/year-tags-and-calendar-sizing.md) · [macOS 日历操作](design/macos-calendar-interaction.md) · [重复周期](design/repeat-choice-popover.md)
 
 ### 3.4 桌面组件与窗口
-[桌面表面精修](design/desktop-surfaces-polish.md) · [桌面层与年焦点](design/desktop-layer-and-year-focus.md) · [桌面菜单锚点](design/desktop-menu-anchoring.md) · [架构](design/architecture.md) · [模块契约](design/contracts.md)
+[悬停Mini球与紧凑日历](design/compact-desktop-surfaces.md) · [桌面表面精修](design/desktop-surfaces-polish.md) · [桌面层与年焦点](design/desktop-layer-and-year-focus.md) · [桌面菜单锚点](design/desktop-menu-anchoring.md) · [架构](design/architecture.md) · [模块契约](design/contracts.md)
 
 ### 3.5 可选账号与同步
 [独立账号窗口与设计评审](design/account-window.md) · [服务运行与恢复](../server/README.md) · [账号与同步](design/account-and-sync-service.md) · [工程架构](design/server-architecture.md) · [协议 v1](api/sync-v1.md) · [模块入口](design/sync-modules/README.md) · [强类型契约](design/sync-contracts/README.md) · [桌面实现契约](design/sync-client-implementation.md)

@@ -1,5 +1,19 @@
 # Daymark 实施进度
 
+### UX-62 实现与相关验证（2026-10-29，IMPLEMENTED / RELATED-PASS）
+
+已实现设置开关、450ms闲置收球/悬停恢复、菜单/拖动/Tab焦点保持、Enter/Space小窗展开，以及正常几何独立持久化。C++临时设置库覆盖保存重启、关闭恢复、平台拒绝回滚和穿透恢复。独立日历默认560×540、最小360×380；CalendarMetrics统一12/11/15字级、8边距/4间距与日周月年密度，窗口头部承担日期标题，主窗保持原值。WindowStateStore读取实际QML最小尺寸。
+
+Release构建、两项QML lint及相关widget_window/desktop_surfaces 2/2 PASS（22.64秒）；calendar_interaction/continuous_calendar此前针对同一日历实现PASS。首轮测试桩缺少穿透转发，后续真实发现Tab焦点交接与200%月格水平内边距裁字，均修复并保留边界断言。Windows原生后端116～132段退出0、warnings=false，已查看浅色560×540、深色200% 360×380日历及Mini截图（build/ux62-windows.png.desktop-*）；这些是合成输入/实际绘制，不等于物理DPI/读屏验收。92 QML样式及四主题79组颜色守卫PASS。首次手动offscreen截图未注入系统字体目录，不作为视觉通过证据。
+
+完整26项与新便携包门禁待下面的最终打包记录；不复用旧b896d80的26/26当作本切片结果。原工作区历史文档修改、结构路线图与另一agent的CI修复均保留；未修改编译脚本、部署服务或使用私人数据。
+
+### UX-62 Mini 悬停小圆球与独立日历紧凑化（2026-10-29，IN_PROGRESS）
+
+新增用户需求先完成[设计和实现前评审](design/compact-desktop-surfaces.md)：可选450ms闲置收球、悬停展开、菜单/拖动/键盘保持、正常几何独立持久化；独立日历整体排版与尺寸收紧，保留32 DIP工具命中及200%适应。范围FR-012/013/018/034/035、UX-01/02/09～14。计划临时设置库状态/失败单测、真实QML合成输入/浅深截图、构建/lint/完整CTest及重打便携包；不改其他agent源码或编译脚本，macOS/物理DPI/读屏未测保持UNVERIFIED。
+
+此前b896d80基线便携包已完整Release 26/26 PASS（267.37秒），SDK隔离原生验证与ZIP逐文件/SHA256 PASS；产物Daymark-1.1.0-windows-x64-local-20261029-140812.zip已保留。此包尚不包含UX-62，不覆盖为新功能产物。
+
 ### PORTABLE-SYNC-07 Windows便携包（2026-10-29，IN_PROGRESS）
 
 用户要求构建便携包，默认本机Windows x64最新已提交源码，包含独立账号窗口。先按ADR-024/025检查打包/校验流程；发现BUILD-INFO及校验器仍固定schema9，与已交付schema10不符，先同步元数据并用临时合成包验证拒绝旧9/未来11，不改迁移或用户库。当前主工作区含其他未提交文档；从干净独立工作区构建以固定源码SHA，保留原文件。

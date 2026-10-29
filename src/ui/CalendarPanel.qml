@@ -10,6 +10,8 @@ ColumnLayout {
     implicitWidth: 640
     implicitHeight: 480
     Layout.minimumWidth: 0
+    property bool smallSurface: false
+    readonly property CalendarMetrics metrics: CalendarMetrics {smallSurface: panel.smallSurface}
     required property TaskWorkspace workspace
     signal desktopRequested
     signal scaleRequested(string scale)
@@ -169,6 +171,7 @@ ColumnLayout {
             entries: [],
             events: []
         })
+    readonly property string displayTitle: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
     readonly property bool compact: width < 800 * Theme.scale
     readonly property bool modalOpen: jumpDialog.visible || moveDialog.visible || unscheduled.visible || createPopup.visible || taskMenu.visible || displayMenu.visible || taskRangePicker.visible
     property bool agendaVisible: false
@@ -256,7 +259,7 @@ ColumnLayout {
             }
         }
     }
-    spacing: Theme.gap
+    spacing: panel.metrics.gap
     function entries(day) {
         return (showTasks ? day.entries : []).concat(showEvents ? day.events : []);
     }
@@ -432,11 +435,11 @@ ColumnLayout {
     property bool agendaCreating: false
     property var creationCloseAction:null
     Label {
-        visible: panel.compact
+        visible: panel.compact && !panel.smallSurface
         Layout.fillWidth: true
         Layout.minimumWidth: 0
-        text: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
-        font.pixelSize: Theme.headingSize
+        text: panel.displayTitle
+        font.pixelSize: panel.metrics.headingSize
         font.weight: Font.DemiBold
         elide: Text.ElideRight
     }
@@ -451,10 +454,10 @@ ColumnLayout {
             Layout.minimumWidth: 0
             spacing: 4
             Label {
-                visible: !panel.compact
+                visible: !panel.compact && !panel.smallSurface
                 Layout.minimumWidth: 0
-                text: panel.workspace.titleForScale(panel.calendarScale === "month" && monthGrid.visibleMonth ? monthGrid.visibleMonth : panel.independent ? panel.anchorDate : panel.workspace.calendarDate, panel.calendarScale)
-                font.pixelSize: Theme.headingSize
+                text: panel.displayTitle
+                font.pixelSize: panel.metrics.headingSize
                 font.weight: Font.DemiBold
                 Layout.fillWidth: true
                 elide: Text.ElideRight
@@ -462,8 +465,9 @@ ColumnLayout {
             SegmentedPicker {
                 objectName: "calendarScalePicker"
                 Layout.fillWidth: false
-                Layout.preferredWidth: 160 * Theme.scale
-                Layout.minimumWidth: 4 * Math.max(32, Theme.bodySize + 12)
+                Layout.preferredWidth: (panel.smallSurface ? 136 : 160) * Theme.scale
+                Layout.minimumWidth: 4 * Math.max(32, panel.metrics.bodySize + 12)
+                textPixelSize: panel.metrics.bodySize
                 selectionIsExternal: true
                 model: [qsTr("日"), qsTr("周"), qsTr("月"), qsTr("年")]
                 currentIndex: ["day", "week", "month", "year"].indexOf(panel.calendarScale)
@@ -485,6 +489,7 @@ ColumnLayout {
             }
             Button {
                 text: qsTr("今天")
+                font.pixelSize: panel.metrics.bodySize
                 onClicked: panel.command("calendarToday")
             }
             IconToolButton {
@@ -558,6 +563,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         sourceComponent: CalendarTimeline {
+            smallSurface: panel.smallSurface
             workspace: panel.workspace
             timeline: panel.timelineData
             creationSelection:createPopup.visible && createPopup.timelineSelection.valid && panel.timelineData.days.some(day=>day.date===createPopup.timelineSelection.displayDate) ? ({date:createPopup.timelineSelection.displayDate,minute:createPopup.timelineSelection.displayMinute,duration:createPopup.timelineSelection.duration}) : ({})
@@ -601,6 +607,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.fillHeight: true
         sourceComponent: YearCalendar {
+            smallSurface: panel.smallSurface
             workspace: panel.workspace
             selectedDate: panel.selectedDate
             onAnchorRequested: function (date) {
@@ -693,14 +700,14 @@ ColumnLayout {
             width: body.availableWidth
             height: panel.compact && panel.agendaVisible ? Math.max(body.availableHeight, implicitHeight) : body.availableHeight
             columns: panel.compact ? 1 : 2
-            columnSpacing: Theme.panelPadding
+            columnSpacing: panel.metrics.padding
             rowSpacing: Theme.fieldGap
             ColumnLayout {
                 Layout.row: panel.compact && panel.agendaVisible ? 1 : 0
                 Layout.column: 0
                 Layout.fillWidth: true
                 Layout.fillHeight: !panel.compact || !panel.agendaVisible
-                Layout.preferredHeight: panel.compact && panel.agendaVisible ? Math.max(360, Theme.bodySize * 20) : -1
+                Layout.preferredHeight: panel.compact && panel.agendaVisible ? Math.max(360, panel.metrics.bodySize * 20) : -1
                 RowLayout {
                     Layout.fillWidth: true
                     Repeater {
@@ -712,13 +719,14 @@ ColumnLayout {
                             Layout.preferredWidth: 1
                             horizontalAlignment: Text.AlignRight
                             rightPadding: 8
-                            font.pixelSize: Theme.captionSize
+                            font.pixelSize: panel.metrics.captionSize
                             color: Theme.secondary
                         }
                     }
                 }
                 CalendarMonthStream {
                     id: monthGrid
+                    smallSurface: panel.smallSurface
                     objectName: "calendarMonthGrid"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -779,10 +787,10 @@ ColumnLayout {
                 Layout.preferredWidth: panel.compact ? -1 : 280 * Theme.scale
                 Layout.minimumWidth: panel.compact ? 0 : 240 * Theme.scale
                 Layout.maximumWidth: panel.compact ? Infinity : 300 * Theme.scale
-                Layout.preferredHeight: panel.compact ? Math.max(320, Theme.bodySize * 14) : -1
+                Layout.preferredHeight: panel.compact ? Math.max(320, panel.metrics.bodySize * 14) : -1
                 Label {
                     text: panel.selectedDate + qsTr(" · 当天议程")
-                    font.pixelSize: Theme.sectionSize
+                    font.pixelSize: panel.metrics.sectionSize
                     font.weight: Font.DemiBold
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
@@ -846,7 +854,7 @@ ColumnLayout {
                                     implicitHeight: contentItem.implicitHeight + 12
                                     contentItem: Text {
                                         text: agendaRow.modelData.title
-                                        font.pixelSize: Theme.bodySize
+                                        font.pixelSize: panel.metrics.bodySize
                                         color: Theme.text
                                         wrapMode: Text.Wrap
                                         font.strikeout: agendaRow.modelData.taskStatus === "COMPLETED"
@@ -870,7 +878,7 @@ ColumnLayout {
                                 Layout.fillWidth: true
                                 Layout.leftMargin: 42
                                 wrapMode: Text.Wrap
-                                font.pixelSize: Theme.captionSize
+                                font.pixelSize: panel.metrics.captionSize
                                 color: Theme.secondary
                                 text: agendaRow.modelData.eventId ? qsTr("%1（本机时区）").arg(agendaRow.modelData.timeLabel) : qsTr("任务 · %1").arg(panel.kindText(agendaRow.modelData.kind))
                             }
@@ -883,7 +891,7 @@ ColumnLayout {
                                     Accessible.name: modelData.title
                                     contentItem: Text {
                                         text: (associated.modelData.role === "followup" ? qsTr("跟进 · ") : qsTr("准备 · ")) + associated.modelData.title
-                                        font.pixelSize: Theme.captionSize
+                                        font.pixelSize: panel.metrics.captionSize
                                         color: Theme.secondary
                                         wrapMode: Text.Wrap
                                         font.strikeout: associated.modelData.taskStatus === "COMPLETED"

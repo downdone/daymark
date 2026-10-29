@@ -6,6 +6,8 @@ import QtQuick.Layouts
 
 Item {
     id: root
+    property bool smallSurface: false
+    readonly property CalendarMetrics metrics: CalendarMetrics {smallSurface: root.smallSurface}
     required property TaskWorkspace workspace
     required property var days
     property string selectedDate: ""
@@ -13,7 +15,7 @@ Item {
     property bool showTasks: true
     property bool showEvents: true
     property bool draggingMarker: false
-    property real minimumRowHeight: 64
+    property real minimumRowHeight: metrics.weekMinimum
     readonly property bool isWeek: false
     readonly property var bands: days.reduce((all, day) => all.concat((day.bands || []).filter(item => item.lane < 3 && (item.sourceType === "task" ? showTasks : showEvents))), [])
     function entries(day) {
@@ -24,7 +26,7 @@ Item {
     }
     function weekMinimum(week) {
         const overflow = days.some(day => day.week === week && (entries(day).filter(item => !item.multiDay).length > 1 || (entries(day).some(item => !item.multiDay) && ((showTasks && day.hiddenTaskBands > 0) || (showEvents && day.hiddenEventBands > 0)))));
-        return Math.max(minimumRowHeight, Math.ceil(Math.max(28, Theme.bodySize * 1.65) + bandLanesFor(week) * (Math.ceil(Theme.captionSize * 1.5) + 2) + (overflow ? 2 : 1) * Math.ceil(Theme.captionSize * 1.5) + 10));
+        return Math.max(minimumRowHeight, Math.ceil(Math.max(root.metrics.dateHeading, root.metrics.bodySize * 1.65) + bandLanesFor(week) * (Math.ceil(root.metrics.captionSize * 1.5) + 2) + (overflow ? 2 : 1) * Math.ceil(root.metrics.captionSize * 1.5) + 10));
     }
     readonly property real gridMinimum: Array.from({
         length: Math.ceil(days.length / 7)
@@ -109,7 +111,7 @@ Item {
         required property var modelData
         readonly property var items: root ? root.entries(modelData).filter(item => !item.multiDay) : []
         readonly property int hiddenRangeCount: (root && root.showTasks ? modelData.hiddenTaskBands || 0 : 0) + (root && root.showEvents ? modelData.hiddenEventBands || 0 : 0)
-        readonly property int markerLineHeight: Math.ceil(Theme.captionSize * 1.5)
+        readonly property int markerLineHeight: Math.ceil(root.metrics.captionSize * 1.5)
         readonly property int entryLimit: Math.max(1, Math.min(root && root.isWeek ? 8 : 3, Math.floor((availableHeight - dayNumber.implicitHeight - bandSpace.height - markerLineHeight - 6) / (markerLineHeight + 2))))
         readonly property int displayedCount: markers.count
         readonly property string firstDisplayedTitle: {
@@ -125,7 +127,8 @@ Item {
         Layout.minimumWidth: 32
         implicitHeight: root ? root.weekMinimum(modelData.week) : 32
         Layout.minimumHeight: implicitHeight
-        padding: 4
+        padding: root && root.smallSurface ? 2 : 4
+        horizontalPadding: root && root.smallSurface ? 2 : 10
         highlighted: root && root.selectedDate === modelData.date
         focusPolicy: highlighted ? Qt.StrongFocus : Qt.ClickFocus
         onActiveFocusChanged: if (activeFocus && (focusReason===Qt.TabFocusReason || focusReason===Qt.BacktabFocusReason))
@@ -166,7 +169,7 @@ Item {
                 objectName: "calendarDateHeader-"+dayCell.modelData.date
                 MouseArea {anchors.right:parent.right;anchors.top:parent.top;anchors.bottom:parent.bottom;width:parent.height;onClicked:root.dateSelected(dayCell.modelData.date);onDoubleClicked:root.dateOpened(dayCell.modelData.date)}
                 width: dayCell.availableWidth
-                implicitHeight: Math.max(28, Math.ceil(Theme.bodySize * 1.65))
+                implicitHeight: Math.max(root.metrics.dateHeading, Math.ceil(root.metrics.bodySize * 1.65))
                 height: implicitHeight
                 Rectangle {
                     anchors.right: parent.right
@@ -177,7 +180,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text: dayCell.modelData.day
-                        font.pixelSize: Theme.bodySize
+                        font.pixelSize: root.metrics.bodySize
                         font.weight: dayCell.modelData.today || dayCell.highlighted ? Font.DemiBold : Font.Normal
                         color: dayCell.modelData.today ? Theme.calendarTodayText : dayCell.highlighted ? Theme.accentText : dayCell.modelData.inMonth && !dayCell.modelData.weekend ? Theme.text : Theme.secondary
                     }
@@ -215,7 +218,7 @@ Item {
                     text: (modelData.kind==="deadline" ? qsTr("结束 · ") : "") + (modelData.timeLabel && !modelData.allDay ? modelData.timeLabel.split("–")[0].split(" ").pop() + " " : "") + modelData.title
                     font.strikeout: modelData.taskStatus === "COMPLETED"
                     elide: Text.ElideRight
-                    font.pixelSize: Theme.captionSize
+                    font.pixelSize: root.metrics.captionSize
                     color: root && root.selectedTaskId===(modelData.taskId || modelData.eventId) ? Theme.accentText : Theme.primaryInk
                     activeFocusOnTab: true
                     Keys.onReturnPressed: root.inspectAt(modelData.taskId || modelData.eventId,marker)
@@ -246,7 +249,7 @@ Item {
                 visible: dayCell.items.length > dayCell.entryLimit || dayCell.hiddenRangeCount > 0
                 text: compactOverflow ? "…" : "+"+remainingCount
                 elide: Text.ElideRight
-                font.pixelSize: Theme.captionSize
+                font.pixelSize: root.metrics.captionSize
                 color: Theme.accent
                 activeFocusOnTab: true
                 Accessible.role: Accessible.Button
@@ -340,9 +343,9 @@ Item {
                     return count > modelData.week * 7 ? dayCells.itemAt(modelData.week * 7) : null;
                 }
                 x: modelData.column * cellWidth + (modelData.startsHere ? 4 : 0)
-                y: (firstDay ? firstDay.y : 0) + 4 + Math.max(28, Math.ceil(Theme.bodySize * 1.65)) + 1 + modelData.lane * (Math.ceil(Theme.captionSize * 1.5) + 2)
+                y: (firstDay ? firstDay.y : 0) + 4 + Math.max(root.metrics.dateHeading, Math.ceil(root.metrics.bodySize * 1.65)) + 1 + modelData.lane * (Math.ceil(root.metrics.captionSize * 1.5) + 2)
                 width: modelData.span * cellWidth - (modelData.startsHere ? 4 : 0) - (modelData.endsHere ? 4 : 0)
-                height: Math.ceil(Theme.captionSize * 1.5)
+                height: Math.ceil(root.metrics.captionSize * 1.5)
                 topLeftRadius: modelData.startsHere ? Theme.eventRadius : 0
                 bottomLeftRadius: topLeftRadius
                 topRightRadius: modelData.endsHere ? Theme.eventRadius : 0
@@ -369,7 +372,7 @@ Item {
                     textFormat: Text.PlainText
                     text: band.modelData.title
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.captionSize
+                    font.pixelSize: root.metrics.captionSize
                     color: root && root.selectedTaskId===(band.modelData.taskId || band.modelData.eventId) ? Theme.accentText : Theme.primaryInk
                     verticalAlignment: Text.AlignVCenter
                     elide: Text.ElideRight

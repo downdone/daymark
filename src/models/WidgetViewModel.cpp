@@ -21,6 +21,7 @@ bool WidgetViewModel::attachWindow(QWindow* window)
         disconnect(m_window, nullptr, this, nullptr);
     m_window = nullptr;
     m_mini = false;
+    m_miniCollapsed = false;
     if (!accept(m_platform.prepare(window)) || !accept(m_platform.setAlwaysOnTop(window, true))) {
         emit stateChanged();
         return false;
@@ -40,6 +41,7 @@ bool WidgetViewModel::attachWindow(QWindow* window)
     connect(qGuiApp,&QGuiApplication::screenAdded,this,[this](QScreen* screen){connect(screen,&QScreen::availableGeometryChanged,this,[this]{normalizeGeometry();});normalizeGeometry();});
     for(auto* screen:QGuiApplication::screens())connect(screen,&QScreen::availableGeometryChanged,this,[this]{normalizeGeometry();});
     if(m_settings) {
+        m_miniAutoCollapse=m_settings->value(QStringLiteral("widget/miniAutoCollapse"),false).toBool();
         m_locked=m_settings->value(QStringLiteral("widget/locked"),false).toBool();
         setBackgroundOpacity(m_settings->value(QStringLiteral("widget/backgroundOpacity"),0.9).toDouble());
         m_closeToTray=m_settings->value(QStringLiteral("main/closeToTray"),true).toBool();
@@ -75,11 +77,36 @@ bool WidgetViewModel::setMini(bool mini)
     if (mini == m_mini)
         return accept({});
     const auto floatingSize = mini ? m_window->size() : m_floatingSize;
-    if (!accept(m_platform.resize(m_window,QSize{m_window->width(),mini ? 48 : floatingSize.height()})))
+    const int width=m_miniCollapsed ? m_miniSize.width() : m_window->width();
+    if (!accept(m_platform.resize(m_window,QSize{width,mini ? 48 : floatingSize.height()})))
         return false;
     if (mini)
         m_floatingSize = floatingSize;
     m_mini = mini;
+    m_miniCollapsed = false;
+    emit stateChanged();
+    return true;
+}
+
+bool WidgetViewModel::setMiniAutoCollapse(bool enabled)
+{
+    if(!enabled && m_miniCollapsed && !setMiniCollapsed(false))return false;
+    m_miniAutoCollapse=enabled;
+    emit stateChanged();
+    return accept({});
+}
+
+bool WidgetViewModel::setMiniCollapsed(bool collapsed,int diameter)
+{
+    if(!m_window)return accept({WindowError::WindowUnavailable});
+    if(collapsed && (!m_mini || !m_miniAutoCollapse || clickThrough()))return accept({WindowError::OperationRejected});
+    if(collapsed==m_miniCollapsed)return accept({});
+    const auto miniSize=collapsed ? m_window->size() : m_miniSize;
+    const int side=qBound(36,diameter,96);
+    if(!accept(m_platform.resize(m_window,collapsed ? QSize(side,side) : miniSize)))return false;
+    if(collapsed)m_miniSize=miniSize;
+    m_miniCollapsed=collapsed;
+    normalizeGeometry();
     emit stateChanged();
     return true;
 }
@@ -129,6 +156,7 @@ void WidgetViewModel::setTrayAvailable(bool available)
 bool WidgetViewModel::setClickThrough(bool enabled)
 {
     if(enabled && !m_trayAvailable)return accept({WindowError::OperationRejected});
+    if(enabled && m_miniCollapsed && !setMiniCollapsed(false))return false;
     const bool success=accept(m_platform.setClickThrough(m_window,enabled));emit stateChanged();return success;
 }
 void WidgetViewModel::setLocked(bool locked){m_locked=locked;emit stateChanged();}
@@ -159,9 +187,10 @@ void WidgetViewModel::resetPosition()
 void WidgetViewModel::saveSettings()
 {
     if(!m_settings || !m_window)return;
-    m_settings->setValue(QStringLiteral("widget/floatingSize"),QSize(m_window->width(),m_mini?m_floatingSize.height():m_window->height()));
+    m_settings->setValue(QStringLiteral("widget/floatingSize"),QSize(m_miniCollapsed ? m_miniSize.width() : m_window->width(),m_mini?m_floatingSize.height():m_window->height()));
     m_settings->setValue(QStringLiteral("widget/position"),m_window->position());
     m_settings->setValue(QStringLiteral("widget/mini"),m_mini);
+    m_settings->setValue(QStringLiteral("widget/miniAutoCollapse"),m_miniAutoCollapse);
     m_settings->setValue(QStringLiteral("widget/visible"),visible());
     m_settings->setValue(QStringLiteral("widget/alwaysOnTop"),alwaysOnTop());
     m_settings->setValue(QStringLiteral("widget/desktopPinned"),desktopPinned());

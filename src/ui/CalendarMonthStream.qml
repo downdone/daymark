@@ -5,6 +5,8 @@ import DaymarkStyle as DS
 
 Item {
     id: root
+    property bool smallSurface: false
+    readonly property CalendarMetrics metrics: CalendarMetrics {smallSurface: root.smallSurface}
     required property TaskWorkspace workspace
     property string anchorDate: workspace.dateOffset(0)
     property bool scoped: true
@@ -29,7 +31,7 @@ Item {
     property real placedHeight: 0
     readonly property real textScale: workspace.textScale
     readonly property bool layoutReady: !rebuilding && !projectionRefresh.running && placedScale === textScale && placedHeight === list.height
-    readonly property real weekHeight: Math.max(64, Theme.captionSize * 4, list.height / 5.4)
+    readonly property real weekHeight: Math.max(root.metrics.weekMinimum, root.metrics.captionSize * 4, list.height / 5.4)
     signal dateSelected(string date)
     signal dateActivated(string date)
     signal dateOpened(string date)
@@ -270,9 +272,9 @@ Item {
         Label {
             width: parent.width
             visible: !!row.modelData.title
-            height: visible ? Math.max(28, Theme.headingSize + 12) : 0
+            height: visible ? Math.max(28, root.metrics.headingSize + 12) : 0
             text: row.modelData.title
-            font.pixelSize: Theme.headingSize
+            font.pixelSize: root.metrics.headingSize
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }
@@ -281,6 +283,7 @@ Item {
             width: parent.width
             height: Math.max(root.weekHeight, implicitHeight)
             workspace: root.workspace
+            smallSurface: root.smallSurface
             days: row.modelData.days
             selectedDate: root.selectedDate
             selectedTaskId: root.selectedTaskId

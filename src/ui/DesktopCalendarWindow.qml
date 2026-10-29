@@ -13,15 +13,16 @@ ApplicationWindow {
     signal timeMoveRequested(string taskId,real version,string date,int minute,string edge)
     signal timeRangeRequested(string taskId,real version,var range)
     signal dateMoveRequested(string taskId,real version,string from,string date,string edge)
-    width: 760;height: 720
-    minimumWidth: 420;minimumHeight: 480
+    width: 560;height: 540
+    minimumWidth: 360;minimumHeight: 380
     visible: workspace.ready && workspace.preferences.desktopCalendarVisible
     transientParent: null
     flags: Qt.Window | Qt.FramelessWindowHint
     Component.onCompleted:workspace.attachDesktopCalendarWindow(calendar)
     title: qsTr("Daymark · 桌面日历")
     color: "transparent"
-    font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize
+    readonly property CalendarMetrics metrics: CalendarMetrics {smallSurface:true}
+    font.family: Theme.fontFamily;font.pixelSize: metrics.bodySize
     palette.windowText: Theme.text;palette.text: Theme.text;palette.buttonText: Theme.text
     background: Rectangle {
         objectName: "desktopCalendarBackground"
@@ -51,11 +52,11 @@ ApplicationWindow {
         return changed && workspace.view===oldView && workspace.calendarTitle===oldTitle
     }
     ColumnLayout {
-        anchors.fill: parent;anchors.margins: Theme.panelPadding
+        anchors.fill: parent;anchors.margins: calendar.metrics.padding
         spacing: Theme.fieldGap
         RowLayout {
             Layout.fillWidth: true
-            Label {text: qsTr("日历");font.weight: Font.DemiBold;Layout.fillWidth: true
+            Label {objectName:"desktopCalendarTitle";text: page.displayTitle;font.pixelSize:calendar.metrics.headingSize;font.weight: Font.DemiBold;Layout.fillWidth: true;Layout.minimumWidth:0;elide:Text.ElideRight
                 DragHandler {target: null;onActiveChanged: if(active)calendar.startSystemMove()}
             }
             WidgetAction {symbol: "pin";description: checked ? qsTr("取消日历置顶") : qsTr("日历置顶");checked: calendar.workspace.preferences.desktopCalendarTopmost;Accessible.checkable: true;Accessible.checked: checked;onClicked: calendar.workspace.setPreference("desktopCalendarTopmost",!checked)}
@@ -84,6 +85,7 @@ ApplicationWindow {
             Layout.fillWidth: true;Layout.fillHeight: true
             workspace: calendar.workspace
             independent: true
+            smallSurface: true
             onOpenTask: function(taskId){calendar.openTask(taskId)}
             onTaskAction:function(taskId,action){calendar.taskAction(taskId,action)}
             onTimeMoveRequested:function(id,version,date,minute,edge){calendar.timeMoveRequested(id,version,date,minute,edge)}

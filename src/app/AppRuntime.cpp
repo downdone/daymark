@@ -87,7 +87,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     if(!smokeTest)m_mainState=std::make_unique<WindowStateStore>(mainWindow,QDir(directory).filePath(QStringLiteral("ui.ini")));
     if(m_mainState)QObject::connect(m_mainState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);
     auto* desktopCalendar=mainWindow->findChild<QWindow*>(QStringLiteral("desktopCalendarWindow"));
-    m_calendarState=std::make_unique<WindowStateStore>(desktopCalendar,QDir(directory).filePath(QStringLiteral("ui.ini")),nullptr,QStringLiteral("desktopCalendar"),QSize(420,480));
+    m_calendarState=std::make_unique<WindowStateStore>(desktopCalendar,QDir(directory).filePath(QStringLiteral("ui.ini")),nullptr,QStringLiteral("desktopCalendar"),desktopCalendar->minimumSize());
     QObject::connect(m_calendarState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);
     m_menus=std::make_unique<ApplicationMenus>([window=QPointer<QQuickWindow>(mainWindow)](const QString& action){
         auto* focused=QGuiApplication::focusWindow();

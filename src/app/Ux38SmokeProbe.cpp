@@ -18,6 +18,7 @@ Ux38SmokeProbe::Ux38SmokeProbe(TaskWorkspace& workspace,WidgetViewModel& control
         // Focused rendering still runs the real registration assertions in the
         // isolated smoke workspace. The normal CTest executes the entire suite.
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="registration")m_stage=98;
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="compact")m_stage=116;
         m_wait.start();
     }
 QObject* Ux38SmokeProbe::find(QObject* root,const QString& name) const {
@@ -195,7 +196,7 @@ QString Ux38SmokeProbe::advance() {
         if(result!="PASS" && m_wait.elapsed()<1500)return {};
         if(result!="PASS")return fail("expanded menu reacquires current anchor: "+result.toString());auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetMenu")->property("contentItem").value<QObject*>());if(!capture(content->window(),"floating-solid-menu"))return fail("floating menu capture");m_widget->setX(m_widget->x()+20);}
     else if(m_stage==96){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("moving host left detached menu");click("desktopCalendarOptions",calendar);}
-    else if(m_stage==97){auto* button=find(calendar,"desktopCalendarOptions");auto* menu=find(button,"desktopCalendarOptionsMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(!menu || !menu->property("visible").toBool() || menu->property("anchorItem").value<QObject*>()!=button || !content || content->window()->color().alpha()!=255 || !capture(content->window(),"calendar-solid-menu"))return fail("desktop calendar explicit opaque menu anchor");QMetaObject::invokeMethod(menu,"close");return "DONE";}
+    else if(m_stage==97){auto* button=find(calendar,"desktopCalendarOptions");auto* menu=find(button,"desktopCalendarOptionsMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(!menu || !menu->property("visible").toBool() || menu->property("anchorItem").value<QObject*>()!=button || !content || content->window()->color().alpha()!=255 || !capture(content->window(),"calendar-solid-menu"))return fail("desktop calendar explicit opaque menu anchor");QMetaObject::invokeMethod(menu,"close");m_stage=115;}
     else if(m_stage==98){
         if(!m_workspace.syncState().contains("mode") || m_workspace.syncState().value("busy").toBool()){
             if(m_wait.elapsed()<5000)return {};
@@ -354,6 +355,86 @@ QString Ux38SmokeProbe::advance() {
         if(m_workspace.syncState().value("busy").toBool()){if(m_wait.elapsed()<5000)return {};return fail("registration loopback failure bounded");}
         if(m_workspace.syncState().value("authenticated").toBool())return fail("failed connection must not authenticate");
         QMetaObject::invokeMethod(window,"close");return "DONE";
+    }
+    else if(m_stage==116){
+        m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
+        m_controller.clearError();m_controller.setVisible(true);m_controller.setMini(false);m_widget->resize(340,360);m_controller.setMini(true);
+        QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("settings")));find(m_main,"settingsDialog")->setProperty("categoryIndex",1);
+        find(m_main,"settingsDialog")->setProperty("restoringScroll",false);qobject_cast<QQuickItem*>(find(m_main,"miniAutoCollapseSetting"))->forceActiveFocus(Qt::TabFocusReason);
+    }
+    else if(m_stage==117){
+        auto* setting=find(m_main,"miniAutoCollapseSetting");if(!setting || !setting->property("enabled").toBool())return fail("mini ball setting available");
+        if(!m_controller.miniAutoCollapse())click("miniAutoCollapseSetting",m_main);
+        if(!m_controller.miniAutoCollapse())return fail("mini ball setting wired");
+        QMetaObject::invokeMethod(find(m_main,"settingsDialog"),"close");QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
+    }
+    else if(m_stage==118){
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1400)return {};return fail("idle mini becomes ball");}
+        if(!layout() || m_widget->size()!=QSize(36,36) || !capture(m_widget,"mini-ball-light"))return fail("compact ball geometry");
+        hover(m_widget,"widgetMiniBall");
+    }
+    else if(m_stage==119){
+        if(m_controller.miniCollapsed() || m_widget->width()!=340 || !layout() || !capture(m_widget,"mini-hover-light"))return fail("pointer expands original mini width");
+        click("miniMore");
+    }
+    else if(m_stage==120){
+        if(!find(m_widget,"widgetMenu")->property("visible").toBool())return fail("mini menu opens");
+        QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
+    }
+    else if(m_stage==121){
+        if(m_wait.elapsed()<600)return {};
+        if(m_controller.miniCollapsed())return fail("menu prevents idle collapse");
+        QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");
+        m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
+    }
+    else if(m_stage==122){
+        QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1400)return {};return fail("large text ball collapses");}
+        if(!layout() || !capture(m_widget,"mini-ball-dark-200"))return fail("large text ball geometry");
+        hover(m_widget,"widgetMiniBall");
+    }
+    else if(m_stage==123){
+        if(m_controller.miniCollapsed() || m_widget->width()!=340 || !layout() || !capture(m_widget,"mini-hover-dark-200"))return fail("large text mini expansion");
+        expandWithKey(Qt::Key_Space);
+    }
+    else if(m_stage==124){
+        if(m_controller.mini() || m_widget->width()!=340)return fail("keyboard opens full widget");
+        m_workspace.setTextScale(1);m_workspace.setThemeMode(1);calendar->resize(560,540);m_workspace.setPreference("desktopCalendarVisible",true);
+        auto* panel=find(calendar,"desktopCalendarPanel");panel->setProperty("independentScale","month");panel->setProperty("agendaVisible",false);
+    }
+    else if(m_stage==125){
+        auto* panel=find(calendar,"desktopCalendarPanel");auto* metrics=panel->property("metrics").value<QObject*>();auto* mainPanel=find(m_main,"calendarPanel");auto* normal=mainPanel->property("metrics").value<QObject*>();
+        if(!metrics || !normal || metrics->property("bodySize").toInt()!=12 || normal->property("bodySize").toInt()!=13 || !capture(calendar,"compact-calendar-light"))return fail("independent typography does not change main calendar");
+        calendar->resize(360,380);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
+    }
+    else if(m_stage==126){
+        auto* panel=find(calendar,"desktopCalendarPanel");auto* picker=qobject_cast<QQuickItem*>(find(panel,"calendarScalePicker"));auto* grid=qobject_cast<QQuickItem*>(find(panel,"calendarMonthGrid"));
+        if(!picker || !grid || picker->mapToScene(QPointF()).x()<0 || picker->mapToScene(QPointF(picker->width(),picker->height())).x()>calendar->width() || grid->height()<50 || !capture(calendar,"compact-calendar-dark-200"))return fail("small calendar large text controls reachable");
+        auto* day=find(panel,"calendarDay-"+m_workspace.dateOffset(0));
+        if(!day || day->property("availableWidth").toDouble()<34)return fail("large date numerals have full horizontal space");
+        m_controller.setMini(true);if(!m_controller.setMiniAutoCollapse(false))return fail("disable mini ball");
+    }
+    else if(m_stage==127){
+        if(m_controller.miniAutoCollapse() || m_controller.miniCollapsed() || m_widget->width()!=340)return fail("disable ball restores persistent bar");
+        m_controller.setMiniAutoCollapse(true);QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
+    }
+    else if(m_stage==128){
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1400)return {};return fail("ball ready for keyboard focus");}
+        m_widget->requestActivate();
+    }
+    else if(m_stage==129){qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"))->forceActiveFocus(Qt::TabFocusReason);}
+    else if(m_stage==130){
+        if(m_controller.miniCollapsed()){auto* ball=find(m_widget,"widgetMiniBall");qCritical()<<"Mini focus"<<m_widget->isActive()<<m_widget->activeFocusItem()<<(ball ? ball->property("activeFocus"):QVariant())<<(ball ? ball->property("focusReason"):QVariant());return fail("Tab focus opens mini");}
+        QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
+    }
+    else if(m_stage==131){
+        if(m_wait.elapsed()<600)return {};
+        if(m_controller.miniCollapsed())return fail("keyboard focus keeps mini open");
+        expandWithKey(Qt::Key_Return);
+    }
+    else if(m_stage==132){
+        if(m_controller.mini())return fail("keyboard opens widget after idle");
+        m_controller.setMiniAutoCollapse(false);m_workspace.setTextScale(1);return "DONE";
     }
     else if(m_stage==90){auto* glyph=qobject_cast<QQuickItem*>(find(m_main,"galleryGlyph-calendar"));const auto at=glyph->mapToScene(QPointF());if(at.y()<0 || at.y()+glyph->height()>m_main->height() || glyphPainted("calendar") || !capture(m_main,"glyph-scroll-clip-dark-200"))return fail("off-viewport vector cannot leak over dialog actions");QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("type")));}
     qInfo()<<"UX38 desktop scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};
