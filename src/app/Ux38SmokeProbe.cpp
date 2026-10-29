@@ -105,7 +105,12 @@ QString Ux38SmokeProbe::advance() {
         // The menu is created and shown asynchronously after openVerificationMenu();
         // sampling the first frame reports "closed" on slower/first-run platforms.
         if(result!="PASS" && m_wait.elapsed()<1500)return {};
-        if(result!="PASS" || !capture(m_widget,"menu"))return fail("menu width: "+result.toString());QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_task=m_workspace.todayTasks()->items().first().id;m_completedRow=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_task));m_count=m_workspace.todayTasks()->rowCount();}
+        if(result!="PASS"){
+            auto* menu=find(m_widget,"widgetMenu");
+            qCritical()<<"Menu state"<<result<<(menu?menu->property("visible"):QVariant())<<(menu?menu->property("count"):QVariant())<<m_widget->property("width")<<m_widget->property("height")<<QGuiApplication::platformName();
+            return fail("menu width: "+result.toString());
+        }
+        if(!capture(m_widget,"menu"))return fail("menu width: capture");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_task=m_workspace.todayTasks()->items().first().id;m_completedRow=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_task));m_count=m_workspace.todayTasks()->rowCount();}
     else if(m_stage==33){auto* item=qobject_cast<QQuickItem*>(list);item->setProperty("currentIndex",0);item->forceActiveFocus();for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Space,Qt::NoModifier);QCoreApplication::sendEvent(item,&event);}}
     else if(m_stage==34){if(m_workspace.todayTasks()->rowCount()!=m_count-1 || (m_completedRow && m_completedRow->property("removing").toBool()) || m_workspace.task(m_task).value("taskStatus")!="COMPLETED")return fail("reduced motion keyboard completion without delayed removal");m_workspace.setTextScale(2);m_widget->resize(800,600);QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
     else if(m_stage==35){if(!find(m_widget,"widgetMenu")->property("visible").toBool() && m_wait.elapsed()<500){QMetaObject::invokeMethod(m_widget,"openVerificationMenu");return {};}QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));if(result!="PASS" || !capture(m_widget,"menu-200"))return fail("menu resolved font at 200 percent: "+result.toString());QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_workspace.setTextScale(1);m_controller.setMini(true);m_widget->resize(800,m_widget->height());}
@@ -164,7 +169,57 @@ QString Ux38SmokeProbe::advance() {
     else if(m_stage==94){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("mode change left stale menu open");click("widgetMore");}
     else if(m_stage==95){QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));if(result!="PASS")return fail("expanded menu reacquires current anchor: "+result.toString());auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetMenu")->property("contentItem").value<QObject*>());if(!capture(content->window(),"floating-solid-menu"))return fail("floating menu capture");m_widget->setX(m_widget->x()+20);}
     else if(m_stage==96){if(find(m_widget,"widgetMenu")->property("visible").toBool())return fail("moving host left detached menu");click("desktopCalendarOptions",calendar);}
-    else if(m_stage==97){auto* button=find(calendar,"desktopCalendarOptions");auto* menu=find(button,"desktopCalendarOptionsMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(!menu || !menu->property("visible").toBool() || menu->property("anchorItem").value<QObject*>()!=button || !content || content->window()->color().alpha()!=255 || !capture(content->window(),"calendar-solid-menu"))return fail("desktop calendar explicit opaque menu anchor");QMetaObject::invokeMethod(menu,"close");return "DONE";}
+    else if(m_stage==97){auto* button=find(calendar,"desktopCalendarOptions");auto* menu=find(button,"desktopCalendarOptionsMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(!menu || !menu->property("visible").toBool() || menu->property("anchorItem").value<QObject*>()!=button || !content || content->window()->color().alpha()!=255 || !capture(content->window(),"calendar-solid-menu"))return fail("desktop calendar explicit opaque menu anchor");QMetaObject::invokeMethod(menu,"close");}
+    else if(m_stage==98){
+        auto* settings=find(m_main,"settingsDialog");QMetaObject::invokeMethod(settings,"open");
+        QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(2)));
+        settings->setProperty("syncFormOpen",true);settings->setProperty("syncRegisterMode",false);
+        revealSettings("syncLogin");
+    }
+    else if(m_stage==99){
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
+        auto* password=find(settings,"syncPassword");auto* confirm=find(settings,"syncConfirmPassword");
+        find(settings,"syncServerOrigin")->setProperty("text","https://example.invalid");find(settings,"syncLogin")->setProperty("text","synthetic-user");
+        password->setProperty("text","discard-on-mode-switch");
+        QMetaObject::invokeMethod(find(settings,"syncRegisterMode"),"clicked");
+        if(!settings->property("syncRegisterMode").toBool() || !password->property("text").toString().isEmpty() || !confirm->property("visible").toBool())return fail("registration switch clears password and reveals confirmation");
+        password->setProperty("text","synthetic-long-password");confirm->setProperty("text","different");
+        if(find(settings,"syncSubmit")->property("enabled").toBool())return fail("mismatched registration password cannot submit");
+        revealSettings("syncConfirmPassword");
+        QMetaObject::invokeMethod(confirm,"forceActiveFocus");
+    }
+    else if(m_stage==100){
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
+        if(settings->activeFocusItem()!=find(settings,"syncConfirmPassword"))return fail("confirmation field keyboard focus");
+        settingsKey(Qt::Key_Return);
+        if(m_workspace.syncState().value("busy").toBool() || find(settings,"syncPassword")->property("text").toString().isEmpty())return fail("Enter on mismatched confirmation must keep input and avoid request");
+        if(!capture(settings,"registration-light-mismatch"))return fail("registration light capture");
+        find(settings,"syncConfirmPassword")->setProperty("text","synthetic-long-password");
+        if(!find(settings,"syncSubmit")->property("enabled").toBool())return fail("matching registration password enables explicit submit");
+        settings->setProperty("syncRegisterMode",false);
+        if(!find(settings,"syncPassword")->property("text").toString().isEmpty() || !find(settings,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("leaving registration clears both passwords");
+        settings->setProperty("syncRegisterMode",true);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
+    }
+    else if(m_stage==101){
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
+        if(!revealSettings("syncConfirmPassword"))return fail("large confirmation field scroll");
+        settings->grabWindow();
+    }
+    else if(m_stage==102){
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
+        auto* field=qobject_cast<QQuickItem*>(find(settings,"syncConfirmPassword"));auto* view=qobject_cast<QQuickItem*>(find(settings,"settingsScroll"));
+        const auto at=field->mapToItem(view,QPointF());
+        if(at.y()<0 || at.y()+field->height()>view->height()+1 || !capture(settings,"registration-dark-200"))return fail("registration confirmation remains reachable at 200 percent");
+        if(!revealSettings("syncSubmit"))return fail("large registration action scroll");
+    }
+    else if(m_stage==103){
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
+        auto* button=qobject_cast<QQuickItem*>(find(settings,"syncSubmit"));auto* view=qobject_cast<QQuickItem*>(find(settings,"settingsScroll"));const auto at=button->mapToItem(view,QPointF());
+        if(at.y()<0 || at.y()+button->height()>view->height()+1 || !capture(settings,"registration-actions-dark-200"))return fail("registration action remains reachable at 200 percent");
+        QMetaObject::invokeMethod(settings,"close");
+        if(settings->property("syncRegisterMode").toBool() || !find(settings,"syncPassword")->property("text").toString().isEmpty() || !find(settings,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("closing registration clears secrets and resets mode");
+        return "DONE";
+    }
     else if(m_stage==90){auto* glyph=qobject_cast<QQuickItem*>(find(m_main,"galleryGlyph-calendar"));const auto at=glyph->mapToScene(QPointF());if(at.y()<0 || at.y()+glyph->height()>m_main->height() || glyphPainted("calendar") || !capture(m_main,"glyph-scroll-clip-dark-200"))return fail("off-viewport vector cannot leak over dialog actions");QMetaObject::invokeMethod(find(m_main,"styleGallery"),"showVisualAudit",Q_ARG(QVariant,QVariant("type")));}
     qInfo()<<"UX38 desktop scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};
 }
