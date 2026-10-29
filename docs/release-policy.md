@@ -29,7 +29,7 @@
 1. 同步远端并查现有版本/标签；确定增量版本，先写真实发行说明和本轮PROGRESS计划。
 2. 审查并暂存明确文件，运行`python scripts/publish-source-release.py --check-current`、发布守卫单测、文档链接/颜色检查及合适的构建/测试；完整门禁结果如实披露。
 3. 检查cached diff、隐私及项目作者，提交。创建本次annotated tag，重新检查其commit/版本/说明；确认远端没有同名tag，再非强制推送main和该tag。
-4. 分支CI跑发布守卫一次及Windows/macOS完整构建/测试。tag仅运行源码发布流水线，避免同一版本重复两套平台构建；它校验已跟踪源码、注释标签、checkout SHA及origin/main可达性，使用短期GITHUB_TOKEN的最小权限创建无资产Release。
+4. 分支CI跑发布守卫一次及Windows/macOS/Linux完整构建/测试。tag并行触发两条流水线：`release-source.yml` 校验已跟踪源码、注释标签、checkout SHA及origin/main可达性，创建源码Release；`release-build.yml` 在同一tag上构建三平台、跑完整CTest与QML lint，并把归档附加到该Release。两者都用短期最小权限GITHUB_TOKEN，源码入口不因资产存在而失败，但会拒绝非本流水线命名的资产。
 5. 同一tag发布串行，幂等重试只接受目标和说明均一致的现有Release，不静默修订；若失败修复后重跑，不移动公开tag。确认远端分支/tag和Release真实内容，再汇报链接及CI状态。
 
 本地预检（Windows和macOS均使用Python3；macOS通常命令为python3）：

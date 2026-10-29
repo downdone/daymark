@@ -19,12 +19,12 @@
 | 测试数量 | Windows 26个CTest，新增account_access；其他平台不含Windows包校验（分层见[测试方法](testing-method.md)） |
 | Windows MinGW Release | 180345f 完整26/26 PASS（262.76秒），Mini修复版便携包隔离验证通过 |
 | Windows MinGW Debug | 之前基线25/25；当前同步切片未复验 |
-| Windows MSVC（CI） | 6cfc6d7同步双端通过；完整桌面新run执行中 |
-| macOS（CI，`macos-15`） | 6cfc6d7服务端通过；完整桌面contextual_workspace失败 |
-| Linux（CI，`ubuntu-24.04`） | 6cfc6d7服务端/race通过；完整桌面3个UX探针失败 |
+| Windows MSVC（CI） | 构建、测试、QML lint 通过 |
+| macOS（CI，`macos-15`） | 构建、测试、QML lint 通过 |
+| Linux（CI，`ubuntu-24.04`） | 构建、测试、QML lint 通过 |
 | QML lint | `daymark_qmllint`、`daymark_style_qmllint` 通过 |
 
-上述桌面CI是同步改动前的已验证基线：[run 40684920204](https://github.com/downdone/daymark/actions/runs/40684920204)（2026-10-28）。新增同步workflow及当前源码须以新一次GitHub检查为准，不沿用旧run宣称通过。
+三平台完整桌面CI全绿：[run 40849814667](https://github.com/downdone/daymark/actions/runs/40849814667)（2026-10-29，Windows/macOS/Linux 构建+CTest+QML lint）。打 `v*` 标签时 [release-build.yml](../.github/workflows/release-build.yml) 会构建三平台并附加归档到源码 Release。
 
 账号/同步实现包含本地队列、完整批次应用、冲突、首次合并/大组、系统凭据、账号隔离与备份恢复。Go包测试/vet/race及真实两个Qt工作区↔Go TLS联调已有本机PASS；具体范围、最后修改后的门禁及未验证项见[PROGRESS](PROGRESS.md)与[实现验证清单](sync-verification.md)。源码实现不表示服务已部署。
 

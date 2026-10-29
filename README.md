@@ -24,6 +24,9 @@ Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick
 |---|---|---|
 | Windows | MinGW GCC 13.1 或 MSVC 2022 | PowerShell 7（测试/打包脚本） |
 | macOS | Apple Clang（Xcode） | 最低 macOS 13 |
+| Linux | GCC 13 | X11/OpenGL 运行库；CI 用 `ubuntu-24.04` |
+
+三个平台都在 CI 中构建、跑完整 CTest 与 QML lint。
 
 ```bash
 # Windows（设置 DAYMARK_QT 指向 6.10.2/mingw_64，DAYMARK_MINGW 指向 Tools/mingw1310_64）
@@ -32,7 +35,14 @@ Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick
 
 # macOS（设置 DAYMARK_QT 指向 6.10.2/macos）
 bash scripts/build-macos.sh macos-release
+
+# Linux（设置 DAYMARK_QT 指向 6.10.2/gcc_64）
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+cmake --build build --parallel 4
+ctest --test-dir build -C Release --output-on-failure
 ```
+
+打 `v*` 标签会触发 [release-build.yml](.github/workflows/release-build.yml)：三平台构建后把归档附加到源码 Release。
 
 完整环境说明见[环境与构建](docs/environment.md)；测试分层见[测试方法](docs/testing-method.md)。
 
