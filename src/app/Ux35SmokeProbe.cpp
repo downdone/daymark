@@ -95,8 +95,8 @@ QString Ux35SmokeProbe::advance()
         const auto createdId=blocks.first().toMap().value("taskId").toString();
         if(!QMetaObject::invokeMethod(panel,"openTask",Q_ARG(QString,createdId)) || !editor->property("visible").toBool() || m_window->property("editId").toString()!=createdId)return fail("created task opens same identity");invoke(editor,"close");m_workspace.setView(m_scope);
     }else if(m_stage==12){
-        if(!settled())return {};auto* settings=qobject_cast<QQuickItem*>(find("settingsAndTools"));auto* backup=qobject_cast<QQuickItem*>(find("dataAndBackup"));
-        if(!settings || !backup || settings->width()<32 || backup->width()<32 || settings->property("description").toString().isEmpty() || backup->property("description").toString().isEmpty() || settings->property("text").toString().size() || backup->property("text").toString().size() || !capture("compact-navigation"))return fail("footer icon names and hit areas");
+        if(!settled())return {};auto* settings=qobject_cast<QQuickItem*>(find("settingsAndTools"));auto* trash=qobject_cast<QQuickItem*>(find("navigation-trash"));auto* account=find("accountEntry");
+        if(!settings || !trash || !account || find("dataAndBackup") || settings->width()<32 || trash->width()<32 || settings->property("description").toString().isEmpty() || trash->property("description").toString().isEmpty() || settings->property("text").toString().size() || trash->property("text").toString().size() || account->property("text").toString().isEmpty() || !capture("compact-navigation"))return fail("footer icon names, account text and hit areas");
         m_workspace.setView("month");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_window->resize(880,580);
     }else if(m_stage==13){if(!settled())return {};if(!capture("month-dark-200"))return fail("large month");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1280,800);m_workspace.setView("month");}
     else if(m_stage==14){if(!settled())return {};if(!capture("month-final"))return fail("final month");panel->setProperty("selectedDate",QStringLiteral("2026-11-03"));invoke(panel,"setScale",QStringLiteral("day"));}

@@ -40,7 +40,19 @@ WindowResult QtWindowPlatform::restoreLayer(QWindow* window)
     const auto flags = window->flags();
     const auto layer = flags.testFlag(Qt::WindowStaysOnBottomHint) ? WindowLayer::Desktop
         : flags.testFlag(Qt::WindowStaysOnTopHint) ? WindowLayer::Topmost : WindowLayer::Normal;
-    return applyNativeWindowLayer(window, layer);
+    const auto result=applyNativeWindowLayer(window,layer);
+    if(!result.succeeded())return result;
+    // Restoring a topmost host must not raise it over an already open menu.
+    for(auto* popup:QGuiApplication::topLevelWindows()){
+        if(!popup->isVisible() || popup->type()!=Qt::Popup)continue;
+        auto* owner=popup->transientParent();
+        while(owner && owner!=window)owner=owner->transientParent();
+        if(owner!=window)continue;
+        const auto raised=applyNativeWindowLayer(popup,WindowLayer::Topmost);
+        if(!raised.succeeded())return raised;
+        popup->raise();
+    }
+    return {};
 }
 bool QtWindowPlatform::eventFilter(QObject* watched, QEvent* event)
 {

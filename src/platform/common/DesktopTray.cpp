@@ -15,6 +15,8 @@ DesktopTray::DesktopTray(WidgetViewModel& widget,QWindow* mainWindow,QObject* pa
 {
     m_menu.setObjectName(QStringLiteral("trayContextMenu"));
     const auto showMain=[this]{if(m_mainWindow){if(m_mainWindow->windowState()==Qt::WindowMinimized)m_mainWindow->showNormal();else m_mainWindow->setVisible(true);m_mainWindow->requestActivate();}};
+    connect(&m_widget,&WidgetViewModel::configurationRequested,this,[this,showMain]{showMain();if(m_mainWindow)QMetaObject::invokeMethod(m_mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("settings"))));});
+    connect(&m_widget,&WidgetViewModel::openMainRequested,this,showMain);
     auto name=[](QAction* action,const char* id){action->setObjectName(QString::fromLatin1(id));return action;};
     name(m_menu.addAction(tr("打开主窗口"),this,showMain),"trayShowMain");
     name(m_menu.addAction(tr("新建任务…"),this,[this,showMain]{showMain();if(m_mainWindow)QMetaObject::invokeMethod(m_mainWindow,"newTask",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));}),"trayNewTask");

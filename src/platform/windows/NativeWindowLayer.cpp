@@ -56,4 +56,12 @@ bool nativeWindowLayerMatches(QWindow* window,WindowLayer layer)
     }
     return true;
 }
+bool nativeWindowAbove(QWindow* upper,QWindow* lower)
+{
+    if(!upper || !lower || !upper->handle() || !lower->handle() || QGuiApplication::platformName()!=QStringLiteral("windows"))return false;
+    const auto top=reinterpret_cast<HWND>(upper->winId()),bottom=reinterpret_cast<HWND>(lower->winId());
+    if(!IsWindowVisible(top) || !IsWindowVisible(bottom))return false;
+    for(auto sibling=GetWindow(bottom,GW_HWNDPREV);sibling;sibling=GetWindow(sibling,GW_HWNDPREV))if(sibling==top)return true;
+    return false;
+}
 }

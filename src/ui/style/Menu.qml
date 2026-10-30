@@ -33,16 +33,27 @@ T.Menu {
         anchorItem=source
         recordHostGeometry()
         const at=anchorPosition(source)
-        popup(source,at.x,at.y)
+        // Window menus must not inherit a fading/disabled anchor's visual tree.
+        const root=popupType===T.Popup.Window && anchorWindow ? anchorWindow.contentItem : source
+        const position=root.mapFromGlobal(source.mapToGlobal(at.x,at.y))
+        popup(root,position.x,position.y)
     }
     function refreshAnchor() {
-        if(!visible || !anchorItem)return
+        if(!visible || !anchorItem || !parent)return
         const at=anchorPosition(anchorItem)
-        x=at.x;y=at.y
+        const position=parent.mapFromGlobal(anchorItem.mapToGlobal(at.x,at.y))
+        x=position.x;y=position.y
     }
     onWidthChanged: if(visible && anchorItem)Qt.callLater(refreshAnchor)
     onHeightChanged: if(visible && anchorItem)Qt.callLater(refreshAnchor)
-    onOpened: {recordHostGeometry();updateGroups();refreshAnchor()}
+    function ensureWindowLayer() {
+        if(popupType!==T.Popup.Window || !anchorWindow || !menuWindow || menuWindow===anchorWindow)return
+        const flags=(menuWindow.flags | Qt.WindowStaysOnTopHint) & ~Qt.WindowStaysOnBottomHint
+        if(menuWindow.flags!==flags)menuWindow.flags=flags
+        if(visible)menuWindow.raise()
+    }
+    onMenuWindowChanged: ensureWindowLayer()
+    onOpened: {recordHostGeometry();updateGroups();refreshAnchor();ensureWindowLayer()}
     opacity: 1
     Binding {target:control.menuWindow;property:"color";value:DesignTokens.surface;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreBindingOrValue}
     Binding {target:control.menuWindow;property:"opacity";value:1;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreBindingOrValue}

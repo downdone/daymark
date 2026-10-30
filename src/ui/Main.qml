@@ -153,6 +153,7 @@ ApplicationWindow {
     }
     readonly property bool calendarVisible: !toolPageVisible && taskWorkspace.calendarMode
     readonly property real sidebarWidth: taskWorkspace.preferences.sidebarCollapsed ? 44 : Math.min(288,200*Theme.scale)
+    readonly property string accountEntryText: taskWorkspace.syncState.authenticated && taskWorkspace.syncState.login_label ? taskWorkspace.syncState.login_label : qsTr("登录")
     readonly property real detailWidth: Math.max(344,280*Theme.scale)
     readonly property bool detailDocked: false
     readonly property bool inspectorExpanded: editorSession.expanded
@@ -618,6 +619,19 @@ ApplicationWindow {
         if(Math.abs(pageTitleLabel.mapToItem(mainWindow.contentItem,0,0).x-headerScroll.mapToItem(mainWindow.contentItem,0,0).x)>1)return "heading and entry axes differ"
         return "PASS"
     }
+    function verifySidebarFooter() {
+        const collapsed=taskWorkspace.preferences.sidebarCollapsed
+        const controls=collapsed ? [collapsedSettings,collapsedTrash,accountCompactEntry] : [footerSettings,footerTrash,accountEntry]
+        const top=sidebarFooter.mapToItem(mainWindow.contentItem,0,0).y
+        let center=-1
+        for(let i=0;i<controls.length;i++){
+            const button=controls[i],point=button.mapToItem(mainWindow.contentItem,0,0)
+            if(!button.visible || button.width<32 || button.height<32 || point.x<0 || point.x+button.width>sidebarWidth+1 || point.y<top || point.y+button.height>height-3)return "footer control outside its fixed slot "+i+" "+JSON.stringify({visible:button.visible,x:point.x,y:point.y,w:button.width,h:button.height,footerTop:top,footerWidth:sidebarFooter.width,sidebar:sidebarWidth,windowHeight:height})
+            if(!collapsed){const y=point.y+button.height/2;if(center>=0 && Math.abs(center-y)>1)return "footer controls are not vertically aligned";center=y}
+        }
+        if(!collapsed && accountEntry.text===qsTr("登录") && accountEntry.textTruncated)return "login text clipped"
+        return "PASS"
+    }
     function verifyWorkspacePage() {
         const page=toolPage==="organization" ? organization : notifications
         if(!toolPageVisible || !page.visible || !workspacePageHost.visible)return "page is not visible"
@@ -674,8 +688,8 @@ ApplicationWindow {
                 RowLayout {
                     id: brandHeader
                     objectName: "sidebarBrandHeader"
-                    readonly property real wordmarkWidth: Math.min(104*Math.min(1.25,Theme.scale),mainWindow.sidebarWidth-64)
-                    Layout.fillWidth: true;Layout.margins: 10;Layout.preferredHeight: 32;spacing: 8
+                    readonly property real wordmarkWidth: Math.max(0,Math.min(104*Math.min(1.25,Theme.scale),mainWindow.sidebarWidth-64))
+                    Layout.fillWidth: true;Layout.margins: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? 4 : 10;Layout.preferredHeight: 32;spacing: 8
                     BrandWordmark {objectName:"sidebarWordmark";visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.preferredWidth:brandHeader.wordmarkWidth;Layout.preferredHeight:brandHeader.wordmarkWidth*36/164;Layout.alignment:Qt.AlignVCenter;Layout.leftMargin:2}
                     Item {visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.fillWidth:true}
                     IconToolButton {objectName: "toggleSidebar";Accessible.name: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? qsTr("显示导航") : qsTr("收起导航");contentItem: AppIcon {name: "sidebar"} onClicked: mainWindow.taskWorkspace.setPreference("sidebarCollapsed",!mainWindow.taskWorkspace.preferences.sidebarCollapsed)}
@@ -793,20 +807,29 @@ ApplicationWindow {
             }
             }
             ColumnLayout {
+                id:sidebarFooter
                 objectName: "sidebarFooter"
-                visible: !mainWindow.taskWorkspace.preferences.sidebarCollapsed
-                Layout.fillWidth: true;Layout.margins: 10;spacing: 2
+                Layout.fillWidth: true;Layout.margins: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? 4 : 10;spacing: 2
                 Rectangle {Layout.fillWidth: true;implicitHeight: 1;color: Theme.separator;Layout.bottomMargin: 6}
-                NavRow {objectName: "navigation-trash";iconBadge: false;Layout.fillWidth: true;text: qsTr("最近删除");symbol: "trash";count: mainWindow.taskWorkspace.viewCounts.trash || 0;selected: !mainWindow.toolPageVisible && mainWindow.taskWorkspace.view==="trash";onClicked: mainWindow.changeView("trash")}
-                NavRow {id:accountEntry;objectName:"accountEntry";Layout.fillWidth:true;symbol:"account";text:mainWindow.taskWorkspace.syncState.mode==="ACCOUNT" ? qsTr("账号与同步") : qsTr("登录账号");selected:accountWindow.visible;onClicked:mainWindow.openTool("account")}
                 RowLayout {
+                    visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed
                     Layout.fillWidth: true;spacing: 4
-                    WidgetAction {objectName:"settingsAndTools";symbol:"settings";description:qsTr("设置");onClicked:mainWindow.openTool("settings")}
-                    WidgetAction {objectName:"dataAndBackup";symbol:"backup";description:qsTr("数据与备份");onClicked:mainWindow.openTool("data")}
-                    Item {Layout.fillWidth:true}
+                    WidgetAction {id:footerSettings;objectName:"settingsAndTools";Layout.alignment:Qt.AlignVCenter;symbol:"settings";description:qsTr("设置");onClicked:mainWindow.openTool("settings")}
+                    WidgetAction {id:footerTrash;objectName:"navigation-trash";Layout.alignment:Qt.AlignVCenter;symbol:"trash";description:qsTr("最近删除，%1 项").arg(mainWindow.taskWorkspace.viewCounts.trash || 0);checked:!mainWindow.toolPageVisible && mainWindow.taskWorkspace.view==="trash";Accessible.checkable:true;Accessible.checked:checked;onClicked:mainWindow.changeView("trash")}
+                    ActionButton {
+                        id:accountEntry;objectName:"accountEntry"
+                        Layout.fillWidth:true;Layout.minimumWidth:0;Layout.preferredWidth:1;Layout.alignment:Qt.AlignVCenter
+                        symbol:"account";text:mainWindow.accountEntryText;contentAlignment:Qt.AlignLeft
+                        leftPadding:6;rightPadding:6
+                        palette.buttonText:accountWindow.visible ? Theme.accent : Theme.secondary
+                        onClicked:mainWindow.openTool("account")
+                        Accessible.description:qsTr("打开账号与同步")
+                    }
                 }
+                WidgetAction {id:collapsedSettings;objectName:"settingsCollapsedEntry";visible:mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.alignment:Qt.AlignHCenter;symbol:"settings";description:qsTr("设置");onClicked:mainWindow.openTool("settings")}
+                WidgetAction {id:collapsedTrash;objectName:"trashCollapsedEntry";visible:mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.alignment:Qt.AlignHCenter;symbol:"trash";description:footerTrash.description;checked:footerTrash.checked;Accessible.checkable:true;Accessible.checked:checked;onClicked:mainWindow.changeView("trash")}
+                WidgetAction {id:accountCompactEntry;objectName:"accountCollapsedEntry";visible:mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.alignment:Qt.AlignHCenter;symbol:"account";description:mainWindow.accountEntryText;Accessible.description:qsTr("打开账号与同步");onClicked:mainWindow.openTool("account")}
             }
-            WidgetAction {id:accountCompactEntry;objectName:"accountCollapsedEntry";visible:mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.alignment:Qt.AlignHCenter;Layout.bottomMargin:10;symbol:"account";description:qsTr("账号与同步");onClicked:mainWindow.openTool("account")}
             }
         }
         ColumnLayout {

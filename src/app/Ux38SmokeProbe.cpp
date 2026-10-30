@@ -1,8 +1,10 @@
 #include "Ux38SmokeProbe.h"
 #include "models/TaskWorkspace.h"
 #include "models/WidgetViewModel.h"
+#include "platform/common/NativeWindowLayer.h"
 #include <QQuickWindow>
 #include <QQuickItem>
+#include <QQuickItemGrabResult>
 #include <QCoreApplication>
 #include <QMouseEvent>
 #include <QKeyEvent>
@@ -13,6 +15,9 @@
 #include <QtMath>
 #include <QLineF>
 #include <QTimer>
+#include <QScreen>
+#include <QDateTime>
+#include <QCursor>
 namespace daymark {
 Ux38SmokeProbe::Ux38SmokeProbe(TaskWorkspace& workspace,WidgetViewModel& controller,QQuickWindow* main,QQuickWindow* widget,QString screenshot)
     :m_workspace(workspace),m_controller(controller),m_main(main),m_widget(widget),m_screenshot(std::move(screenshot)){
@@ -21,6 +26,11 @@ Ux38SmokeProbe::Ux38SmokeProbe(TaskWorkspace& workspace,WidgetViewModel& control
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="registration")m_stage=98;
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="compact")m_stage=116;
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="mini-menu")m_stage=137;
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="forms")m_stage=150;
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="dock")m_stage=160;
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="panel-motion")m_stage=180;
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="popup-layer")m_stage=190;
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="sidebar-footer")m_stage=200;
         m_wait.start();
     }
 QObject* Ux38SmokeProbe::find(QObject* root,const QString& name) const {
@@ -39,7 +49,7 @@ void Ux38SmokeProbe::click(const QString& name,QObject* scope) {
     auto* window=item->window();
     const auto at=item->mapToScene(QPointF(item->width()/2,item->height()/2));
     for(const auto type:{QEvent::MouseMove,QEvent::MouseButtonPress,QEvent::MouseButtonRelease}) {
-        QMouseEvent event(type,at,window->mapToGlobal(at),type==QEvent::MouseMove?Qt::NoButton:Qt::LeftButton,type==QEvent::MouseButtonRelease?Qt::NoButton:Qt::LeftButton,Qt::NoModifier);
+        QMouseEvent event(type,at,window->mapToGlobal(at),type==QEvent::MouseMove?Qt::NoButton:Qt::LeftButton,type==QEvent::MouseButtonPress?Qt::LeftButton:Qt::NoButton,Qt::NoModifier);
         QCoreApplication::sendEvent(window,&event);
     }
 }
@@ -57,6 +67,18 @@ bool Ux38SmokeProbe::capture(QQuickWindow* window,const QString& name) const {
     if(m_screenshot.isEmpty())return true;
     if((name=="menu" || name=="menu-200") && window==m_widget){auto* menu=find(m_widget,"widgetMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(content && content->window())window=content->window();}
     return window && window->grabWindow().save(m_screenshot+".desktop-"+name+".png");
+}
+void Ux38SmokeProbe::capturePanelFrame(const QString& name,QQuickWindow* window) {
+    if(m_screenshot.isEmpty())return;
+    const auto result=(window ? window : m_widget.data())->contentItem()->grabToImage();
+    if(!result){m_panelCaptureFailed=true;return;}
+    ++m_panelCaptures;
+    QObject::connect(result.data(),&QQuickItemGrabResult::ready,m_widget,[this,result,name]{
+        const auto image=result->image();
+        if(name.startsWith("opaque-menu-") && (image.isNull() || image.pixelColor(image.width()/2,image.height()/2).alpha()!=255))m_panelCaptureFailed=true;
+        if(!result->saveToFile(m_screenshot+".desktop-"+name+".png"))m_panelCaptureFailed=true;
+        --m_panelCaptures;
+    },Qt::SingleShotConnection);
 }
 bool Ux38SmokeProbe::layout() const {
     QVariant result;QMetaObject::invokeMethod(m_widget,"verifyLayout",Q_RETURN_ARG(QVariant,result));
@@ -79,6 +101,14 @@ QString Ux38SmokeProbe::advance() {
     auto glyphPainted=[&](const QString& name){auto* glyph=qobject_cast<QQuickItem*>(find(m_main,"galleryGlyph-"+name));if(!glyph || !glyph->isVisible() || glyph->width()<12 || glyph->property("pathData").toString().isEmpty())return false;const auto image=m_main->grabWindow();const double sx=double(image.width())/m_main->width(),sy=double(image.height())/m_main->height();const auto at=glyph->mapToScene(QPointF());const auto ink=glyph->property("ink").value<QColor>();int pixels=0;for(int y=qMax(0,int(at.y()*sy));y<qMin(image.height(),int((at.y()+glyph->height())*sy));++y)for(int x=qMax(0,int(at.x()*sx));x<qMin(image.width(),int((at.x()+glyph->width())*sx));++x){const auto p=image.pixelColor(x,y);if(qAbs(p.red()-ink.red())+qAbs(p.green()-ink.green())+qAbs(p.blue()-ink.blue())<100)++pixels;}qInfo()<<"Glyph pixels"<<name<<pixels<<at<<glyph->size();return pixels>=3;};
     auto settingsKey=[&](int code){auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,code,Qt::NoModifier);QCoreApplication::sendEvent(settings,&event);}};
     auto fail=[&](const QString& text){capture(m_widget,"failure");return QStringLiteral("UX38 stage %1: %2").arg(m_stage).arg(text);};
+    auto leaveWidget=[&]{
+        // Leave alone preserves Quick's last in-window pointer position. A
+        // pending hover recalculation can otherwise re-enter after layout.
+        const QPointF outside(-12,-12);
+        QMouseEvent move(QEvent::MouseMove,outside,m_widget->mapToGlobal(outside),Qt::NoButton,Qt::NoButton,Qt::NoModifier);
+        QCoreApplication::sendEvent(m_widget,&move);
+        QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
+    };
     auto* list=find(m_widget,"widgetTasks");
     auto* calendar=qobject_cast<QQuickWindow*>(find(m_main,"desktopCalendarWindow"));
     if(!list || !calendar)return fail("desktop surfaces missing");
@@ -88,7 +118,7 @@ QString Ux38SmokeProbe::advance() {
     if(m_stage==2){if(m_workspace.todayTasks()->rowCount()!=1)return fail("today fixture");m_task=m_workspace.todayTasks()->items().first().id;m_workspace.createSubtask(QStringLiteral("准备评审材料"),m_task);}
     if(m_stage==3){auto* row=find(m_widget,"widgetTask-"+m_task);if(!row || row->property("summary").toString().isEmpty() || row->property("subtaskTotal").toInt()!=1 || !layout() || !capture(m_widget,"today-light") || !capture(calendar,"calendar-light"))return fail("shared schedule and relationship");click("widgetPin");}
     if(m_stage==4){if(m_controller.alwaysOnTop())return fail("unpin");m_widgetModeGeometry=m_widget->geometry();m_widgetModeCollapse=qobject_cast<QQuickItem*>(find(m_widget,"widgetCollapse"))->mapToScene(QPointF());m_widgetModeMore=qobject_cast<QQuickItem*>(find(m_widget,"widgetMore"))->mapToScene(QPointF());click("widgetCollapse");}
-    if(m_stage==5){if(!m_controller.mini() || !layout() || !capture(m_widget,"mini-light"))return fail("mini summary");const auto expand=qobject_cast<QQuickItem*>(find(m_widget,"widgetExpand"))->mapToScene(QPointF()),more=qobject_cast<QQuickItem*>(find(m_widget,"miniMore"))->mapToScene(QPointF());if(m_widget->width()!=m_widgetModeGeometry.width() || m_widget->position()!=m_widgetModeGeometry.topLeft() || QLineF(expand,m_widgetModeCollapse).length()>1 || QLineF(more,m_widgetModeMore).length()>1)return fail("Mini preserves width, position and action slots");click("widgetMiniSummary");}
+    if(m_stage==5){if(!m_controller.mini() || !layout() || !capture(m_widget,"mini-light"))return fail("mini summary");const auto more=qobject_cast<QQuickItem*>(find(m_widget,"miniMore"))->mapToScene(QPointF());if(m_widget->width()!=m_controller.miniWidth() || m_widget->position()!=m_widgetModeGeometry.topLeft() || QLineF(more,m_widgetModeMore).length()>1 || !find(m_widget,"widgetMiniGrip"))return fail("Mini independent width and dedicated drag slot");click("widgetMiniSummary");}
     if(m_stage==6){if(m_controller.mini() || m_widget->size()!=QSize(340,360))return fail("single click restores floating geometry");m_controller.setLocked(true);m_controller.setMini(true);}
     if(m_stage==7){expandWithKey(Qt::Key_Space);}
     if(m_stage==8){if(m_controller.mini() || !m_controller.errorText().isEmpty())return fail("locked mini keyboard expansion");m_controller.setLocked(false);m_workspace.setTextScale(2);m_widget->resize(260,190);auto* row=find(m_widget,"widgetTask-"+m_task);row->setProperty("rowVersion",row->property("rowVersion").toLongLong()-1);QMetaObject::invokeMethod(row,"complete");}
@@ -146,10 +176,10 @@ QString Ux38SmokeProbe::advance() {
     if(m_stage==34){if(m_workspace.todayTasks()->rowCount()!=m_count-1 || (m_completedRow && m_completedRow->property("removing").toBool()) || m_workspace.task(m_task).value("taskStatus")!="COMPLETED")return fail("reduced motion keyboard completion without delayed removal");m_workspace.setTextScale(2);m_widget->resize(800,600);QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
     if(m_stage==35){if(!find(m_widget,"widgetMenu")->property("visible").toBool() && m_wait.elapsed()<500){QMetaObject::invokeMethod(m_widget,"openVerificationMenu");return {};}QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));if(result!="PASS" || !capture(m_widget,"menu-200"))return fail("menu resolved font at 200 percent: "+result.toString());QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_workspace.setTextScale(1);m_controller.setMini(true);m_widget->resize(800,m_widget->height());}
     if(m_stage==36){if(find(m_widget,"widgetMiniTitle")->property("truncated").toBool())return fail("short mini tooltip fixture");hover(m_widget,"widgetMiniSummary");}
-    if(m_stage==37){if(m_wait.elapsed()<750)return {};if(hint(m_widget).value("visible").toBool())return fail("complete mini title repeats tooltip");hover(m_widget,"widgetExpand");}
-    if(m_stage==38){if(m_wait.elapsed()<750)return {};if(hint(find(m_widget,"widgetExpand")).value("visible").toBool())return fail("obvious expand arrow tooltip");expandWithKey(Qt::Key_Return);}
+    if(m_stage==37){if(m_wait.elapsed()<750)return {};if(hint(m_widget).value("visible").toBool())return fail("complete mini title repeats tooltip");hover(m_widget,"miniMore");}
+    if(m_stage==38){if(m_wait.elapsed()<750)return {};if(hint(find(m_widget,"miniMore")).value("visible").toBool())return fail("obvious expand arrow tooltip");expandWithKey(Qt::Key_Return);}
     if(m_stage==39){hover(m_widget,"widgetPin");}
-    if(m_stage==40){if(m_wait.elapsed()<750)return {};auto* pin=qobject_cast<QQuickItem*>(find(m_widget,"widgetPin"));const auto help=hint(pin);if(!help.value("visible").toBool())return fail("necessary pin action hint absent");if(QRectF(0,0,pin->width(),pin->height()).intersects(QRectF(help.value("x").toDouble(),help.value("y").toDouble(),help.value("width").toDouble(),help.value("height").toDouble())))return fail("tooltip overlaps source operation");for(const auto& name:{"widgetMore","widgetExpand"})if(find(m_widget,name)->property("hintEnabled").toBool())return fail("standard action tooltip admitted");if(find(m_main,"pageOptionsAction")->property("hintEnabled").toBool())return fail("options menu tooltip admitted");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
+    if(m_stage==40){if(m_wait.elapsed()<750)return {};auto* pin=qobject_cast<QQuickItem*>(find(m_widget,"widgetPin"));const auto help=hint(pin);if(!help.value("visible").toBool())return fail("necessary pin action hint absent");if(QRectF(0,0,pin->width(),pin->height()).intersects(QRectF(help.value("x").toDouble(),help.value("y").toDouble(),help.value("width").toDouble(),help.value("height").toDouble())))return fail("tooltip overlaps source operation");for(const auto& name:{"widgetMore","miniMore"})if(find(m_widget,name)->property("hintEnabled").toBool())return fail("standard action tooltip admitted");if(find(m_main,"pageOptionsAction")->property("hintEnabled").toBool())return fail("options menu tooltip admitted");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
     if(m_stage==41){if(hint(find(m_widget,"widgetPin")).value("visible").toBool())return fail("menu did not dismiss current tooltip");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_workspace.saveCatalog({{"kind","project"},{"title","123"}});}
     if(m_stage==42){m_workspace.saveCatalog({{"kind","project"},{"title",QStringLiteral("这是需要截断显示并且应该恢复完整名称的分类验收")}});}
     if(m_stage==43){for(const auto& value:m_workspace.categoryTree()){const auto row=value.toMap();if(row.value("title")=="123")m_shortCategory=row.value("id").toString();else if(row.value("title").toString().startsWith(QStringLiteral("这是需要截断")))m_longCategory=row.value("id").toString();}if(m_shortCategory.isEmpty() || m_longCategory.isEmpty())return fail("catalog hint fixtures");m_main->requestActivate();m_main->grabWindow();capture(m_main,"category-hints");hover(find(m_main,"categoryNav-"+m_shortCategory),"navigationLabel");}
@@ -392,7 +422,7 @@ QString Ux38SmokeProbe::advance() {
     }
     if(m_stage==116){
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
-        m_controller.clearError();m_controller.setVisible(true);m_controller.setMini(false);m_widget->resize(340,360);m_controller.setMini(true);
+        m_controller.clearError();m_controller.setVisible(true);m_controller.setMini(false);m_widget->resize(340,360);m_controller.setMini(true);m_controller.setFormEnabled(2,true);
         QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("settings")));find(m_main,"settingsDialog")->setProperty("categoryIndex",1);
         find(m_main,"settingsDialog")->setProperty("restoringScroll",false);qobject_cast<QQuickItem*>(find(m_main,"miniAutoCollapseSetting"))->forceActiveFocus(Qt::TabFocusReason);
     }
@@ -425,6 +455,7 @@ QString Ux38SmokeProbe::advance() {
         hover(m_widget,"widgetMiniBall");
     }
     if(m_stage==119){
+        if((m_controller.miniCollapsed() || m_widget->property("miniTransitionRunning").toBool() || !find(m_widget,"widgetMiniSummary")->property("enabled").toBool() || m_widget->property("miniReveal").toDouble()<0.999) && m_wait.elapsed()<1000)return {};
         if(m_controller.miniCollapsed() || m_widget->width()!=340 || !layout() || !capture(m_widget,"mini-hover-light"))return fail("pointer expands original mini width");
         click("miniMore");
     }
@@ -446,11 +477,12 @@ QString Ux38SmokeProbe::advance() {
         hover(m_widget,"widgetMiniBall");
     }
     if(m_stage==123){
+        if((m_controller.miniCollapsed() || m_widget->property("miniTransitionRunning").toBool() || !find(m_widget,"widgetMiniSummary")->property("enabled").toBool() || m_widget->property("miniReveal").toDouble()<0.999) && m_wait.elapsed()<1000)return {};
         if(m_controller.miniCollapsed() || m_widget->width()!=340 || !layout() || !capture(m_widget,"mini-hover-dark-200"))return fail("large text mini expansion");
         expandWithKey(Qt::Key_Space);
     }
     if(m_stage==124){
-        if(m_controller.mini() || m_widget->width()!=340)return fail("keyboard opens full widget");
+        if(m_controller.mini() || m_widget->width()!=340){qCritical()<<"Keyboard quick view state"<<m_controller.selectedForm()<<m_controller.effectiveForm()<<m_widget->geometry()<<m_widget->property("miniReveal");return fail("keyboard opens full widget");}
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);calendar->resize(560,540);m_workspace.setPreference("desktopCalendarVisible",true);
         auto* panel=find(calendar,"desktopCalendarPanel");panel->setProperty("independentScale","month");panel->setProperty("agendaVisible",false);panel->setProperty("anchorDate",m_workspace.dateOffset(0));panel->setProperty("selectedDate",m_workspace.dateOffset(0));
     }
@@ -479,13 +511,14 @@ QString Ux38SmokeProbe::advance() {
     }
     if(m_stage==129){qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"))->forceActiveFocus(Qt::TabFocusReason);}
     if(m_stage==130){
-        if(m_controller.miniCollapsed()){auto* ball=find(m_widget,"widgetMiniBall");qCritical()<<"Mini focus"<<m_widget->isActive()<<m_widget->activeFocusItem()<<(ball ? ball->property("activeFocus"):QVariant())<<(ball ? ball->property("focusReason"):QVariant());return fail("Tab focus opens mini");}
+        if(!m_controller.miniCollapsed() || !find(m_widget,"widgetMiniBall")->property("activeFocus").toBool())return fail("Tab focuses ball without changing selected shape");
         QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     }
     if(m_stage==131){
-        if(m_wait.elapsed()<600)return {};
-        if(m_controller.miniCollapsed())return fail("keyboard focus keeps mini open");
-        expandWithKey(Qt::Key_Return);
+        if(m_wait.elapsed()<700)return {};
+        if(!m_controller.miniCollapsed())return fail("keyboard focus preserves ball");
+        auto* ball=qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"));
+        for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Return,Qt::NoModifier);QCoreApplication::sendEvent(ball,&event);}
     }
     if(m_stage==132){
         if(m_controller.mini())return fail("keyboard opens widget after idle");
@@ -503,8 +536,8 @@ QString Ux38SmokeProbe::advance() {
         m_miniMotionGeometry=QRect(m_widgetModeGeometry.topLeft(),QSize(m_controller.miniWidth(),m_widget->property("miniBarHeight").toInt()));
         m_miniMotionSampled=false;m_miniMotionValid=false;
         hover(m_widget,"widgetMiniBall");
-        if(!m_widget->property("miniTransitionRunning").toBool())return fail("hover starts light reveal animation");
-        QTimer::singleShot(50,m_widget,[this]{
+        // The pointer must dwell for 150ms before the reveal begins.
+        QTimer::singleShot(210,m_widget,[this]{
             const double progress=m_widget->property("miniReveal").toDouble();
             m_miniMotionValid=m_widget->geometry()==m_miniMotionGeometry;
             m_miniIntermediateSeen=m_miniIntermediateSeen || (progress>0 && progress<1);
@@ -521,19 +554,323 @@ QString Ux38SmokeProbe::advance() {
             m_widget->setProperty("miniKeyboardInteraction",false);QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);m_stage=133;
         } else {
             if(!m_miniIntermediateSeen)return fail("observe actual intermediate reveal frame");
-            QMetaObject::invokeMethod(m_widget,"requestMiniCollapse",Q_ARG(QVariant,QVariant(true)),Q_ARG(QVariant,QVariant(false)));
-            QTimer::singleShot(50,m_widget,[this]{QMetaObject::invokeMethod(m_widget,"requestMiniCollapse",Q_ARG(QVariant,QVariant(false)),Q_ARG(QVariant,QVariant(false)));});
+            m_controller.selectForm(2);
+            QTimer::singleShot(50,m_widget,[this]{m_controller.selectForm(1);});
         }
     }
     if(m_stage==136){
         if(m_widget->property("miniTransitionRunning").toBool()){if(m_wait.elapsed()<1500)return {};return fail("rapid reversal settles");}
         if(m_controller.miniCollapsed() || m_widget->geometry()!=m_miniMotionGeometry || !layout() || !capture(m_widget,"mini-animation-settled"))return fail("rapid reversal preserves final geometry");
         m_workspace.setPreference("reduceMotion",true);
-        QMetaObject::invokeMethod(m_widget,"requestMiniCollapse",Q_ARG(QVariant,QVariant(true)),Q_ARG(QVariant,QVariant(false)));
+        m_controller.selectForm(2);
+        QMetaObject::invokeMethod(m_widget,"setMiniAnimation");
         if(!m_controller.miniCollapsed() || m_widget->property("miniTransitionRunning").toBool())return fail("reduced motion collapse is immediate");
-        QMetaObject::invokeMethod(m_widget,"requestMiniCollapse",Q_ARG(QVariant,QVariant(false)),Q_ARG(QVariant,QVariant(false)));
+        m_controller.selectForm(1);
+        QMetaObject::invokeMethod(m_widget,"setMiniAnimation");
         if(m_controller.miniCollapsed() || m_widget->geometry()!=m_miniMotionGeometry || m_widget->property("miniTransitionRunning").toBool())return fail("reduced motion expansion keeps geometry");
-        m_controller.setMini(false);m_controller.setMiniAutoCollapse(false);m_workspace.setTextScale(1);return "DONE";
+        m_controller.setMini(false);m_controller.setMiniAutoCollapse(false);m_workspace.setTextScale(1);m_stage=149;
+    }
+    if(m_stage==150){
+        m_workspace.setPreference("desktopCalendarVisible",true);
+        m_workspace.setPreference("reduceMotion",true);m_widget->setProperty("miniKeyboardInteraction",false);
+        for(int form=0;form<3;++form)m_controller.setFormEnabled(form,true);
+        m_controller.selectForm(2);
+    }
+    if(m_stage==151){
+        if(!m_controller.miniCollapsed() || !layout() || !capture(m_widget,"forms-ball"))return fail("explicit ball renders independently");
+        if(QGuiApplication::platformName()=="windows"){
+            const auto mask=m_widget->mask();if(mask.isEmpty() || mask.contains(QPoint(0,0)) || !mask.contains(QPoint(m_widget->width()/2,m_widget->height()/2)))return fail("native ball input region follows round surface");
+        }
+        QMetaObject::invokeMethod(m_widget,"openVerificationMenu");
+    }
+    if(m_stage==152){
+        if(!find(m_widget,"widgetMenu")->property("visible").toBool())return fail("ball menu reachable");
+        QMetaObject::invokeMethod(find(m_widget,"widgetFormMini"),"triggered");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");
+    }
+    if(m_stage==153){
+        if(m_controller.selectedForm()!=1 || !layout() || !capture(m_widget,"forms-mini"))return fail("ball directly selects Mini through menu");
+        QMetaObject::invokeMethod(m_widget,"openVerificationMenu");
+    }
+    if(m_stage==154){QMetaObject::invokeMethod(find(m_widget,"widgetFormPanel"),"triggered");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");}
+    if(m_stage==155){
+        if(m_controller.selectedForm()!=0 || !layout() || !capture(m_widget,"forms-panel"))return fail("Mini directly selects panel through menu");
+        QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("settings")));find(m_main,"settingsDialog")->setProperty("categoryIndex",1);
+    }
+    if(m_stage==156){
+        // Each real click toggles and commits before the next control's binding refresh.
+        for(const auto name:{"widgetPanelEnabled","widgetMiniEnabled","widgetBallEnabled"}){
+            auto* toggle=find(m_main,name);if(!QMetaObject::invokeMethod(toggle,"click"))return fail("form setting click is invokable");
+        }
+    }
+    if(m_stage==157){
+        if(m_controller.formCount()!=0 || m_controller.visible())return fail("all settings disabled hide and stop the component");
+        auto* toggle=find(m_main,"widgetPanelEnabled");if(!QMetaObject::invokeMethod(toggle,"click"))return fail("panel setting click is invokable");
+    }
+    if(m_stage==158){
+        if(m_controller.formCount()!=1 || m_controller.selectedForm()!=0 || !m_controller.visible())return fail("one form resumes without entering disabled forms");
+        QMetaObject::invokeMethod(find(m_main,"settingsDialog"),"close");m_controller.setFormEnabled(1,true);m_stage=159;
+    }
+    if(m_stage==160){
+        m_workspace.setPreference("desktopCalendarVisible",true);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
+        m_widget->setProperty("miniKeyboardInteraction",false);m_controller.clearError();for(int form=0;form<3;++form)m_controller.setFormEnabled(form,true);
+        m_controller.setAutoCompact(false);m_controller.selectForm(2);m_controller.setVisible(true);
+        const auto available=QGuiApplication::primaryScreen()->availableGeometry();
+        // Keep the synthetic panel away from the real desktop pointer. Otherwise
+        // a native Enter generated by resize correctly cancels our synthetic Leave.
+        const int y=QCursor::pos().y()<=available.center().y() ? available.y()+available.height()-60 : available.y()+24;
+        m_widget->setPosition(QPoint(m_dockCycle==0 ? available.x()+24 : available.x()+available.width()-60,y));m_controller.selectForm(2);
+    }
+    if(m_stage==161){
+        auto* ball=qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"));
+        if(!ball->isVisible() || m_widget->property("miniReveal").toDouble()>0.01){if(m_wait.elapsed()<800)return {};return fail("docking ball finishes its presentation before pointer click");}
+        m_dockPoint=ball->mapToGlobal(QPointF(ball->width()/2,ball->height()/2));click("widgetMiniBall");
+    }
+    if(m_stage==162){
+        if(m_controller.selectedForm()!=2 || m_controller.effectiveForm()!=0 || !capture(m_widget,QStringLiteral("dock-panel-%1").arg(m_dockCycle))){qCritical()<<"Dock click state"<<m_controller.selectedForm()<<m_controller.effectiveForm()<<m_widget->geometry()<<m_widget->property("miniReveal");return fail("ball click borrows panel without changing docking intent");}
+        m_widget->setProperty("miniKeyboardInteraction",false);leaveWidget();
+    }
+    if(m_stage==163){
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1900)return {};qCritical()<<"Dock idle holds"<<m_widget->property("miniKeyboardFocus")<<m_widget->property("interactionPressed")<<m_widget->property("errorMessage")<<m_widget->isActive()<<QCursor::pos()<<m_widget->geometry();return fail("idle borrowed panel returns to ball without auto compact");}
+        m_widget->grabWindow();
+        auto* ball=qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"));const auto center=ball->mapToGlobal(QPointF(ball->width()/2,ball->height()/2));
+        if(QLineF(center,m_dockPoint).length()>1){qCritical()<<"Dock return location"<<m_dockCycle<<center<<m_dockPoint<<m_widget->geometry();return fail("return preserves the original ball location");}
+        if(++m_dockCycle<2){m_stage=159;}else {m_controller.setAutoCompact(true);hover(m_widget,"widgetMiniBall");}
+    }
+    if(m_stage==164){
+        if(m_controller.miniCollapsed()){if(m_wait.elapsed()<800)return {};return fail("ball hover previews Mini after dwell");}
+        // Click the old ball's global point, including on the right-hand screen edge.
+        m_widget->grabWindow();
+        const auto at=m_widget->mapFromGlobal(m_dockPoint.toPoint());
+        auto* grip=qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniGrip"));
+        const auto gripPoint=grip->mapFromScene(at);
+        if(!grip->isVisible() || !grip->isEnabled() || !grip->contains(gripPoint)){
+            if(m_wait.elapsed()<800)return {};
+            qCritical()<<"Dock hover hit area"<<at<<grip->mapToScene(QPointF())<<grip->size()<<m_widget->geometry()<<m_widget->property("miniReveal");
+            return fail("hover preserves ball landing area in Mini grip");
+        }
+        for(const auto type:{QEvent::MouseMove,QEvent::MouseButtonPress,QEvent::MouseButtonRelease}){
+            QMouseEvent event(type,at,m_dockPoint,type==QEvent::MouseMove?Qt::NoButton:Qt::LeftButton,type==QEvent::MouseButtonPress?Qt::LeftButton:Qt::NoButton,Qt::NoModifier);event.setTimestamp(QDateTime::currentMSecsSinceEpoch());QCoreApplication::sendEvent(m_widget,&event);
+        }
+    }
+    if(m_stage==165){
+        if(m_controller.selectedForm()!=2 || m_controller.effectiveForm()!=0){qCritical()<<"Hover click result"<<m_controller.selectedForm()<<m_controller.effectiveForm()<<m_widget->geometry();return fail("original ball hit target survives hover expansion");}
+        QMetaObject::invokeMethod(m_widget,"openVerificationMenu");leaveWidget();
+    }
+    if(m_stage==166){
+        if(m_wait.elapsed()<1200)return {};
+        if(m_controller.effectiveForm()!=0 || !find(m_widget,"widgetMenu")->property("visible").toBool())return fail("menu holds borrowed panel beyond idle timeout");
+        QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_widget->setProperty("miniKeyboardInteraction",false);leaveWidget();
+    }
+    if(m_stage==167){
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1900)return {};return fail("menu dismissal restarts docking delay");}
+        m_controller.setFormEnabled(1,false);m_controller.setAutoCompact(false);click("widgetMiniBall");
+    }
+    if(m_stage==168){
+        if(m_controller.selectedForm()!=2 || m_controller.effectiveForm()!=0)return fail("ball-only compact choice opens panel directly");
+        m_widget->setProperty("miniKeyboardInteraction",false);leaveWidget();
+    }
+    if(m_stage==169){
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1900)return {};return fail("panel returns without Mini enabled");}
+        m_controller.selectForm(0);leaveWidget();
+    }
+    if(m_stage==170){
+        if(m_wait.elapsed()<1200)return {};
+        if(m_controller.selectedForm()!=0 || m_controller.effectiveForm()!=0)return fail("explicit Panel selection stays resident");
+        m_controller.setFormEnabled(1,true);m_stage=179;
+    }
+    if(m_stage==180){
+        m_workspace.setPreference("desktopCalendarVisible",true);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
+        m_workspace.setThemeMode(m_panelCycle ? 2 : 1);m_workspace.setTextScale(m_panelCycle ? 2 : 1);
+        for(int form=0;form<3;++form)m_controller.setFormEnabled(form,true);
+        m_controller.setAutoCompact(false);m_controller.selectForm(0);m_controller.setVisible(true);
+        m_widget->resize(m_panelCycle ? QSize(600,600) : QSize(340,360));
+        m_panelPositioned=false;
+    }
+    if(m_stage==181){
+        if(!m_panelPositioned){
+            // The preceding event-loop turn presents the full panel with the
+            // selected fonts. Do not synchronously read back the GPU here.
+            m_controller.selectForm(2);
+            const auto available=QGuiApplication::primaryScreen()->availableGeometry();
+            m_widget->setPosition(m_panelCycle ? available.bottomRight()-QPoint(60,60) : available.topLeft()+QPoint(24,24));m_controller.selectForm(2);
+            m_widget->requestActivate();
+            m_panelPositioned=true;return {};
+        }
+        if(!m_widget->isActive()){if(m_wait.elapsed()<1500)return {};return fail("native synthetic click fixture activates its own window");}
+        if(!m_controller.miniCollapsed() || m_widget->property("panelTransitionRunning").toBool()){if(m_wait.elapsed()<800)return {};return fail("settle ball before panel animation");}
+        m_dockPoint=m_widget->geometry().topLeft();
+        auto* entry=qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"));
+        qInfo()<<"Panel ball readiness"<<m_panelCycle<<m_widget->geometry()<<m_controller.selectedForm()<<m_controller.effectiveForm()<<m_controller.errorText()<<entry->isVisible()<<entry->isEnabled()<<entry->mapToScene(QPointF())<<entry->size()<<m_widget->mask().boundingRect();
+        m_workspace.setPreference("reduceMotion",false);m_controller.setInteraction(true,false,false,false);m_widget->setProperty("miniKeyboardInteraction",true);
+        m_panelSampled=false;m_panelValid=false;
+        m_panelSampleConnection=QObject::connect(m_widget,&QQuickWindow::afterAnimating,m_widget,[this]{
+            const double progress=m_widget->property("panelReveal").toDouble();
+            if(progress<0.15 || progress>0.85 || m_controller.targetBall())return;
+            QObject::disconnect(m_panelSampleConnection);
+            auto* surface=qobject_cast<QQuickItem*>(find(m_widget,"widgetBackground"));auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetPanelContent"));
+            const double ball=m_widget->property("ballDiameter").toDouble();
+            m_panelValid=surface && content && m_controller.panelMotion() && m_widget->property("panelTransitionRunning").toBool() &&
+                surface->width()>ball+1 && surface->width()<m_widget->width()-1 && surface->height()>ball+1 && surface->height()<m_widget->height()-1 &&
+                content->size()==QSizeF(m_widget->size()) && content->scale()==1 && content->opacity()>=0 && content->opacity()<1 && m_widget->geometry()==m_panelGeometry;
+            if(QGuiApplication::platformName()=="windows")m_panelValid=m_panelValid && !m_widget->mask().isEmpty() && m_widget->mask().boundingRect().width()<m_widget->width();
+            qInfo()<<"Panel opening intermediate"<<m_panelCycle<<(surface?surface->size():QSizeF())<<(content?content->opacity():-1)<<m_panelValid<<m_widget->geometry()<<"progress"<<progress;
+            capturePanelFrame(QStringLiteral("panel-opening-%1").arg(m_panelCycle));m_panelSampled=true;m_wait.restart();
+        });
+        click("widgetMiniBall");m_panelGeometry=m_widget->geometry();
+    }
+    if(m_stage==182){
+        if(!m_panelSampled || m_widget->property("panelTransitionRunning").toBool()){if(m_wait.elapsed()<900)return {};return fail("panel opening completes");}
+        if(!m_panelValid || !layout())return fail("opening has intermediate background and fixed content dimensions");
+        capturePanelFrame(QStringLiteral("panel-open-%1").arg(m_panelCycle));
+        m_panelSampled=false;m_panelValid=false;
+        m_panelSampleConnection=QObject::connect(m_widget,&QQuickWindow::afterAnimating,m_widget,[this]{
+            const double progress=m_widget->property("panelReveal").toDouble();
+            if(progress>0.6 || progress<0.15 || !m_controller.targetBall())return;
+            QObject::disconnect(m_panelSampleConnection);
+            auto* surface=qobject_cast<QQuickItem*>(find(m_widget,"widgetBackground"));auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetPanelContent"));
+            const double ball=m_widget->property("ballDiameter").toDouble();
+            m_panelValid=surface && content && m_controller.panelMotion() && m_controller.targetBall() && m_widget->geometry()==m_panelGeometry &&
+                surface->width()>ball+1 && surface->width()<m_widget->width()-1 && content->size()==QSizeF(m_widget->size()) && content->scale()==1 && content->opacity()<0.4;
+            const auto before=surface?surface->size():QSizeF();const auto opacity=content?content->opacity():-1;const auto stale=m_controller.transitionId();
+            m_controller.activatePrimary();QMetaObject::invokeMethod(m_widget,"setMiniAnimation");m_controller.finishTransition(stale);
+            m_panelValid=m_panelValid && surface->size()==before && content->opacity()==opacity && m_controller.effectiveForm()==0 && m_widget->geometry()==m_panelGeometry;
+            qInfo()<<"Panel closing/reverse intermediate"<<m_panelCycle<<before<<opacity<<m_panelValid;
+            capturePanelFrame(QStringLiteral("panel-closing-%1").arg(m_panelCycle));m_panelSampled=true;m_wait.restart();
+        });
+        m_controller.returnToCompact();
+    }
+    if(m_stage==183){
+        if(!m_panelSampled || m_widget->property("panelTransitionRunning").toBool()){if(m_wait.elapsed()<900)return {};return fail("reversed opening completes");}
+        if(!m_panelValid || m_controller.effectiveForm()!=0 || !layout())return fail("reverse preserves size and rejects stale completion");
+        m_controller.returnToCompact();m_panelSampled=false;
+        QTimer::singleShot(40,m_widget,[this]{m_workspace.setPreference("reduceMotion",true);m_panelSampled=true;});
+    }
+    if(m_stage==184){
+        if(!m_panelSampled || !m_controller.miniCollapsed()){if(m_wait.elapsed()<900)return {};return fail("reduced motion settles pending close");}
+        if(m_widget->property("panelTransitionRunning").toBool() || m_widget->geometry().topLeft()!=m_dockPoint || !layout())return fail("reduced motion keeps original ball anchor");
+        m_controller.activatePrimary();
+    }
+    if(m_stage==185){
+        if(m_panelCaptures){if(m_wait.elapsed()<1500)return {};return fail("asynchronous animation screenshots finish");}
+        if(m_panelCaptureFailed)return fail("animation screenshot write");
+        if(m_controller.panelMotion() || m_widget->property("panelTransitionRunning").toBool() || !layout())return fail("reduced motion opens immediately");
+        if(++m_panelCycle<2){m_stage=179;}else {m_widget->setProperty("miniKeyboardInteraction",false);m_stage=189;}
+    }
+    if(m_stage==190){
+        m_workspace.setPreference("desktopCalendarVisible",true);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
+        m_workspace.setThemeMode(m_menuLayerCycle>=2 ? 2 : 1);m_workspace.setTextScale(m_menuLayerCycle>=2 ? 2 : 1);
+        QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");
+        for(int form=0;form<3;++form)m_controller.setFormEnabled(form,true);
+        m_controller.setAutoCompact(false);m_controller.setBackgroundOpacity(0.6);m_controller.selectForm(0);m_controller.setVisible(true);
+        m_widget->resize(600,500);m_widget->setPosition(80,80);m_controller.selectForm(m_menuLayerCycle==4 ? 1 : 2);
+        m_controller.setLayer(m_menuLayerCycle<3 ? m_menuLayerCycle : 1);
+        if(m_menuLayerCycle==3)m_controller.activatePrimary();
+        m_menuInvoked=false;m_menuCaptureRequested=false;
+    }
+    if(m_stage==191){
+        m_workspace.setPreference("reduceMotion",false);
+        if(m_menuLayerCycle<4){
+            m_panelSampleConnection=QObject::connect(m_widget,&QQuickWindow::afterAnimating,m_widget,[this]{
+                const double progress=m_widget->property("panelReveal").toDouble();
+                if(progress<0.15 || progress>0.85 || !m_controller.panelMotion())return;
+                QObject::disconnect(m_panelSampleConnection);QMetaObject::invokeMethod(m_widget,"openVerificationMenu");m_menuInvoked=true;
+            });
+            if(m_menuLayerCycle==3)m_controller.returnToCompact();else m_controller.activatePrimary();
+        }else {QMetaObject::invokeMethod(m_widget,"openVerificationMenu");m_menuInvoked=true;}
+    }
+    if(m_stage==192){
+        auto* menu=find(m_widget,"widgetMenu");auto* content=qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>());auto* popup=content?content->window():nullptr;
+        if(!m_menuInvoked || !popup || !popup->isVisible()){if(m_wait.elapsed()<1500)return {};return fail("menu opens during motion and stays visible");}
+        QVariant result;QMetaObject::invokeMethod(m_widget,"verifyMenu",Q_RETURN_ARG(QVariant,result));
+        if(result!="PASS" || m_controller.panelMotion() || m_widget->property("panelTransitionRunning").toBool()){
+            if(m_wait.elapsed()<1500)return {};
+            qCritical()<<"Menu layer cycle"<<m_menuLayerCycle<<result<<"popup"<<menu->property("x")<<menu->property("width")<<popup->geometry();return fail("menu is opaque, enabled, independent and above a stable surface");
+        }
+        if(QGuiApplication::platformName()!="offscreen" && QGuiApplication::platformName()!="minimal" &&
+           (!nativeWindowLayerMatches(popup,WindowLayer::Topmost) || !nativeWindowAbove(popup,m_widget)))return fail("native popup is above its host");
+        QEvent activated(QEvent::WindowActivate);QCoreApplication::sendEvent(m_widget,&activated);
+    }
+    if(m_stage==193){
+        auto* menu=find(m_widget,"widgetMenu");auto* content=qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>());auto* popup=content?content->window():nullptr;
+        if(!menu->property("visible").toBool() || !popup)return fail("host layer restoration preserves open menu");
+        if(QGuiApplication::platformName()!="offscreen" && QGuiApplication::platformName()!="minimal" && !nativeWindowAbove(popup,m_widget))return fail("host cannot cover an open menu after layer restoration");
+        if(!m_menuCaptureRequested){capturePanelFrame(QStringLiteral("opaque-menu-%1").arg(m_menuLayerCycle),popup);m_menuCaptureRequested=true;return {};}
+        if(m_panelCaptures){if(m_wait.elapsed()<1500)return {};return fail("visible menu screenshot completes before dismissal");}
+        if(m_panelCaptureFailed)return fail("menu screenshot contains opaque rendered pixels");
+        for(auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent key(type,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(popup,&key);}
+    }
+    if(m_stage==194){
+        if(find(m_widget,"widgetMenu")->property("visible").toBool()){if(m_wait.elapsed()<800)return {};return fail("Escape dismisses independent menu");}
+        if(m_panelCaptures){if(m_wait.elapsed()<1500)return {};return fail("menu screenshot completes");}
+        if(m_panelCaptureFailed)return fail("menu screenshot write");
+        if(++m_menuLayerCycle<6){m_stage=189;}else m_stage=199;
+    }
+    if(m_stage==200){
+        m_workspace.setPreference("desktopCalendarVisible",true);m_controller.setVisible(true);
+        // Windows may apply a hidden helper process's startup ShowWindow flag
+        // to its first native window. Present Main before testing live resize.
+        if(QGuiApplication::platformName()=="windows"){m_main->hide();m_main->show();}
+        m_main->requestActivate();
+        QMetaObject::invokeMethod(find(m_main,"accountWindow"),"close");QMetaObject::invokeMethod(find(m_main,"settingsDialog"),"close");
+        m_footerSyncState=m_workspace.syncState();auto state=m_footerSyncState;state.insert("mode","LOCAL");state.insert("authenticated",false);state.insert("busy",false);state.insert("login_label","cached-account-must-not-appear");m_workspace.setSyncState(state);
+        m_workspace.setPreference("sidebarCollapsed",false);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_main->resize(1120,720);
+    }
+    if(m_stage==201){
+        QVariant result;QMetaObject::invokeMethod(m_main,"verifySidebarFooter",Q_RETURN_ARG(QVariant,result));
+        if(result!="PASS"){if(m_wait.elapsed()<1000)return {};return fail("single-row footer layout: "+result.toString());}
+        if(find(m_main,"dataAndBackup") || find(m_main,"accountEntry")->property("text")!=QStringLiteral("登录"))return fail("backup removed from sidebar and local cached identity stays logged out");
+        if(!capture(m_main,"footer-local-light"))return fail("local footer capture");
+        click("navigation-trash",m_main);
+    }
+    if(m_stage==202){
+        if(m_workspace.view()!="trash" || !find(m_main,"navigation-trash")->property("checked").toBool())return fail("footer trash opens deleted items and retains selected feedback");
+        auto* entry=qobject_cast<QQuickItem*>(find(m_main,"accountEntry"));entry->forceActiveFocus(Qt::TabFocusReason);
+        for(auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent key(type,Qt::Key_Space,Qt::NoModifier);QCoreApplication::sendEvent(entry,&key);}
+    }
+    if(m_stage==203){
+        if(!find(m_main,"accountWindow")->property("visible").toBool())return fail("footer login keyboard action opens dedicated account window");
+        QMetaObject::invokeMethod(find(m_main,"accountWindow"),"close");
+        // Presentation-only identity; no coordinator authentication or upload.
+        auto state=m_footerSyncState;state.insert("mode","ACCOUNT");state.insert("authenticated",true);state.insert("busy",false);state.insert("login_label","sidebar.account.with.a.long.name.for.elision@example.invalid");m_accountDisplayState=state;m_workspace.setSyncState(state);
+    }
+    if(m_stage==204){
+        m_workspace.setSyncState(m_accountDisplayState);
+        if(find(m_main,"accountEntry")->property("text")!=m_accountDisplayState.value("login_label"))return fail("connected footer displays account name");
+        if(!capture(m_main,"footer-account-light"))return fail("account footer capture");
+        m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_main->resize(880,580);
+    }
+    if(m_stage==205){
+        m_workspace.setSyncState(m_accountDisplayState);
+        QVariant result;QMetaObject::invokeMethod(m_main,"verifySidebarFooter",Q_RETURN_ARG(QVariant,result));
+        if(result!="PASS"){if(m_wait.elapsed()<1000)return {};return fail("large text footer: "+result.toString());}
+        if(!find(m_main,"accountEntry")->property("textTruncated").toBool() || !capture(m_main,"footer-account-dark-200"))return fail("long account name elides within its own slot");
+        m_workspace.setPreference("sidebarCollapsed",true);
+    }
+    if(m_stage==206){
+        m_workspace.setSyncState(m_accountDisplayState);
+        QVariant result;QMetaObject::invokeMethod(m_main,"verifySidebarFooter",Q_RETURN_ARG(QVariant,result));
+        if(result!="PASS"){if(m_wait.elapsed()<1000)return {};return fail("collapsed footer: "+result.toString());}
+        if(find(m_main,"accountCollapsedEntry")->property("description")!=m_workspace.syncState().value("login_label") || !capture(m_main,"footer-collapsed-dark-200"))return fail("collapsed account preserves full accessible identity");
+        click("settingsCollapsedEntry",m_main);
+    }
+    if(m_stage==207){
+        if(!find(m_main,"settingsDialog")->property("visible").toBool())return fail("collapsed settings stays accessible");
+        click("settingsCategory-2",find(m_main,"settingsDialog"));
+    }
+    if(m_stage==208){if(!revealSettings("settingsData")){if(m_wait.elapsed()<1000)return {};return fail("backup management reachable in general settings");}}
+    if(m_stage==209){click("settingsData",find(m_main,"settingsDialog"));}
+    if(m_stage==210){
+        if(find(m_main,"settingsDialog")->property("visible").toBool() || !find(m_main,"dataToolsDialog")->property("visible").toBool())return fail("settings backup entry opens existing data tools");
+        QMetaObject::invokeMethod(find(m_main,"dataToolsDialog"),"close");
+        // Logout keeps an ACCOUNT profile and its label, but ends authentication.
+        m_accountDisplayState.insert("authenticated",false);m_workspace.setSyncState(m_accountDisplayState);
+        m_workspace.setPreference("sidebarCollapsed",false);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);
+    }
+    if(m_stage==211){
+        m_workspace.setSyncState(m_accountDisplayState);
+        if(find(m_main,"accountEntry")->property("text")!=QStringLiteral("登录"))return fail("signed-out account profile does not present its cached name as logged in");
+        m_workspace.setSyncState(m_footerSyncState);
+        QMetaObject::invokeMethod(m_main,"changeView",Q_ARG(QVariant,QVariant("inbox")));return "DONE";
     }
     if(m_stage==137){
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);

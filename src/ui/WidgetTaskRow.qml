@@ -18,11 +18,15 @@ ItemDelegate {
     property bool completing: false
     property bool removing: false
     signal openRequested(string id)
+    signal actionStarted()
+    signal errorReported(string message)
     objectName: "widgetTask-"+taskId
     readonly property string summary: [parentTitle, arrangementSummary].filter(value => value.length>0).join(" · ")
     function complete() {
         if(!workspace.ready || workspace.busy || completing)return
+        actionStarted()
         completing=workspace.changeState(taskId,rowVersion,"complete")
+        if(!completing && workspace.errorText.length)errorReported(workspace.errorText)
     }
     ListView.onRemove: {
         if(completing && !reduceMotion) {
@@ -43,7 +47,7 @@ ItemDelegate {
     Connections {
         target: row.workspace
         function onOperationFinished(operation,success) {
-            if(operation==="complete" && !success)row.completing=false
+            if(operation==="complete" && row.completing && !success){row.completing=false;row.errorReported(row.workspace.errorText)}
         }
     }
     implicitHeight: Math.max(Theme.taskRowHeight,body.implicitHeight+8)

@@ -1308,7 +1308,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                            || !QMetaObject::invokeMethod(pin,"clicked") || m_widget.alwaysOnTop()!=wasPinned){fail("floating pin toggle and state");return;}
                         if(!tasks || tasks->height()<120 || !collapse || collapse->height()<32 || collapse->height()>40 || collapse->mapToScene(QPointF(collapse->width(),0)).x()>widget->width() || !widgetCapture(QStringLiteral("compact-widget-200")) || !QMetaObject::invokeMethod(collapse,"clicked")){fail("compact large widget layout");return;}
                     } else if(phase==93){
-                        auto* expand=widget->findChild<QQuickItem*>(QStringLiteral("widgetExpand"));
+                        auto* expand=widget->findChild<QQuickItem*>(QStringLiteral("widgetMiniSummary"));
                         if(!m_widget.mini() || !expand || expand->height()<32 || expand->mapToScene(QPointF(0,expand->height())).y()>widget->height() || !widgetCapture(QStringLiteral("compact-mini-200")) || !QMetaObject::invokeMethod(expand,"clicked")){fail("compact mini expand");return;}
                     } else {if(m_widget.mini()){fail("compact widget restore");return;}m_workspace.setTextScale(1);m_workspace.setThemeMode(1);}
                 }

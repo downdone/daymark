@@ -148,12 +148,25 @@ ApplicationWindow {
                     SettingsGroup {
                         heading:qsTr("任务组件 · 显示")
                         SettingsToggle {text:qsTr("显示任务组件");checked:root.widgetController.visible;onClicked:root.widgetController.setVisible(checked)}
+                        SettingsToggle {objectName:"widgetPanelEnabled";text:qsTr("启用小窗");checked:((root.widgetController.enabledForms & 1)!==0);onClicked:root.widgetController.setFormEnabled(0,checked)}
+                        SettingsToggle {objectName:"widgetMiniEnabled";text:qsTr("启用 Mini 条");checked:((root.widgetController.enabledForms & 2)!==0);onClicked:root.widgetController.setFormEnabled(1,checked)}
+                        SettingsToggle {objectName:"widgetBallEnabled";text:qsTr("启用悬浮球");checked:((root.widgetController.enabledForms & 4)!==0);onClicked:root.widgetController.setFormEnabled(2,checked)}
                         SettingsRow {
-                            label:qsTr("展示形态")
-                            ComboBox {Layout.fillWidth:true;Accessible.name:qsTr("任务组件展示形态");model:[qsTr("小窗"),qsTr("迷你条")];currentIndex:root.widgetController.mini ? 1 : 0;onActivated:root.widgetController.setMini(currentIndex===1)}
+                            label:qsTr("常驻形态")
+                            ComboBox {
+                                objectName:"widgetFormSelection"
+                                readonly property var forms: {const mask=root.widgetController.enabledForms;return [0,1,2].filter(function(form){return (mask & (1<<form))!==0})}
+                                Layout.fillWidth:true;enabled:forms.length>0
+                                Accessible.name:qsTr("任务组件常驻形态")
+                                model:forms.map(function(form){return [qsTr("小窗"),qsTr("Mini 条"),qsTr("悬浮球")][form]})
+                                currentIndex:forms.indexOf(root.widgetController.selectedForm)
+                                onActivated:root.widgetController.selectForm(forms[currentIndex])
+                            }
                         }
+                        Label {visible:root.widgetController.formCount===0;text:qsTr("未启用任何形态，组件已隐藏");Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.secondary}
+                        SettingsLink {visible:root.widgetController.formCount===0;symbol:"reset";text:qsTr("恢复默认形态");onClicked:{root.widgetController.setFormEnabled(0,true);root.widgetController.setFormEnabled(1,true);root.widgetController.selectForm(0)}}
                         SettingsToggle {objectName:"widgetSolidBackgroundSetting";text:qsTr("使用不透明背景");enabled:!Theme.highContrast;checked:root.workspace.preferences.solidWidget;onClicked:root.workspace.setPreference("solidWidget",checked)}
-                        SettingsToggle {objectName:"miniAutoCollapseSetting";text:qsTr("迷你条闲置时收为小圆球");enabled:root.widgetController.mini;checked:root.widgetController.miniAutoCollapse;onClicked:root.widgetController.setMiniAutoCollapse(checked)}
+                        SettingsToggle {objectName:"miniAutoCollapseSetting";text:qsTr("球与 Mini 条自动收展");enabled:((root.widgetController.enabledForms & 2)!==0) && ((root.widgetController.enabledForms & 4)!==0);checked:root.widgetController.miniAutoCollapse;onClicked:root.widgetController.setAutoCompact(checked)}
                         SettingsRow {
                             objectName:"widgetOpacitySetting";label:qsTr("背景透明度");separator:false
                             enabled:!Theme.highContrast && !root.workspace.preferences.solidWidget
@@ -167,8 +180,10 @@ ApplicationWindow {
                     SettingsGroup {
                         heading:qsTr("任务组件 · 窗口与交互")
                         detail:qsTr("鼠标穿透可从托盘或这里关闭；重启后恢复为可点击。")
-                        SettingsToggle {text:qsTr("保持置顶");checked:root.widgetController.alwaysOnTop;onClicked:root.widgetController.setAlwaysOnTop(checked)}
-                        SettingsToggle {objectName:"widgetDesktopPinnedSetting";text:qsTr("固定在桌面");checked:root.widgetController.desktopPinned;onClicked:root.widgetController.setDesktopPinned(checked)}
+                        SettingsRow {
+                            label:qsTr("窗口层级")
+                            ComboBox {objectName:"widgetLayerSelection";Layout.fillWidth:true;Accessible.name:qsTr("任务组件窗口层级");model:[qsTr("普通"),qsTr("始终置顶"),qsTr("桌面层")];currentIndex:root.widgetController.layer;onActivated:root.widgetController.setLayer(currentIndex)}
+                        }
                         SettingsToggle {text:qsTr("鼠标穿透");enabled:root.widgetController.trayAvailable;checked:root.widgetController.clickThrough;onClicked:root.widgetController.setClickThrough(checked)}
                         SettingsToggle {text:qsTr("锁定拖动");checked:root.widgetController.locked;onClicked:root.widgetController.setLocked(checked)}
                         SettingsLink {separator:false;disclosure:false;symbol:"reset";text:qsTr("重置组件位置");onClicked:root.widgetController.resetPosition()}
@@ -203,16 +218,16 @@ ApplicationWindow {
                         SettingsToggle {separator:false;id:systemReminders;objectName:"systemRemindersPreference";text:qsTr("系统通知");checked:root.workspace.preferences.systemReminders;onClicked:root.workspace.setPreference("systemReminders",checked)}
                     }
                     SettingsGroup {
-                        heading:qsTr("自动备份")
+                        heading:qsTr("备份与数据")
                         detail:qsTr("启动时检查，保留最近7份一致性快照。")
                         SettingsRow {
-                            label:qsTr("备份周期");separator:false
+                            label:qsTr("备份周期")
                             ComboBox {objectName:"backupDaysPicker";Layout.fillWidth:true;Accessible.name:qsTr("自动备份周期");model:[qsTr("每天"),qsTr("每7天"),qsTr("每30天")];currentIndex:[1,7,30].indexOf(root.workspace.preferences.backupDays);onActivated:root.workspace.setPreference("backupDays",[1,7,30][currentIndex])}
                         }
+                        SettingsLink {separator:false;objectName:"settingsData";symbol:"backup";text:qsTr("数据与备份");onClicked:root.dataRequested()}
                     }
                     SettingsGroup {
-                        heading:qsTr("资料与帮助")
-                        SettingsLink {objectName:"settingsData";symbol:"backup";text:qsTr("数据与备份");onClicked:root.dataRequested()}
+                        heading:qsTr("帮助与说明")
                         SettingsLink {separator:false;objectName:"settingsHelp";symbol:"info";text:qsTr("使用提示");onClicked:root.helpRequested()}
                     }
                     SettingsGroup {

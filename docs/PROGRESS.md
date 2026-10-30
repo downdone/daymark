@@ -1,5 +1,71 @@
 # Daymark 实施进度
 
+### GIT-UX68 GitHub源码交付（2026-10-30）
+
+用户明确授权推送GitHub。远端main同步后与本地基线c3c5e02一致，本轮提交范围为UX-64～68的33个源码/测试/设计及验证文档文件；现有发布恢复工作流、build-request、标签打包脚本及其测试改动保留在本地，不混入本次提交，不触发旧v1.8.0恢复发布。使用项目身份及UTC提交元数据，非强制推送HEAD到origin/main，不打新tag、不移动已有tag或上传本机二进制。历史UX条目中的“未推送”是当轮本地验收状态。
+
+复用最终源码完整26/26 CTest（310.23秒）、Qt6.10.2 Release/两项QML lint、Windows原生专项以及样式/文档链接证据；本轮暂存源码通过check-current隐私/版本守卫，发布元数据14/14单测通过。未暂存数据库、日志、证书、构建缓存、SDK或本地启动器；macOS/物理多屏/读屏边界不因源码推送改标，远端CI结果以GitHub实际检查为准。
+
+### UX-68 侧栏底部工具与账号名（2026-10-30，WINDOWS-BUILD-PASS / CTEST-PASS / NATIVE-FOOTER-PASS）
+
+用户要求将最近删除/账号两行收到底部，登录显示文字、登录后显示账号名，备份移入设置。按P-13/14/15/20及HIG稳定导航、清楚身份反馈和渐进呈现，关联UX-09/10/11/13：展开侧栏底部单行“设置图标、最近删除图标、账号图标+文字”，未登录为“登录”、authenticated取login_label、长名只在文字槽省略；不因缓存登录名误显示已登录。最近删除数量保留可访问名称/内容页，选中状态保留。折叠侧栏底部竖排三个图标，完整账号名仍为可访问名称。移除常驻备份图标，设置通用将手动“数据与备份”与自动备份周期归为一组，沿用草稿门及独立账号窗口。计划真实点击、退出/长名/浅深100～200%/折叠/窄窗/键盘及设置到备份接线探针，本地构建/lint/CTest/Windows原生截图，不改编译脚本、不推送。
+
+实现展开底部单行与折叠竖排三个入口，账号用ActionButton固定图标/文字槽；长名elide且Accessible.name保持完整，最近删除保留选中与辅助数量。SettingsDialog通用的“备份与数据”同时包含周期及管理入口，“帮助与说明”单独分组；设置/备份继续走原草稿保护与独立窗口。审查Coordinator.logout发现退出后仍为ACCOUNT资料，最终按authenticated与AccountWindow.connected统一判断；登录失效/退出均显示“登录”，不改同步协议或后端状态。
+
+测试中先修合成展示态被真实离线协调器刷新覆盖的fixture，保留登录文字断言；200%折叠专项随后发现旧字标区10 DIP边距撑宽44 DIP侧栏，使按钮x=10、width=36越界。改折叠边距4并禁止负字标宽度，实际布局恢复44 DIP，不缩小命中尺寸。Windows隐藏启动专项在元数据resize后仍旧布局，探针显式呈现主窗再测；相关失败日志ux68-focused.log、ux68-focused2/3.log、ux68-native.log保留。完成账号退出判定前主动终止仅本轮旧CTest和其隔离桌面测试子进程，旧ux68-tests.xml/log不作为最终通过。
+
+最终Release构建ux68-final-build.log及两项QML lint通过；侧栏专项最终离屏1/1 PASS（1.96秒）。Windows默认GPU最终200～211链退出0、3窗/warnings=false、3206ms完成，涵盖LOCAL缓存名、真实最近删除点击/选中、Tab+Space登录、长账号名、深色200%/窄窗/折叠、完整辅助名称、折叠设置到备份路由、已退出ACCOUNT恢复“登录”；仅合成展示态，不触发服务器认证/上传。已查看最终浅色100%底部截图及深色200%/折叠布局截图。证据ux68-final-focused.log、ux68-final-native.log与对应PNG、ux68-final-lint.log；92 QML样式和150文档链接PASS。
+
+最终源码完整26/26 CTest PASS（310.23秒，widget_window 12.35秒、desktop_surfaces 44.28秒、account_access 10.74秒、continuous_calendar 6.49秒、watchdog 95.61秒），见ux68-final-tests.xml/log。交付exe SHA256 793bd475bc98fd194970e2b44448c19f6023319e8db9db4d3e2b7add683bbe3e，26,485,621字节；本地入口build/Launch-Daymark.cmd。文档同步侧栏/独立账号/设置契约、基线/验收与用户说明。macOS/物理多屏/读屏仍UNVERIFIED，未改编译脚本/数据schema、未推送；公开1.8.0包不含本地改动。
+
+### UX-67 菜单实体与上层关系（2026-10-30，WINDOWS-BUILD-PASS / CTEST-PASS / NATIVE-MENU-PASS）
+
+用户截图显示菜单文字发灰且小窗内容叠在菜单上。按UX-54/UX-09/11/13及P-13/HIG清晰层级、稳定定位、用户控制：菜单独立于组件背景透明度与内容淡入淡出，Window菜单以稳定根容器承载并明确置顶；打开前完成当前视觉过渡，菜单期间保持形态。保留锚点、屏边避让、Esc/外点关闭和层级恢复。计划补动画中开菜单、透明度/父级/有效enabled和opacity、三种宿主层级下原生菜单置顶及宿主重新激活后的遮挡检查；本地Qt6.10.2构建/lint/CTest及Windows原生截图，不改编译脚本、不推送。
+
+实现将widgetMenu声明移出panelContent/WidgetAction动画子树，Window菜单popupAt使用来源全局坐标到宿主contentItem转换；Item菜单保持原有来源父级。开组件菜单前停止并完成当前视觉过渡，按最终形态重新取锚点。共享Window菜单保留Qt.Popup标志，明确Topmost并去掉Bottom标志，背景/窗口opacity=1；QtWindowPlatform恢复宿主层级后再提升其可见Popup链。Windows增加实际Z序检查；macOS保留已有更高Popup level，不将其降低到普通浮动层，macOS未构建/未验证。
+
+widget_window和popup-layer专项离屏2/2 PASS。Windows原生裸窗口测试最初复用前一次Popup、伪造激活时触发Qt正常关闭，不能视作层级失败；改为原生显示前置条件、每轮新建Popup并真实重应用宿主相同层级，最终3/3 Qt Test步骤PASS（112ms），见ux67-native-unit3.txt。真实QML六轮190～194覆盖普通/置顶/桌面层在展开中打开、收回中打开、Mini/球，背景60%、浅色100%/深色200%，检查有效祖先opacity/enabled、菜单标志及原生Z序；宿主WindowActivate恢复后菜单仍在上方，Esc关闭。初次原生定位未等菜单原生尺寸就绪失败；增加有界布局就绪等待后通过，未放宽锚点断言。
+
+早期异步截图在Esc之后才读回，形成空图；改为读回完成且中心像素alpha=255后才能关闭，最终六轮原生专项退出0、3窗/warnings=false、3943ms完成，已查看浅色与深色200%菜单，文字正常、背景实体。证据ux67-opaque-native.log及opaque-menu-0～5 PNG，不把先前空图当作视觉通过。最终Release构建ux67-build5.log；完整26/26 CTest PASS（296.36秒，widget_window 11.92秒、desktop_surfaces 41.76秒、watchdog 98.54秒），见ux67-tests.xml/log；两项QML lint、92 QML样式和150文档链接检查通过。交付exe SHA256 d2256b607914bd5bd2b6f8b77682bc17112d48a74be0c13397a6dffa84da241b，入口build/Launch-Daymark.cmd。用户旧实例占用的旧exe已重命名备存，进程继续运行；使用新版需退出旧实例含托盘再启动。未改编译脚本/数据schema、未推送；真实其他应用遮挡/物理多屏/读屏/macOS仍UNVERIFIED。
+
+### UX-66 球与小窗连续动效（2026-10-30，WINDOWS-BUILD-PASS / CTEST-PASS / NATIVE-MOTION-PASS）
+
+用户授权实现球↔小窗动画。依据P-13/HIG连续性、用户控制、布局稳定与可访问性，关联UX-09/11/12/13：展开180ms、收回150ms，沿共享角锚点揭示背景，内容延后淡入/提前淡出，文字和按钮不缩放；快速反向从当前视觉矩形继续。原生窗口展开时一次提交Panel尺寸，收回完成才提交球尺寸，圆角输入区域跟随背景；过期回调不可提交。减少动态、隐藏、禁用和穿透须收敛至合法稳定状态。计划状态/平台拒绝UT、QML中间帧与反向/减少动态探针、本地Qt6.10.2构建/lint/CTest与Windows原生专项；保留现有未提交改动，不修改编译脚本、不推送。
+
+实现使用Qt标准ParallelAnimation/NumberAnimation与淡入淡出顺序组；visualWidth/Height持有背景当前矩形，panelContent始终按目标原生Panel大小布局并贴同一角，文字不缩放或逐帧重排。panelMotion与代次控制延迟缩球和失败回滚；点击/闲置回球走同一动效通路，减少动态/隐藏/禁用/穿透完成或取消当前代次。原生圆角输入区域跟随背景，重复相同region不再提交。Panel容纳不下悬停Mini时直接切换，避免更窄目标原生窗口裁掉Mini；无新增依赖或数据schema。
+
+中途原生探针曾因同步grabWindow扰动默认GPU帧时序而失败：点击约14ms返回，首个动画回调却延后约1秒；仅软件后端对照通过。排查中临时尝试自定义时钟和帧请求，最终均删除，不以改产品默认GPU配置绕过。改为afterAnimating先读取中间帧断言、grabToImage异步截图，并在合成点击前显式激活测试窗口；Qt标准动画在默认Windows GPU复验退出0，浅色100%左上/深色200%右下展开进度均0.187，背景92.84×96.58 / 141.45×141.45 DIP；收回/反向216.18×228.04 / 296.84×296.84、内容透明度0.216 / 0.081，矩形/透明度反向同帧连续、过期完成被拒绝，减少动态中途立即回原球。3可见窗、warnings=false，已查看中间帧和深色200%最终小窗。日志ux66-final-native.log及异步PNG；不把此前失败结果当通过。
+
+Qt6.10.2 Release与两项QML lint通过，第一轮完整26/26 CTest PASS（295.31秒，widget_window 12.16秒、desktop_surfaces 37.13秒、watchdog 93.22秒），见ux66-final-build.log、ux66-final-lint.log、ux66-final-tests.xml/log。最后补Panel容纳Mini的尺寸门禁与对应UT后，交付复验中的桌面链曾在163回球处失败：只送Leave仍保留Quick旧窗口内指针位置，布局后的hover重算可能恢复进入。探针改为完整“窗口外MouseMove再Leave”事件链，未移动真实指针或放宽产品保持条件；失败日志ux66-delivery-tests.log保留。最终源码重新构建并完整26/26 PASS（268.11秒，widget_window 11.89秒、desktop_surfaces 36.41秒、watchdog 87.62秒），证据ux66-verified-build.log、ux66-verified-tests.xml/log。
+
+最终交付exe再通过两项QML lint及默认Windows GPU组合原生dock160～170与panel-motion180～185：左右球实际点击/回原坐标、hover后原位置点击、菜单保持、无Mini回球、明确Panel常驻，再验证浅深/100～200%动效、反向、减少动态与输入mask。组合链10695ms、退出0、3窗/warnings=false，见ux66-delivery-lint.log、ux66-verified-native.log及PNG。92 QML字体/图标样式检查与150文档链接PASS。最终exe SHA256 5d29425bdee026753d8c7e7231940b755b136cb4964612a0ac2977e0313109c7，本地入口build/Launch-Daymark.cmd。初次链接因旧用户进程锁住exe失败，旧文件重命名备存而不终止用户实例后构建成功。未改编译脚本、未推送；物理多屏/读屏/点击底层桌面与macOS仍UNVERIFIED，既有公开1.8.0包不包含本地修改。
+
+### UX-65 悬浮球停靠与临时展开（2026-10-30，WINDOWS-BUILD-PASS / CTEST-PASS / NATIVE-DOCK-PASS）
+
+用户指出球点击展开小窗后应回球。根因：activatePrimary把快捷展开写成selectForm(Panel)，丢掉停靠意图；球hover成Mini后，原球命中位置又落到无点击行为的握持区（右侧停靠还可能落到更多按钮）。按HIG用户控制/稳定定位、UX-09/11/12/13，将球定义为持久停靠入口：点击临时打开任务小窗，鼠标离开且无按下/菜单/拖动/键盘/业务忙碌/本地错误后1000ms回原球；显式菜单/设置切换小窗仍常驻。Mini快捷展开同样回到原常用形态；不依赖球与Mini自动收展开关，也不强制启用Mini。悬停预览保留球所在侧的点击目标，不抢焦点。计划状态/超时取消/重启/禁用/平台失败UT、真实原位置点击与回球QML链、本地构建/lint/完整CTest及Windows原生专项，保留之前发布改动不推送。
+
+UX-65实现结果：WidgetPresentation.openPrimary只改变effective/temporaryOpen，不改selected/history；单独1000ms回归定时器不依赖Mini和自动收展开关。鼠标返回、菜单、键盘、按下/拖动、任务忙碌和组件错误取消/暂停计时；明确selectForm取消临时查看。重启保存常驻形态，不保存临时Panel。Mini向停靠点内侧排列，入口改为可点可拖的标准按钮，hover后按原全局点仍能打开Panel；右/下锚点改直接引用Window尺寸，避免上一帧父容器尺寸影响回球位置。设置改称“常驻形态”，球停靠时收起按钮读作“返回悬浮球”。
+
+Qt6.10.2 Release构建、两项QML lint通过；新增状态/超时/保持/重启禁用单测通过，完整26/26 CTest PASS（281.90秒，widget_window 11.88秒、desktop_surfaces 35.30秒、原watchdog 89.87秒）。dock160～170实际鼠标链覆盖左右点开/回原球、hover后按原全局点点击、菜单保持、无Mini回球、明确Panel常驻。中途先点尚未呈现的球与未等Mini布局的fixture失败均保留；增加就绪/真实命中检查后通过，不放宽产品断言。日志ux65-build5.log、ux65-final-lint.log、ux65-final-tests.xml/log、ux65-dock-fourth.log。
+
+第一次Windows原生dock在右侧离开回球处失败，后续测试仅将窗口放到真实指针之外并增加保持状态诊断；源码行为保持原“鼠标在小窗内不回球”，不移动真实用户指针。Windows原生dock修正fixture后连续两次退出0、3窗/warnings=false；最终交付exe7631ms完成原生链，覆盖实际左右球点击、回原位置、原球位置hover后点击、菜单保持、无Mini与明确Panel常驻。最后仅调整探针避开真实鼠标、键盘等待控件enabled/reveal就绪；生产代码未再改动，完整desktop_surfaces复验1/1 PASS（33.89秒），不沿用修正前失败。日志ux65-verified-native.log与对应截图、ux65-final-desktop.log、ux65-delivery-native.log；最终exe SHA256 130215fa5eeeef4ca3db8698ff5512600c0b15f058d35dc31f24bd22d6f4da0b，构建ux65-final-build.log。旧UX-64原生全链画廊stage89失败记录保留，macOS/物理多屏/读屏仍UNVERIFIED；未推送、未改编译脚本或业务数据schema，原启动入口继续使用。
+
+### UX-64 实现与本地交付（2026-10-30，WINDOWS-BUILD-PASS / CTEST-PASS / NATIVE-SLICE-PASS）
+
+实现WidgetPresentation纯状态与WidgetPlacementPolicy纯几何，WidgetViewModel统一协调150ms悬停/600ms离开、允许集合/显式/临时形态、动画代次和平台提交；QML仅渲染及报告输入。三种形态独立开关/直接菜单切换，小窗与Mini独立尺寸，共用四角锚点；屏幕主要交叠选择、临时避让不写回，旧配置键保留并追加widget/v2形态/历史/尺寸/锚点。球整体/Mini握持区/小窗表头拖动，删除重复展开箭头，Tab保持球并用Enter打开任务；互斥层级、空集合设置恢复、穿透冻结与原有恢复通路保留。组件错误仅来自自身任务完成或窗口命令，其他工作区错误不驱动其形态。
+
+新增/迁移widget_window覆盖8集合、6转换、四角各50轮、负坐标/最大交叠屏、拔屏备用与回接、独立尺寸/历史/旧键迁移、掠过/按下/菜单/键盘、禁用回退/空集合托盘恢复、过期动画与平台拒绝及延迟缩窗失败回滚。desktop_surfaces用真实控件click而非只发clicked信号测试全禁用/恢复；最初先toggle三个控件再提交的fixture被绑定刷新覆盖，修正为每个实际click后接收状态，未改产品门禁。
+
+Release已成功构建，两项QML lint无诊断、92 QML样式/四主题颜色与150文档链接PASS。中间源码完整26/26 CTest PASS（274.11秒）；最后补空集合显示拒绝的stateChanged刷新，避免开关显示与实际窗口不一致，最终源码及交付exe重新完整26/26 CTest PASS（261.10秒）；widget_window 3.46秒、desktop_surfaces 27.37秒，原watchdog退出链92.59秒，未改编译脚本/超时/失败白名单。最终exe的Windows原生forms/compact切片分别退出0、可见3窗/warnings=false，后者14.146秒到完成检查；圆球原生QRegion排除透明角、保留中心，四轮100/200%动画进度0.60～0.66且窗口固定(80,80)及340×56/62。已逐张查看球/Mini/小窗、深色200%及中间帧。
+
+原生完整desktop探针（包含全部历史样式画廊）另在stage89的画廊图标200%定位处失败：calendar图标场景位置y=732，绘制像素0；该失败保留在ux64-native-full.log，不将上述专项称为原生全链PASS。初次forms专项因跳过日历可见fixture最终仅2窗而退出2，补齐同一3窗前置条件后重跑成功，未放宽最终可见数量/警告断言。物理拖动、多屏混合DPI、读屏与macOS未验证；合成事件和QRegion断言不替代真实OS点击底层桌面验收。
+
+日志ux64-build7.log、ux64-lint4.log、ux64-final-tests.xml、ux64-related.txt、ux64-verified-forms.log、ux64-verified-compact.log及对应PNG；最终通知修正构建ux64-final-build.log，最终回归ux64-delivery-tests.xml/log。最终exe SHA256：01e926e7fdb6fd5fb47c1bc9817ccdb7506a449f448ec1730c3911c0aec829d2，26,094,925字节。本地启动入口build/Launch-Daymark.cmd注入当前Kit环境，不改系统PATH；无需从旧1.8.0便携目录启动。未推送/打tag/提交，保留未完成的发布恢复修改及原包；应用版本仍1.8.0工作区开发构建，不能冒充既有tag二进制。
+
+### UX-64 三形态统一实施（2026-10-30，IN_PROGRESS）
+
+用户确认按desktop-widget-modes-proposal实施并本地构建。范围FR-012/013/018、UX-09～14、P-13/15/17：三种独立启用/直接切换、显式与临时形态分离、用户锚点与避让分离、独立尺寸、三种拖动和键盘/菜单保持、互斥层级及空集合恢复。先纯状态/几何UT和失败回滚，再接QML/配置迁移，最后Qt6.10.2本地Release/CTest/lint/原生合成输入与截图。既有未提交发布恢复代码保留，不推送/改tag/访问真实任务库；macOS及物理多屏/读屏未测保持UNVERIFIED。
+
 ### RELEASE-1.8.0 Linux部署路径门禁（2026-10-30，CONFIG-VERIFIED / REMOTE-VERIFY）
 
 检查归档配置发现Linux qt.conf遗漏[Paths]组，虽有库目录启动器，Qt可能仍搜索原SDK插件/QML目录。补齐标准组，并在归档前清除外部Qt/QML搜索变量、指定包内LD_LIBRARY_PATH，运行真实部署exe的contextual-workspace-smoke（临时合成库）。保留原源码完整CTest，新增部署依赖实测；不是干净机或物理X11验收。只改工作流/显式请求和记录，固定tag及编译源码不变。
