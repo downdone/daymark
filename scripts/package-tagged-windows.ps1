@@ -16,7 +16,8 @@ so a tag produces runnable binaries alongside the source; see release-policy.md.
 param(
     [Parameter(Mandatory)][string]$BuildDirectory,
     [Parameter(Mandatory)][string]$OutputDirectory,
-    [Parameter(Mandatory)][string]$Version
+    [Parameter(Mandatory)][string]$Version,
+    [string]$SourceDirectory=(Split-Path $PSScriptRoot -Parent)
 )
 $ErrorActionPreference = 'Stop'
 
@@ -33,7 +34,7 @@ Copy-Item -LiteralPath $binary -Destination $stage
 $originalPath = $env:PATH
 try {
     $env:PATH = "$env:DAYMARK_QT/bin;$originalPath"
-    & "$env:DAYMARK_QT/bin/windeployqt.exe" --release --qmldir (Join-Path $PSScriptRoot '../src/ui') `
+    & "$env:DAYMARK_QT/bin/windeployqt.exe" --release --qmldir (Join-Path $SourceDirectory 'src/ui') `
         --dir $stage --no-translations --skip-plugin-types 'qmltooling,generic' `
         --exclude-plugins 'qsqlibase,qsqlmimer,qsqloci,qsqlodbc,qsqlpsql' (Join-Path $stage 'daymark.exe')
     if ($LASTEXITCODE -ne 0) { throw 'windeployqt failed; the archive would be incomplete.' }
@@ -41,17 +42,13 @@ try {
 
 # MSVC runtime ships with the vc_redist; do not assume it is present on the
 # target machine, so state it rather than copying DLLs we cannot verify.
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../LICENSE') -Destination $stage
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../packaging/THIRD-PARTY-NOTICES.md') -Destination $stage
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../LICENSE') -Destination (Join-Path $stage 'LGPL-3.0.txt')
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../packaging/licenses/GPL-3.0.txt') -Destination $stage
+Copy-Item -LiteralPath (Join-Path $SourceDirectory 'LICENSE') -Destination $stage
+Copy-Item -LiteralPath (Join-Path $SourceDirectory 'packaging/THIRD-PARTY-NOTICES.md') -Destination $stage
+Copy-Item -LiteralPath (Join-Path $SourceDirectory 'LICENSE') -Destination (Join-Path $stage 'LGPL-3.0.txt')
+Copy-Item -LiteralPath (Join-Path $SourceDirectory 'packaging/licenses/GPL-3.0.txt') -Destination $stage
 $bomDirectory = Join-Path $stage 'qt-sbom'
-New-Item -ItemType Directory -Path $bomDirectory | Out-Null
-foreach ($module in @('qtbase','qtdeclarative','qtshadertools','qtsvg')) {
-    $bom = Join-Path $env:DAYMARK_QT "sbom/$module-6.10.2.spdx.json"
-    if (!(Test-Path -LiteralPath $bom)) { throw 'Required Qt SBOM missing; archive was not created.' }
-    Copy-Item -LiteralPath $bom -Destination $bomDirectory
-}
+& python (Join-Path $PSScriptRoot 'copy-qt-sbom.py') --qt-root $env:DAYMARK_QT --destination $bomDirectory --version 6.10.2
+if ($LASTEXITCODE -ne 0) { throw 'Qt module SBOM validation failed; archive was not created.' }
 @'
 Daymark - tagged build artifact
 
@@ -70,7 +67,7 @@ $files = Get-ChildItem -LiteralPath $stage -Recurse -File
     compiler       = 'MSVC 2022'
     signed         = $false
     cleanMachine   = $false
-    sourceRevision = (& git rev-parse HEAD).Trim()
+    sourceRevision = (& git -C $SourceDirectory rev-parse HEAD).Trim()
     fileCount      = $files.Count
 } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'BUILD-INFO.json') -Encoding utf8
 

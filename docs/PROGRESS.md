@@ -1,5 +1,12 @@
 # Daymark 实施进度
 
+### RELEASE-1.8.0 SPDX格式与打包恢复（2026-10-30，IN_PROGRESS）
+
+继续核对run40886709002：三平台全部构建/完整CTest/QML lint成功，均在打包失败；run40886708986三平台桌面与source-policy PASS。v1.8.0远端注释对象及a7ae585目标保持不变，Release尚无资产。Qt v6.10.2官方QtPublicSbomGenerationHelpers定义默认sbom/qtbase-6.9.0.spdx形式，QtPublicSbomOpsHelpers明确JSON为额外生成操作；现有脚本强制.spdx.json，需按真实格式适配而非删除SBOM门禁。计划统一四模块原始SPDX复制/结构校验及缺失/损坏/覆盖拒绝测试；恢复作业分开checkout工具与固定tag源码，只更新打包器、文档及显式恢复请求。编译脚本/业务/schema/tag不改动，新增打包失败可见注释；macdeployqt显式指定标签源码QML目录，Linux从实际部署的可执行文件/QML插件ldd收集Kit内传递运行库，避免固定列表遗漏QuickTemplates2/XcbQpa。
+
+本机验证：新增SPDX边界5/5及发布守卫14/14 PASS；四份真实Kit原文结构/字节复制PASS；Release增量构建PASS（无待构建项），package_validation 1/1 PASS（2.16秒），149文档及源码隐私检查PASS。受限环境初次临时目录/合成联接测试因访问权限失败，改用工作区临时目录并获工具批准运行联接用例后全部通过，未放宽断言；两种格式均保持原文、不转换/伪造JSON。macOS/Linux部署变化本机不可执行，等待恢复CI，不预称远端包PASS。
+
+
 ### RELEASE-1.8.0 标签发布与构建恢复（2026-10-29，TAG-PUBLISHED / SOURCE-RELEASE-PASS / BINARY-RECOVERY-IN-PROGRESS）
 
 main及annotated v1.8.0已原子推送并核对，tag对象738d52e1410990a7375492168271cfa12fe944cc，源码a7ae585c8f577f71abcf79bf44256d5ba0930c8d；项目身份与UTC。源码Release作业40885719009 PASS，Release v1.8.0非草稿已创建。首轮tag候选作业40885718884的Windows在Verify tag metadata失败：默认PowerShell使用Bash的$RELEASE_TAG写法，得到空tag，并非C++编译失败。

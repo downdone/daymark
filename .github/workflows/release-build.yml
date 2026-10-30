@@ -131,6 +131,17 @@ jobs:
       # Windows: windeployqt against the MSVC kit produces the portable ZIP.
       # The stricter local-preview audit (scripts/package-windows.ps1) targets the
       # MinGW preset and is not usable here.
+      # Recovery uses the current packager, while inputs and built executable
+      # remain the immutable source verified by resolve.
+      - name: Checkout release tooling
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          path: build/release-tools
+          persist-credentials: false
+      - name: Test release tooling
+        shell: bash
+        run: python3 -m unittest discover -s build/release-tools/tests -p test_qt_sbom.py -v
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -138,7 +149,7 @@ jobs:
           DAYMARK_QT: ${{ env.QT_ROOT_DIR }}
         run: |
           $version = (Select-String -Path CMakeLists.txt -Pattern 'set\(DAYMARK_VERSION "([^"]+)"\)').Matches[0].Groups[1].Value
-          & ./scripts/package-tagged-windows.ps1 -BuildDirectory build/release -OutputDirectory build/artifacts -Version $version
+          & ./build/release-tools/scripts/package-tagged-windows.ps1 -SourceDirectory $PWD -BuildDirectory build/release -OutputDirectory build/artifacts -Version $version
       # macOS and Linux ship an executable archive only; signing/notarisation
       # and a clean-machine gate are still open (see release-policy).
       # macOS ships a self-contained .app via macdeployqt; Linux gets the binary,
@@ -150,6 +161,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          trap 'echo "::error title=Packaging failed::Command failed: ${BASH_COMMAND}"' ERR
           name="Daymark-${RELEASE_TAG#v}-${{ matrix.label }}"
           stage="build/stage/$name"
           mkdir -p "build/artifacts" "$stage"
@@ -157,7 +169,7 @@ jobs:
           if [ "$RUNNER_OS" = "macOS" ]; then
             [ -d build/release/bin/daymark.app ] || { echo "::error::daymark.app missing"; exit 1; }
             cp -R build/release/bin/daymark.app "$stage/"
-            "$QTDIR/bin/macdeployqt" "$stage/daymark.app" -always-overwrite
+            "$QTDIR/bin/macdeployqt" "$stage/daymark.app" -qmldir="$PWD/src/ui" -always-overwrite
           else
             [ -x build/release/bin/daymark ] || { echo "::error::daymark binary missing"; exit 1; }
             cp build/release/bin/daymark "$stage/"
@@ -174,15 +186,23 @@ jobs:
             printf '%s\n' 'Prefix=.' 'Libraries=lib' 'Plugins=plugins' 'QmlImports=qml' > "$stage/qt.conf"
             printf '%s\n' '#!/bin/sh' 'HERE=$(dirname "$0")' 'LD_LIBRARY_PATH="$HERE/lib:$LD_LIBRARY_PATH" exec "$HERE/daymark" "$@"' > "$stage/daymark.sh"
             chmod +x "$stage/daymark.sh" "$stage/daymark"
+            # Collect the runtime closure of the executable and deployed QML/plugins.
+            # A fixed module list misses dependencies such as QuickTemplates2/XcbQpa.
+            while IFS= read -r -d '' binary; do
+              LD_LIBRARY_PATH="$QTDIR/lib" ldd "$binary" > build/qt-runtime-dependencies.txt
+              if grep -q 'libQt6.*=> not found' build/qt-runtime-dependencies.txt; then
+                echo "::error::A deployed plugin has unresolved Qt libraries"; exit 1
+              fi
+              while IFS= read -r library; do
+                cp -L "$library" "$stage/lib/$(basename "$library")"
+              done < <(awk -v qt="$QTDIR/lib/" '$2 == "=>" && index($3, qt) == 1 { print $3 }' build/qt-runtime-dependencies.txt)
+            done < <(find "$stage" -type f \( -name '*.so' -o -name '*.so.*' -o -name daymark \) -print0)
           fi
           cp LICENSE CONTRIBUTING.md "$stage/" 2>/dev/null || true
           cp packaging/THIRD-PARTY-NOTICES.md "$stage/"
           cp LICENSE "$stage/LGPL-3.0.txt"
           cp packaging/licenses/GPL-3.0.txt "$stage/"
-          mkdir -p "$stage/qt-sbom"
-          for module in qtbase qtdeclarative qtshadertools qtsvg; do
-            cp "$QTDIR/sbom/$module-6.10.2.spdx.json" "$stage/qt-sbom/"
-          done
+          python3 build/release-tools/scripts/copy-qt-sbom.py --qt-root "$QTDIR" --destination "$stage/qt-sbom" --version 6.10.2
           printf '%s\n' 'Daymark - tagged build artifact' ''             'Qt runtime is licensed under LGPLv3 and linked dynamically; see THIRD-PARTY-NOTICES.md.'             'This archive is not code-signed and has not been validated on a clean machine.' > "$stage/README.txt"
           (cd build/stage && tar -czf "../artifacts/$name.tar.gz" "$name")
           (cd build/artifacts && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")

@@ -20,7 +20,7 @@
 | QML lint | daymark_qmllint、daymark_style_qmllint PASS |
 | 源码发布守卫 | 14/14、版本/隐私、文档/样式/颜色/同步契约 PASS |
 | Windows本地包 | 1.8.0常规包PASS：SDK隔离原生437阶段、清单/ZIP/SHA256通过，非预览模式 |
-| Windows MSVC / macOS / Linux CI | 05c3ddb三平台及同步CI已绿；最终tag作业结果待核验 |
+| Windows MSVC / macOS / Linux CI | a7ae585三平台构建/完整测试/lint已通过；候选打包因SPDX格式假定失败，正在恢复 |
 | Windows MinGW Debug | 本版未复验 |
 
 之前三平台全绿[run40855720727](https://github.com/downdone/daymark/actions/runs/40855720727)属于8c9d41f；随后c9d6b71的Linux在desktop_surfaces stage117失败。本版保留真实点击及接线断言，先等设置分类/字号布局并reveal至视口后只点击一次；本机完整回归通过。新tag将触发三平台完整构建/CTest/QML lint及候选归档，尚不能预称通过。

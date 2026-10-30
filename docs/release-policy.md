@@ -57,3 +57,5 @@ Actions checkout可能在一次性runner中把事件标签落成本地轻量引�
 已发布tag的构建工具失败时，保持tag不变。用户授权的`.github/build-request.json`固定现有tag及40位commit，只有main上该文件的变更触发恢复。工作流从main读取请求与修复后的编排，恢复远端annotated对象、检查SHA相等及origin/main可达性，再让全部构建checkout固定源码SHA，执行该源码的版本/隐私守卫、完整CTest和QML lint。资产仍只能附加到该tag的既有Release，已有同名资产不覆盖；源码Release正文不修改。不把main上的新代码冒充已发布tag，也不把首次失败隐去。
 
 跨平台run步骤若使用`$RELEASE_TAG`，必须显式`shell: bash`；PowerShell应使用`$env:RELEASE_TAG`。恢复构建的归档命名/上传统一使用解析后的tag，不使用触发它的main分支名。
+
+Qt6.10.2官方SBOM默认tag/value（.spdx），JSON为可选生成结果。标签包保留四模块原始文档字节和实际扩展名，并校验SPDX结构；缺模块、损坏或目标重名仍阻止归档。恢复时打包工具从当前工作流提交单独checkout，源码/QML/LICENSE/二进制及BUILD-INFO源码SHA仍来自固定tag。依据[Qt生成器](https://github.com/qt/qtbase/blob/v6.10.2/cmake/QtPublicSbomGenerationHelpers.cmake)和[可选JSON生成操作](https://github.com/qt/qtbase/blob/v6.10.2/cmake/QtPublicSbomOpsHelpers.cmake)。
