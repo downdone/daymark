@@ -1,5 +1,10 @@
 # Daymark 实施进度
 
+### RELEASE-1.8.0 显式Qt模块恢复（2026-10-30，CI-DIAGNOSED / RETRY）
+
+run41000613543的Linux/macOS已完成构建、完整测试与lint，并通过新公开错误注释确认打包缺qtshadertools-6.10.2.spdx(.json)。原始格式适配已进入实际检查，不能删除四模块门禁；标签构建显式安装既有追溯要求的qtshadertools官方开源模块，版本仍6.10.2。恢复请求继续固定a7ae585，提交仅改模块安装配置/请求及本记录，不改源码/tag。对应MSVC输出布局修正已包含于排队请求，本次请求取代更旧排队项。
+
+
 ### RELEASE-1.8.0 MSVC输出布局兼容（2026-10-30，RELATED-PASS / REMOTE-VERIFY）
 
 审查CMake的CMAKE_RUNTIME_OUTPUT_DIRECTORY与Visual Studio多配置语义，旧Windows打包器仅接受bin/daymark.exe，缺少bin/Release/daymark.exe。只调整打包器选择逻辑，恰有一个Release候选才允许，拒绝缺失、仅Debug及两个候选有歧义；不更改生成器或编译脚本。提取实际纯解析函数在临时目录验证五种布局PASS，新增SPDX5/5再次PASS，已接入Windows标签打包前。请求仍固定a7ae585，v1.8.0不移动；远端结果待核验。
