@@ -1,5 +1,10 @@
 # Daymark 实施进度
 
+### RELEASE-1.8.0 Linux部署路径门禁（2026-10-30，CONFIG-VERIFIED / REMOTE-VERIFY）
+
+检查归档配置发现Linux qt.conf遗漏[Paths]组，虽有库目录启动器，Qt可能仍搜索原SDK插件/QML目录。补齐标准组，并在归档前清除外部Qt/QML搜索变量、指定包内LD_LIBRARY_PATH，运行真实部署exe的contextual-workspace-smoke（临时合成库）。保留原源码完整CTest，新增部署依赖实测；不是干净机或物理X11验收。只改工作流/显式请求和记录，固定tag及编译源码不变。
+
+
 ### RELEASE-1.8.0 显式Qt模块恢复（2026-10-30，CI-DIAGNOSED / RETRY）
 
 run41000613543的Linux/macOS已完成构建、完整测试与lint，并通过新公开错误注释确认打包缺qtshadertools-6.10.2.spdx(.json)。原始格式适配已进入实际检查，不能删除四模块门禁；标签构建显式安装既有追溯要求的qtshadertools官方开源模块，版本仍6.10.2。恢复请求继续固定a7ae585，提交仅改模块安装配置/请求及本记录，不改源码/tag。对应MSVC输出布局修正已包含于排队请求，本次请求取代更旧排队项。

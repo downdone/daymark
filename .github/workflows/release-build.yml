@@ -188,7 +188,7 @@ jobs:
               [ -d "$QTDIR/plugins/$plugin" ] && cp -R "$QTDIR/plugins/$plugin" "$stage/plugins/"
             done
             [ -d "$QTDIR/qml" ] && cp -R "$QTDIR/qml" "$stage/"
-            printf '%s\n' 'Prefix=.' 'Libraries=lib' 'Plugins=plugins' 'QmlImports=qml' > "$stage/qt.conf"
+            printf '%s\n' '[Paths]' 'Prefix=.' 'Libraries=lib' 'Plugins=plugins' 'QmlImports=qml' > "$stage/qt.conf"
             printf '%s\n' '#!/bin/sh' 'HERE=$(dirname "$0")' 'LD_LIBRARY_PATH="$HERE/lib:$LD_LIBRARY_PATH" exec "$HERE/daymark" "$@"' > "$stage/daymark.sh"
             chmod +x "$stage/daymark.sh" "$stage/daymark"
             # Collect the runtime closure of the executable and deployed QML/plugins.
@@ -202,6 +202,12 @@ jobs:
                 cp -L "$library" "$stage/lib/$(basename "$library")"
               done < <(awk -v qt="$QTDIR/lib/" '$2 == "=>" && index($3, qt) == 1 { print $3 }' build/qt-runtime-dependencies.txt)
             done < <(find "$stage" -type f \( -name '*.so' -o -name '*.so.*' -o -name daymark \) -print0)
+          fi
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            # Exercise the deployed QML/SQLite runtime, not the original build tree.
+            env -u QT_PLUGIN_PATH -u QT_QPA_PLATFORM_PLUGIN_PATH -u QML_IMPORT_PATH -u QML2_IMPORT_PATH \
+              QT_QPA_PLATFORM=offscreen LD_LIBRARY_PATH="$PWD/$stage/lib" \
+              "$stage/daymark" --contextual-workspace-smoke
           fi
           cp LICENSE CONTRIBUTING.md "$stage/" 2>/dev/null || true
           cp packaging/THIRD-PARTY-NOTICES.md "$stage/"
