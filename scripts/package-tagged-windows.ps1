@@ -21,8 +21,15 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-$binary = Join-Path $BuildDirectory 'bin/daymark.exe'
-if (!(Test-Path -LiteralPath $binary)) { throw "Release binary missing: $binary" }
+function Get-DaymarkReleaseExecutable([string]$BuildRoot) {
+    # MSVC/Visual Studio is multi-config; Ninja/MinGW is single-config.
+    $candidates = @('bin/Release/daymark.exe','bin/daymark.exe') |
+        ForEach-Object { Join-Path $BuildRoot $_ } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+    if (@($candidates).Count -ne 1) { throw 'Exactly one Release executable is required; missing or ambiguous build output.' }
+    return $candidates
+}
+$binary = Get-DaymarkReleaseExecutable $BuildDirectory
 if (!(Test-Path -LiteralPath "$env:DAYMARK_QT/bin/windeployqt.exe")) { throw 'windeployqt missing; set DAYMARK_QT to the Qt kit.' }
 
 $stage = Join-Path $OutputDirectory "Daymark-$Version-windows-x64"

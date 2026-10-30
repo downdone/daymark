@@ -142,6 +142,10 @@ jobs:
       - name: Test release tooling
         shell: bash
         run: python3 -m unittest discover -s build/release-tools/tests -p test_qt_sbom.py -v
+      - name: Test Windows release layout
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./build/release-tools/tests/scripts/TaggedPackagingTest.ps1
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

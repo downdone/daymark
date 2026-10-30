@@ -1,5 +1,10 @@
 # Daymark 实施进度
 
+### RELEASE-1.8.0 MSVC输出布局兼容（2026-10-30，RELATED-PASS / REMOTE-VERIFY）
+
+审查CMake的CMAKE_RUNTIME_OUTPUT_DIRECTORY与Visual Studio多配置语义，旧Windows打包器仅接受bin/daymark.exe，缺少bin/Release/daymark.exe。只调整打包器选择逻辑，恰有一个Release候选才允许，拒绝缺失、仅Debug及两个候选有歧义；不更改生成器或编译脚本。提取实际纯解析函数在临时目录验证五种布局PASS，新增SPDX5/5再次PASS，已接入Windows标签打包前。请求仍固定a7ae585，v1.8.0不移动；远端结果待核验。
+
+
 ### RELEASE-1.8.0 SPDX格式与打包恢复（2026-10-30，IN_PROGRESS）
 
 继续核对run40886709002：三平台全部构建/完整CTest/QML lint成功，均在打包失败；run40886708986三平台桌面与source-policy PASS。v1.8.0远端注释对象及a7ae585目标保持不变，Release尚无资产。Qt v6.10.2官方QtPublicSbomGenerationHelpers定义默认sbom/qtbase-6.9.0.spdx形式，QtPublicSbomOpsHelpers明确JSON为额外生成操作；现有脚本强制.spdx.json，需按真实格式适配而非删除SBOM门禁。计划统一四模块原始SPDX复制/结构校验及缺失/损坏/覆盖拒绝测试；恢复作业分开checkout工具与固定tag源码，只更新打包器、文档及显式恢复请求。编译脚本/业务/schema/tag不改动，新增打包失败可见注释；macdeployqt显式指定标签源码QML目录，Linux从实际部署的可执行文件/QML插件ldd收集Kit内传递运行库，避免固定列表遗漏QuickTemplates2/XcbQpa。
