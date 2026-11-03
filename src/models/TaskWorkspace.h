@@ -83,6 +83,8 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(QVariantList taskEditHistory READ taskEditHistory NOTIFY historyChanged)
     Q_PROPERTY(bool historyLoading READ historyLoading NOTIFY historyChanged)
     Q_PROPERTY(QVariantList notifications READ notifications NOTIFY stateChanged)
+    Q_PROPERTY(QVariantList reminderAlerts READ reminderAlerts NOTIFY reminderAlertsChanged)
+    Q_PROPERTY(int pendingReminderCount READ pendingReminderCount NOTIFY reminderAlertsChanged)
     Q_PROPERTY(QString importSummary READ importSummary NOTIFY stateChanged)
     Q_PROPERTY(int themeMode READ themeMode WRITE setThemeMode NOTIFY stateChanged)
     Q_PROPERTY(double textScale READ textScale WRITE setTextScale NOTIFY stateChanged)
@@ -236,6 +238,15 @@ public:
     Q_INVOKABLE bool requestCalendarRange(const QString& anchor);
     Q_INVOKABLE bool requestCalendarSpan(const QString& from,const QString& through);
     Q_INVOKABLE bool createTask(const QString& title);
+    Q_INVOKABLE bool createTodayTask(const QString& title);
+    Q_INVOKABLE bool canDropTodayTask(const QString& source,const QString& target) const;
+    Q_INVOKABLE bool dropTodayTask(const QString& source,const QString& target);
+    Q_INVOKABLE bool canMoveTodayTask(const QString& id,int direction) const;
+    Q_INVOKABLE bool moveTodayTask(const QString& id,int direction);
+    QVariantList reminderAlerts() const {return m_reminderAlerts.mid(0,10);}
+    int pendingReminderCount() const {return m_reminderAlerts.size();}
+    Q_INVOKABLE bool acknowledgeReminder(const QString& key,int delayMinutes=0);
+    Q_INVOKABLE QRect reminderPopupArea() const;
     Q_INVOKABLE QVariantMap listDraft() const;
     Q_INVOKABLE bool createInlineTask(const QString& title,const QString& notes,const QString& planning,const QString& start,const QString& end,bool focus,const QVariantMap& details);
     Q_INVOKABLE bool saveTask(const QString& id,qint64 version,const QString& title,const QString& notes,
@@ -280,6 +291,7 @@ signals:
     void subtaskCreated(const QString& id);
     void historyChanged();
     void reminderReady(const QString& title,const QString& message);
+    void reminderAlertsChanged();
 private:
     QVariantMap m_syncState{{"phase",QStringLiteral("GUEST")},{"status",QStringLiteral("仅存储在此设备")},{"authenticated",false},{"busy",false}};
     bool m_syncApplyPaused=false;
@@ -293,6 +305,11 @@ private:
     bool begin(bool clearFeedback=true);
     QVariantMap eventMap(const CalendarEvent& event) const;
     void refresh();
+    bool canDropInView(const QString& source,const QString& target,const QString& view) const;
+    bool dropInView(const QString& source,const QString& target,const QString& view);
+    void loadReminderPresentation();
+    void refreshReminderAlerts();
+    bool remindersDue() const;
     QList<Task> calendarSelection() const;
     bool runTask(const QString& operation,std::function<Result<Task>(TaskWorker&)> command);
     void finishTask(const QString& operation,const Result<Task>& result);
@@ -332,8 +349,11 @@ private:
     int m_historyDays=0;
     bool m_calendarCompleted=false;
     QVariantList m_taskNotifications;
+    QVariantList m_reminderCandidates,m_reminderAlerts;
+    QVariantMap m_reminderPresentation;
+    QTimer m_reminderTimer;
     QVariantMap m_viewCounts;
-    QVariantMap m_preferences{{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarPinned",false},{"desktopCalendarOpacity",90}};
+    QVariantMap m_preferences{{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"reminderPopups",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarPinned",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
     bool applyCalendarLayer(bool desktop,bool topmost);
     QPointer<QWindow> m_calendarWindow;

@@ -15,6 +15,7 @@ class Ux38SmokeProbe final {
 public:
     Ux38SmokeProbe(TaskWorkspace&,WidgetViewModel&,QQuickWindow*,QQuickWindow*,QString);
     QString advance();
+    int verificationStep() const {return m_stage;}
 private:
     QObject* find(QObject* root,const QString& name) const;
     void click(const QString& name,QObject* scope=nullptr);
@@ -29,6 +30,9 @@ private:
     QPointer<QQuickItem> m_completedRow;
     QString m_screenshot,m_task;
     QString m_shortCategory,m_longCategory;
+    QString m_actionFirst,m_actionLast,m_reminderTask;
+    QPointF m_actionTarget;
+    QPointer<QQuickItem> m_actionSource;
     int m_stage=0,m_count=0,m_dockCycle=0;
     QPointF m_dockPoint;
     double m_settingsScroll=0;
@@ -37,6 +41,7 @@ private:
     QRect m_miniMotionGeometry;
     int m_miniMotionCycle=0;
     bool m_miniMotionSampled=false,m_miniMotionValid=false,m_miniIntermediateSeen=false;
+    QMetaObject::Connection m_miniSampleConnection;
     int m_panelCycle=0;
     bool m_panelSampled=false,m_panelValid=false,m_panelPositioned=false;
     QRect m_panelGeometry;

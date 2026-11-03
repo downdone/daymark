@@ -21,15 +21,26 @@ T.Menu {
     }
     // A menu shared by Mini and the expanded widget must acquire a fresh anchor.
     property Item anchorItem: null
+    property bool pointAnchor: false
+    property point sourcePoint: Qt.point(0,0)
     readonly property var anchorWindow: anchorItem ? anchorItem.Window.window : null
     readonly property var menuWindow: contentItem ? contentItem.Window.window : null
     function anchorPosition(source) {
         const host=source.Window.window,screen=host ? host.screen : null
-        const edge=source.mapToGlobal(source.width,source.height)
+        const edge=pointAnchor ? source.mapToGlobal(sourcePoint.x,sourcePoint.y) : source.mapToGlobal(source.width,source.height)
+        if(pointAnchor){const left=screen ? Math.max(screen.virtualX+6,Math.min(edge.x,screen.virtualX+screen.width-width-6)) : edge.x;return source.mapFromGlobal(left,edge.y)}
         const left=screen ? Math.max(screen.virtualX+6,Math.min(edge.x-width,screen.virtualX+screen.width-width-6)) : edge.x-width
         return source.mapFromGlobal(left,edge.y+4)
     }
     function popupAt(source) {
+        pointAnchor=false
+        openAt(source)
+    }
+    function popupAtPoint(source,position) {
+        pointAnchor=true;sourcePoint=position
+        openAt(source)
+    }
+    function openAt(source) {
         anchorItem=source
         recordHostGeometry()
         const at=anchorPosition(source)

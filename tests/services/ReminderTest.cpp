@@ -1,5 +1,6 @@
 #include "services/TaskService.h"
 #include "services/ReminderSchedule.h"
+#include "models/ReminderPresentation.h"
 #include "persistence/SqliteDatabase.h"
 #include <QTemporaryDir>
 #include <QTimeZone>
@@ -12,6 +13,36 @@ public:QDateTime now=QDateTime(QDate(2024,3,9),QTime(12,0),QTimeZone::UTC);
 class ReminderTest:public QObject {
     Q_OBJECT
 private slots:
+    void popupPresentationPreservesRecurrenceAndExpiresSafely() {
+        ReminderClock clock;const auto now=clock.now;
+        Task task;task.id="popup";task.title="待办";task.planningState="ACTIVE";
+        task.reminderFiredAtUtc=now.toString(Qt::ISODateWithMs);task.remindAtUtc=now.addDays(1).toString(Qt::ISODateWithMs);
+        task.reminderRepeat="DAILY";task.reminderAnchorUtc=now.addDays(-2).toString(Qt::ISODateWithMs);
+        const auto anchor=task.reminderAnchorUtc;const auto next=task.remindAtUtc;
+        const QVariantMap candidate{{"taskId",task.id},{"firedAt",task.reminderFiredAtUtc},{"occurrenceAt",now.toString(Qt::ISODateWithMs)}};
+        const QVariantList candidates{candidate};QHash<QString,Task> tasks{{task.id,task}};
+        const auto key=ReminderPresentation::key(task.id,candidate.value("occurrenceAt").toString());
+        QCOMPARE(ReminderPresentation::pending(candidates,tasks,{},now).size(),1);
+        QVariantMap state{{key,QVariantMap{{"until",now.addSecs(600).toString(Qt::ISODateWithMs)}}}};
+        QVERIFY(ReminderPresentation::pending(candidates,tasks,state,now.addSecs(599)).isEmpty());
+        QCOMPARE(ReminderPresentation::pending(candidates,tasks,state,now.addSecs(600)).size(),1);
+        state[key]=QVariantMap{{"dismissed",true}};QVERIFY(ReminderPresentation::pending(candidates,tasks,state,now).isEmpty());
+        QCOMPARE(tasks[task.id].remindAtUtc,next);QCOMPARE(tasks[task.id].reminderAnchorUtc,anchor);
+        tasks[task.id].status="COMPLETED";QVERIFY(ReminderPresentation::pending(candidates,tasks,{},now).isEmpty());tasks[task.id]=task;
+        tasks[task.id].remindAtUtc.clear();QVERIFY(ReminderPresentation::pending(candidates,tasks,{},now).isEmpty());tasks[task.id]=task;
+        tasks[task.id].reminderFiredAtUtc.clear();QVERIFY(ReminderPresentation::pending(candidates,tasks,{},now).isEmpty());
+        QVERIFY(ReminderPresentation::pending(candidates,{{task.id,task}},{},now.addDays(2)).isEmpty());
+        QVERIFY(ReminderPresentation::key("ab","c")!=ReminderPresentation::key("a","bc"));
+    }
+    void pendingQueueDoesNotInheritHistoryPageLimit() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("popup-burst.sqlite")).ok());ReminderClock clock;TaskRepository repo(db.connection());TaskService service(repo,clock);
+        for(int i=0;i<55;++i){auto task=service.create(QString::number(i),"today");QVERIFY(task.ok());TaskPatch patch;patch.remindAtUtc=FieldPatch<QString>::set(clock.now.addSecs(60).toString(Qt::ISODateWithMs));QVERIFY(service.edit(task.value.id,task.value.rowVersion,patch).ok());}
+        clock.now=clock.now.addSecs(60);QCOMPARE(repo.claimDueReminders(clock.now.toString(Qt::ISODateWithMs)).value.size(),55);
+        QCOMPARE(repo.reminderHistory().value.size(),50);const auto queue=repo.reminderCandidates();QVERIFY(queue.ok());QCOMPARE(queue.value.size(),55);
+        QHash<QString,Task> index;for(const auto& task:repo.all().value)index.insert(task.id,task);
+        QCOMPARE(ReminderPresentation::pending(queue.value,index,{},clock.now).size(),55);
+        QCOMPARE(repo.claimDueReminders(clock.now.toString(Qt::ISODateWithMs)).value.size(),0);
+    }
     void unclassifiedReminderBecomesScheduledAndCanFire() {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("unclassified.sqlite")).ok());ReminderClock clock;TaskRepository repo(db.connection());TaskService service(repo,clock);const auto task=service.create("reminder without a plan");QVERIFY(task.ok());TaskPatch patch;patch.remindAtUtc=FieldPatch<QString>::set(clock.now.addSecs(60).toString(Qt::ISODateWithMs));const auto saved=service.edit(task.value.id,task.value.rowVersion,patch);QVERIFY(saved.ok());QVERIFY(QueryService::inView(saved.value,"inbox",clock.localToday()));QVERIFY(QueryService::inView(saved.value,"scheduled",clock.localToday()));QVERIFY(QueryService::inView(saved.value,"today",clock.localToday()));clock.now=clock.now.addSecs(61);QCOMPARE(repo.claimDueReminders(clock.now.toString(Qt::ISODateWithMs)).value.size(),1);
     }

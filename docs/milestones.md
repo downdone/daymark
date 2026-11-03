@@ -1,5 +1,7 @@
 # 里程碑与可执行任务队列
 
+UX-69按用户新增FR-043及[设计与评审](design/widget-task-actions-and-reminder-popup.md)推进小窗直接录入→独立Today排序/快捷菜单→本机到期弹窗及持久展示状态→临时库/真实QML/Windows原生与完整回归。保留原构建脚本与超时预算，不自动发布；状态与真实证据仅见PROGRESS。
+
 SYNC-07/UX-61按用户要求先完成[独立账号窗口设计/评审](design/account-window.md)，再迁移入口与完整账号状态；原设置账号块移除。实际实现/验证状态见PROGRESS，不以设计评审代替渲染与测试。
 
 SYNC-05按用户后续“完整实现→测试→文档/CI→推送源码”指令推进；运行代码及命令见[server](../server/README.md)、桌面适配见[实现契约](design/sync-client-implementation.md)。SYNC-02～04下列条目记录原设计顺序，不能继续解释为禁止已获授权的实现；当前完成度及平台边界仍只见PROGRESS。

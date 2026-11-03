@@ -108,6 +108,14 @@ Result<QVariantList> TaskRepository::reminderHistory() const
     QVariantList result;while(q.next())result.append(QVariantMap{{QStringLiteral("taskId"),q.value(0)},{QStringLiteral("title"),q.value(1)},{QStringLiteral("firedAt"),q.value(2)},{QStringLiteral("occurrenceAt"),q.value(3)}});return {result,{}};
 }
 
+Result<QVariantList> TaskRepository::reminderCandidates() const
+{
+    QSqlQuery q(m_db);
+    // No history-page LIMIT: bursts must remain queued, even beyond 50 records.
+    if(!q.exec(QStringLiteral("SELECT h.task_id,h.fired_at_utc,h.scheduled_at_utc FROM task_reminder_history h JOIN tasks t ON t.id=h.task_id WHERE t.status='OPEN' AND t.deleted_at_utc IS NULL AND t.remind_at_utc IS NOT NULL AND t.reminder_fired_at_utc=h.fired_at_utc ORDER BY h.fired_at_utc,h.rowid")))return Result<QVariantList>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
+    QVariantList result;while(q.next())result.append(QVariantMap{{"taskId",q.value(0)},{"firedAt",q.value(1)},{"occurrenceAt",q.value(2)}});return {result,{}};
+}
+
 Result<QVariantList> TaskRepository::editHistory(const QString& id) const
 {
     QSqlQuery query(m_db);query.prepare(QStringLiteral("SELECT edited_at_utc,fields_json FROM task_edit_history WHERE task_id=? ORDER BY edited_at_utc DESC,rowid DESC LIMIT 200"));query.addBindValue(id);

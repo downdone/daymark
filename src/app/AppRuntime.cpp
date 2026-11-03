@@ -141,7 +141,8 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             // A tick that keeps waiting on the same phase (busy worker, injected stall,
             // or a scene that never settles) is *no* progress: only a phase change
             // restamps the stall guard.
-            if(phase!=*smokeProgressPhase){*smokeProgressPhase=phase;*smokeProgress=inputClock->elapsed();}
+            const int progressPhase=phase==436 && smokeProfile==QStringLiteral("desktop") ? 1000+ux38->verificationStep() : phase;
+            if(progressPhase!=*smokeProgressPhase){*smokeProgressPhase=progressPhase;*smokeProgress=inputClock->elapsed();}
             bool stallConfigured=false;const int stall=qEnvironmentVariableIntValue("DAYMARK_SMOKE_STALL_PHASE",&stallConfigured);if(stallConfigured && phase==stall)return;
             if(m_workspace.busy())return;
             if(phase==100 || phase==106 || phase==241 || phase==405 || phase==429){

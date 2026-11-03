@@ -8,7 +8,6 @@ Window {
     id: widget
     required property WidgetViewModel controller
     required property TaskWorkspace workspace
-    signal newTaskRequested()
     signal openMainRequested()
     signal openTaskRequested(string taskId)
     signal settingsRequested()
@@ -24,6 +23,42 @@ Window {
     x: 80;y: 80;visible: false;color: "transparent"
     title: qsTr("Daymark 今日任务")
     property string taskError: ""
+    property bool addingTask: false
+    property bool addingPending: false
+    property bool taskDragging: false
+    property point taskDragPoint: Qt.point(0,0)
+    property var contextTask: ({})
+    property string taskOperation: ""
+    property bool localDeletion: false
+    function submitTask() {
+        if(addingPending || !quickTitle.text.trim().length)return
+        taskError="";addingPending=workspace.createTodayTask(quickTitle.text)
+        if(!addingPending)taskError=workspace.errorText || qsTr("暂时无法添加，请稍后重试。")
+    }
+    function openTaskMenu(id,source,position) {
+        contextTask=workspace.task(id)
+        if(!contextTask.taskId)return
+        taskMenu.popupAtPoint(source,position)
+    }
+    function taskAction(action) {
+        taskError=""
+        const id=contextTask.taskId,version=contextTask.rowVersion
+        let accepted=false
+        if(action==="pin" || action==="important" || action==="cancelReminder") {
+            const patch=action==="pin" ? {pinned:!contextTask.pinned} : action==="important" ? {important:!contextTask.important} : {remindAtUtc:"",reminderRepeat:"NONE"}
+            taskOperation="details";accepted=workspace.saveDetails(id,version,patch)
+        } else if(action==="up" || action==="down") {
+            taskOperation="reorder";accepted=workspace.moveTodayTask(id,action==="up" ? -1 : 1)
+        } else {
+            taskOperation=action;accepted=workspace.changeState(id,version,action)
+            if(accepted && action==="delete")localDeletion=true
+        }
+        if(!accepted){taskOperation="";taskError=workspace.errorText || qsTr("任务已变化，请重新打开菜单后重试。")}
+    }
+    function requestTaskDelete() {
+        if(workspace.batchImpact([{taskId:contextTask.taskId,rowVersion:contextTask.rowVersion}],"delete")>1)deleteTaskConfirmation.open()
+        else taskAction("delete")
+    }
     readonly property string errorMessage: taskError || controller.errorText
     readonly property string primaryActionName: (controller.enabledForms & 1)!==0 ? qsTr("打开任务小窗") : controller.miniCollapsed && (controller.enabledForms & 2)!==0 ? qsTr("显示 Mini 条") : qsTr("打开主窗口")
     readonly property bool reduceMotion: workspace.preferences.followSystemAccessibility ? workspace.systemAccessibility.reduceMotion : workspace.preferences.reduceMotion
@@ -42,12 +77,15 @@ Window {
     property int collapsingTransition: -1
     readonly property Control miniFocusControl: activeFocusItem as Control
     readonly property bool miniKeyboardFocus: active && (miniKeyboardInteraction || (!!miniFocusControl && [Qt.TabFocusReason,Qt.BacktabFocusReason,Qt.ShortcutFocusReason].indexOf(miniFocusControl.focusReason)>=0))
-    readonly property bool interactionPressed: ballPress.active || miniPress.active || headerPress.active || miniSummary.down || miniMore.pressed || workspace.busy || errorMessage.length>0
-    onActiveChanged: if(!active && !widgetMenu.visible)miniKeyboardInteraction=false
+    readonly property bool interactionPressed: ballPress.active || miniPress.active || headerPress.active || miniSummary.down || miniMore.pressed || workspace.busy || errorMessage.length>0 || addingTask || taskDragging
+    onActiveChanged: {
+        if(!active && !widgetMenu.visible)miniKeyboardInteraction=false
+        if(!active && addingTask && !addingPending && !quickTitle.text.length)addingTask=false
+    }
     onMiniKeyboardFocusChanged: reportInteraction()
     onInteractionPressedChanged: reportInteraction()
     onInteractingChanged: reportInteraction()
-    function reportInteraction() {controller.setInteraction(miniHover.hovered,interactionPressed || interacting,widgetMenu.visible,miniKeyboardFocus)}
+    function reportInteraction() {controller.setInteraction(miniHover.hovered,interactionPressed || interacting,widgetMenu.visible || taskMenu.visible || deleteTaskConfirmation.visible,miniKeyboardFocus)}
     function syncMiniLayout() {controller.setMiniLayout(miniBarHeight,ballDiameter)}
     function syncSurfaceSize() {
         if(controller.geometryChanging || controller.panelMotion)return
@@ -113,15 +151,22 @@ Window {
         function onStateChanged(){widget.setMiniAnimation();widget.syncSurfaceSize();Qt.callLater(widget.syncInputRegion)}
     }
     Connections {target:widget.workspace;function onStateChanged(){if(!widget.workspace.errorText.length)widget.taskError=""}}
+    Connections {
+        target:widget.workspace
+        function onOperationFinished(operation,success) {
+            if(operation==="widgetCreate" && widget.addingPending){widget.addingPending=false;if(success){quickTitle.clear();if(widget.active)quickTitle.forceActiveFocus();else widget.addingTask=false}else widget.taskError=widget.workspace.errorText}
+            if(operation===widget.taskOperation){widget.taskOperation="";if(!success)widget.taskError=widget.workspace.errorText}
+        }
+    }
     onReduceMotionChanged: if(reduceMotion && (miniAnimation.running || panelAnimation.running)){miniAnimation.stop();panelAnimation.stop();miniReveal=controller.targetBall ? 0 : 1;controller.finishTransition(collapsingTransition);syncSurfaceSize()}
     onVisibleChanged:{reportInteraction();Qt.callLater(setMiniAnimation)}
     onMiniModeChanged: {
         if(!(controller.effectiveForm===0 && controller.selectedForm!==0))miniKeyboardInteraction=false
         if(active)Qt.callLater(function(){if(widget.controller.miniCollapsed)miniBall.forceActiveFocus();else if(widget.controller.mini)miniSummary.forceActiveFocus();else if(todayList.count>0)todayList.forceActiveFocus();else addTask.forceActiveFocus()})
     }
-    function closeOrCompact() {if(widgetMenu.visible)widgetMenu.close();else if(!controller.mini)controller.returnToCompact()}
+    function closeOrCompact() {if(taskMenu.visible)taskMenu.close();else if(deleteTaskConfirmation.visible)deleteTaskConfirmation.close();else if(taskDragging){const row=todayList.currentItem as WidgetTaskRow;if(row)row.finishDrag(false)}else if(addingTask){if(!quickTitle.text.length){addingTask=false;addTask.forceActiveFocus()}}else if(widgetMenu.visible)widgetMenu.close();else if(!controller.mini)controller.returnToCompact()}
     Shortcut {sequence:"Escape";enabled:widget.active;onActivated:widget.closeOrCompact()}
-    Shortcut {sequence:"Shift+F10";enabled:widget.active;onActivated:widget.openVerificationMenu()}
+    Shortcut {sequence:"Shift+F10";enabled:widget.active;onActivated:{const row=todayList.currentItem as WidgetTaskRow;if(row && !widget.addingTask)widget.openTaskMenu(row.taskId,row,Qt.point(row.width/2,row.height/2));else widget.openVerificationMenu()}}
     function verifyMenu() {
         if(!widgetMenu.visible)return "closed"
         if(widgetMenu.verifyGrouping()!=="PASS")return widgetMenu.verifyGrouping()
@@ -159,6 +204,32 @@ Window {
     }
     function closeVerificationMenu() {widgetMenu.close()}
     DS.Menu {
+        id:taskMenu;objectName:"widgetTaskMenu";parent:widget.contentItem;popupType:Popup.Window
+        onVisibleChanged:widget.reportInteraction()
+        MenuItem {text:qsTr("任务详情");onTriggered:widget.openTaskRequested(widget.contextTask.taskId)}
+        MenuItem {objectName:"widgetTaskPin";text:widget.contextTask.pinned ? qsTr("取消置顶") : qsTr("置顶");onTriggered:widget.taskAction("pin")}
+        MenuItem {objectName:"widgetTaskImportant";text:widget.contextTask.important ? qsTr("取消特别关注") : qsTr("特别关注");onTriggered:widget.taskAction("important")}
+        DS.MenuSeparator {}
+        MenuItem {objectName:"widgetTaskUp";text:qsTr("上移");enabled:widget.workspace.canMoveTodayTask(widget.contextTask.taskId || "",-1);onTriggered:widget.taskAction("up")}
+        MenuItem {objectName:"widgetTaskDown";text:qsTr("下移");enabled:widget.workspace.canMoveTodayTask(widget.contextTask.taskId || "",1);onTriggered:widget.taskAction("down")}
+        DS.MenuSeparator {}
+        MenuItem {text:qsTr("取消提醒");visible:!!widget.contextTask.remindAtUtc;onTriggered:widget.taskAction("cancelReminder")}
+        MenuItem {objectName:"widgetTaskComplete";text:qsTr("完成任务");onTriggered:widget.taskAction("complete")}
+        DS.MenuItem {objectName:"widgetTaskDelete";text:qsTr("删除任务…");destructive:true;onTriggered:widget.requestTaskDelete()}
+    }
+    Dialog {
+        id:deleteTaskConfirmation;objectName:"widgetTaskDeleteConfirmation";parent:widget.contentItem;anchors.centerIn:parent
+        palette.window:Theme.content;palette.windowText:Theme.text;palette.text:Theme.text;palette.buttonText:Theme.text
+        title:qsTr("删除任务及其子任务？");modal:true;width:Math.min(420,widget.width-24);standardButtons:Dialog.Ok|Dialog.Cancel
+        contentItem:Label {text:qsTr("所含子任务会一起移入最近删除，可撤销本次删除。");wrapMode:Text.Wrap}
+        onVisibleChanged:widget.reportInteraction()
+        onAccepted:widget.taskAction("delete")
+    }
+    Timer {
+        interval:30;repeat:true;running:widget.taskDragging
+        onTriggered:{const at=widget.contentItem.mapToItem(todayList,widget.taskDragPoint.x,widget.taskDragPoint.y);if(at.y<32)todayList.contentY=Math.max(todayList.originY,todayList.contentY-8);else if(at.y>todayList.height-32)todayList.contentY=Math.min(Math.max(todayList.originY,todayList.originY+todayList.contentHeight-todayList.height),todayList.contentY+8)}
+    }
+    DS.Menu {
         id:widgetMenu;objectName:"widgetMenu"
         parent:widget.contentItem
         popupType:Popup.Window
@@ -191,7 +262,7 @@ Window {
         }
         return "PASS"
     }
-    Shortcut {sequences: [StandardKey.New];enabled: widget.active && !widget.controller.mini;onActivated: widget.newTaskRequested()}
+    Shortcut {sequences: [StandardKey.New];enabled: widget.active && !widget.controller.mini;onActivated:{widget.addingTask=true;quickTitle.forceActiveFocus()}}
     Control {
         anchors.fill: parent
         font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize
@@ -317,14 +388,17 @@ Window {
                         Keys.onReturnPressed: {const row=currentItem as WidgetTaskRow;if(row)widget.openTaskRequested(row.taskId)}
                         Keys.onSpacePressed: {const row=currentItem as WidgetTaskRow;if(row)row.complete()}
                         delegate: WidgetTaskRow {
-                            required property int index
                             width: todayList.width-Theme.scrollGutter
                             workspace: widget.workspace
                             reduceMotion: widget.reduceMotion
+                            dragLayer:widget.contentItem
                             highlighted: todayList.activeFocus && todayList.currentIndex===index
                             onOpenRequested: function(id){widget.openTaskRequested(id)}
                             onActionStarted:widget.taskError=""
                             onErrorReported:function(message){widget.taskError=message}
+                            onContextRequested:function(id,source,position){todayList.currentIndex=index;widget.openTaskMenu(id,source,position)}
+                            onDragStateChanged:function(active,position){if(active)todayList.currentIndex=index;widget.taskDragging=active;widget.taskDragPoint=position}
+                            onReorderStarted:widget.taskOperation="reorder"
                         }
                     }
                 }
@@ -333,8 +407,16 @@ Window {
                     id: footer
                     Layout.fillWidth: true
                     spacing: 4
-                    ActionButton {id: addTask;objectName: "widgetAdd";symbol: "plus";text: qsTr("添加任务");enabled: widget.workspace.ready && !widget.workspace.busy;onClicked: widget.newTaskRequested()}
-                    Item {Layout.fillWidth: true}
+                    ActionButton {id: addTask;objectName: "widgetAdd";Layout.fillWidth:true;Layout.minimumWidth:32;contentAlignment:Qt.AlignLeft;visible:!widget.addingTask;symbol: "plus";text: qsTr("添加任务");enabled: widget.workspace.ready && !widget.workspace.busy;onClicked:{widget.addingTask=true;quickTitle.forceActiveFocus()}}
+                    TextField {
+                        id:quickTitle;objectName:"widgetQuickTitle";Layout.fillWidth:true;Layout.minimumWidth:0;visible:widget.addingTask
+                        placeholderText:qsTr("添加到今天，Enter 保存");Accessible.name:qsTr("小窗快速添加任务")
+                        readOnly:widget.addingPending;enabled:widget.workspace.ready
+                        onAccepted:widget.submitTask()
+                        Keys.onEscapePressed:if(!text.length && !widget.addingPending){widget.addingTask=false;addTask.forceActiveFocus()}
+                    }
+                    WidgetAction {objectName:"widgetQuickSubmit";visible:widget.addingTask;symbol:"plus";description:qsTr("添加到今天");enabled:quickTitle.text.trim().length>0 && !widget.workspace.busy && !widget.addingPending;onClicked:widget.submitTask()}
+                    WidgetAction {objectName:"widgetUndoDelete";symbol:"undo";description:qsTr("撤销删除");visible:widget.localDeletion && widget.workspace.canUndo && !widget.addingTask;enabled:!widget.workspace.busy;onClicked:{widget.taskOperation="restore";if(!widget.workspace.undoDelete())widget.taskError=widget.workspace.errorText}}
                     WidgetAction {objectName: "widgetOpenMain";symbol: "window";description: qsTr("打开主窗口");onClicked: widget.openMainRequested()}
                 }
             }

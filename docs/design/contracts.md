@@ -1,5 +1,7 @@
 # 模块与行为契约
 
+UX-69接口：TaskWorkspace.createTodayTask固定Today创建；canDropTodayTask/dropTodayTask/canMoveTodayTask/moveTodayTask使用显式Today上下文并与主窗复用同一排序边界，不修改主窗视图或搜索。TaskRepository.reminderCandidates读取最新有效delivery，不使用历史页50条限制；ReminderPresentation.pending以注入UTC、任务缓存和本机展示状态生成队列。TaskWorkspace.reminderAlerts最多投影10项、pendingReminderCount保留总数；acknowledgeReminder(key,0/10)关闭或延后10分钟，QSettings同步失败保持原队列并报告settingsWrite，周期和提醒事实不修改。reminderAlertsChanged驱动独立Window，reminderPopupArea返回平台可用屏幕。详细状态、HIG和验收见[小窗操作与提醒](widget-task-actions-and-reminder-popup.md)。
+
 UI-32/FR-032新增TaskService两层关系约束，保留旧深层访问/整树恢复；子任务列表和独立详情切换及返回契约见[设计](compact-navigation-and-subtasks.md)，替代自动选首项和窄窗列表/详情同页堆叠。
 
 UI-31共享桌面表单/弹层、收集箱与五智能视图、分类来源及日历按周泳道布局见[设计](macos-desktop-language.md)；沿用UI-30的数据和操作契约，不引入新模式。

@@ -14,7 +14,7 @@ Get-FileHash './Daymark-版本-windows-x64-local-时间.zip' -Algorithm SHA256
 pwsh -NoProfile -File <源码仓库>/scripts/Test-Package.ps1 -PackageDirectory <解压目录>
 ```
 
-校验器先只读检查整个目录的清单、文件长度/SHA、版本与敏感文件，再以系统PATH运行--version及原生smoke。普通候选使用完整探针；明确标记的本地预览使用contextual-workspace探针，包内TEST-RESULTS.json保留完整CTest结果摘要，详见[ADR-024](ADR/024-local-preview-package.md)。所有业务操作使用QTemporaryDir合成库，不访问现有任务库、不建立托盘或修改启动项；会出现测试窗口。运行期间检查加载的包内DLL是否实际来自包内，至少观察Qt6Core、qwindows和qsqlite。完成后再次检查目录，任何错误非零退出。
+校验器先只读检查整个目录的清单、文件长度/SHA、版本与敏感文件，再以系统PATH运行--version及原生smoke。普通候选使用完整探针；明确标记的本地预览使用contextual-workspace探针，包内TEST-RESULTS.json保留完整CTest结果摘要，详见[ADR-024](ADR/024-local-preview-package.md)。所有业务操作使用QTemporaryDir合成库，不访问现有任务库、不建立托盘或修改启动项；会出现测试窗口。运行期间检查加载的包内DLL是否实际来自包内，至少观察Qt6Core、qwindows和qsqlite。完成后再次检查目录，任何错误非零退出。2026-11-03按用户要求，原生包探针总上限由60秒调整为120秒，给约51～54秒的完整界面链保留启动和模块审计余量；应用自身45秒无进展保护保持。该阈值调整按用户要求未重跑，历史超时不因此改记为通过。
 
 Qt DLL文件版本另行核对为6.10.2。系统可能选择Windows/System32中的D3DCompiler_47.dll代替包内副本；仅允许这一精确系统路径，记录在windowsSystemModules。Qt、MinGW、QML插件仍必须来自候选目录，任意SDK或其他目录来源均失败。
 

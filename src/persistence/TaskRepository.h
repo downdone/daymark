@@ -13,6 +13,7 @@ public:
     Result<QList<Task>> all() const;
     Result<Task> find(const QString& id) const;
     Result<QVariantList> reminderHistory() const;
+    Result<QVariantList> reminderCandidates() const;
     Result<QVariantList> editHistory(const QString& id) const;
     Result<Task> insert(Task task);
     Result<Task> update(Task task, qint64 expectedVersion,bool recordEdit=true);

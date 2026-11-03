@@ -34,7 +34,7 @@ ApplicationWindow {
     Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "scale"; value: mainWindow.taskWorkspace.textScale }
     Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "highContrast"; value: mainWindow.taskWorkspace.preferences.followSystemAccessibility ? mainWindow.taskWorkspace.systemAccessibility.highContrast : mainWindow.taskWorkspace.preferences.highContrast }
     Binding { restoreMode: Binding.RestoreNone; target: Theme; property: "compact"; value: mainWindow.taskWorkspace.preferences.compact }
-    Binding {restoreMode: Binding.RestoreNone;target: DS.DesignTokens;property: "dragActive";value: !!mainWindow.draggedTaskRow || mainWindow.catalogDragActive || calendarPanel.timelineDragging || desktopCalendar.dragging || taskWidget.interacting || inspectorDrag.pressed}
+    Binding {restoreMode: Binding.RestoreNone;target: DS.DesignTokens;property: "dragActive";value: !!mainWindow.draggedTaskRow || mainWindow.catalogDragActive || calendarPanel.timelineDragging || desktopCalendar.dragging || taskWidget.interacting || taskWidget.taskDragging || inspectorDrag.pressed}
 
     readonly property var viewCodes: ["today", "scheduled", "all", "important", "completed"]
     readonly property var viewNames: [qsTr("今天"), qsTr("计划"), qsTr("全部"), qsTr("特别关注"), qsTr("完成")]
@@ -93,7 +93,7 @@ ApplicationWindow {
     property Item editorFocusTarget: null
     property bool editorManualScroll: false
     property string editorFocusLayoutKey: ""
-    Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property: "interactionActive";value: !!mainWindow.taskPointerRow || mainWindow.catalogDragActive || calendarPanel.timelineDragging}
+    Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property: "interactionActive";value: !!mainWindow.taskPointerRow || mainWindow.catalogDragActive || calendarPanel.timelineDragging || taskWidget.taskDragging}
     Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property:"syncApplyPaused";value:mainWindow.draftDirty || mainWindow.editorSaving || (organization.visible && organization.dirty) || mainWindow.taskWorkspace.interactionActive}
     readonly property bool editingActive: editor.visible || quickEditor.editing
     readonly property bool transientMenuOpen: libraryMenu.visible || libraryCreateMenu.visible || categoryContextMenu.visible || catalogDeleteConfirm.visible || pageMenu.visible || categorySectionMenu.visible || tagSectionMenu.visible || batchContextMenu.visible || trashContextMenu.visible
@@ -1674,10 +1674,65 @@ ApplicationWindow {
         id: taskWidget
         controller: mainWindow.widgetController
         workspace: mainWindow.taskWorkspace
-        onNewTaskRequested: {mainWindow.showNormal();mainWindow.requestActivate();mainWindow.newTask("today")}
         onOpenTaskRequested:function(taskId){mainWindow.showNormal();mainWindow.requestActivate();mainWindow.openEditor(taskId)}
         onOpenMainRequested: {mainWindow.showNormal();mainWindow.requestActivate()}
         onSettingsRequested: {mainWindow.showNormal();mainWindow.requestActivate();mainWindow.openTool("settings")}
+    }
+    Window {
+        id:reminderPopup;objectName:"reminderPopup"
+        title:qsTr("Daymark 待办提醒")
+        flags:Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+        transientParent:null
+        color:Theme.content
+        readonly property var alert:mainWindow.taskWorkspace.reminderAlerts.length ? mainWindow.taskWorkspace.reminderAlerts[0] : ({})
+        readonly property rect workArea:mainWindow.taskWorkspace.reminderPopupArea()
+        property string localError:""
+        property bool completing:false
+        width:Math.min(420*Theme.scale,workArea.width-24)
+        height:Math.min(reminderBody.implicitHeight+24,workArea.height-24)
+        x:workArea.x+workArea.width-width-12;y:workArea.y+workArea.height-height-12
+        visible:mainWindow.taskWorkspace.pendingReminderCount>0
+        onAlertChanged:localError=""
+        function dismiss(delay){if(!mainWindow.taskWorkspace.acknowledgeReminder(alert.key || "",delay))localError=mainWindow.taskWorkspace.errorText || qsTr("未能保存，请重试。")}
+        onClosing:function(close){close.accepted=false;dismiss(0)}
+        Shortcut {sequence:"Escape";enabled:reminderPopup.active;onActivated:reminderPopup.dismiss(0)}
+        Connections {
+            target:mainWindow.taskWorkspace
+            function onOperationFinished(operation,success){if(operation==="complete" && reminderPopup.completing){reminderPopup.completing=false;if(!success)reminderPopup.localError=mainWindow.taskWorkspace.errorText}}
+        }
+        Rectangle {anchors.fill:parent;color:"transparent";border.color:Theme.separator;border.width:1;radius:Theme.panelRadius}
+        Control {
+            anchors.fill:parent;padding:12
+            palette.window:Theme.content;palette.windowText:Theme.text;palette.text:Theme.text
+            palette.button:Theme.sidebar;palette.buttonText:Theme.text;palette.highlight:Theme.accent
+            contentItem:ScrollView {
+            contentWidth:availableWidth;clip:true
+            ColumnLayout {
+                id:reminderBody;width:parent.width;spacing:Theme.fieldGap
+                RowLayout {
+                    Layout.fillWidth:true
+                    AppIcon {name:"bell";ink:Theme.accent}
+                    Label {Layout.fillWidth:true;text:qsTr("待办提醒");font.pixelSize:Theme.sectionSize}
+                    Label {text:mainWindow.taskWorkspace.pendingReminderCount>1 ? qsTr("还有 %1 项").arg(mainWindow.taskWorkspace.pendingReminderCount-1) : "";color:Theme.secondary}
+                }
+                Label {objectName:"reminderPopupTitle";Layout.fillWidth:true;text:reminderPopup.alert.title || "";textFormat:Text.PlainText;font.pixelSize:Theme.listTitleSize;wrapMode:Text.Wrap;Accessible.name:text}
+                Label {Layout.fillWidth:true;text:mainWindow.taskWorkspace.localReminder(reminderPopup.alert.occurrenceAt || "");color:Theme.secondary;font.pixelSize:Theme.captionSize;wrapMode:Text.Wrap}
+                Label {Layout.fillWidth:true;visible:reminderPopup.localError.length>0;text:reminderPopup.localError;color:Theme.danger;wrapMode:Text.Wrap;Accessible.name:text}
+                RowLayout {
+                    Layout.fillWidth:true;spacing:4
+                    Button {flat:true;objectName:"reminderPopupOpen";text:qsTr("查看");onClicked:{mainWindow.showNormal();mainWindow.requestActivate();mainWindow.openEditor(reminderPopup.alert.taskId)}}
+                    Item {Layout.fillWidth:true}
+                    Button {flat:true;objectName:"reminderPopupComplete";text:qsTr("完成");enabled:!mainWindow.taskWorkspace.busy && !reminderPopup.completing;onClicked:{reminderPopup.localError="";reminderPopup.completing=mainWindow.taskWorkspace.changeState(reminderPopup.alert.taskId,reminderPopup.alert.rowVersion,"complete");if(!reminderPopup.completing)reminderPopup.localError=mainWindow.taskWorkspace.errorText || qsTr("任务已变化，请重试。")}}
+                }
+                RowLayout {
+                    Layout.fillWidth:true;spacing:4
+                    Button {flat:true;objectName:"reminderPopupDismiss";text:qsTr("关闭");onClicked:reminderPopup.dismiss(0)}
+                    Item {Layout.fillWidth:true}
+                    Button {flat:true;objectName:"reminderPopupSnooze";text:qsTr("延后10分钟");onClicked:reminderPopup.dismiss(10)}
+                }
+            }
+            }
+        }
     }
     StyleGallery {id: styleGallery;parent: Overlay.overlay;anchors.centerIn: parent}
     Connections {target: mainWindow.taskWorkspace.tasks;function onCountChanged(){taskSelection.prune()}}

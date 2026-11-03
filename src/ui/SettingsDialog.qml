@@ -214,7 +214,8 @@ ApplicationWindow {
                     Label {visible:root.startupController.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.startupController.errorText}
                     SettingsGroup {
                         heading:qsTr("提醒")
-                        detail:qsTr("应用运行时检查提醒；系统通知取决于权限，触发记录保留在本机。")
+                        detail:qsTr("应用运行时显示到期弹窗，可完成或延后；系统通知另受系统权限控制。")
+                        SettingsToggle {objectName:"reminderPopupsPreference";text:qsTr("到期弹窗");checked:root.workspace.preferences.reminderPopups;onClicked:root.workspace.setPreference("reminderPopups",checked)}
                         SettingsToggle {separator:false;id:systemReminders;objectName:"systemRemindersPreference";text:qsTr("系统通知");checked:root.workspace.preferences.systemReminders;onClicked:root.workspace.setPreference("systemReminders",checked)}
                     }
                     SettingsGroup {

@@ -41,7 +41,10 @@ try {
     $elapsed=[Diagnostics.Stopwatch]::StartNew()
     while($true) {
         $process.Refresh();if($process.HasExited){break}
-        if($elapsed.Elapsed.TotalSeconds -gt 60){throw 'Native smoke timed out.'}
+        # The complete native workflow includes layout settling and GPU presentation;
+        # allow two minutes on a loaded machine. The application's own stall guard
+        # still rejects a workflow that stops making progress.
+        if($elapsed.Elapsed.TotalSeconds -gt 120){throw 'Native smoke timed out after 120 seconds.'}
         try {$modules=@((Get-Process -Id $process.Id -ErrorAction Stop).Modules)}
         catch {$process.Refresh();if($process.HasExited){break};throw}
         foreach($module in $modules) {

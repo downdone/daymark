@@ -2,11 +2,13 @@
 #include "../support/WorkspaceWait.h"
 #include "persistence/SqliteDatabase.h"
 #include "persistence/TaskRepository.h"
+#include "services/TaskService.h"
 #include <QAbstractItemModelTester>
 #include <QTemporaryDir>
 #include <QtTest>
 #include <QSqlQuery>
 #include <QElapsedTimer>
+#include <QSettings>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -20,6 +22,45 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void widgetCommandsUseTodayWithoutChangingMainContext() {
+        QTemporaryDir dir;const auto path=dir.filePath("widget-today.sqlite");TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));
+        w.setView("all");w.setSearch("not matching widget tasks");w.setTagFilter("missing");
+        for(int i=0;i<3;++i){QVERIFY(w.createTodayTask(QStringLiteral("widget %1").arg(i)));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(w.errorText().isEmpty());}
+        QCOMPARE(w.view(),QStringLiteral("all"));QCOMPARE(w.tasks()->rowCount(),0);QCOMPARE(w.todayTasks()->rowCount(),3);
+        const auto first=w.todayTasks()->taskIdAt(0),last=w.todayTasks()->taskIdAt(2);
+        QVERIFY(!w.canDropTask(last,first));QVERIFY(w.canDropTodayTask(last,first));QVERIFY(w.dropTodayTask(last,first));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(w.errorText().isEmpty());QCOMPARE(w.todayTasks()->taskIdAt(0),last);
+        QVERIFY(!w.canMoveTodayTask(last,-1));QVERIFY(w.moveTodayTask(last,1));QVERIFY(daymark::test::awaitIdle(w));
+        const auto order=w.todayTasks()->selectionEntries(0,2);w.reload();QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.todayTasks()->selectionEntries(0,2),order);QCOMPARE(w.view(),QStringLiteral("all"));QCOMPARE(w.tasks()->rowCount(),0);
+        QVERIFY(w.saveDetails(last,w.task(last).value("rowVersion").toLongLong(),{{"pinned",true}}));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(!w.canDropTodayTask(last,first));
+        const auto before=w.todayTasks()->selectionEntries(0,2);QVERIFY(!w.dropTodayTask(last,first));QCOMPARE(w.todayTasks()->selectionEntries(0,2),before);
+        const auto second=w.todayTasks()->taskIdAt(2);
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());TaskRepository repo(db.connection());auto stale=repo.find(second).value;stale.notes="concurrent edit";QVERIFY(repo.update(stale,stale.rowVersion).ok());}
+        QVERIFY(w.dropTodayTask(second,first));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(!w.errorText().isEmpty());
+        QCOMPARE(w.task(second).value("notes").toString(),QStringLiteral("concurrent edit"));QCOMPARE(w.todayTasks()->taskIdAt(2),second);
+    }
+    void reminderPopupDismissAndSnoozeSurviveRestartWithoutChangingTask() {
+        QTemporaryDir dir;const auto path=dir.filePath("popup.sqlite");QString recurring,key;Task original;
+        struct Clock: IClock {QDateTime now=QDateTime::currentDateTimeUtc().addSecs(-120);QDate localToday() const override{return now.toLocalTime().date();}QDateTime nowUtc() const override{return now;}} clock;
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());TaskRepository repo(db.connection());TaskService service(repo,clock);
+            for(int i=0;i<2;++i){const auto task=service.create(QString::number(i),"today");QVERIFY(task.ok());TaskPatch patch;patch.remindAtUtc=FieldPatch<QString>::set(clock.now.addSecs(60+i).toString(Qt::ISODateWithMs));if(i==1)patch.reminderRepeat=FieldPatch<QString>::set("DAILY");const auto saved=service.edit(task.value.id,task.value.rowVersion,patch);QVERIFY(saved.ok());if(i==1)recurring=task.value.id;}}
+        {TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.pendingReminderCount(),2);QCOMPARE(w.reminderAlerts().size(),2);
+            const auto closed=w.reminderAlerts().first().toMap().value("key").toString();QVERIFY(w.acknowledgeReminder(closed));QCOMPARE(w.pendingReminderCount(),1);key=w.reminderAlerts().first().toMap().value("key").toString();QVERIFY(w.acknowledgeReminder(key,10));QCOMPARE(w.pendingReminderCount(),0);QVERIFY(!w.acknowledgeReminder(key,3));}
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());TaskRepository repo(db.connection());original=repo.find(recurring).value;QCOMPARE(original.reminderRepeat,QStringLiteral("DAILY"));QVERIFY(QDateTime::fromString(original.remindAtUtc,Qt::ISODateWithMs)>QDateTime::currentDateTimeUtc());}
+        {TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.pendingReminderCount(),0);}
+        {QSettings settings(path+".reminders.ini",QSettings::IniFormat);auto states=settings.value("presentation").toMap();auto saved=states.value(key).toMap();saved["until"]=QDateTime::currentDateTimeUtc().addSecs(-1).toString(Qt::ISODateWithMs);states[key]=saved;settings.setValue("presentation",states);settings.sync();QCOMPARE(settings.status(),QSettings::NoError);}
+        {TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.pendingReminderCount(),1);QCOMPARE(w.reminderAlerts().first().toMap().value("taskId").toString(),recurring);QCOMPARE(w.task(recurring).value("remindAtUtc").toString(),original.remindAtUtc);
+            QVERIFY(w.setPreference("reminderPopups",false));QCOMPARE(w.pendingReminderCount(),0);QVERIFY(w.setPreference("reminderPopups",true));QCOMPARE(w.pendingReminderCount(),1);
+            QVERIFY(w.changeState(recurring,w.task(recurring).value("rowVersion").toLongLong(),"complete"));QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.pendingReminderCount(),0);}
+    }
+    void reminderPresentationWriteFailureKeepsAlertAndProfileSwitchHidesIt() {
+        QTemporaryDir dir;const auto path=dir.filePath("popup-failure.sqlite");
+        struct Clock:IClock {QDateTime now=QDateTime::currentDateTimeUtc().addSecs(-120);QDate localToday() const override{return now.toLocalTime().date();}QDateTime nowUtc() const override{return now;}} clock;
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());TaskRepository repo(db.connection());TaskService service(repo,clock);const auto task=service.create("write failure","today");QVERIFY(task.ok());TaskPatch patch;patch.remindAtUtc=FieldPatch<QString>::set(clock.now.addSecs(60).toString(Qt::ISODateWithMs));QVERIFY(service.edit(task.value.id,task.value.rowVersion,patch).ok());}
+        QVERIFY(QDir().mkdir(path+".reminders.ini"));
+        TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.pendingReminderCount(),1);
+        QVERIFY(!w.acknowledgeReminder(w.reminderAlerts().first().toMap().value("key").toString(),10));QCOMPARE(w.pendingReminderCount(),1);QVERIFY(!w.errorText().isEmpty());
+        bool switched=false;w.switchSyncDatabase(dir.filePath("other.sqlite"),[&](Result<void> result){switched=result.ok();});QCOMPARE(w.pendingReminderCount(),0);QVERIFY(daymark::test::awaitIdle(w));QVERIFY(switched);QCOMPARE(w.pendingReminderCount(),0);
+    }
     void accountSyncRealServer() {
         if(qEnvironmentVariableIsEmpty("DAYMARK_SYNC_E2E_URL"))QSKIP("Run the Go TestQtDesktopEndToEnd harness with DAYMARK_QT_SYNC_TEST_EXE pointing to this target");
         QCOMPARE(daymark::test::sync_account::run(),0);

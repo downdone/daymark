@@ -31,6 +31,7 @@ Ux38SmokeProbe::Ux38SmokeProbe(TaskWorkspace& workspace,WidgetViewModel& control
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="panel-motion")m_stage=180;
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="popup-layer")m_stage=190;
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="sidebar-footer")m_stage=200;
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="widget-actions")m_stage=220;
         m_wait.start();
     }
 QObject* Ux38SmokeProbe::find(QObject* root,const QString& name) const {
@@ -86,6 +87,9 @@ bool Ux38SmokeProbe::layout() const {
     return result=="PASS";
 }
 QString Ux38SmokeProbe::advance() {
+    // The runtime may call again while finishing pending delegate incubation.
+    // A completed fixture must not re-run its final actions or assertions.
+    if(m_stage==242)return "DONE";
     auto hint=[](QObject* target){QVariant result;if(target)QMetaObject::invokeMethod(target,"hintForVerification",Q_RETURN_ARG(QVariant,result));return result.toMap();};
     auto checkSidebar=[&]{
         if(m_main->property("menuBar").value<QObject*>())return false;
@@ -536,18 +540,23 @@ QString Ux38SmokeProbe::advance() {
         m_miniMotionGeometry=QRect(m_widgetModeGeometry.topLeft(),QSize(m_controller.miniWidth(),m_widget->property("miniBarHeight").toInt()));
         m_miniMotionSampled=false;m_miniMotionValid=false;
         hover(m_widget,"widgetMiniBall");
-        // The pointer must dwell for 150ms before the reveal begins.
-        QTimer::singleShot(210,m_widget,[this]{
+          // Sample an actual animation frame. A wall timer can fire before the
+          // 150ms hover dwell has been processed on a loaded rendering runner.
+          QObject::disconnect(m_miniSampleConnection);
+          m_miniSampleConnection=QObject::connect(m_widget,&QQuickWindow::afterAnimating,m_widget,[this]{
             const double progress=m_widget->property("miniReveal").toDouble();
+              if(progress<=0.05 || progress>=0.95)return;
+              QObject::disconnect(m_miniSampleConnection);
             m_miniMotionValid=m_widget->geometry()==m_miniMotionGeometry;
             m_miniIntermediateSeen=m_miniIntermediateSeen || (progress>0 && progress<1);
             qInfo()<<"Mini animation sample"<<m_miniMotionCycle<<progress<<m_widget->geometry();
-            m_miniMotionValid=m_miniMotionValid && capture(m_widget,QStringLiteral("mini-opening-mid-%1").arg(m_miniMotionCycle));
+              capturePanelFrame(QStringLiteral("mini-opening-mid-%1").arg(m_miniMotionCycle));
             m_miniMotionSampled=true;
         });
     }
     if(m_stage==135){
-        if(!m_miniMotionSampled || m_widget->property("miniTransitionRunning").toBool()){if(m_wait.elapsed()<1500)return {};return fail("mini animation completes in bounded time");}
+          if(!m_miniMotionSampled || m_panelCaptures || m_widget->property("miniTransitionRunning").toBool()){if(m_wait.elapsed()<1500)return {};return fail("mini animation completes in bounded time");}
+          if(m_panelCaptureFailed)return fail("mini animation frame capture");
         if(!m_miniMotionValid || m_widget->geometry()!=m_miniMotionGeometry || !layout())return fail("animation keeps canonical native size and anchor");
         if(++m_miniMotionCycle<4){
             if(m_miniMotionCycle==2){m_workspace.setTextScale(2);m_workspace.setThemeMode(2);}
@@ -870,7 +879,99 @@ QString Ux38SmokeProbe::advance() {
         m_workspace.setSyncState(m_accountDisplayState);
         if(find(m_main,"accountEntry")->property("text")!=QStringLiteral("登录"))return fail("signed-out account profile does not present its cached name as logged in");
         m_workspace.setSyncState(m_footerSyncState);
-        QMetaObject::invokeMethod(m_main,"changeView",Q_ARG(QVariant,QVariant("inbox")));return "DONE";
+        QMetaObject::invokeMethod(m_main,"changeView",Q_ARG(QVariant,QVariant("inbox")));if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="sidebar-footer")return "DONE";m_stage=219;
+    }
+    if(m_stage==220){
+        m_workspace.setPreference("desktopCalendarVisible",true);
+        m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
+        for(int form=0;form<3;++form)m_controller.setFormEnabled(form,true);m_controller.setVisible(true);m_controller.selectForm(0);m_widget->resize(420,400);
+        if(QGuiApplication::platformName()!=QStringLiteral("offscreen")){m_widget->hide();m_widget->show();}
+        const auto selection=m_workspace.todayTasks()->selectionEntries(0,m_workspace.todayTasks()->rowCount()-1);if(!selection.isEmpty())m_workspace.batchTasks(selection,"delete","");
+    }
+    if(m_stage==221){m_workspace.setView("all");m_workspace.setSearch("no results for widget quick input");m_main->hide();m_widget->requestActivate();click("widgetAdd");}
+    if(m_stage>=222 && m_stage<=224){
+        auto* title=find(m_widget,"widgetQuickTitle");if(!title || !title->property("visible").toBool() || m_main->isVisible())return fail("quick entry stays in widget with hidden main");
+        if(m_stage>222 && !title->property("text").toString().isEmpty())return fail("successful creation clears only widget input");
+        if(m_stage==224 && !capture(m_widget,"widget-quick-entry-light"))return fail("inline widget entry capture");
+        title->setProperty("text",QStringLiteral("小窗直接任务 %1").arg(m_stage-221));QMetaObject::invokeMethod(title,"accepted");
+    }
+    if(m_stage==225){
+        if(m_workspace.todayTasks()->rowCount()!=3 || m_workspace.view()!="all" || m_workspace.tasks()->rowCount()!=0 || m_main->isVisible())return fail("widget creation is independent of main scope and search");
+        m_actionFirst=m_workspace.todayTasks()->taskIdAt(0);m_actionLast=m_workspace.todayTasks()->taskIdAt(2);
+        auto* title=qobject_cast<QQuickItem*>(find(m_widget,"widgetQuickTitle"));title->forceActiveFocus();QKeyEvent escape(QEvent::KeyPress,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(title,&escape);
+        auto* gesture=qobject_cast<QQuickItem*>(find(m_widget,"widgetTaskGesture-"+m_actionFirst));const auto at=gesture->mapToScene(QPointF(gesture->width()/2,gesture->height()/2));
+        for(auto type:{QEvent::MouseButtonPress,QEvent::MouseButtonRelease}){QMouseEvent event(type,at,m_widget->mapToGlobal(at),Qt::RightButton,type==QEvent::MouseButtonPress?Qt::RightButton:Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(m_widget,&event);}
+    }
+    if(m_stage==226){
+        if(!find(m_widget,"widgetTaskMenu")->property("visible").toBool())return fail("widget right click opens task menu");
+        auto* menu=find(m_widget,"widgetTaskMenu");auto* content=qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>());if(!content || content->window()==m_widget || !(content->window()->flags() & Qt::WindowStaysOnTopHint))return fail("task menu uses opaque independent topmost window");
+        if(!capture(content->window(),"widget-task-menu-light"))return fail("task context menu capture");
+        click("widgetTaskPin",menu);
+    }
+    if(m_stage==227){if(!m_workspace.task(m_actionFirst).value("pinned").toBool() || m_main->isVisible())return fail("task menu pin persists without opening main");m_workspace.saveDetails(m_actionFirst,m_workspace.task(m_actionFirst).value("rowVersion").toLongLong(),{{"pinned",false}});}
+    if(m_stage==228){
+        m_actionSource=qobject_cast<QQuickItem*>(find(m_widget,"widgetTaskGesture-"+m_actionLast));auto* target=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_actionFirst));if(!m_actionSource || !target)return fail("drag source and target visible");
+        const auto from=m_actionSource->mapToScene(QPointF(m_actionSource->width()/2,m_actionSource->height()/2));m_actionTarget=target->mapToScene(QPointF(target->width()/2,target->height()/2));
+        QMouseEvent press(QEvent::MouseButtonPress,from,m_widget->mapToGlobal(from),Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(m_widget,&press);
+        QMouseEvent move(QEvent::MouseMove,m_actionTarget,m_widget->mapToGlobal(m_actionTarget),Qt::NoButton,Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(m_widget,&move);
+    }
+    if(m_stage==229){
+        if(!m_workspace.interactionActive() || !m_workspace.syncApplyPaused())return fail("widget drag defers background sync apply");
+        QMouseEvent release(QEvent::MouseButtonRelease,m_actionTarget,m_widget->mapToGlobal(m_actionTarget),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(m_widget,&release);
+    }
+    if(m_stage==230){
+        if(m_workspace.todayTasks()->taskIdAt(0)!=m_actionLast || m_main->isVisible())return fail("real widget drag commits Today ordering");
+        auto* row=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_actionLast));row->forceActiveFocus();QKeyEvent key(QEvent::KeyPress,Qt::Key_Menu,Qt::NoModifier);QCoreApplication::sendEvent(row,&key);
+    }
+    if(m_stage==231){if(!find(m_widget,"widgetTaskMenu")->property("visible").toBool())return fail("keyboard task context");click("widgetTaskDelete",find(m_widget,"widgetTaskMenu"));}
+    if(m_stage==232){
+        if(m_workspace.todayTasks()->rowCount()!=2 || !find(m_widget,"widgetUndoDelete")->property("visible").toBool())return fail("widget soft deletion offers undo");click("widgetUndoDelete");
+    }
+    if(m_stage==233){
+        if(m_workspace.todayTasks()->rowCount()!=3)return fail("widget deletion restores exact task");
+        m_reminderTask=m_actionFirst;m_workspace.setPreference("systemReminders",false);m_workspace.setPreference("reminderPopups",true);
+        const auto at=QDateTime::currentDateTimeUtc().addSecs(2).toString(Qt::ISODateWithMs);m_workspace.saveDetails(m_reminderTask,m_workspace.task(m_reminderTask).value("rowVersion").toLongLong(),{{"remindAtUtc",at}});
+        m_workspace.setInteractionActive(true); // Editing must not indefinitely suppress due alerts.
+    }
+    if(m_stage==234){
+        if(m_workspace.pendingReminderCount()==0){if(m_wait.elapsed()<6000)return {};return fail("due reminder appears while main hidden and interaction active");}
+        auto* popup=qobject_cast<QQuickWindow*>(find(m_main,"reminderPopup"));if(!popup || !popup->isVisible() || m_main->isVisible() || !(popup->flags() & Qt::WindowStaysOnTopHint))return fail("independent topmost reminder popup");
+        if(QGuiApplication::platformName()!=QStringLiteral("offscreen") && popup->isActive())return fail("reminder must not steal keyboard focus");
+        if(QGuiApplication::platformName()!=QStringLiteral("offscreen") && !nativeWindowLayerMatches(popup,WindowLayer::Topmost))return fail("reminder native topmost style");
+        if(!capture(popup,"reminder-popup-light"))return fail("reminder popup capture");
+        m_workspace.setInteractionActive(false);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);
+    }
+    if(m_stage==235){
+        auto* popup=qobject_cast<QQuickWindow*>(find(m_main,"reminderPopup"));auto* action=qobject_cast<QQuickItem*>(find(popup,"reminderPopupSnooze"));if(!action || !action->isVisible() || action->mapToScene(QPointF(action->width(),action->height())).y()>popup->height())return fail("reminder controls remain reachable at 200 percent");
+        const auto text=find(popup,"reminderPopupTitle")->property("color").value<QColor>();
+        for(const QString name:{"reminderPopupOpen","reminderPopupComplete","reminderPopupDismiss","reminderPopupSnooze"}){auto* button=find(popup,name);auto* label=button->property("contentItem").value<QObject*>();if(!label || label->property("color").value<QColor>()!=text)return fail("reminder action palette must follow dark text theme");}
+        if(!capture(popup,"reminder-popup-dark-200"))return fail("large reminder capture");
+        click("reminderPopupSnooze",popup);
+    }
+    if(m_stage==236){
+        if(m_workspace.pendingReminderCount()!=0 || find(m_main,"reminderPopup")->property("visible").toBool() || m_workspace.task(m_reminderTask).value("taskStatus")!="OPEN")return fail("snooze hides presentation without completing task");
+        m_workspace.saveDetails(m_actionLast,m_workspace.task(m_actionLast).value("rowVersion").toLongLong(),{{"remindAtUtc",QDateTime::currentDateTimeUtc().addSecs(1).toString(Qt::ISODateWithMs)}});
+    }
+    if(m_stage==237){
+        if(m_workspace.pendingReminderCount()==0){if(m_wait.elapsed()<5000)return {};return fail("second queued reminder");}
+        click("reminderPopupDismiss",find(m_main,"reminderPopup"));
+    }
+    if(m_stage==238){
+        if(m_workspace.pendingReminderCount()!=0 || m_workspace.task(m_actionLast).value("taskStatus")!="OPEN")return fail("popup close does not complete task");
+        for(const auto& task:m_workspace.todayTasks()->items())if(task.id!=m_actionFirst && task.id!=m_actionLast)m_task=task.id;
+        m_workspace.saveDetails(m_task,m_workspace.task(m_task).value("rowVersion").toLongLong(),{{"remindAtUtc",QDateTime::currentDateTimeUtc().addSecs(1).toString(Qt::ISODateWithMs)}});
+    }
+    if(m_stage==239){
+        if(m_workspace.pendingReminderCount()==0){if(m_wait.elapsed()<5000)return {};return fail("third queued reminder");}
+        click("reminderPopupComplete",find(m_main,"reminderPopup"));
+    }
+    if(m_stage==240){
+        if(m_workspace.pendingReminderCount()!=0 || m_workspace.task(m_task).value("taskStatus")!="COMPLETED")return fail("popup complete persists task completion and dismisses delivery");
+        m_widget->resize(340,440);click("widgetAdd");
+    }
+    if(m_stage==241){
+        auto* title=qobject_cast<QQuickItem*>(find(m_widget,"widgetQuickTitle"));if(!title || !title->isVisible() || title->width()<80 || !layout() || !capture(m_widget,"widget-quick-entry-dark-200"))return fail("large text widget quick entry layout");
+        m_widget->setProperty("addingTask",false);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_main->show();m_workspace.setSearch("");m_workspace.setView("today");m_stage=242;return "DONE";
     }
     if(m_stage==137){
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);

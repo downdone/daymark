@@ -3,7 +3,7 @@ import QtQuick.Templates as T
 T.ToolTip {
     id: control
     property bool contextualFeedback: false
-    readonly property bool fitsOutsideSource: !hostWindow || implicitHeight<=Math.max(sourceOrigin.y-8,hostWindow.height-sourceOrigin.y-(parent ? parent.height : 0)-8)
+    readonly property bool fitsOutsideSource: !hostWindow || implicitHeight<=Math.max(sourceOrigin.y-8,(hostWindow?.height || 0)-sourceOrigin.y-(parent?.height || 0)-8)
     readonly property bool blocked: DesignTokens.activeMenus>0 || (!contextualFeedback && (DesignTokens.dragActive || !fitsOutsideSource))
     onAboutToShow: if(blocked)close()
     onBlockedChanged: if(blocked)close()
@@ -11,8 +11,16 @@ T.ToolTip {
     timeout: DesignTokens.hintTimeout
     readonly property var hostWindow: parent ? parent.Window.window : null
     readonly property point sourceOrigin: parent && hostWindow ? parent.mapToItem(hostWindow.contentItem,0,0) : Qt.point(0,0)
-    x: hostWindow ? Math.max(8-sourceOrigin.x,Math.min((parent.width-width)/2,hostWindow.width-8-sourceOrigin.x-width)) : 0
-    y: sourceOrigin.y>=height+8 ? -height-8 : (parent ? parent.height+8 : 8)
+    x: {
+        const source=parent,host=hostWindow
+        if(!source || !host)return 0
+        return Math.max(8-sourceOrigin.x,Math.min((source.width-width)/2,host.width-8-sourceOrigin.x-width))
+    }
+    y: {
+        const source=parent
+        if(!source)return 8
+        return sourceOrigin.y>=height+8 ? -height-8 : source.height+8
+    }
     modal: false
     focus: false
     enabled: false

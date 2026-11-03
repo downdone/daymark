@@ -2,10 +2,12 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import DaymarkStyle as DS
 
 ItemDelegate {
     id: row
     required property TaskWorkspace workspace
+    required property int index
     required property string taskId
     required property string title
     required property real rowVersion
@@ -14,12 +16,25 @@ ItemDelegate {
     required property int subtaskTotal
     required property bool isOverdue
     required property bool important
+    required property bool pinned
+    property Item dragLayer
+    property bool dragging: false
+    property point dragPosition: Qt.point(0,0)
     property bool reduceMotion: false
     property bool completing: false
     property bool removing: false
     signal openRequested(string id)
     signal actionStarted()
     signal errorReported(string message)
+    signal contextRequested(string id,Item source,point position)
+    signal dragStateChanged(bool active,point position)
+    signal reorderStarted()
+    Component.onDestruction: if(dragging)dragStateChanged(false,Qt.point(0,0))
+    function finishDrag(commit) {
+        if(!dragging)return
+        if(commit)dragProxy.Drag.drop();else dragProxy.Drag.cancel()
+        dragging=false;dragProxy.parent=row;dragStateChanged(false,Qt.point(0,0))
+    }
     objectName: "widgetTask-"+taskId
     readonly property string summary: [parentTitle, arrangementSummary].filter(value => value.length>0).join(" · ")
     function complete() {
@@ -55,6 +70,46 @@ ItemDelegate {
     Accessible.name: title+(summary.length ? ", "+summary : "")
     onClicked: openRequested(taskId)
     Keys.onSpacePressed: complete()
+    Keys.onEscapePressed: function(event){if(dragging)finishDrag(false);else event.accepted=false}
+    Keys.onPressed: function(event){if(event.key===Qt.Key_Menu || (event.key===Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))){contextRequested(taskId,row,Qt.point(width/2,height/2));event.accepted=true}}
+    TaskDragGesture {
+        objectName: "widgetTaskGesture-"+row.taskId
+        anchors.leftMargin: 36
+        enabled: row.workspace.ready && !row.workspace.busy
+        entry: ({taskId:row.taskId})
+        dragDistance: row.workspace.dragDistance
+        onActivated: row.openRequested(row.taskId)
+        onContextRequested: function(position){row.forceActiveFocus();row.contextRequested(row.taskId,row,mapToItem(row,position.x,position.y))}
+        onDragStarted: function(entry,source,origin){
+            row.forceActiveFocus();row.dragging=true;dragProxy.parent=row.dragLayer || row
+            const at=source.mapToItem(dragProxy.parent,origin.x,origin.y);dragProxy.x=at.x-12;dragProxy.y=at.y-row.height/2
+            row.dragStateChanged(true,source.mapToItem(row.dragLayer || row,origin.x,origin.y))
+        }
+        onDragMoved: function(source,position){
+            if(!row.dragging)return
+            const at=source.mapToItem(dragProxy.parent,position.x,position.y);dragProxy.x=at.x-12;dragProxy.y=at.y-row.height/2
+            row.dragStateChanged(true,at)
+        }
+        onDragEnded: function(commit){row.finishDrag(commit)}
+    }
+    Item {
+        id: dragProxy;z:1000;width:row.width;height:row.height
+        Drag.active:row.dragging;Drag.source:row;Drag.keys:["daymark-widget-task"];Drag.hotSpot.x:12;Drag.hotSpot.y:row.height/2;Drag.supportedActions:Qt.MoveAction
+        Rectangle {
+            anchors.fill:parent;visible:row.dragging;color:Theme.content;radius:Theme.rowRadius;border.color:Theme.accent
+            Label {anchors.fill:parent;anchors.margins:8;text:row.title;textFormat:Text.PlainText;elide:Text.ElideRight;verticalAlignment:Text.AlignVCenter}
+        }
+    }
+    DropArea {
+        id:dropZone;anchors.fill:parent;keys:["daymark-widget-task"]
+        property bool allowed:false
+        readonly property WidgetTaskRow sourceTask:drag.source as WidgetTaskRow
+        onEntered:function(drag){const source=drag.source as WidgetTaskRow;allowed=!!source && row.workspace.canDropTodayTask(source.taskId,row.taskId)}
+        onExited:allowed=false
+        onDropped:function(drop){const source=drop.source as WidgetTaskRow;if(source && row.workspace.canDropTodayTask(source.taskId,row.taskId)){row.actionStarted();if(row.workspace.dropTodayTask(source.taskId,row.taskId)){row.reorderStarted();drop.acceptProposedAction()}else row.errorReported(row.workspace.errorText)}allowed=false}
+    }
+    Rectangle {x:0;y:dropZone.sourceTask && dropZone.sourceTask.index>row.index ? 0 : row.height-2;width:row.width;height:2;color:Theme.accent;visible:dropZone.containsDrag && dropZone.allowed}
+    DS.ToolTip {contextualFeedback:true;delay:0;timeout:-1;visible:dropZone.containsDrag && !dropZone.allowed && !!dropZone.sourceTask;text:qsTr("只能在同父任务、同置顶组内排序；具体时段请在日历调整。")}
     contentItem: RowLayout {
         id: body
         spacing: 4
@@ -99,6 +154,7 @@ ItemDelegate {
                     elide: Text.ElideRight
                 }
                 AppIcon {visible: row.important;name: "flag";ink: Theme.accent;Layout.preferredWidth: Theme.iconSize;Layout.preferredHeight: Theme.iconSize;Accessible.name: qsTr("特别关注")}
+                AppIcon {visible:row.pinned;name:"pin";ink:Theme.secondary;Layout.preferredWidth:Theme.iconSize;Layout.preferredHeight:Theme.iconSize;Accessible.name:qsTr("已置顶")}
             }
             Label {
                 id: summaryLabel
@@ -109,7 +165,7 @@ ItemDelegate {
             }
         }
     }
-    ToolTip.visible: !Theme.hintsBlocked && textHover.hovered && !down && !completing && (titleLabel.truncated || summaryLabel.truncated)
+    ToolTip.visible: !Theme.hintsBlocked && textHover.hovered && !down && !completing && !dragging && (titleLabel.truncated || summaryLabel.truncated)
     ToolTip.delay: Theme.hintDelay
     ToolTip.timeout: Theme.hintTimeout
     ToolTip.text: title+(summary.length ? "\n"+summary : "")
