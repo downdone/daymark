@@ -29,7 +29,7 @@
 ## 3. 设计契约（现行）
 
 ### 3.1 界面与视觉
-[UI/UX 设计基准](design/ui-baseline.md) · [验收与迁移](design/ui-acceptance.md) · [官方调研](design/ui-research.md) · [全局视觉系统](design/global-visual-system.md) · [排版与比例留白](design/typography-and-proportional-spacing.md) · [空间稳定与滚动槽](design/stable-layout-and-scroll.md) · [提示与垂直节奏](design/tooltip-and-layout-rhythm.md) · [全菜单](design/menu-system-review.md) · [侧栏与字标](design/sidebar-and-wordmark.md) · [两栏设置](design/settings-split-navigation.md) · [详情尺寸](design/inspector-size-control.md)
+[品牌接入契约](design/brand-identity-integration.md) · [现行母版](../assets/brand/current/README.md) · [完整VI与PDF](../resource/VI/README.md) · [UI/UX 设计基准](design/ui-baseline.md) · [验收与迁移](design/ui-acceptance.md) · [官方调研](design/ui-research.md) · [全局视觉系统](design/global-visual-system.md) · [排版与比例留白](design/typography-and-proportional-spacing.md) · [空间稳定与滚动槽](design/stable-layout-and-scroll.md) · [提示与垂直节奏](design/tooltip-and-layout-rhythm.md) · [全菜单](design/menu-system-review.md) · [侧栏与字标](design/sidebar-and-wordmark.md) · [两栏设置](design/settings-split-navigation.md) · [详情尺寸](design/inspector-size-control.md)
 
 ### 3.2 任务与列表
 [统一任务系统](design/unified-task-system.md) · [提醒事项式列表](design/reminders-list-refinement.md) · [列表布局与编辑节奏](design/list-layout-and-editing-rhythm.md) · [双击原行草稿](design/list-double-click-draft.md) · [就近任务面板](design/contextual-task-inspector.md) · [任务列表交互](design/task-list-interaction-review.md) · [桌面密度](design/desktop-density-review.md)
@@ -38,14 +38,14 @@
 [日历工作区 v2](design/calendar-workspace-v2.md) · [连续月历](design/continuous-month-calendar.md) · [日历创建与密度](design/calendar-creation-and-density.md) · [直接时段选择](design/direct-time-range-picker.md) · [年定位与尺寸](design/year-tags-and-calendar-sizing.md) · [macOS 日历操作](design/macos-calendar-interaction.md) · [重复周期](design/repeat-choice-popover.md)
 
 ### 3.4 桌面组件与窗口
-[三形态统一与球/小窗动效](design/desktop-widget-modes-proposal.md) · [悬停Mini球与紧凑日历](design/compact-desktop-surfaces.md) · [桌面表面精修](design/desktop-surfaces-polish.md) · [桌面层与年焦点](design/desktop-layer-and-year-focus.md) · [桌面菜单锚点](design/desktop-menu-anchoring.md) · [架构](design/architecture.md) · [模块契约](design/contracts.md)
+[小窗任务操作与提醒弹窗](design/widget-task-actions-and-reminder-popup.md) · [三形态统一与球/小窗动效](design/desktop-widget-modes-proposal.md) · [悬停Mini球与紧凑日历](design/compact-desktop-surfaces.md) · [桌面表面精修](design/desktop-surfaces-polish.md) · [桌面层与年焦点](design/desktop-layer-and-year-focus.md) · [桌面菜单锚点](design/desktop-menu-anchoring.md) · [架构](design/architecture.md) · [模块契约](design/contracts.md)
 
 ### 3.5 可选账号与同步
 [独立账号窗口与设计评审](design/account-window.md) · [服务运行与恢复](../server/README.md) · [账号与同步](design/account-and-sync-service.md) · [工程架构](design/server-architecture.md) · [协议 v1](api/sync-v1.md) · [模块入口](design/sync-modules/README.md) · [强类型契约](design/sync-contracts/README.md) · [桌面实现契约](design/sync-client-implementation.md)
 
 ## 4. 决策记录
 
-[ADR 索引](ADR/README.md)：007～029，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
+[ADR 索引](ADR/README.md)：007～032，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
 
 ## 5. 交付与运维
 

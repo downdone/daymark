@@ -32,6 +32,7 @@ Ux38SmokeProbe::Ux38SmokeProbe(TaskWorkspace& workspace,WidgetViewModel& control
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="popup-layer")m_stage=190;
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="sidebar-footer")m_stage=200;
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="widget-actions")m_stage=220;
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="brand")m_stage=250;
         m_wait.start();
     }
 QObject* Ux38SmokeProbe::find(QObject* root,const QString& name) const {
@@ -89,12 +90,12 @@ bool Ux38SmokeProbe::layout() const {
 QString Ux38SmokeProbe::advance() {
     // The runtime may call again while finishing pending delegate incubation.
     // A completed fixture must not re-run its final actions or assertions.
-    if(m_stage==242)return "DONE";
+    if(m_stage==242 || m_stage==257)return "DONE";
     auto hint=[](QObject* target){QVariant result;if(target)QMetaObject::invokeMethod(target,"hintForVerification",Q_RETURN_ARG(QVariant,result));return result.toMap();};
     auto checkSidebar=[&]{
         if(m_main->property("menuBar").value<QObject*>())return false;
         auto* brand=qobject_cast<QQuickItem*>(find(m_main,"sidebarWordmark"));auto* footer=qobject_cast<QQuickItem*>(find(m_main,"sidebarFooter"));
-        if(!brand || !brand->isVisible() || !qIsFinite(brand->height()) || brand->width()<88 || qAbs(brand->height()*164/36-brand->width())>1 || !footer || footer->mapToScene(QPointF(0,footer->height())).y()>m_main->height())return false;
+        if(!brand || !brand->isVisible() || !qIsFinite(brand->height()) || brand->width()<88 || qAbs(brand->height()*274/58-brand->width())>1 || !footer || footer->mapToScene(QPointF(0,footer->height())).y()>m_main->height())return false;
         const auto frame=m_main->grabWindow();const double sx=double(frame.width())/m_main->width(),sy=double(frame.height())/m_main->height();const auto position=brand->mapToScene(QPointF());const QColor ink=brand->property("ink").value<QColor>();int painted=0;
         for(int y=qMax(0,int(position.y()*sy));y<qMin(frame.height(),int((position.y()+brand->height())*sy));++y)for(int x=qMax(0,int(position.x()*sx));x<qMin(frame.width(),int((position.x()+brand->width())*sx));++x){const auto pixel=frame.pixelColor(x,y);if(qAbs(pixel.red()-ink.red())+qAbs(pixel.green()-ink.green())+qAbs(pixel.blue()-ink.blue())<60)++painted;}
         if(painted<20){if(m_wait.elapsed()>=1800){qCritical()<<"Unpainted wordmark"<<brand->size()<<position<<brand->isVisible()<<ink<<painted;capture(m_main,"wordmark-failure");}return false;}
@@ -116,6 +117,60 @@ QString Ux38SmokeProbe::advance() {
     auto* list=find(m_widget,"widgetTasks");
     auto* calendar=qobject_cast<QQuickWindow*>(find(m_main,"desktopCalendarWindow"));
     if(!list || !calendar)return fail("desktop surfaces missing");
+    if(m_stage>=250){
+        if(m_wait.elapsed()<400)return {};
+        auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"settingsDialog"));
+        auto* account=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        auto painted=[&](QObject* scope,const QString& name){
+            auto* item=qobject_cast<QQuickItem*>(find(scope,name));
+            if(!item || !item->isVisible() || item->width()<20 || !item->window())return false;
+            const auto image=item->window()->grabWindow();
+            if(image.isNull())return false;
+            const double ratio=double(image.width())/item->window()->width();
+            const auto point=item->mapToScene(QPointF());const auto ink=item->property("ink").value<QColor>();int count=0;
+            for(int y=qMax(0,int(point.y()*ratio));y<qMin(image.height(),int((point.y()+item->height())*ratio));++y)
+                for(int x=qMax(0,int(point.x()*ratio));x<qMin(image.width(),int((point.x()+item->width())*ratio));++x){
+                    const auto pixel=image.pixelColor(x,y);
+                    if(qAbs(pixel.red()-ink.red())+qAbs(pixel.green()-ink.green())+qAbs(pixel.blue()-ink.blue())<50)++count;
+                }
+            return count>20;
+        };
+        if(m_stage==250){
+            m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
+            m_workspace.setPreference("highContrast",false);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);
+            m_workspace.setView("today");m_main->show();m_controller.setVisible(false);
+            QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("settings")));
+            if(!settings)return fail("brand settings missing");settings->setProperty("categoryIndex",3);
+        }
+        if(m_stage==251){
+            if(!checkSidebar() || !painted(settings,"aboutBrand") || !capture(settings,"brand-about-light"))return fail("brand light rendering");
+            settings->close();if(!capture(m_main,"brand-main-light"))return fail("brand main capture");
+            m_workspace.setThemeMode(2);m_workspace.setTextScale(2);
+        }
+        if(m_stage==252){
+            if(!checkSidebar() || !capture(m_main,"brand-main-dark-200"))return fail("brand dark large text");
+            QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("account")));
+        }
+        if(m_stage==253){
+            if(!painted(account,"accountWordmark") || !capture(account,"brand-account-dark-200"))return fail("brand account rendering");
+            account->close();m_workspace.setTextScale(1);m_workspace.setThemeMode(1);
+            m_controller.setFormEnabled(2,true);m_controller.selectForm(2);m_controller.setVisible(true);
+        }
+        if(m_stage==254){
+            if(!m_controller.miniCollapsed() || !painted(m_widget,"widgetBrandMark") || !capture(m_widget,"brand-ball-light"))return fail("brand ball light rendering");
+            m_workspace.setThemeMode(2);
+        }
+        if(m_stage==255){
+            if(!painted(m_widget,"widgetBrandMark") || !capture(m_widget,"brand-ball-dark"))return fail("brand ball dark rendering");
+            m_workspace.setPreference("highContrast",true);
+        }
+        if(m_stage==256){
+            auto* brand=find(m_widget,"widgetBrandMark");
+            if(!brand || !brand->property("singleColor").toBool() || !painted(m_widget,"widgetBrandMark") || !capture(m_widget,"brand-ball-high-contrast"))return fail("brand high contrast silhouette");
+        }
+        qInfo()<<"Brand native rendering stage"<<m_stage<<"PASS";++m_stage;m_wait.restart();
+        return m_stage==257 ? "DONE" : QString();
+    }
     if(m_stage<=74){
     if(m_stage==0){m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",false);m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_workspace.setView("today");m_workspace.setPreference("desktopCalendarVisible",true);m_controller.setMini(false);m_controller.setVisible(true);m_widget->resize(340,360);}
     if(m_stage==1){if(!calendar->isVisible() || !m_widget->isVisible() || !layout() || list->property("interactive").toBool() || !capture(m_widget,"empty"))return fail("empty state and coexistence");m_workspace.createForTime(QStringLiteral("讨论方案与下一步安排"),m_workspace.dateOffset(0),540);}

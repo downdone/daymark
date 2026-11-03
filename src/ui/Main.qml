@@ -688,9 +688,9 @@ ApplicationWindow {
                 RowLayout {
                     id: brandHeader
                     objectName: "sidebarBrandHeader"
-                    readonly property real wordmarkWidth: Math.max(0,Math.min(104*Math.min(1.25,Theme.scale),mainWindow.sidebarWidth-64))
+                    readonly property real wordmarkWidth: Math.max(0,Math.min(120*Math.min(1.25,Theme.scale),mainWindow.sidebarWidth-64))
                     Layout.fillWidth: true;Layout.margins: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? 4 : 10;Layout.preferredHeight: 32;spacing: 8
-                    BrandWordmark {objectName:"sidebarWordmark";visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.preferredWidth:brandHeader.wordmarkWidth;Layout.preferredHeight:brandHeader.wordmarkWidth*36/164;Layout.alignment:Qt.AlignVCenter;Layout.leftMargin:2}
+                    BrandWordmark {objectName:"sidebarWordmark";visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.preferredWidth:brandHeader.wordmarkWidth;Layout.preferredHeight:brandHeader.wordmarkWidth*58/274;Layout.alignment:Qt.AlignVCenter;Layout.leftMargin:2}
                     Item {visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed;Layout.fillWidth:true}
                     IconToolButton {objectName: "toggleSidebar";Accessible.name: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? qsTr("显示导航") : qsTr("收起导航");contentItem: AppIcon {name: "sidebar"} onClicked: mainWindow.taskWorkspace.setPreference("sidebarCollapsed",!mainWindow.taskWorkspace.preferences.sidebarCollapsed)}
                 }

@@ -112,7 +112,7 @@ ApplicationWindow {
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: Math.max(0, Math.min(parent.width - 48, 440 * Math.min(1.4, Theme.scale)))
                     spacing: Theme.blockGap
-                    BrandWordmark { objectName: "accountWordmark"; Layout.preferredWidth: 112; Layout.preferredHeight: 112 * 36 / 164; Layout.bottomMargin: 8 }
+                    BrandLockup { objectName: "accountWordmark"; Layout.preferredWidth: 208; Layout.preferredHeight: 208 * 72 / 320; Layout.bottomMargin: 8 }
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: Theme.fieldGap
                         Label { objectName: "accountHeading"; Layout.fillWidth: true; text: root.connected ? qsTr("账号与同步") : root.syncRegisterMode ? qsTr("创建账号") : qsTr("登录 Daymark"); font.pixelSize: Theme.headingSize; font.weight: Font.DemiBold; wrapMode: Text.Wrap }

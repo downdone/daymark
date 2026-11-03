@@ -1,11 +1,5 @@
-# Daymark图标
+# Daymark 平台图标
 
-Daymark原创日历勾选标识，与源码一并维护；项目尚未指定开源许可，不在此另授第三方许可。不含Things、Apple或其他产品资产。
+唯一源为[批准A母版](../brand/current/README.md)，炭黑D形记录轮廓与四色短笔；旧日历勾停止使用。`daymark.svg`是载体矢量，PNG覆盖16/20/24/32/48/64/128/256/512/1024；48物理px起四色，小号单色。ICO含8种尺寸PNG表示；ICNS含11个原生表示。托盘黑/白各16/20/24/32，始终单色，macOS作为alpha模板使用。
 
-UX-48沿用日历勾身份，以全局强调蓝校准母版和全部平台尺寸，并减轻日历分隔笔画。UI内部使用`src/ui/style/IconPaths.qml`原创24格矢量路径，和应用文件图标分开维护，无字体符号或专有图标包依赖。
-
-`daymark.svg`为矢量母版；PNG/ICO/ICNS与母版几何一致，由仓库脚本生成。
-
-Windows/PowerShell 7重建：`./scripts/generate-app-icons.ps1`，使用系统Drawing API，无额外依赖。macOS直接构建已提交资源，无须运行此脚本；ICNS实际Finder/Dock验收保持UNVERIFIED。
-
-ICO包含16/20/24/32/48/64/128/256像素PNG帧；PNG覆盖应用多分辨率图标和预览；ICNS包含16至1024像素表示。Windows资源路径由CMake生成，不提交本机绝对路径。
+Windows：`./scripts/generate-app-icons.ps1`；macOS：`python assets/brand/current/source/build_identity.py --runtime`。作者依赖见母版说明；普通CMake构建不需要Python。系统缓存刷新、Finder/Dock和物理混合DPI需分别实测，文件结构正确不能替代。功能操作图标仍由src/ui/style/IconPaths.qml维护。

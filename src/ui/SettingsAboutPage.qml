@@ -20,7 +20,7 @@ ColumnLayout {
         heading: qsTr("Daymark")
         ColumnLayout {
             Layout.fillWidth:true;Layout.margins:16;spacing:8
-            BrandWordmark {Layout.preferredWidth: 128;Layout.preferredHeight: 128*36/164}
+            BrandLockup {objectName:"aboutBrand";Layout.preferredWidth: 208;Layout.preferredHeight: 208*72/320}
             Label {objectName: "aboutVersion";text: qsTr("版本 %1").arg(Qt.application.version);Layout.fillWidth: true;color: Theme.secondary}
             Label {text: qsTr("简约而不简单。\n本地任务与时间安排，无需账号。");Layout.fillWidth: true;wrapMode: Text.Wrap;color: Theme.secondary}
         }

@@ -1,5 +1,9 @@
 # Daymark
 
+![daymark](assets/brand/current/png/logo/logo-primary-640.png)
+
+[品牌规范与完整VI](resource/VI/README.md) · [品牌软件接入](docs/design/brand-identity-integration.md)
+
 Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick** + SQLite本地优先存储。
 
 **简约而不简单**：记下事情，明确下一步，安心完成；组织方式可选，数据与恢复可靠。[产品哲学](docs/product-philosophy.md)规定功能与界面的取舍。

@@ -300,7 +300,11 @@ Window {
                 onActiveFocusChanged:if(activeFocus && [Qt.TabFocusReason,Qt.BacktabFocusReason,Qt.ShortcutFocusReason].indexOf(focusReason)>=0)widget.miniKeyboardInteraction=true
                 PointHandler {id:ballPress;acceptedButtons:Qt.LeftButton}
                 DragHandler {id:ballDrag;target:null;enabled:!widget.controller.locked;onActiveChanged:{if(active)widget.controller.startMove();else widget.controller.finishMove()} cursorShape:Qt.OpenHandCursor}
-                contentItem:AppIcon {name:widget.controller.errorText.length ? "info" : "today";ink:widget.controller.errorText.length ? Theme.danger : Theme.accent}
+                contentItem:Item {
+                    implicitWidth:24;implicitHeight:24
+                    BrandMark {objectName:"widgetBrandMark";anchors.fill:parent;visible:!widget.controller.errorText.length;Accessible.ignored:true}
+                    AppIcon {anchors.fill:parent;visible:widget.controller.errorText.length>0;name:"info";ink:Theme.danger}
+                }
                 background:Rectangle {radius:width/2;color:miniBall.down ? Theme.pressed : miniBall.hovered ? Theme.hover : "transparent";border.width:miniBall.visualFocus ? 2 : 0;border.color:Theme.accent}
             }
             Item {

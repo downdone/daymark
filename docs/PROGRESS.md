@@ -1,5 +1,10 @@
 # Daymark 实施进度
 
+### BRAND-24 A母版定稿、软件接入与GitHub/便携包（2026-11-03，IN_PROGRESS）
+
+用户明确以当前比例校正后的A整体更新VI、全面应用软件，完成后提交GitHub并构建便携包。本轮冻结A的轮廓/主体留白/短笔比例，统一生产源assets/brand/current，更新PNG/ICO/ICNS、托盘单色、QML字标/标志与关于/账号/悬浮球，完成中文VI/PDF和模板、Windows Qt6.10.2构建/Qt Test/CTest/lint及隔离原生截图，再以已提交干净源码打包并推送。版本保持1.8.0，不移动旧tag、不上传用户数据库。此前已授权UX-69与VI分开提交，原5项CI恢复改动保持；历史设计过程留在本地，不作为产品母版。HIG Purpose/Simplicity/Craft/Flexibility映射UX-01/09/10/11/13，主题/高对比/键盘/100～200%及平台边界分别验收；macOS未实测不记PASS。
+
+
 ### GIT-UX68 GitHub源码交付（2026-10-30）
 
 用户明确授权推送GitHub。远端main同步后与本地基线c3c5e02一致，本轮提交范围为UX-64～68的33个源码/测试/设计及验证文档文件；现有发布恢复工作流、build-request、标签打包脚本及其测试改动保留在本地，不混入本次提交，不触发旧v1.8.0恢复发布。使用项目身份及UTC提交元数据，非强制推送HEAD到origin/main，不打新tag、不移动已有tag或上传本机二进制。历史UX条目中的“未推送”是当轮本地验收状态。

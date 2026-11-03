@@ -1,5 +1,7 @@
 # 里程碑与可执行任务队列
 
+UX-70 / BRAND-24：用户确认A比例母版→全VI及原生资源接入→Windows Release与完整CTest/lint→原生截图→干净源码便携包→GitHub。版本保持1.8.0，旧tag不移动；不合并独立CI恢复改动。
+
 UX-69按用户新增FR-043及[设计与评审](design/widget-task-actions-and-reminder-popup.md)推进小窗直接录入→独立Today排序/快捷菜单→本机到期弹窗及持久展示状态→临时库/真实QML/Windows原生与完整回归。保留原构建脚本与超时预算，不自动发布；状态与真实证据仅见PROGRESS。
 
 SYNC-07/UX-61按用户要求先完成[独立账号窗口设计/评审](design/account-window.md)，再迁移入口与完整账号状态；原设置账号块移除。实际实现/验证状态见PROGRESS，不以设计评审代替渲染与测试。

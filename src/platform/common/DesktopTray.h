@@ -11,7 +11,10 @@ public:
     DesktopTray(WidgetViewModel& widget,QWindow* mainWindow,QObject* parent=nullptr);
     bool notify(const QString& title,const QString& message);
     QMenu* contextMenu() {return &m_menu;}
+protected:
+    bool eventFilter(QObject*,QEvent*) override;
 private:
+    void refreshIcon();
     WidgetViewModel& m_widget;
     QPointer<QWindow> m_mainWindow;
     QMenu m_menu;

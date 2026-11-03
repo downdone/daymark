@@ -29,3 +29,5 @@ ADR-001～006 的原文在[原始 TDD](../02_TECHNICAL_DESIGN.md) §1。后续�
 | 027 | [CI 使用开源 Qt（LGPLv3）与依赖合规](027-open-source-qt-ci.md) | 现行 |
 | 028 | [同步接口契约、RPC 选型与兼容性门禁](028-sync-api-contract-and-rpc.md) | 现行，HTTP/JSON强契约 |
 | 029 | [同步服务实现依赖](029-server-runtime-dependencies.md) | 现行，版本及许可证锁定 |
+| 030～031 | 未采用的本地品牌探索编号（未进入客户端） | 保留编号，不作为现行规范 |
+| 032 | [批准A母版与跨平台品牌资源](032-approved-a-brand-assets.md) | 现行 |

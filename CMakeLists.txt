@@ -71,8 +71,17 @@ set(DAYMARK_WORKSPACE_SOURCES
 )
 
 qt_add_executable(daymark src/app/Ux35SmokeProbe.h src/app/Ux35SmokeProbe.cpp src/app/Ux34SmokeProbe.h src/app/Ux34SmokeProbe.cpp src/platform/common/ApplicationMenus.h src/platform/common/ApplicationMenus.cpp src/main.cpp src/app/AppRuntime.h src/app/AppRuntime.cpp src/app/SoakRunner.h src/app/SoakRunner.cpp)
-qt_add_resources(daymark daymark_brand PREFIX "/daymark/icons" BASE assets/icons FILES
-    assets/icons/daymark-16.png assets/icons/daymark-32.png assets/icons/daymark-48.png assets/icons/daymark-256.png)
+set(DAYMARK_BRAND_ICONS)
+foreach(size IN ITEMS 16 20 24 32 48 64 128 256 512 1024)
+    list(APPEND DAYMARK_BRAND_ICONS assets/icons/daymark-${size}.png)
+endforeach()
+foreach(color IN ITEMS black white)
+    foreach(size IN ITEMS 16 20 24 32)
+        list(APPEND DAYMARK_BRAND_ICONS assets/icons/tray-${color}-${size}.png)
+    endforeach()
+endforeach()
+qt_add_resources(daymark daymark_brand PREFIX "/daymark/icons" BASE assets/icons FILES ${DAYMARK_BRAND_ICONS})
+target_sources(daymark PRIVATE src/platform/common/BrandIcons.h src/platform/common/BrandIcons.cpp)
 if(WIN32)
     target_link_libraries(daymark_core PRIVATE user32)
     enable_language(RC)
@@ -115,7 +124,7 @@ target_sources(daymark PRIVATE src/platform/common/SystemEventFilter.h src/platf
 qt_add_qml_module(daymark
     URI Daymark
     VERSION 1.0
-    QML_FILES src/ui/AccountWindow.qml src/ui/TaskSelection.qml src/ui/BrandWordmark.qml src/ui/SettingsAboutPage.qml src/ui/TaskRowSummary.qml src/ui/TagMenu.qml src/ui/WindowResizeHandles.qml src/ui/TimeRangePicker.qml src/ui/PopoverSurface.qml
+    QML_FILES src/ui/AccountWindow.qml src/ui/TaskSelection.qml src/ui/BrandWordmark.qml src/ui/BrandMark.qml src/ui/BrandLockup.qml src/ui/SettingsAboutPage.qml src/ui/TaskRowSummary.qml src/ui/TagMenu.qml src/ui/WindowResizeHandles.qml src/ui/TimeRangePicker.qml src/ui/PopoverSurface.qml
     QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/WidgetTaskRow.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/SettingsGroup.qml src/ui/SettingsRow.qml src/ui/SettingsToggle.qml src/ui/SettingsLink.qml src/ui/InspectorTabs.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
     QML_FILES src/ui/CalendarMetrics.qml src/ui/CalendarMonthStream.qml src/ui/CalendarMonthGrid.qml src/ui/ListViewportState.qml src/ui/CalendarDateMoveDialog.qml src/ui/CalendarCreatePopup.qml src/ui/UnscheduledTasksPanel.qml src/ui/TaskDragGesture.qml src/ui/TaskDragPayload.qml src/ui/TaskInspectorPicker.qml src/ui/CalendarTimeline.qml src/ui/YearCalendar.qml src/ui/TaskEditorSession.qml src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES ${DAYMARK_WINDOW_SOURCES} ${DAYMARK_WORKSPACE_SOURCES} src/platform/common/StartupController.h src/platform/common/StartupController.cpp
@@ -136,6 +145,12 @@ endif()
 
 if(BUILD_TESTING)
     find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Test)
+    qt_add_executable(test_brand_assets tests/integration/BrandAssetsTest.cpp src/platform/common/BrandIcons.cpp)
+    target_include_directories(test_brand_assets PRIVATE src)
+    target_link_libraries(test_brand_assets PRIVATE Qt6::Gui Qt6::Test)
+    qt_add_resources(test_brand_assets test_brand_icons PREFIX "/daymark/icons" BASE assets/icons FILES ${DAYMARK_BRAND_ICONS})
+    add_test(NAME brand_assets COMMAND test_brand_assets)
+    set_tests_properties(brand_assets PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20 LABELS "integration")
     if(WIN32)
         find_program(DAYMARK_POWERSHELL NAMES pwsh REQUIRED)
         add_test(NAME package_validation COMMAND "${DAYMARK_POWERSHELL}" -NoProfile -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/scripts/PackageValidationTest.ps1")
@@ -199,7 +214,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_single_instance PRIVATE Qt6::Core Qt6::Network Qt6::Test)
     add_test(NAME single_instance COMMAND test_single_instance)
     set_tests_properties(single_instance PROPERTIES TIMEOUT 20)
-    qt_add_executable(test_widget_window tests/integration/WidgetWindowTest.cpp src/platform/common/DesktopTray.cpp src/platform/common/DesktopTray.h ${DAYMARK_WINDOW_SOURCES})
+    qt_add_executable(test_widget_window tests/integration/WidgetWindowTest.cpp src/platform/common/DesktopTray.cpp src/platform/common/DesktopTray.h src/platform/common/BrandIcons.cpp ${DAYMARK_WINDOW_SOURCES})
+    qt_add_resources(test_widget_window test_tray_icons PREFIX "/daymark/icons" BASE assets/icons FILES ${DAYMARK_BRAND_ICONS})
     target_include_directories(test_widget_window PRIVATE src)
     target_link_libraries(test_widget_window PRIVATE daymark_window_platform Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml Qt6::Test)
     add_test(NAME widget_window COMMAND test_widget_window)
@@ -211,6 +227,8 @@ if(BUILD_TESTING)
     add_test(NAME calendar_interaction COMMAND daymark --calendar-interaction-smoke)
     set_tests_properties(calendar_interaction PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     add_test(NAME desktop_surfaces COMMAND daymark --desktop-surfaces-smoke)
+    add_test(NAME brand_rendering COMMAND daymark --desktop-surfaces-smoke)
+    set_tests_properties(brand_rendering PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DAYMARK_SMOKE_UI_SLICE=brand" TIMEOUT 30 LABELS "ui" RESOURCE_LOCK daymark_ui)
     add_test(NAME account_access COMMAND daymark --desktop-surfaces-smoke)
     set_tests_properties(account_access PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DAYMARK_SMOKE_UI_SLICE=registration" TIMEOUT 30)
     set_tests_properties(desktop_surfaces PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)

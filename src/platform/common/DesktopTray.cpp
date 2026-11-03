@@ -1,13 +1,16 @@
 #include "DesktopTray.h"
+#include "BrandIcons.h"
 #include <QAction>
 #include <QGuiApplication>
 #include <QMetaObject>
+#include <QEvent>
+#include <QStyleHints>
 
 namespace daymark {
 bool DesktopTray::notify(const QString& title,const QString& message)
 {
     if(!m_tray.isVisible() || !QSystemTrayIcon::supportsMessages())return false;
-    m_tray.showMessage(title,message,QSystemTrayIcon::Information,10000);
+    m_tray.showMessage(title,message,BrandIcons::application(),10000);
     return true; // Submitted to OS; delivery is not observable through QSystemTrayIcon.
 }
 DesktopTray::DesktopTray(WidgetViewModel& widget,QWindow* mainWindow,QObject* parent)
@@ -38,11 +41,22 @@ DesktopTray::DesktopTray(WidgetViewModel& widget,QWindow* mainWindow,QObject* pa
     connect(&m_menu,&QMenu::aboutToShow,this,refresh);refresh();
     // Build commands even without a shell tray; never claim recovery is installed.
     if(!QSystemTrayIcon::isSystemTrayAvailable()){m_widget.setTrayAvailable(false);return;}
-    m_tray.setIcon(QGuiApplication::windowIcon());m_tray.setToolTip(QStringLiteral("Daymark"));
+    refreshIcon();m_tray.setToolTip(QStringLiteral("Daymark"));
+    qApp->installEventFilter(this);
+    connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this]{refreshIcon();});
     connect(&m_tray,&QSystemTrayIcon::activated,this,[showMain](QSystemTrayIcon::ActivationReason reason){
         if(reason==QSystemTrayIcon::Trigger || reason==QSystemTrayIcon::DoubleClick)showMain();
     });
     m_tray.setContextMenu(&m_menu);m_tray.show();
     m_widget.setTrayAvailable(true); // Recovery actions exist before enabling input transparency.
+}
+void DesktopTray::refreshIcon()
+{
+    m_tray.setIcon(BrandIcons::tray(BrandIcons::trayUsesLightSurface()));
+}
+bool DesktopTray::eventFilter(QObject* watched,QEvent* event)
+{
+    if(event->type()==QEvent::ApplicationPaletteChange || event->type()==QEvent::ThemeChange)refreshIcon();
+    return QObject::eventFilter(watched,event);
 }
 }
