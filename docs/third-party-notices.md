@@ -32,6 +32,6 @@ CI 的 `desktop` 作业只从 Qt 官方开源归档安装 Qt 6.10.2（aqtinstall
 
 ## 资产
 
-UI-12 增加 Daymark 原创日历勾选应用标识，SVG/PNG/ICO/ICNS 均由仓库脚本与系统 Drawing API 生成，无下载素材或新增运行时依赖。生成流程记录在仓库中，不视为公开许可已完成。
+UX-70采用批准A的独立D形矢量和原创字标路径，SVG/PNG/ICO/ICNS与QML从同一几何源生成。Pillow、CairoSVG仅用于作者环境，ReportLab/svglib仅用于手册；不进入客户端或便携包。手册嵌入本机字体子集，不分发独立字体文件。见ADR-032及assets/brand/current。
 
 品牌参考不构成第三方资产许可；Things 仅作交互原则参考，未复制其图标、字体或二进制资源。

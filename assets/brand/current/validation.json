@@ -1,0 +1,13 @@
+{
+  "revision": "A-20261103",
+  "vectorCount": 27,
+  "pngCount": 91,
+  "result": "PASS",
+  "checks": [
+    "SVG parse and independent geometry",
+    "PNG decode, size, alpha and sRGB"
+  ],
+  "limits": [
+    "Native Qt and OS appearance are validated separately; no trademark or recognition claim."
+  ]
+}

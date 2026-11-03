@@ -5,6 +5,32 @@
 用户明确以当前比例校正后的A整体更新VI、全面应用软件，完成后提交GitHub并构建便携包。本轮冻结A的轮廓/主体留白/短笔比例，统一生产源assets/brand/current，更新PNG/ICO/ICNS、托盘单色、QML字标/标志与关于/账号/悬浮球，完成中文VI/PDF和模板、Windows Qt6.10.2构建/Qt Test/CTest/lint及隔离原生截图，再以已提交干净源码打包并推送。版本保持1.8.0，不移动旧tag、不上传用户数据库。此前已授权UX-69与VI分开提交，原5项CI恢复改动保持；历史设计过程留在本地，不作为产品母版。HIG Purpose/Simplicity/Craft/Flexibility映射UX-01/09/10/11/13，主题/高对比/键盘/100～200%及平台边界分别验收；macOS未实测不记PASS。
 
 
+### PACKAGE-UX69 本地Windows便携包（2026-11-03，LOCAL-PREVIEW-PACKAGE-PASS / FULL-NATIVE-TIMEOUT）
+
+用户要求构建发布包，范围FR-012/014/018/043及当前UX-69。采用独立干净源码快照提交，复制本轮已验证的功能/测试/文档，排除原有5个发布恢复文件；原工作区和其未提交改动保留。沿用1.8.0、schema10，以时间戳及真实源码SHA区分本地候选，不复用公开tag、不自动上传。使用标准package-windows（非LocalPreview）重新Release构建、完整CTest及SDK隔离原生/DLL来源、清单/ZIP逐文件与SHA256验证，成功后交付原工作区dist。Qt6.10.2固定，编译/CI脚本不修改；macOS、签名、独立干净机与再分发认证不因本地包改标。
+
+独立干净快照974c151b03bc8d910f3d568ee3bb2303d78822f2包含27个功能/测试/文档文件，项目身份和UTC元数据；原工作区分支/index未改，5个发布恢复文件哈希保持。标准Release从零构建PASS，完整26/26 CTest PASS（314.53秒）。常规候选的SDK隔离完整--smoke-test两次触发60秒外层限制，记录pkg69-package.log、pkg69-native-recheck.log及包外报告；最终位置复核和仅暴露测试主窗的诊断也未通过该上限，不把诊断日志中的场景完成当作进程正常退出。失败候选不交付为通过版本。
+
+按现有ADR-024生成独立本地预览包，重新完整26/26 CTest PASS（307.73秒，fullTestGatePassed=true、knownTestFailures空），而非跳过用例；SDK隔离contextual-workspace原生校验及全寿命模块来源PASS，ZIP逐文件及SHA256 PASS。复制ZIP到根dist并真实解压后再次通过同一校验，38个实际运行库来自包内，唯一允许的D3DCompiler系统来源单独记录，userDataAccessed=false；见pkg69-preview-package.log、pkg69-delivery-check.log和daymark-package-check-613356b8b20a4a7ebe121ddb0415f75c/report.json。包内额外widget-actions 220～241在仅系统PATH下退出0、3窗/warnings=false，9387ms完成，验证快速录入/右键/拖动同步保持/删除撤销/提醒三动作，见pkg69-delivery-actions.log。
+
+交付dist/Daymark-1.8.0-windows-x64-local-20261103-112837.zip，39,608,112字节，SHA256 7486537b54955d760630d463c1ff27714a2cf4d7d9bd3ae4b7c44294f907379e，随附.zip.sha256；清单212项。BUILD-INFO明确Windows local preview candidate、源码974c151、Qt6.10.2、schema10、未签名，并包含完整TEST-RESULTS.json。部署exe已strip，SHA256 1f68394f8f7f5a2b3da37ffea37acb2492f54ae93e29f2a22f6f65be886984c4；不重标为公开v1.8.0 tag二进制。
+
+用户随后明确要求合理增大阈值并停止重复运行。原生包校验总上限从60秒改120秒：已有完整UI链约51～54秒，为启动/布局/模块审计及负载留余量；应用自身45秒无进展保护未改。遵照用户指令不再运行测试或重试，新120秒设置尚未运行验证，原60秒失败不改写为PASS。编译/CI脚本、公开tag、原工作区业务源码不因本轮打包改动；未推送/上传。完整原生长链、签名、独立干净机/再分发认证及macOS不标RELEASE-READY，交付为可本地使用的预览包。
+
+### UX-69 小窗直接操作与到期弹窗（2026-11-03，WINDOWS-BUILD-PASS / CTEST-PASS / NATIVE-ACTIONS-PASS）
+
+用户要求小窗快速添加、拖动排序/右键置顶删除、到期弹窗提醒。原实现为添加跳主窗、任务行仅查看完成、提醒只有托盘通知。[设计与实现前评审](design/widget-task-actions-and-reminder-popup.md)明确Today独立上下文、复用业务排序/CAS/软删及本机弹窗展示队列；延后不修改周期锚点。计划分片实现并验证临时库、纯时间状态、QML实际输入、Windows原生及完整CTest。保留现有5个发布恢复文件，不修改编译脚本，不自动推送。风险为窗口焦点/自动收球、提醒时任务版本变化及资料切换隔离；原生与离屏分别记录。
+
+实现小窗原位Enter连续录入（固定Today命令，独立主窗搜索/范围）、普通拖动/边缘滚动、实体置顶任务菜单、子树删除确认与撤销；拖动接入全局提示抑制/交互与同步应用暂停，销毁恢复；空输入失焦退出录入，非空草稿保持。提醒使用独立实体Topmost Window，显示原定时刻及总排队数，可查看/完成/关闭/延后10分钟；默认不主动激活。ReminderPresentation纯函数复用SQLite认领历史与任务缓存，展示动作按资料保存到本机QSettings，只含身份散列/时间/动作，写失败不移除弹窗；不修改周期锚点、schema或同步协议。后台仅到期每秒触发维护，认领的外部通知延后到外层事务提交后。
+
+临时库reminders/task_workspace专项2/2 PASS（6.38秒），覆盖55条认领不受50条历史页限制、周期与延后时间、重启关闭/延后、写失败、资料切换、主窗筛选下创建/排序、CAS回滚；实际用户数据库未使用。最终前一源码完整26/26 CTest PASS（313.80秒，desktop_surfaces53.78秒、qml_watchdog_late97.80秒），见ux69-verified-tests.xml/log。最后追加拖动同步保护/销毁恢复及空输入失焦收敛后，最终全部7/7 UI再验PASS（178.68秒，desktop_surfaces51.74秒），见ux69-delivery-ui.xml/log；两项QML lint PASS，见ux69-delivery-lint.log。Core/数据库代码及其测试二进制未在这次UI补充中改变；不将前一26项误记为补充后的全量重跑。
+
+验证过程中依次保留失败证据：ux69-build最初探针误用不存在的setEnabledForms，改复用setFormEnabled；ux69-focused2只显示两窗，准备补独立日历后通过；首轮ux69-full-tests25/26，旧看门狗只识别外层436，将正常推进的长链误判为卡顿，改按实际子场景阶段刷新，45秒卡顿保护/90秒外层预算均未放宽。ux69-desktop-final暴露历史Mini210ms定时采样早于悬停展开，改afterAnimating实际帧与异步截图；ux69-final-tests最后241场景完成后被孵化重试再次调用，改242幂等完成态。退出期提示框使用来源快照和空来源提前返回，深色提醒按钮补独立Control调色板并断言实际文字颜色。最终26项中的四轮Mini真实中间帧及原436故障退出均通过。
+
+最终交付Windows默认GPU原生220～241链PASS：退出0、3窗、warnings=false、9835ms，见ux69-delivery-native.log；合成资料验证主窗隐藏、连续录入/Esc、右键置顶、真实拖动及同步暂停、软删撤销、到期时交互保持、原生Topmost且未抢焦点、浅色100%/深色200%按钮配色与可达性、实际关闭/延后/完成点击。已查看最终录入/菜单/提醒截图，证据ux69-delivery-native.png.desktop-*；此前ux69-final-native截图复验同一视觉规则。最终exe 26,862,807字节，SHA256 4b66efb68cf8be83e5e01c105a4f1bd17d06ad91145bf85185293a6365d094ee，本地入口build/Launch-Daymark.cmd。Release构建依次见ux69-final-build、ux69-delivery-build.log；92 QML样式/151 Markdown链接及git diff --check PASS。FR-043、设计/接口、基线/验收、测试方法、用户说明及状态均已同步。
+
+本轮未改编译脚本、CMake或schema，未推送/打tag/更新公开包；原有5个发布恢复改动原样保留。macOS、真实多屏/混合DPI、读屏及系统托盘通知实际送达均UNVERIFIED，不以离屏或合成输入冒充这些门禁；Windows自绘到期弹窗已原生验证。所有新增自动测试使用临时资料，无真实账号/用户任务上传。
+
 ### GIT-UX68 GitHub源码交付（2026-10-30）
 
 用户明确授权推送GitHub。远端main同步后与本地基线c3c5e02一致，本轮提交范围为UX-64～68的33个源码/测试/设计及验证文档文件；现有发布恢复工作流、build-request、标签打包脚本及其测试改动保留在本地，不混入本次提交，不触发旧v1.8.0恢复发布。使用项目身份及UTC提交元数据，非强制推送HEAD到origin/main，不打新tag、不移动已有tag或上传本机二进制。历史UX条目中的“未推送”是当轮本地验收状态。

@@ -138,9 +138,10 @@ QString Ux38SmokeProbe::advance() {
         if(m_stage==250){
             m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);
             m_workspace.setPreference("highContrast",false);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);
-            m_workspace.setView("today");m_main->show();m_controller.setVisible(false);
+            m_workspace.setView("today");m_workspace.createTask(QStringLiteral("整理本周计划"));m_main->show();m_controller.setVisible(false);
             QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("settings")));
-            if(!settings)return fail("brand settings missing");settings->setProperty("categoryIndex",3);
+            if(!settings)return fail("brand settings missing");
+            settings->setProperty("categoryIndex",3);
         }
         if(m_stage==251){
             if(!checkSidebar() || !painted(settings,"aboutBrand") || !capture(settings,"brand-about-light"))return fail("brand light rendering");

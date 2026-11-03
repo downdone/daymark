@@ -149,7 +149,7 @@ PATHS
 
 def runtime():
     icons=REPO/'assets/icons';icons.mkdir(exist_ok=True,parents=True)
-    (icons/'daymark.svg').write_text(app(False),encoding='utf-8')
+    (icons/'daymark.svg').write_text(app(False),encoding='utf-8',newline='\n')
     for n in [16,20,24,32,48,64,128,256,512,1024]:save_png(app(False,n),icons/f'daymark-{n}.png',n)
     # PNG-backed ICO representations and native ICNS chunks, not renamed PNG files.
     largest=Image.open(icons/'daymark-256.png')
@@ -162,21 +162,27 @@ def runtime():
     for n in [16,20,24,32]:
         for mode in ['black','white']:save_png(symbol(mode,n if n<32 else None),icons/f'tray-{mode}-{n}.png',n)
     mark,wordmark=qml_artwork()
-    (REPO/'src/ui/BrandMark.qml').write_text(mark,encoding='utf-8')
-    (REPO/'src/ui/BrandWordmark.qml').write_text(wordmark,encoding='utf-8')
+    (REPO/'src/ui/BrandMark.qml').write_text(mark,encoding='utf-8',newline='\n')
+    (REPO/'src/ui/BrandWordmark.qml').write_text(wordmark,encoding='utf-8',newline='\n')
+
+def manifest():
+    files=[{'path':p.relative_to(ROOT).as_posix(),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(ROOT.rglob('*')) if p.is_file() and p.name!='manifest.json' and '__pycache__' not in p.parts]
+    (ROOT/'manifest.json').write_text(json.dumps({'revision':G['revision'],'files':files},ensure_ascii=False,indent=2)+'\n',encoding='utf-8',newline='\n')
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--runtime',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--runtime',action='store_true');parser.add_argument('--manifest-only',action='store_true');args=parser.parse_args()
+    if args.manifest_only:
+        manifest();return
     for p in ['master','micro','app','png/symbol','png/logo','png/wordmark','png/app']:(ROOT/p).mkdir(exist_ok=True,parents=True)
     for mode in ['primary','dark','black','white']:
-        (ROOT/'master'/f'symbol-{mode}.svg').write_text(symbol(mode),encoding='utf-8')
-        (ROOT/'master'/f'logo-{mode}.svg').write_text(logo(mode),encoding='utf-8')
-    for mode in ['black','dark','white']:(ROOT/'master'/f'wordmark-{mode}.svg').write_text(word(mode),encoding='utf-8')
+        (ROOT/'master'/f'symbol-{mode}.svg').write_text(symbol(mode),encoding='utf-8',newline='\n')
+        (ROOT/'master'/f'logo-{mode}.svg').write_text(logo(mode),encoding='utf-8',newline='\n')
+    for mode in ['black','dark','white']:(ROOT/'master'/f'wordmark-{mode}.svg').write_text(word(mode),encoding='utf-8',newline='\n')
     for n in [16,20,24]:
-        for mode in ['black','white']:(ROOT/'micro'/f'symbol-{n}-{mode}.svg').write_text(symbol(mode,n),encoding='utf-8')
+        for mode in ['black','white']:(ROOT/'micro'/f'symbol-{n}-{mode}.svg').write_text(symbol(mode,n),encoding='utf-8',newline='\n')
     for dark in [False,True]:
-        name='dark' if dark else 'light';(ROOT/'app'/f'app-{name}.svg').write_text(app(dark),encoding='utf-8')
-        for n in [16,20,24,32]:(ROOT/'app'/f'app-{name}-{n}.svg').write_text(app(dark,n),encoding='utf-8')
+        name='dark' if dark else 'light';(ROOT/'app'/f'app-{name}.svg').write_text(app(dark),encoding='utf-8',newline='\n')
+        for n in [16,20,24,32]:(ROOT/'app'/f'app-{name}-{n}.svg').write_text(app(dark,n),encoding='utf-8',newline='\n')
     for n in [16,20,24,32,48,64,128,256,512,1024]:
         for mode in ['primary','dark','black','white']:
             source=symbol('white' if mode in ['dark','white'] else 'black',n) if n<32 else symbol(mode)
@@ -186,10 +192,9 @@ def main():
         for n in [168,320,640,1280]:save_png(logo(mode),ROOT/'png/logo'/f'logo-{mode}-{n}.png',n)
     for mode in ['black','dark','white']:
         for n in [120,164,274,548,1096]:save_png(word(mode),ROOT/'png/wordmark'/f'wordmark-{mode}-{n}.png',n)
-    (ROOT/'source/normalized.json').write_text(json.dumps({'body':BODY,'cap':CAP,'faces':FACES,'micro':MICRO,'word':WORDS,'paletteLight':G['colorsLight'],'paletteDark':G['colorsDark']},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    (ROOT/'source/normalized.json').write_text(json.dumps({'body':BODY,'cap':CAP,'faces':FACES,'micro':MICRO,'word':WORDS,'paletteLight':G['colorsLight'],'paletteDark':G['colorsDark']},ensure_ascii=False,indent=2)+'\n',encoding='utf-8',newline='\n')
     if args.runtime:runtime()
-    files=[{'path':p.relative_to(ROOT).as_posix(),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(ROOT.rglob('*')) if p.is_file() and p.name!='manifest.json' and '__pycache__' not in p.parts]
-    (ROOT/'manifest.json').write_text(json.dumps({'revision':G['revision'],'files':files},ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    manifest()
     print('Approved A: 27 SVG, 91 PNG'+', ICO/ICNS, tray and native QML generated.' if args.runtime else 'Approved A artwork generated.')
 
 if __name__=='__main__':main()
