@@ -19,3 +19,5 @@ BrandMark以100格绘制；16/20/24微型控制点按1/8物理像素校准，32�
 测试：brand_assets验证资源尺寸/透明/四色、托盘黑白、ICO与ICNS结构及无外链矢量；brand_rendering在临时资料中验证主窗、关于、账号、球的浅深/高对比/200%真实绘制。完整CTest检查既有键盘与桌面交互。Windows原生专项保存独立窗口截图；物理混合DPI、读屏、Shell缓存刷新及macOS不能由离屏或文件结构检查替代。实际结果只记录PROGRESS。
 
 作者源、导出资产与文档生成独立于CMake；正常构建只消费已提交资源。旧日历勾图标生成器改为调用现行作者源，防止下一次再生成旧标识。历史设计不参与生产，也不作为新功能状态图标。数据库/schema保持不变。
+
+品牌路径选择Qt内置CurveRenderer，减少缩放时的折线感并使用其原生抗锯齿；后端不支持时由Qt回退，不增加运行时插件。依据：[Qt 6.10 Shape](https://doc.qt.io/qt-6.10/qml-qtquick-shapes-shape.html#rendererType-prop)。原生截图与离屏测试均在最终渲染器下验证。

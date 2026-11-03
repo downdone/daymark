@@ -30,7 +30,7 @@ Item {
             x:(root.width-Math.min(root.width,root.height))/2
             y:(root.height-Math.min(root.width,root.height))/2
             transform: Scale {xScale:Math.min(root.width,root.height)/100;yScale:xScale}
-            preferredRendererType: Shape.GeometryRenderer
+            preferredRendererType: Shape.CurveRenderer
             ShapePath { strokeWidth: -1; fillColor: root.ink; PathSvg { path: root.artwork[0] } }
             ShapePath { strokeWidth: -1; fillColor: root.ink; PathSvg { path: root.artwork[1] } }
             ShapePath { strokeWidth: -1; fillColor: root.singleColor ? root.ink : "transparent"; PathSvg { path: root.artwork[2] } }

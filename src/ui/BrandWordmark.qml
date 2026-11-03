@@ -15,8 +15,7 @@ Item {
         id:lettering
         Shape {
             width:274;height:58
-            layer.enabled:true;layer.samples:4
-            preferredRendererType:Shape.GeometryRenderer
+            preferredRendererType:Shape.CurveRenderer
             transform:Scale{xScale:root.width/274;yScale:root.height/58}
             ShapePath {
                 strokeColor:root.ink;strokeWidth:4.5;fillColor:"transparent"

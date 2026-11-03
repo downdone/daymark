@@ -479,7 +479,7 @@
     },
     {
       "path": "source/build_identity.py",
-      "sha256": "cc9bd0b5e02578cf183aea15d95d680e5875c254f05699c8a506fad0a1b81b8c"
+      "sha256": "205ccbbee587fa6fe40a70f9edc4fc075cb7802d7d23c998a4501cf986398109"
     },
     {
       "path": "source/geometry.json",
