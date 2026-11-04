@@ -20,7 +20,7 @@ private:
     WidgetViewModel& m_controller;
     QPointer<QQuickWindow> m_main,m_widget;
     QString m_screenshot;
-    QElapsedTimer m_wait;
+    QElapsedTimer m_wait,m_clock;
     int m_stage=0;
     double m_beforeY=0,m_opacity=-1;
     bool m_flickered=false,m_leaked=false;

@@ -11,7 +11,14 @@
 #include <QDebug>
 namespace daymark {
 Ux71SmokeProbe::Ux71SmokeProbe(TaskWorkspace& w,WidgetViewModel& c,QQuickWindow* main,QQuickWindow* widget,QString shot)
-    :m_workspace(w),m_controller(c),m_main(main),m_widget(widget),m_screenshot(std::move(shot)){m_wait.start();}
+    :m_workspace(w),m_controller(c),m_main(main),m_widget(widget),m_screenshot(std::move(shot)){
+    m_wait.start();m_clock.start();
+    QObject::connect(main,&QQuickWindow::afterAnimating,main,[this]{
+        if(m_stage<33 || m_stage>54 || m_opacity<0)return;
+        auto* bar=find(m_main,"taskScrollBar");auto* thumb=bar?bar->property("contentItem").value<QObject*>():nullptr;
+        if(thumb && qAbs(thumb->property("opacity").toDouble()-m_opacity)>0.01)m_flickered=true;
+    });
+}
 QObject* Ux71SmokeProbe::find(QObject* root,const QString& name) const {
     QList<QObject*> pending{root};QSet<QObject*> seen;
     while(!pending.isEmpty()){
@@ -65,7 +72,8 @@ QString Ux71SmokeProbe::advance(){
                 if(m_opacity>=0 && qAbs(opacity-m_opacity)>0.01)m_flickered=true;
                 m_opacity=opacity;m_beforeY=list->property("contentY").toDouble();
                 const auto at=list->mapToScene(QPointF(list->width()/2,list->height()/2));
-                QWheelEvent wheel(at,m_main->mapToGlobal(at),{},QPoint(0,-120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+                QWheelEvent wheel(at,m_main->mapToGlobal(at),QPoint(0,-72),QPoint(0,-120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+                wheel.setTimestamp(static_cast<quint64>(m_clock.elapsed()));
                 QCoreApplication::sendEvent(m_main,&wheel);
             }else{
                 const auto opacity=bar->property("contentItem").value<QObject*>()->property("opacity").toDouble();
