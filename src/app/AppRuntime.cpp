@@ -4,6 +4,7 @@
 #include "Ux37SmokeProbe.h"
 #include "Ux38SmokeProbe.h"
 #include "Ux39SmokeProbe.h"
+#include "Ux71SmokeProbe.h"
 #include "SoakRunner.h"
 #include "sync/Coordinator.h"
 
@@ -126,6 +127,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto ux37=std::make_shared<Ux37SmokeProbe>(m_workspace,mainWindow,screenshotPath);
         auto ux38=std::make_shared<Ux38SmokeProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath);
         auto ux39=std::make_shared<Ux39SmokeProbe>(m_workspace,mainWindow,screenshotPath);
+        auto ux71=qgetenv("DAYMARK_SMOKE_UI_SLICE")=="input-feedback" ? std::make_shared<Ux71SmokeProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath) : nullptr;
         auto smokePhase=std::make_shared<int>(0);
         auto smokeCompleted=std::make_shared<bool>(false);
         // Progress stamp for the stall guard. A loaded or software-rendered runner
@@ -136,12 +138,12 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto inputClock=std::make_shared<QElapsedTimer>();
         inputClock->start();
         probe->setInterval(60);
-        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,ux34,ux35,ux37,ux38,ux39,smokeProfile,smokePhase,smokeCompleted,smokeProgress,smokeProgressPhase,inputClock,soakSeconds,soakReport,phase=smokeProfile.isEmpty()?0:436,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragPosition=QPointF(),inlineColumns=QVariantMap(),quickOriginalTask=QVariantMap(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<std::atomic<bool>>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1),wheelFrames=std::make_shared<std::atomic<int>>(0),wheelConnection=std::make_shared<QMetaObject::Connection>()]() mutable {
+        QObject::connect(probe,&QTimer::timeout,&m_engine,[this,probe,mainWindow,screenshotPath,ux34,ux35,ux37,ux38,ux39,ux71,smokeProfile,smokePhase,smokeCompleted,smokeProgress,smokeProgressPhase,inputClock,soakSeconds,soakReport,phase=smokeProfile.isEmpty()?0:436,taskId=QString(),secondId=QString(),eventId=QString(),linkedTaskId=QString(),detailProjectId=QString(),detailAreaId=QString(),detailHeadingId=QString(),quickOriginalNotes=QString(),quickTagId=QString(),quickProjectId=QString(),scheduleId=QString(),dragSource=QString(),dragTarget=QString(),dragStepFirst=QString(),dragPosition=QPointF(),inlineColumns=QVariantMap(),quickOriginalTask=QVariantMap(),completionRow=QPointer<QQuickItem>(),completionSeen=std::make_shared<std::atomic<bool>>(false),menuFrameMs=std::make_shared<std::atomic<qint64>>(-1),wheelFrames=std::make_shared<std::atomic<int>>(0),wheelConnection=std::make_shared<QMetaObject::Connection>()]() mutable {
             *smokePhase=phase;m_verificationPhase=phase;
             // A tick that keeps waiting on the same phase (busy worker, injected stall,
             // or a scene that never settles) is *no* progress: only a phase change
             // restamps the stall guard.
-            const int progressPhase=phase==436 && smokeProfile==QStringLiteral("desktop") ? 1000+ux38->verificationStep() : phase;
+            const int progressPhase=phase==436 && smokeProfile==QStringLiteral("desktop") ? 1000+(ux71?ux71->verificationStep():ux38->verificationStep()) : phase;
             if(progressPhase!=*smokeProgressPhase){*smokeProgressPhase=progressPhase;*smokeProgress=inputClock->elapsed();}
             bool stallConfigured=false;const int stall=qEnvironmentVariableIntValue("DAYMARK_SMOKE_STALL_PHASE",&stallConfigured);if(stallConfigured && phase==stall)return;
             if(m_workspace.busy())return;
@@ -157,7 +159,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             auto* startDate=mainWindow->findChild<QObject*>(QStringLiteral("editStartDate"));
             auto* editor=mainWindow->findChild<QObject*>(QStringLiteral("taskEditor"));
             if(!input || !editTitle || !startDate || !editor){fail("UI objects");return;}
-            if(phase==436){if(!smokeProfile.isEmpty()){const auto status=smokeProfile==QStringLiteral("calendar")?ux39->advance():smokeProfile==QStringLiteral("desktop")?ux38->advance():smokeProfile==QStringLiteral("selection")?ux37->advance():smokeProfile==QStringLiteral("continuous")?ux35->advance():ux34->advance();if(status.isEmpty())return;if(status!=QStringLiteral("DONE")){qCritical()<<status;fail("workspace scenario suite");return;}}} else if(phase==0) {
+            if(phase==436){if(!smokeProfile.isEmpty()){const auto status=smokeProfile==QStringLiteral("calendar")?ux39->advance():smokeProfile==QStringLiteral("desktop")?(ux71?ux71->advance():ux38->advance()):smokeProfile==QStringLiteral("selection")?ux37->advance():smokeProfile==QStringLiteral("continuous")?ux35->advance():ux34->advance();if(status.isEmpty())return;if(status!=QStringLiteral("DONE")){qCritical()<<status;fail("workspace scenario suite");return;}}} else if(phase==0) {
                 const auto icon=QGuiApplication::windowIcon();
                 if(icon.isNull() || icon.pixmap(16,16).isNull() || icon.pixmap(256,256).isNull()) {fail("application icon resources");return;}
                 // Start-Process -WindowStyle Hidden suppresses the first Win32 show.

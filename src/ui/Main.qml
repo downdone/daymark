@@ -1081,7 +1081,7 @@ ApplicationWindow {
                 Keys.onEscapePressed: function(event){if(mainWindow.batchMode)mainWindow.clearTaskSelection();else event.accepted=false}
                 Keys.onSpacePressed: {const item=taskList.currentItem as TaskRow;if(item){if(mainWindow.batchMode)item.selectionRequested();else item.completeRequested()}}
                 model: mainWindow.taskWorkspace.tasks
-                ScrollBar.vertical: ScrollBar {z:2}
+                ScrollBar.vertical: ScrollBar {objectName:"taskScrollBar";z:2}
                 delegate: TaskRow {
                     id: taskRow
                     workspace:mainWindow.taskWorkspace
