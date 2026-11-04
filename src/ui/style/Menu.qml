@@ -3,7 +3,7 @@ import QtQuick.Templates as T
 T.Menu {
     id: control
     popupType: T.Popup.Item
-    focus: true
+    focus: popupType===T.Popup.Window
     modal: popupType===T.Popup.Window
     dim: false
     // Conditional commands must not leave leading, trailing or doubled rules.
