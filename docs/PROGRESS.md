@@ -1,5 +1,18 @@
 # Daymark 实施进度
 
+### UX-73 组件菜单开关闪烁与关闭事件隔离（2026-11-04，BUILD-PASS / CTEST-UI-PASS / NATIVE-LIFECYCLE-PASS）
+
+用户报告空白右键菜单打开/关闭时黑条闪烁。范围FR-012/018/035，HIG稳定反馈/用户控制，关联UX-09/10/11/13及P-13/15/17。先补同一原生关闭手势重放和反复开关/空白像素验收，再区分菜单生命周期、背景禁用样式与Windows合成；不修改动画/超时和CI脚本，不碰用户资料。分类快查仍为UX-72设计，当前包无分类开关，本轮不暗示已实现。
+
+用户随后明确所有小窗菜单开关均有黑条，要求审视渲染频率。原关闭手势在同次派发重放时可重新打开菜单，新增回归在stage68失败，已复现；改为透明MouseArea输入屏障，关闭后留至当前事件派发完成，不以任意毫秒延迟处理，也不再禁用整个正文导致调色板/状态闪变。检查共用Menu发现RestoreBindingOrValue会在内容移出菜单窗口时恢复其透明清底；Qt6.10.2的QQuickWindow::setColor会因alpha变化改变请求格式。改用RestoreNone，使专用菜单窗口终生保持实体底色/opacity=1，宿主保持透明，不做降帧或持续强制刷新。
+
+首轮3项相关CTest通过；首次原生像素比较stage69失败，保留native-final.log。该基准在同一事件中切换主题/字号并抓图，不能直接当作真实黑条证据。最终改为下一呈现帧、每次新手势前取得非空基准并统一图像格式；测试同时断言菜单开启时任务仍enabled、关闭后实际菜单窗口alpha=255/宿主alpha=0、外点重放不重开、下一次新手势可打开，以及打开中/关闭后背景像素稳定。8轮分浅色100%与深色200%各4轮，实际菜单截图逐轮保存。
+
+最终官方开源Qt6.10.2 Release及两项QML lint PASS（build/ux73/surface-build.log），相关CTest desktop_surfaces/desktop_input_feedback/task_list_interaction 3/3 PASS（98.80秒，surface-test.log）；没有因局部UI修改重跑此前29项全量，不把旧29项写为本轮全量。Windows默认GPU原生专项退出0、3窗、warnings=false，含8轮截图31511ms（surface-native.log），浅深菜单图已目视；94 QML样式与git diff --check PASS。未用真实用户库，未调整看门狗/编译或CI脚本。
+
+本地开发构建及忽略目录build/Launch-Daymark.cmd已更新（原入口备份在build/ux73），此前dist便携ZIP未覆盖，本轮未重新打包/推送。物理桌面合成瞬时黑条的用户体验、macOS、物理混合DPI与读屏保持待验证；原生专项与静态图不冒充所有环境视觉验收。分类功能仍未实现。
+
+
 ### UX-72 小窗分类快查（2026-11-04，DESIGN-REVIEW / SCOPE-CONFIRMED / NOT-IMPLEMENTED）
 
 用户参考同类产品提出小窗分类快速检索，随后明确默认该分类全部未完成、设置可改为今天。完成独立上下文、常用快捷栏/就近选择器、两级汇总、三形态摘要/停靠空间、原草稿上下文、原子创建、排序与归档/删除/账号隔离、强类型接口及测试切片设计；当前只交付设计文档和三联SVG/PNG，未实现分类功能。图形沿现行Daymark中性/蓝色UI，图钉复用原创路径，未拷贝参考产品折纸与四色外观。见design/widget-category-quick-find.md与assets/design/widget-category-quick-find。FR-044范围规则已确认，其余布局为待评审建议，不标实际平台通过。

@@ -69,8 +69,11 @@ T.Menu {
     onMenuWindowChanged: ensureWindowLayer()
     onOpened: {recordHostGeometry();updateGroups();refreshAnchor();ensureWindowLayer()}
     opacity: 1
-    Binding {target:control.menuWindow;property:"color";value:DesignTokens.surface;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreBindingOrValue}
-    Binding {target:control.menuWindow;property:"opacity";value:1;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreBindingOrValue}
+    // Qt reparents popup content before hiding its native window. Restoring
+    // transparent clear/opacity there changes its alpha format mid-close.
+    // Keep this dedicated window opaque for its entire lifetime.
+    Binding {target:control.menuWindow;property:"color";value:DesignTokens.surface;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreNone}
+    Binding {target:control.menuWindow;property:"opacity";value:1;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreNone}
     property rect hostGeometry: Qt.rect(0,0,0,0)
     function recordHostGeometry() {
         const host=anchorWindow

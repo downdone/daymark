@@ -41,8 +41,15 @@ void Ux71SmokeProbe::click(QQuickItem* item,QQuickWindow* receiver){
 bool Ux71SmokeProbe::capture(QQuickWindow* window,const QString& name) const {
     return m_screenshot.isEmpty() || (window && window->grabWindow().save(m_screenshot+".input-"+name+".png"));
 }
+void Ux71SmokeProbe::rightClickBlank(){
+    const QPointF at(40,m_widget->height()*0.65);
+    for(const auto type:{QEvent::MouseMove,QEvent::MouseButtonPress,QEvent::MouseButtonRelease}){
+        QMouseEvent event(type,at,m_widget->mapToGlobal(at),type==QEvent::MouseMove?Qt::NoButton:Qt::RightButton,type==QEvent::MouseButtonPress?Qt::RightButton:Qt::NoButton,Qt::NoModifier);
+        QCoreApplication::sendEvent(m_widget,&event);
+    }
+}
 QString Ux71SmokeProbe::advance(){
-    if(m_stage==65)return "DONE";
+    if(m_stage==99)return "DONE";
     if(m_wait.elapsed()<100)return {};
     // A native runner can be occluded; force the same layout/presentation
     // synchronization used by the other probes before delivering wheel input.
@@ -140,6 +147,51 @@ QString Ux71SmokeProbe::advance(){
         if(!m_main->isVisible() || m_main->property("editId").toString().isEmpty())return fail("task input does not recover after dismissal");
         QMetaObject::invokeMethod(m_main,"returnFromDetails");m_controller.setVisible(true);m_main->show();
     }
-    ++m_stage;m_wait.restart();return m_stage==65?QStringLiteral("DONE"):QString();
+    if(m_stage==65){
+        m_main->hide();m_workspace.setThemeMode(1);m_workspace.setTextScale(1);
+        m_controller.selectForm(0);m_controller.setVisible(true);m_widget->requestActivate();
+    }
+    if(m_stage>=66 && m_stage<=97){
+        const int cycle=(m_stage-66)/4,part=(m_stage-66)%4;
+        auto* menu=find(m_widget,"widgetMenu");
+        if(part==0){
+            // Theme, text scale and native geometry must have presented on a
+            // separate frame before taking the lifecycle's reference image.
+            m_blank=m_widget->grabWindow().copy(QRect(22,240,40,30)).convertToFormat(QImage::Format_RGBA8888);
+            if(m_blank.isNull())return fail("background reference capture is empty");
+            rightClickBlank();
+        }
+        if(part==1){
+            if(!menu->property("visible").toBool())return fail("blank-area context menu did not remain open");
+            auto* menuItem=qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>());
+            if(!menuItem || menuItem->window()==m_widget)return fail("context menu lost independent native surface");
+            m_menuWindow=menuItem->window();
+            const auto blank=m_widget->grabWindow().copy(QRect(22,240,40,30)).convertToFormat(QImage::Format_RGBA8888);
+            if(blank!=m_blank)return fail("opening a menu changes the blank background");
+            auto* row=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_workspace.todayTasks()->taskIdAt(0)));
+            if(!row || !row->isEnabled())return fail("menu changes the task's visual enabled state");
+            if(!capture(menuItem->window(),QStringLiteral("lifecycle-%1-open").arg(cycle)))return fail("lifecycle capture");
+        }
+        if(part==2){
+            // Qt's native Popup can forward the outside gesture to its host
+            // after closing. Reproduce both parts in the same dispatch turn.
+            QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");
+            if(m_menuWindow && m_menuWindow->color().alpha()!=255)return fail("closing the menu restores a transparent native clear color");
+            if(m_widget->color().alpha()!=0)return fail("menu mutates transparent host clear color");
+            rightClickBlank();
+            if(menu->property("visible").toBool())return fail("dismissal right-click reopens the menu in the same gesture");
+        }
+        if(part==3){
+            if(menu->property("visible").toBool())return fail("dismissed menu reopened on the next frame");
+            const auto blank=m_widget->grabWindow().copy(QRect(22,240,40,30)).convertToFormat(QImage::Format_RGBA8888);
+            if(blank!=m_blank){
+                if(!m_screenshot.isEmpty()){m_blank.save(m_screenshot+".blank-before.png");blank.save(m_screenshot+".blank-after.png");}
+                return fail("blank background changed across context-menu lifecycle");
+            }
+            if(cycle==3){m_workspace.setThemeMode(2);m_workspace.setTextScale(2);}
+        }
+    }
+    if(m_stage==98){m_main->show();m_controller.setVisible(true);}
+    ++m_stage;m_wait.restart();return m_stage==99?QStringLiteral("DONE"):QString();
 }
 }

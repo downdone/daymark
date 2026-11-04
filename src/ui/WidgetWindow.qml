@@ -31,6 +31,14 @@ Window {
     property string taskOperation: ""
     property bool localDeletion: false
     readonly property bool commandMenuOpen: widgetMenu.visible || taskMenu.visible
+    property bool commandInputBlocked: false
+    function releaseCommandInput() {if(!commandMenuOpen)commandInputBlocked=false}
+    onCommandMenuOpenChanged: {
+        if(commandMenuOpen)commandInputBlocked=true
+        // A native Popup can replay the dismissal press to its host while it
+        // closes. Keep that dispatch turn shielded; a fresh gesture works next.
+        else Qt.callLater(releaseCommandInput)
+    }
     function submitTask() {
         if(addingPending || !quickTitle.text.trim().length)return
         taskError="";addingPending=workspace.createTodayTask(quickTitle.text)
@@ -263,7 +271,7 @@ Window {
         }
         return "PASS"
     }
-    Shortcut {sequences: [StandardKey.New];enabled: widget.active && !widget.controller.mini;onActivated:{widget.addingTask=true;quickTitle.forceActiveFocus()}}
+    Shortcut {sequences: [StandardKey.New];enabled: widget.active && !widget.controller.mini && !widget.commandInputBlocked;onActivated:{widget.addingTask=true;quickTitle.forceActiveFocus()}}
     Control {
         anchors.fill: parent
         font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize
@@ -286,10 +294,9 @@ Window {
             color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,widget.workspace.preferences.solidWidget || Theme.highContrast ? 1 : widget.controller.backgroundOpacity)
             border.color: Theme.separator
             HoverHandler {id:miniHover;onHoveredChanged:widget.reportInteraction()}
-            TapHandler {enabled:!widget.commandMenuOpen;acceptedButtons:Qt.RightButton;onTapped:widget.openVerificationMenu()}
+            TapHandler {enabled:!widget.commandInputBlocked;acceptedButtons:Qt.RightButton;onTapped:widget.openVerificationMenu()}
             ToolButton {
                 id:miniBall;objectName:"widgetMiniBall"
-                enabled:!widget.commandMenuOpen
                 visible:widget.controller.panelMotion ? widget.panelReveal<0.999 : widget.controller.mini && widget.miniReveal<0.999
                 width:widget.ballDiameter;height:widget.ballDiameter
                 x:widget.controller.growLeft ? surface.width-width : 0
@@ -316,7 +323,7 @@ Window {
                 x:widget.controller.growLeft ? surface.width-width : 0
                 y:widget.controller.growUp ? surface.height-height : 0
                 opacity:widget.panelContentOpacity
-                enabled:!widget.controller.targetBall && !widget.commandMenuOpen
+                enabled:!widget.controller.targetBall
               ColumnLayout {
                 anchors.fill: parent;anchors.margins: Theme.panelPadding
                 spacing: Theme.fieldGap
@@ -431,7 +438,7 @@ Window {
                 id:miniRow
                 layoutDirection:widget.controller.growLeft ? Qt.RightToLeft : Qt.LeftToRight
                 visible: widget.controller.mini && widget.miniReveal>0.001
-                enabled:widget.miniReveal>0.99 && !widget.commandMenuOpen
+                enabled:widget.miniReveal>0.99
                 x:Theme.panelPadding;y:Theme.panelPadding
                 width:widget.controller.miniWidth-2*Theme.panelPadding;height:widget.miniBarHeight-2*Theme.panelPadding
                 opacity:widget.miniReveal
@@ -467,9 +474,19 @@ Window {
                 }
                 WidgetAction {Layout.alignment:Qt.AlignTop;id:miniMore;objectName:"miniMore";symbol:"more";description:qsTr("组件菜单");onPressedChanged:if(pressed)widget.miniKeyboardInteraction=false;onClicked:widget.openVerificationMenu()}
             }
+            // Block pointer delivery without changing content enabled/palette
+            // or rendering a dimmer over the transparent desktop surface.
+            MouseArea {
+                objectName:"widgetCommandInputShield"
+                anchors.fill:parent;z:1000
+                visible:widget.commandInputBlocked
+                acceptedButtons:Qt.AllButtons
+                preventStealing:true
+                onWheel:function(wheel){wheel.accepted=true}
+            }
             MouseArea {
                 anchors.right: parent.right;anchors.bottom: parent.bottom
-                enabled:!widget.commandMenuOpen
+                enabled:!widget.commandInputBlocked
                 width: 12;height: 12
                 visible: !widget.controller.mini && !widget.controller.panelMotion && !widget.controller.locked
                 cursorShape: Qt.SizeFDiagCursor
