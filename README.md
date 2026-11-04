@@ -1,6 +1,9 @@
 # Daymark
 
-![daymark](assets/brand/current/png/logo/logo-primary-640.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/current/png/logo/logo-dark-640.png">
+  <img alt="daymark" src="assets/brand/current/png/logo/logo-primary-640.png" width="320" height="72">
+</picture>
 
 [品牌规范与完整VI](resource/VI/README.md) · [品牌软件接入](docs/design/brand-identity-integration.md)
 

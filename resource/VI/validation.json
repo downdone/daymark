@@ -1,0 +1,22 @@
+{
+  "identity": "A-20261103",
+  "result": "PASS",
+  "date": "2026-11-04",
+  "svgAssets": 37,
+  "pngExports": 99,
+  "editableTemplates": 4,
+  "pdfPages": 16,
+  "pdfTextBounds": "PASS",
+  "pageRender": "all 16 pages via Poppler; contact sheets visually reviewed",
+  "sourceCopyHashes": "PASS",
+  "pngDecodeAlphaSRGB": "PASS",
+  "nativeRendering": "PASS: repeated frames and actual saved pixels; 3 windows; warnings=false",
+  "nativeCodeRevision": "78ac94e",
+  "limits": [
+    "macOS native appearance",
+    "physical mixed DPI",
+    "screen reader",
+    "independent clean machine",
+    "signing"
+  ]
+}

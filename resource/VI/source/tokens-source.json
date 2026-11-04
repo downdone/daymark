@@ -1,0 +1,173 @@
+{
+  "version": "2.0",
+  "date": "2026-11-03",
+  "brand": {
+    "source": "assets/brand/current",
+    "ink": "#1C1C1E",
+    "reverse": "#F2F2F7",
+    "lightPalette": {
+      "blue": "#287EF0",
+      "green": "#28A680",
+      "orange": "#E4A13C",
+      "purple": "#A783DE"
+    },
+    "darkPalette": {
+      "blue": "#83BAFF",
+      "green": "#83D6AA",
+      "orange": "#FFC18C",
+      "purple": "#D0B3FF"
+    },
+    "paletteOrder": [
+      "blue",
+      "green",
+      "orange",
+      "purple"
+    ],
+    "neutral": {
+      "paper": "#FFFFFF",
+      "canvas": "#F5F6F8",
+      "appLight": "#F6F6F8",
+      "appDark": "#252527"
+    },
+    "colorPlacement": "rising stroke only; no wordmark underline/terminal accents",
+    "clearSpace": 12,
+    "symbolCanvas": 100
+  },
+  "uiReference": {
+    "source": "src/ui/style/DesignTokens.qml",
+    "sourceSha256": "c19158a024806259c482838a9d9b46b65db78dfd0c66be2b92d0f1d7f3607f21",
+    "status": "current implementation reference; not a runtime override",
+    "normal": {
+      "light": {
+        "surface": "#FFFFFF",
+        "sidebar": "#F3F4F6",
+        "grouped": "#F6F6F8",
+        "hover": "#F0F2F6",
+        "pressed": "#EDF0F5",
+        "text": "#1C1C1E",
+        "disabledText": "#989CA5",
+        "accentText": "#FFFFFF",
+        "danger": "#B92330",
+        "success": "#236E46",
+        "toggleOn": "#248A3D",
+        "fieldFill": "#F2F3F6",
+        "calendarToday": "#C22C3B",
+        "calendarTodayText": "#FFFFFF",
+        "primaryFill": "#E4EFFF",
+        "primaryInk": "#005BBB",
+        "scheduleFill": "#DEF3E6",
+        "scheduleInk": "#205B35",
+        "categoryGreen": "#236E46",
+        "categoryOrange": "#945000",
+        "categoryPurple": "#7042A0",
+        "selected": "#EAF1FC",
+        "secondary": "#5D5D66",
+        "accent": "#0063CF",
+        "border": "#E0E1E7",
+        "outline": "#787883",
+        "fieldLine": "#787883"
+      },
+      "dark": {
+        "surface": "#1C1C1E",
+        "sidebar": "#171719",
+        "grouped": "#252527",
+        "hover": "#303034",
+        "pressed": "#38383E",
+        "text": "#F2F2F7",
+        "disabledText": "#6F7580",
+        "accentText": "#102038",
+        "danger": "#FF9CA4",
+        "success": "#83D6AA",
+        "toggleOn": "#32D45A",
+        "fieldFill": "#2B2B30",
+        "calendarToday": "#F58D96",
+        "calendarTodayText": "#2D1017",
+        "primaryFill": "#183B5D",
+        "primaryInk": "#90C5FF",
+        "scheduleFill": "#173B29",
+        "scheduleInk": "#A1E6B7",
+        "categoryGreen": "#83D6AA",
+        "categoryOrange": "#FFC18C",
+        "categoryPurple": "#D0B3FF",
+        "selected": "#263A52",
+        "secondary": "#B7B7C2",
+        "accent": "#83BAFF",
+        "border": "#424249",
+        "outline": "#8B8B97",
+        "fieldLine": "#8B8B97"
+      }
+    },
+    "highContrast": {
+      "accent": {
+        "light": "#004CA8",
+        "dark": "#A7CEFF"
+      },
+      "selected": {
+        "light": "#D9E8FF",
+        "dark": "#29466D"
+      },
+      "secondary": {
+        "light": "#484A50",
+        "dark": "#CED2DA"
+      }
+    }
+  },
+  "type": {
+    "wordmark": "original paths, not an installable font",
+    "ui": {
+      "pageTitle": 28,
+      "title": 20,
+      "heading": 17,
+      "listTitle": 15,
+      "body": 13,
+      "caption": 12,
+      "footnote": 11
+    },
+    "marketing": {
+      "display": 48,
+      "title": 32,
+      "heading": 24,
+      "body": 18,
+      "caption": 14
+    },
+    "family": {
+      "windows": "Microsoft YaHei UI; Segoe UI; Qt GeneralFont",
+      "macos": "Qt GeneralFont with platform language fallback"
+    }
+  },
+  "layout": {
+    "baseUnit": 4,
+    "spacing": [
+      4,
+      8,
+      12,
+      16,
+      20,
+      24,
+      32,
+      40,
+      48
+    ],
+    "radius": {
+      "control": 7,
+      "row": 8,
+      "menu": 10,
+      "panel": 14
+    },
+    "marketingGridColumns": 12,
+    "marketingMarginPercent": 6
+  },
+  "sizes": {
+    "symbolColorMinPhysicalPx": 32,
+    "appColorMinPhysicalPx": 48,
+    "wordmarkMinPhysicalPx": 120,
+    "logoMinPhysicalPx": 168,
+    "microPhysicalPx": [
+      16,
+      20,
+      24
+    ]
+  },
+  "fontsDistributed": false,
+  "runtimeIntegrated": true
+}

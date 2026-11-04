@@ -1,0 +1,17 @@
+/* Brand-only reference; not a runtime UI override. */
+:root {
+  --daymark-brand-ink: #1C1C1E;
+  --daymark-brand-blue: #287EF0;
+  --daymark-brand-green: #28A680;
+  --daymark-brand-orange: #E4A13C;
+  --daymark-brand-purple: #A783DE;
+  --daymark-brand-paper: #ffffff;
+  --daymark-brand-canvas: #f5f6f8;
+}
+[data-daymark-brand-theme="dark"] {
+  --daymark-brand-ink: #f2f2f7;
+  --daymark-brand-blue: #83BAFF;
+  --daymark-brand-green: #83D6AA;
+  --daymark-brand-orange: #FFC18C;
+  --daymark-brand-purple: #D0B3FF;
+}

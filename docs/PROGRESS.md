@@ -5,6 +5,13 @@
 用户明确以当前比例校正后的A整体更新VI、全面应用软件，完成后提交GitHub并构建便携包。本轮冻结A的轮廓/主体留白/短笔比例，统一生产源assets/brand/current，更新PNG/ICO/ICNS、托盘单色、QML字标/标志与关于/账号/悬浮球，完成中文VI/PDF和模板、Windows Qt6.10.2构建/Qt Test/CTest/lint及隔离原生截图，再以已提交干净源码打包并推送。版本保持1.8.0，不移动旧tag、不上传用户数据库。此前已授权UX-69与VI分开提交，原5项CI恢复改动保持；历史设计过程留在本地，不作为产品母版。HIG Purpose/Simplicity/Craft/Flexibility映射UX-01/09/10/11/13，主题/高对比/键盘/100～200%及平台边界分别验收；macOS未实测不记PASS。
 
 
+2026-11-04完成生产母版与软件入口：27 SVG/91 PNG，以及平台10尺寸PNG、8帧ICO、11表示ICNS与8张黑白托盘。BrandMark/Wordmark/Lockup统一到侧栏、关于、账号和球，系统栏主题独立适配；没有替换功能语义色。完整VI为37 SVG、99 PNG、4组可编辑模板、16页中文PDF、7张临时资料原生截图、使用说明/Token/来源/散列与逐页图版。全部16页经Poppler渲染及目视，文字未越界，母版副本散列一致，静态PNG尺寸/alpha/sRGB及SVG独立性通过。
+
+首次本机SDK的Qt工具被商业许可校验阻断，未绕过；下载官方开源Qt6.10.2、使用同版本MinGW13.1在build/brand24/ship干净提交源码构建。初始brand_assets 1/1 PASS（0.40秒）。原生沙箱受临时IPC权限限制，转为沙箱外隔离临时资料验证，不打开用户数据库。专项最初漏开独立日历，修正公共3窗条件；CurveRenderer试用在重复抓帧丢失标记，最终采用GeometryRenderer+8倍MSAA图层。加强验证为实际保存帧像素检查，保留失败日志，不把此前单帧通过当最终证据。
+
+最终Windows原生品牌250～256链退出0、3窗、warnings=false，5142ms；主窗、关于、账号与球的浅深/200%文字/高对比、重复帧和实际保存图像均通过并目视（native-msaa.log）。前期构建/最终增量日志opensource-build、msaa-build，证据位于build/brand24；格式检查通过，完整CTest及标准便携包门禁在本次冻结源码执行，结果待追加。macOS、物理混合DPI、读屏、独立干净机与签名仍UNVERIFIED。
+
+
 ### PACKAGE-UX69 本地Windows便携包（2026-11-03，LOCAL-PREVIEW-PACKAGE-PASS / FULL-NATIVE-TIMEOUT）
 
 用户要求构建发布包，范围FR-012/014/018/043及当前UX-69。采用独立干净源码快照提交，复制本轮已验证的功能/测试/文档，排除原有5个发布恢复文件；原工作区和其未提交改动保留。沿用1.8.0、schema10，以时间戳及真实源码SHA区分本地候选，不复用公开tag、不自动上传。使用标准package-windows（非LocalPreview）重新Release构建、完整CTest及SDK隔离原生/DLL来源、清单/ZIP逐文件与SHA256验证，成功后交付原工作区dist。Qt6.10.2固定，编译/CI脚本不修改；macOS、签名、独立干净机与再分发认证不因本地包改标。

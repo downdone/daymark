@@ -1,0 +1,147 @@
+{
+  "masterSource": "assets/brand/current",
+  "masterFiles": [
+    {
+      "source": "assets/brand/current/master/logo-black.svg",
+      "target": "assets/brand/logo-black.svg",
+      "sha256": "ff88bb832c4d7aeb2cecaf25f3caf1dfba8fc5e192bdaef7dba589681d25c781"
+    },
+    {
+      "source": "assets/brand/current/master/logo-dark.svg",
+      "target": "assets/brand/logo-dark.svg",
+      "sha256": "3841dd6627e385cc54613a0e7ad273d52309e2d5a14fd8ee1958df72add3faa0"
+    },
+    {
+      "source": "assets/brand/current/master/logo-primary.svg",
+      "target": "assets/brand/logo-primary.svg",
+      "sha256": "08949f8e08d2ea401ca174b4d66083178eb710ed8ff6c4939cf8da4ab9aa0592"
+    },
+    {
+      "source": "assets/brand/current/master/logo-white.svg",
+      "target": "assets/brand/logo-white.svg",
+      "sha256": "27d70361bc772621488605c80efabf621ba2d70f6eb388aa913fa60ef67359a1"
+    },
+    {
+      "source": "assets/brand/current/master/symbol-black.svg",
+      "target": "assets/brand/symbol-black.svg",
+      "sha256": "bc4918ad2711dd40d92375957bbc0917153f9b249694890bda9c7c8e0adbd199"
+    },
+    {
+      "source": "assets/brand/current/master/symbol-dark.svg",
+      "target": "assets/brand/symbol-dark.svg",
+      "sha256": "1d1f11272c6e1ec2ed9154325407f2e255199c7115daa0051dec3904163b62b2"
+    },
+    {
+      "source": "assets/brand/current/master/symbol-primary.svg",
+      "target": "assets/brand/symbol-primary.svg",
+      "sha256": "9a7b0960e371bcb077a1ca20df59eabdbc0016d40ba80831e001a432f7ec4613"
+    },
+    {
+      "source": "assets/brand/current/master/symbol-white.svg",
+      "target": "assets/brand/symbol-white.svg",
+      "sha256": "7fde4d54030448426a2bebc42e6d33eeeb4761e48d310122614f28b49b751757"
+    },
+    {
+      "source": "assets/brand/current/master/wordmark-black.svg",
+      "target": "assets/brand/wordmark-black.svg",
+      "sha256": "6ec4ef1fe6fcfe8be3c1096e15b12a9011ac1e43b1980bf6f39362d6becc6cb1"
+    },
+    {
+      "source": "assets/brand/current/master/wordmark-dark.svg",
+      "target": "assets/brand/wordmark-dark.svg",
+      "sha256": "81982628dd8f6c982bf87007cee784bd856fdfaa323fa49f34e68e978a38958f"
+    },
+    {
+      "source": "assets/brand/current/master/wordmark-white.svg",
+      "target": "assets/brand/wordmark-white.svg",
+      "sha256": "6277f6991e2ee17b4bac7086f23d7e3a42299ec82878989a716c11c91a0a58a4"
+    },
+    {
+      "source": "assets/brand/current/micro/symbol-16-black.svg",
+      "target": "assets/micro/symbol-16-black.svg",
+      "sha256": "9d1e1cd7c6a54242699f0bdba47e9b7842018faa0e7944bbf86e9bcfe7d34ad7"
+    },
+    {
+      "source": "assets/brand/current/micro/symbol-16-white.svg",
+      "target": "assets/micro/symbol-16-white.svg",
+      "sha256": "f61d8df9d563e899f4b94429736c0db5743edc35df11a5be19d701725b5992da"
+    },
+    {
+      "source": "assets/brand/current/micro/symbol-20-black.svg",
+      "target": "assets/micro/symbol-20-black.svg",
+      "sha256": "bc82f0e6d41dbeb843cb5bd11727b74806c3f66e7ad5893621225a2ca4ea0309"
+    },
+    {
+      "source": "assets/brand/current/micro/symbol-20-white.svg",
+      "target": "assets/micro/symbol-20-white.svg",
+      "sha256": "f6d1d436df5ec9c701920f434a7a15870dff7d611df34f5cd68372aecf5e5d14"
+    },
+    {
+      "source": "assets/brand/current/micro/symbol-24-black.svg",
+      "target": "assets/micro/symbol-24-black.svg",
+      "sha256": "217ef96cd9374224e8d41b723f93b1f9d0efb18d2716c56c6c3c8b648489db06"
+    },
+    {
+      "source": "assets/brand/current/micro/symbol-24-white.svg",
+      "target": "assets/micro/symbol-24-white.svg",
+      "sha256": "6eeab208d4f556262afc7c3391169765b8a8a9da5358f0a5053ada2d6b480b4e"
+    },
+    {
+      "source": "assets/brand/current/app/app-dark-16.svg",
+      "target": "assets/app/app-dark-16.svg",
+      "sha256": "2999ea903d66f723591edcc8f13930a53d95817b9c59c87f23e0ade0983f324f"
+    },
+    {
+      "source": "assets/brand/current/app/app-dark-20.svg",
+      "target": "assets/app/app-dark-20.svg",
+      "sha256": "2e89078c166797ce5babc28e4e55f76935b30ab8656d64042a4e93487d2c2f6f"
+    },
+    {
+      "source": "assets/brand/current/app/app-dark-24.svg",
+      "target": "assets/app/app-dark-24.svg",
+      "sha256": "852f43ed042b090169251f84671f03bc08e018462c57b5694ce7e7ec93a9b6f1"
+    },
+    {
+      "source": "assets/brand/current/app/app-dark-32.svg",
+      "target": "assets/app/app-dark-32.svg",
+      "sha256": "868a5915c8acadf3170ca6eb9381ab3bb5b9a9a56d2fa9cc2d8edec52627c3f2"
+    },
+    {
+      "source": "assets/brand/current/app/app-dark.svg",
+      "target": "assets/app/app-dark.svg",
+      "sha256": "e951a6173cdd95fe7f1605fff4e796857410e0dfe3aab1e01826160202b199dc"
+    },
+    {
+      "source": "assets/brand/current/app/app-light-16.svg",
+      "target": "assets/app/app-light-16.svg",
+      "sha256": "3f163716e3a8b1eeb53d72c60525b67c1bfc69b890da9314c7ca64f5b6e65e65"
+    },
+    {
+      "source": "assets/brand/current/app/app-light-20.svg",
+      "target": "assets/app/app-light-20.svg",
+      "sha256": "3370c3a041291afee6c0b885e26988a6cdea34013261cc04e300196d92861c62"
+    },
+    {
+      "source": "assets/brand/current/app/app-light-24.svg",
+      "target": "assets/app/app-light-24.svg",
+      "sha256": "829ab56011b0d7cf4f82eed346416b848694b03a8675a62da358bd5911d8d36c"
+    },
+    {
+      "source": "assets/brand/current/app/app-light-32.svg",
+      "target": "assets/app/app-light-32.svg",
+      "sha256": "8342edeb1e8e18f6658f3012bf42d2270e5695493f333ceeebd33817e04c8d5b"
+    },
+    {
+      "source": "assets/brand/current/app/app-light.svg",
+      "target": "assets/app/app-light.svg",
+      "sha256": "178e8bd12a65caf4166e38f19b1374dfdd38f7dbe57e4cbb2f5b84c7c36c682b"
+    }
+  ],
+  "uiReference": {
+    "source": "reference/main-ui-current.png",
+    "sha256": "afaf592d6fd5a095f93449fca93ab9d9145783f0ca88ac70565195aa80847ea9",
+    "status": "Windows native Qt 6.10.2 / isolated synthetic fixture / unmodified"
+  },
+  "runtimeIntegrated": true,
+  "pdfFonts": "Local system font subsets embedded for reading; no standalone font files distributed."
+}
