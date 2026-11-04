@@ -1,6 +1,6 @@
 # Daymark 实施进度
 
-### BRAND-24 A母版定稿、软件接入与GitHub/便携包（2026-11-03，IN_PROGRESS）
+### BRAND-24 A母版定稿、软件接入与GitHub/便携包（2026-11-04，WINDOWS-VERIFIED / VI-COMPLETE）
 
 用户明确以当前比例校正后的A整体更新VI、全面应用软件，完成后提交GitHub并构建便携包。本轮冻结A的轮廓/主体留白/短笔比例，统一生产源assets/brand/current，更新PNG/ICO/ICNS、托盘单色、QML字标/标志与关于/账号/悬浮球，完成中文VI/PDF和模板、Windows Qt6.10.2构建/Qt Test/CTest/lint及隔离原生截图，再以已提交干净源码打包并推送。版本保持1.8.0，不移动旧tag、不上传用户数据库。此前已授权UX-69与VI分开提交，原5项CI恢复改动保持；历史设计过程留在本地，不作为产品母版。HIG Purpose/Simplicity/Craft/Flexibility映射UX-01/09/10/11/13，主题/高对比/键盘/100～200%及平台边界分别验收；macOS未实测不记PASS。
 
@@ -10,6 +10,15 @@
 首次本机SDK的Qt工具被商业许可校验阻断，未绕过；下载官方开源Qt6.10.2、使用同版本MinGW13.1在build/brand24/ship干净提交源码构建。初始brand_assets 1/1 PASS（0.40秒）。原生沙箱受临时IPC权限限制，转为沙箱外隔离临时资料验证，不打开用户数据库。专项最初漏开独立日历，修正公共3窗条件；CurveRenderer试用在重复抓帧丢失标记，最终采用GeometryRenderer+8倍MSAA图层。加强验证为实际保存帧像素检查，保留失败日志，不把此前单帧通过当最终证据。
 
 最终Windows原生品牌250～256链退出0、3窗、warnings=false，5142ms；主窗、关于、账号与球的浅深/200%文字/高对比、重复帧和实际保存图像均通过并目视（native-msaa.log）。前期构建/最终增量日志opensource-build、msaa-build，证据位于build/brand24；格式检查通过，完整CTest及标准便携包门禁在本次冻结源码执行，结果待追加。macOS、物理混合DPI、读屏、独立干净机与签名仍UNVERIFIED。
+
+
+冻结源码938a9f38d3610a9b01b41afe45dde7eb018ca711的标准Release及完整28/28 CTest PASS（334.25秒），含brand_assets、brand_rendering、桌面长链52.83秒及晚阶段看门狗94.34秒；最终两项QML lint（lint-msaa.log）、94 QML样式、153文档链接与git diff --check PASS。正式生产母版124项、VI168项散列在干净签出逐项相同，PDF/图标显式二进制属性避免换行转换。没有再次运行已通过的全量测试。
+
+标准便携包非LocalPreview，BUILD-INFO标记fullTestGatePassed=true、knownTestFailures空、Qt6.10.2/schema10、已strip/未签名。SDK隔离完整--smoke-test退出0、2窗/warnings=false，13618ms；38个已观察DLL来自包内，D3DCompiler_47为允许的系统模块。120秒外层阈值本轮真实通过；不修改此前60秒失败历史。报告daymark-package-check-59569b8c0c4940708b7e6f480bd2fad3/report.json，userDataAccessed=false。ZIP逐文件及SHA256通过，复制到根dist后字节散列和归档内容再核对通过。
+
+交付dist/Daymark-1.8.0-windows-x64-local-20261104-085624.zip，39,763,528字节，SHA256 df5ba187dc2e7901e5c5137b60348ce0252e900a147a55c4d1752f1c82429dd0，随附.zip.sha256；部署exe SHA256 433bad6732acfb71e45b8a6e36a78d2cc41727878a1f5d7bc2104027b8b1143a。完整VI入口resource/VI/README.md，手册output/pdf/Daymark-VI-V2.pdf。包来源为上述938a9f3，随后仅补作者依赖说明、资源清单与本段交付证据；没有应用代码变化，不因文档再构建包。
+
+推送范围为此前UX-69加批准A的软件/完整VI及验证记录，非强制更新GitHub main，不移动v1.8.0或上传本机二进制。原4个已跟踪CI恢复文件SHA256与轮前一致，另1个未跟踪CI测试也保留；历史设计与旧VI草稿仅留本地忽略目录。Windows原生品牌截图和软件包验证不替代macOS、物理混合DPI、读屏、独立干净机或签名，相关项保持UNVERIFIED。
 
 
 ### PACKAGE-UX69 本地Windows便携包（2026-11-03，LOCAL-PREVIEW-PACKAGE-PASS / FULL-NATIVE-TIMEOUT）

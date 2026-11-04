@@ -6,7 +6,7 @@
 
 `master/` 为11个标准矢量，`micro/` 为16/20/24物理像素单色微型，`app/` 为10个浅深载体，`png/` 为91张含sRGB的栅格。`manifest.json`记录源与导出文件SHA256。完整规范、模板和PDF见 [VI](../../../resource/VI/README.md)，产品映射见 [接入契约](../../../docs/design/brand-identity-integration.md)。
 
-作者环境使用 Python、Pillow 12.2.0、CairoSVG 2.9.0；仅用于生成已提交资源，不增加客户端依赖。安装依赖后，Windows PowerShell 与 macOS shell 均可运行：
+作者环境需要 Python 与系统 Cairo 原生库（可由PATH查找），使用 Pillow 12.2.0、CairoSVG 2.9.0；仅用于生成已提交资源，不增加客户端依赖。安装依赖后，Windows PowerShell 与 macOS shell 均可运行：
 
 ```sh
 python assets/brand/current/source/build_identity.py --runtime

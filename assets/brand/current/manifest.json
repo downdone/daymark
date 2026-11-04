@@ -475,7 +475,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "e7c0f770f5a1d681cfba41b533aece73a02482d232c1271710120c07ab2221ab"
+      "sha256": "da29816b91117dbb0843561c527d6d5c7b9cc22bb2d7a8f921c587bf4f606c16"
     },
     {
       "path": "source/build_identity.py",

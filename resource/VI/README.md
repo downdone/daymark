@@ -12,6 +12,6 @@
 - `source/`：手册生成器、版本锁定、来源和校验；`manifest.json`为文件散列。
 - `reference/main-ui-current.png`：临时合成资料下的Windows Qt原生界面截图，未贴图替换标志。
 
-重建：Windows先安装source/requirements.txt，运行 `python assets/brand/current/source/build_identity.py --runtime`，再运行 `python resource/VI/source/build_vi.py`。手册作者工具当前使用Windows本机微软雅黑/Segoe子集；macOS普通软件构建直接消费已提交资源，若重建中文手册须配置可嵌入字体并重新检查换行。没有分发独立字体、Qt SDK、用户任务或凭据。
+重建：Windows准备Python及Cairo原生库后，安装source/requirements.txt，运行 `python assets/brand/current/source/build_identity.py --runtime`，再运行 `python resource/VI/source/build_vi.py`。手册作者工具当前使用Windows本机微软雅黑/Segoe子集；macOS普通软件构建直接消费已提交资源，若重建中文手册须配置可嵌入字体并重新检查换行。没有分发独立字体、Qt SDK、用户任务或凭据。
 
 旧日出/单拱等过程方案不属于现行VI；上游参考只用于形状研究。形状与颜色并不构成已完成商标检索或用户识别测试的声明。
