@@ -68,7 +68,17 @@ void Ux38SmokeProbe::expandWithKey(int key) {
 bool Ux38SmokeProbe::capture(QQuickWindow* window,const QString& name) const {
     if(m_screenshot.isEmpty())return true;
     if((name=="menu" || name=="menu-200") && window==m_widget){auto* menu=find(m_widget,"widgetMenu");auto* content=menu?qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>()):nullptr;if(content && content->window())window=content->window();}
-    return window && window->grabWindow().save(m_screenshot+".desktop-"+name+".png");
+    if(!window)return false;
+    const auto frame=window->grabWindow();
+    if(name.startsWith("brand-")){
+        const auto id=name.startsWith("brand-main-")?QStringLiteral("sidebarWordmark"):name.startsWith("brand-about-")?QStringLiteral("aboutBrand"):name.startsWith("brand-account-")?QStringLiteral("accountWordmark"):QStringLiteral("widgetBrandMark");
+        auto* item=qobject_cast<QQuickItem*>(find(window,id));if(!item || frame.isNull())return false;
+        const double ratio=double(frame.width())/window->width();const auto point=item->mapToScene(QPointF());const auto ink=item->property("ink").value<QColor>();int pixels=0;
+        for(int y=qMax(0,int(point.y()*ratio));y<qMin(frame.height(),int((point.y()+item->height())*ratio));++y)
+            for(int x=qMax(0,int(point.x()*ratio));x<qMin(frame.width(),int((point.x()+item->width())*ratio));++x){const auto pixel=frame.pixelColor(x,y);if(qAbs(pixel.red()-ink.red())+qAbs(pixel.green()-ink.green())+qAbs(pixel.blue()-ink.blue())<50)++pixels;}
+        if(pixels<20){qCritical()<<"Brand missing from saved frame"<<name;frame.save(m_screenshot+".desktop-"+name+"-failure.png");return false;}
+    }
+    return frame.save(m_screenshot+".desktop-"+name+".png");
 }
 void Ux38SmokeProbe::capturePanelFrame(const QString& name,QQuickWindow* window) {
     if(m_screenshot.isEmpty())return;
@@ -145,7 +155,7 @@ QString Ux38SmokeProbe::advance() {
             settings->setProperty("categoryIndex",3);
         }
         if(m_stage==251){
-            if(!checkSidebar() || !painted(settings,"aboutBrand") || !capture(settings,"brand-about-light"))return fail("brand light rendering");
+            if(!checkSidebar() || !painted(settings,"aboutBrand") || !painted(settings,"aboutBrand") || !painted(m_main,"sidebarWordmark") || !capture(settings,"brand-about-light"))return fail("brand light repeated rendering");
             settings->close();if(!capture(m_main,"brand-main-light"))return fail("brand main capture");
             m_workspace.setThemeMode(2);m_workspace.setTextScale(2);
         }
