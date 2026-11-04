@@ -98,6 +98,13 @@ bool Ux38SmokeProbe::layout() const {
     return result=="PASS";
 }
 QString Ux38SmokeProbe::advance() {
+    if(!m_menuFallbackPrepared){
+        // This suite validates the custom QML fallback's pixels/geometry/input.
+        // UX-74 separately validates Windows native menu lifecycle and OS input.
+        for(const auto* name:{"widgetMenu","widgetTaskMenu"})if(auto* menu=find(m_widget,name))QMetaObject::invokeMethod(menu,"useWindowFallbackForVerification");
+        m_menuFallbackPrepared=true;
+    }
+
     // The runtime may call again while finishing pending delegate incubation.
     // A completed fixture must not re-run its final actions or assertions.
     if(m_stage==242 || m_stage==257)return "DONE";

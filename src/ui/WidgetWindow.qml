@@ -185,6 +185,7 @@ Window {
         while(item){if(item.opacity<0.999 || !item.enabled)return "menu inherits fading or disabled ancestor";item=item.parent}
         const background=widgetMenu.background as Rectangle
         if(widgetMenu.opacity!==1 || !background || background.color.a!==1)return "translucent menu surface"
+        if(widgetMenu.nativePresented)return "PASS" // OS pixels/input are verified separately.
         if(widgetMenu.menuWindow===widget)return "menu did not create an independent window"
         if(widgetMenu.menuWindow.color.a!==1 || widgetMenu.menuWindow.opacity!==1)return "translucent menu window"
         if(!(widgetMenu.menuWindow.flags & Qt.WindowStaysOnTopHint) || (widgetMenu.menuWindow.flags & Qt.WindowStaysOnBottomHint))return "menu window is not topmost"
@@ -213,7 +214,7 @@ Window {
     }
     function closeVerificationMenu() {widgetMenu.close()}
     DS.Menu {
-        id:taskMenu;objectName:"widgetTaskMenu";parent:widget.contentItem;popupType:Popup.Window
+        id:taskMenu;objectName:"widgetTaskMenu";parent:widget.contentItem;popupType:Qt.platform.pluginName==="windows" ? Popup.Native : Popup.Window
         onVisibleChanged:widget.reportInteraction()
         MenuItem {text:qsTr("任务详情");onTriggered:widget.openTaskRequested(widget.contextTask.taskId)}
         MenuItem {objectName:"widgetTaskPin";text:widget.contextTask.pinned ? qsTr("取消置顶") : qsTr("置顶");onTriggered:widget.taskAction("pin")}
@@ -241,7 +242,7 @@ Window {
     DS.Menu {
         id:widgetMenu;objectName:"widgetMenu"
         parent:widget.contentItem
-        popupType:Popup.Window
+        popupType:Qt.platform.pluginName==="windows" ? Popup.Native : Popup.Window
         onVisibleChanged:{widget.reportInteraction();if(visible)widget.miniKeyboardInteraction=false}
         MenuItem {objectName:"widgetFormPanel";visible:widget.controller.formCount>1 && ((widget.controller.enabledForms & 1)!==0);text:qsTr("小窗");checkable:true;checked:widget.controller.selectedForm===0;onTriggered:widget.controller.selectForm(0)}
         MenuItem {objectName:"widgetFormMini";visible:widget.controller.formCount>1 && ((widget.controller.enabledForms & 2)!==0);text:qsTr("Mini 条");checkable:true;checked:widget.controller.selectedForm===1;onTriggered:widget.controller.selectForm(1)}
@@ -294,7 +295,6 @@ Window {
             color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,widget.workspace.preferences.solidWidget || Theme.highContrast ? 1 : widget.controller.backgroundOpacity)
             border.color: Theme.separator
             HoverHandler {id:miniHover;onHoveredChanged:widget.reportInteraction()}
-            TapHandler {enabled:!widget.commandInputBlocked;acceptedButtons:Qt.RightButton;onTapped:widget.openVerificationMenu()}
             ToolButton {
                 id:miniBall;objectName:"widgetMiniBall"
                 visible:widget.controller.panelMotion ? widget.panelReveal<0.999 : widget.controller.mini && widget.miniReveal<0.999

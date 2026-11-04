@@ -9,6 +9,8 @@
 #include <QSet>
 #include <QImage>
 #include <QDebug>
+#include "platform/common/SmokeMenuControl.h"
+#include <QGuiApplication>
 namespace daymark {
 Ux71SmokeProbe::Ux71SmokeProbe(TaskWorkspace& w,WidgetViewModel& c,QQuickWindow* main,QQuickWindow* widget,QString shot)
     :m_workspace(w),m_controller(c),m_main(main),m_widget(widget),m_screenshot(std::move(shot)){
@@ -48,6 +50,17 @@ void Ux71SmokeProbe::rightClickBlank(){
         QCoreApplication::sendEvent(m_widget,&event);
     }
 }
+bool Ux71SmokeProbe::nativeRoundtrip(QObject* menu,const QString& command){
+    // This is a lifecycle/command-wiring check, not native pointer evidence.
+    // Actual system-menu input is verified separately on Windows.
+    m_nativePresented=false;
+    if(!scheduleSmokeMenuDismiss(m_widget,[this,menu,command]{
+        m_nativePresented=menu->property("visible").toBool() && menu->property("nativePresented").toBool();
+        if(!command.isEmpty())if(auto* item=find(m_widget,command))QMetaObject::invokeMethod(item,"triggered");
+    }))return false;
+    QMetaObject::invokeMethod(m_widget,"openVerificationMenu");
+    return m_nativePresented;
+}
 QString Ux71SmokeProbe::advance(){
     if(m_stage==99)return "DONE";
     if(m_wait.elapsed()<100)return {};
@@ -57,6 +70,16 @@ QString Ux71SmokeProbe::advance(){
     const auto fail=[&](const QString& reason){capture(m_main,"failure");return QStringLiteral("UX71 stage %1: %2").arg(m_stage).arg(reason);};
     auto* list=qobject_cast<QQuickItem*>(find(m_main,"taskList"));auto* bar=find(m_main,"taskScrollBar");
     if(!list || !bar)return fail("list/scrollbar missing");
+    if(m_stage==0 && qgetenv("DAYMARK_SMOKE_UI_SLICE")=="native-menu-fixture"){
+        // Manual system-menu input needs one isolated task, not wheel setup.
+        m_workspace.setPreference("followSystemAccessibility",false);
+        m_workspace.setPreference("reduceMotion",true);
+        m_workspace.setPreference("desktopCalendarVisible",true);
+        m_workspace.setThemeMode(1);m_workspace.setTextScale(1);
+        m_workspace.setView("today");
+        if(!m_workspace.createTodayTask(QStringLiteral("原生菜单交互验证")))return fail("manual menu fixture create");
+        m_stage=55;m_wait.restart();return {};
+    }
     if(m_stage==0){
         m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",true);m_workspace.setPreference("desktopCalendarVisible",true);
         m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_workspace.setView("all");m_main->resize(1100,640);m_controller.setVisible(false);
@@ -110,6 +133,30 @@ QString Ux71SmokeProbe::advance(){
         qInfo()<<"Widget input fixture presented setup"<<setup;
         if(++setup<4){m_wait.restart();return {};}
     }
+    const bool nativeWindows=QGuiApplication::platformName()==QStringLiteral("windows");
+    if(m_stage==56 && qgetenv("DAYMARK_SMOKE_UI_SLICE")=="native-menu-fixture"){
+        // A bounded, isolated fixture for real OS input via Computer Use.
+        // The normal unchanged watchdog ends an abandoned fixture.
+        if(m_widget->title()!=QStringLiteral("Daymark native menu verification")){
+            // Expose the synthetic tool surface to accessibility inventories.
+            // Keep frameless/topmost geometry; only this manual fixture uses a
+            // normal task-window type. Production stays Qt::Tool.
+            m_widget->setFlags((m_widget->flags() & ~Qt::WindowType_Mask) | Qt::Window);
+            m_widget->hide();m_widget->show();m_widget->requestActivate();
+            m_widget->setTitle(QStringLiteral("Daymark native menu verification"));
+        }
+        return {};
+    }
+    if(nativeWindows && m_stage>=56 && m_stage<=62){
+        auto* menu=find(m_widget,"widgetMenu");
+        if(m_stage==56 && (!nativeRoundtrip(menu,"widgetFormPanel") || m_controller.selectedForm()!=0 || m_main->isVisible()))return fail("native Panel menu lifecycle/wiring");
+        if(m_stage==60){
+            m_workspace.setThemeMode(2);m_workspace.setTextScale(2);
+            if(!nativeRoundtrip(menu,"widgetFormBall") || m_controller.selectedForm()!=2 || m_main->isVisible())return fail("native Ball menu lifecycle/wiring");
+        }
+        if(m_stage==62)m_controller.activatePrimary();
+        ++m_stage;m_wait.restart();return {};
+    }
     if(m_stage==56){
         if(bar->property("visible").toBool() || list->property("interactive").toBool())return fail("nonoverflowing list remains scrollable");
         QMetaObject::invokeMethod(m_widget,"openVerificationMenu");
@@ -160,9 +207,12 @@ QString Ux71SmokeProbe::advance(){
             m_blank=m_widget->grabWindow().copy(QRect(22,240,40,30)).convertToFormat(QImage::Format_RGBA8888);
             if(m_blank.isNull())return fail("background reference capture is empty");
             rightClickBlank();
+            if(menu->property("visible").toBool())return fail("blank-area right-click opens a panel menu");
+            if(nativeWindows){if(!nativeRoundtrip(menu))return fail("native menu was not presented");}
+            else click(qobject_cast<QQuickItem*>(find(m_widget,"widgetMore")));
         }
-        if(part==1){
-            if(!menu->property("visible").toBool())return fail("blank-area context menu did not remain open");
+        if(part==1 && !nativeWindows){
+            if(!menu->property("visible").toBool())return fail("more-button context menu did not remain open");
             auto* menuItem=qobject_cast<QQuickItem*>(menu->property("contentItem").value<QObject*>());
             if(!menuItem || menuItem->window()==m_widget)return fail("context menu lost independent native surface");
             m_menuWindow=menuItem->window();
@@ -172,7 +222,7 @@ QString Ux71SmokeProbe::advance(){
             if(!row || !row->isEnabled())return fail("menu changes the task's visual enabled state");
             if(!capture(menuItem->window(),QStringLiteral("lifecycle-%1-open").arg(cycle)))return fail("lifecycle capture");
         }
-        if(part==2){
+        if(part==2 && !nativeWindows){
             // Qt's native Popup can forward the outside gesture to its host
             // after closing. Reproduce both parts in the same dispatch turn.
             QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");

@@ -17,6 +17,8 @@ private:
     QObject* find(QObject*,const QString&) const;
     void click(QQuickItem*,QQuickWindow* receiver=nullptr);
     void rightClickBlank();
+    bool nativeRoundtrip(QObject*,const QString& command={});
+    bool m_nativePresented=false;
     bool capture(QQuickWindow*,const QString&) const;
     TaskWorkspace& m_workspace;
     WidgetViewModel& m_controller;

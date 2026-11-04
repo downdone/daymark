@@ -4,9 +4,10 @@ T.Menu {
     id: control
     popupType: T.Popup.Item
     focus: true
-    modal: popupType===T.Popup.Window
+    modal: popupType!==T.Popup.Item
     dim: false
     // Conditional commands must not leave leading, trailing or doubled rules.
+    function useWindowFallbackForVerification() {popupType=T.Popup.Window}
     function updateGroups() {
         let hasItem=false,pending=null
         const shown=[]
@@ -28,7 +29,9 @@ T.Menu {
     property point sourcePoint: Qt.point(0,0)
     readonly property var anchorWindow: anchorItem ? anchorItem.Window.window : null
     readonly property var menuWindow: contentItem ? contentItem.Window.window : null
+    readonly property bool nativePresented: visible && popupType===T.Popup.Native && (!menuWindow || menuWindow===anchorWindow)
     function anchorPosition(source) {
+        if(popupType===T.Popup.Native)return pointAnchor ? sourcePoint : Qt.point(0,source.height+4)
         const host=source.Window.window,screen=host ? host.screen : null
         const edge=pointAnchor ? source.mapToGlobal(sourcePoint.x,sourcePoint.y) : source.mapToGlobal(source.width,source.height)
         if(pointAnchor){const left=screen ? Math.max(screen.virtualX+6,Math.min(edge.x,screen.virtualX+screen.width-width-6)) : edge.x;return source.mapFromGlobal(left,edge.y)}
@@ -48,12 +51,12 @@ T.Menu {
         recordHostGeometry()
         const at=anchorPosition(source)
         // Window menus must not inherit a fading/disabled anchor's visual tree.
-        const root=popupType===T.Popup.Window && anchorWindow ? anchorWindow.contentItem : source
+        const root=popupType!==T.Popup.Item && anchorWindow ? anchorWindow.contentItem : source
         const position=root.mapFromGlobal(source.mapToGlobal(at.x,at.y))
         popup(root,position.x,position.y)
     }
     function refreshAnchor() {
-        if(!visible || !anchorItem || !parent)return
+        if(!visible || nativePresented || !anchorItem || !parent)return
         const at=anchorPosition(anchorItem)
         const position=parent.mapFromGlobal(anchorItem.mapToGlobal(at.x,at.y))
         x=position.x;y=position.y
@@ -61,7 +64,7 @@ T.Menu {
     onWidthChanged: if(visible && anchorItem)Qt.callLater(refreshAnchor)
     onHeightChanged: if(visible && anchorItem)Qt.callLater(refreshAnchor)
     function ensureWindowLayer() {
-        if(popupType!==T.Popup.Window || !anchorWindow || !menuWindow || menuWindow===anchorWindow)return
+        if(popupType===T.Popup.Item || !anchorWindow || !menuWindow || menuWindow===anchorWindow)return
         const flags=(menuWindow.flags | Qt.WindowStaysOnTopHint) & ~Qt.WindowStaysOnBottomHint
         if(menuWindow.flags!==flags)menuWindow.flags=flags
         if(visible)menuWindow.raise()
@@ -72,8 +75,8 @@ T.Menu {
     // Qt reparents popup content before hiding its native window. Restoring
     // transparent clear/opacity there changes its alpha format mid-close.
     // Keep this dedicated window opaque for its entire lifetime.
-    Binding {target:control.menuWindow;property:"color";value:DesignTokens.surface;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreNone}
-    Binding {target:control.menuWindow;property:"opacity";value:1;when:control.popupType===T.Popup.Window && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreNone}
+    Binding {target:control.menuWindow;property:"color";value:DesignTokens.surface;when:control.popupType!==T.Popup.Item && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreNone}
+    Binding {target:control.menuWindow;property:"opacity";value:1;when:control.popupType!==T.Popup.Item && !!control.menuWindow && !!control.anchorWindow && control.menuWindow!==control.anchorWindow;restoreMode:Binding.RestoreNone}
     property rect hostGeometry: Qt.rect(0,0,0,0)
     function recordHostGeometry() {
         const host=anchorWindow

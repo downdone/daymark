@@ -127,7 +127,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto ux37=std::make_shared<Ux37SmokeProbe>(m_workspace,mainWindow,screenshotPath);
         auto ux38=std::make_shared<Ux38SmokeProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath);
         auto ux39=std::make_shared<Ux39SmokeProbe>(m_workspace,mainWindow,screenshotPath);
-        auto ux71=qgetenv("DAYMARK_SMOKE_UI_SLICE")=="input-feedback" ? std::make_shared<Ux71SmokeProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath) : nullptr;
+        auto ux71=(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="input-feedback" || qgetenv("DAYMARK_SMOKE_UI_SLICE")=="native-menu-fixture") ? std::make_shared<Ux71SmokeProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath) : nullptr;
         auto smokePhase=std::make_shared<int>(0);
         auto smokeCompleted=std::make_shared<bool>(false);
         // Progress stamp for the stall guard. A loaded or software-rendered runner

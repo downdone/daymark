@@ -1,5 +1,20 @@
 # Daymark 实施进度
 
+### UX-74 Windows组件原生菜单与空白右键语义（2026-11-04，IMPLEMENTED / AUTO-PASS / MANUAL-UNVERIFIED）
+
+用户实机反馈UX-73仍有黑条，明确发生在菜单即将显示/关闭后的透明区域；UX-73静态原生截图与像素通过不等于消除合成瞬态。FR-012/018/035，HIG平台熟悉感/用户控制/稳定反馈，UX-09/10/11/13。移除整面板空白右键；Windows两个组件菜单优先Popup.Native，让平台绘制，其他平台和不支持原生的后端保留实体Window回退。保留任务上下文、更多入口、焦点/菜单保持与恢复。验证分别覆盖回退QML输入/Windows原生菜单生命周期及实际系统交互，不能以程序触发信号冒充真实点击。无新依赖、不改CI/编译脚本、用户资料或分类范围。
+
+实现Windows QPA下组件面板与任务菜单优先Popup.Native，其他后端保留Window；共享菜单区分nativePresented、使用平台来源锚点，不再用QML预测宽度定位系统菜单。面板空白右键绑定已删除，任务行保留任务菜单；原命令、草稿与球/小窗状态机不变。Windows系统菜单使用系统视觉/字体/缩放惯例，不强行套QML圆角或应用200%字号。
+
+验证先完成Release/QML lint和3项相关CTest（94.74秒，build/ux74/isolated-test.log）。随后将旧Ux38的自绘图形测试显式限定Window回退，避免原生菜单阻塞其QML事件模拟；desktop_surfaces及desktop_input_feedback最终2/2 PASS（69.89秒，final-test.log），task_list_interaction此前28.35秒PASS，未改变其输入代码，未重跑全29项。最终手动夹具改为直接建立一个QTemporaryDir任务，不依赖无关滚轮长链；此后仅该可选夹具分支变更，无产品UI变化（fixture-build.log）。94 QML样式及本轮lint通过。
+
+Windows系统菜单会进入原生嵌套消息循环，Qt Timer取消在该循环未执行，首轮native.log超时保留；没有放宽超时。增加src/platform/common/SmokeMenuControl的仅smoke有界Win32 Timer取消，在原生循环关闭菜单。实际Popup.Native生命周期/勾选命令接线和浅深8轮开关通过：退出0、3窗、warnings=false、21891ms（native-bounded.log）。该程序触发只算命令接线，不能冒充原生鼠标点击。CMake仅登记新测试辅助源，构建/CI脚本没有修改。
+
+真实交互尝试使用computer-use隔离夹具：首轮UIA树采集未返回；改为只取画面可观察到球，但后续输入报“foreground window did not report a process id”，未确认操作成功。MANUAL-UNVERIFIED，不能据此宣称实机黑条已消失。夹具为可被工具清单发现而临时改变窗口类型，生产仍Qt::Tool；真实Tool窗合成瞬态、三层级物理输入、读屏及macOS均保持未验证。原生系统菜单绕开原QML透明Popup显示/隐藏路径是实现选择，不是对未知显卡/系统环境的验收保证。
+
+原输出路径链接报Permission denied，未覆盖现有文件。使用生成Ninja/CTest文件的忽略副本仅重定向可执行输出到bin/daymark-ux74.exe，完成真实编译/链接和同名用例，原仓库脚本及编译参数不改。build/Launch-Daymark.cmd现明确指向这个新构建，需先从托盘退出旧实例。旧dist ZIP没有覆盖，未打新tag、未推送；用户数据/证书/SDK未入提交。分类仍为设计，不新增虚假设置开关。
+
+
 ### UX-73 组件菜单开关闪烁与关闭事件隔离（2026-11-04，BUILD-PASS / CTEST-UI-PASS / NATIVE-LIFECYCLE-PASS）
 
 用户报告空白右键菜单打开/关闭时黑条闪烁。范围FR-012/018/035，HIG稳定反馈/用户控制，关联UX-09/10/11/13及P-13/15/17。先补同一原生关闭手势重放和反复开关/空白像素验收，再区分菜单生命周期、背景禁用样式与Windows合成；不修改动画/超时和CI脚本，不碰用户资料。分类快查仍为UX-72设计，当前包无分类开关，本轮不暗示已实现。

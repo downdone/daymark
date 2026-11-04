@@ -132,7 +132,7 @@ qt_add_qml_module(daymark
 )
 target_include_directories(daymark PRIVATE src src/models src/platform/common)
 target_sources(daymark PRIVATE src/app/Ux37SmokeProbe.h src/app/Ux37SmokeProbe.cpp src/app/Ux38SmokeProbe.h src/app/Ux38SmokeProbe.cpp src/app/Ux39SmokeProbe.h src/app/Ux39SmokeProbe.cpp)
-target_sources(daymark PRIVATE src/app/Ux71SmokeProbe.h src/app/Ux71SmokeProbe.cpp)
+target_sources(daymark PRIVATE src/app/Ux71SmokeProbe.h src/app/Ux71SmokeProbe.cpp src/platform/common/SmokeMenuControl.h src/platform/common/SmokeMenuControl.cpp)
 target_link_libraries(daymark PRIVATE daymark_window_platform daymark_core daymark_styleplugin Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Widgets Qt6::Network)
 target_compile_definitions(daymark PRIVATE DAYMARK_VERSION="${DAYMARK_VERSION}")
 set_target_properties(daymark PROPERTIES WIN32_EXECUTABLE TRUE MACOSX_BUNDLE TRUE

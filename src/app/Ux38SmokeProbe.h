@@ -17,6 +17,7 @@ public:
     QString advance();
     int verificationStep() const {return m_stage;}
 private:
+    bool m_menuFallbackPrepared=false;
     QObject* find(QObject* root,const QString& name) const;
     void click(const QString& name,QObject* scope=nullptr);
     void expandWithKey(int key);
