@@ -17,9 +17,11 @@ Window {
     readonly property int miniBarHeight: Math.max(48,Theme.controlHeight+2*Theme.panelPadding)
     onMiniBarHeightChanged: Qt.callLater(syncMiniLayout)
     onBallDiameterChanged: Qt.callLater(syncMiniLayout)
-    Component.onCompleted: {syncMiniLayout();controller.enableVisualTransitions();Qt.callLater(setMiniAnimation)}
-    minimumWidth: controller.mini && ((controller.enabledForms & 4)!==0) ? ballDiameter : 260
-    minimumHeight: controller.mini && ((controller.enabledForms & 4)!==0) ? ballDiameter : controller.mini ? Math.max(48,Theme.controlHeight+2*Theme.panelPadding) : Math.max(190,header.implicitHeight+footer.implicitHeight+(widgetError.visible ? widgetError.implicitHeight : 0)+2*Theme.panelPadding+4*Theme.fieldGap+48+Theme.listInset*2+ (width<300 ? footer.implicitHeight : 0))
+    Component.onCompleted: {syncMiniLayout();controller.enableVisualTransitions();Qt.callLater(syncPanelMinimum);Qt.callLater(setMiniAnimation)}
+    minimumWidth:ballDiameter;minimumHeight:ballDiameter
+    readonly property int panelMinimumHeight:Math.ceil(Math.max(190,header.implicitHeight+footer.implicitHeight+(widgetError.visible?widgetError.implicitHeight:0)+2*Theme.panelPadding+4*Theme.fieldGap+48+Theme.listInset*2+(controller.panelRect.width<300?footer.implicitHeight:0)))
+    onPanelMinimumHeightChanged:Qt.callLater(syncPanelMinimum)
+    function syncPanelMinimum(){controller.setPanelMinimumSize(260,panelMinimumHeight)}
     x: 80;y: 80;visible: false;color: "transparent"
     title: qsTr("Daymark 今日任务")
     property string taskError: ""
@@ -75,20 +77,40 @@ Window {
     readonly property bool miniMode: controller.mini
     property bool miniKeyboardInteraction: false
     property bool pendingMiniKeyboardFocus: false
-    property real miniReveal: controller.targetBall ? 0 : 1
-    readonly property bool miniTransitionRunning: miniAnimation.running
-    readonly property bool panelTransitionRunning: panelAnimation.running
-    property real visualWidth: width
-    property real visualHeight: height
-    property real panelReveal: controller.mini ? 0 : 1
-    property real panelContentOpacity: controller.mini ? 0 : 1
-    property int visualTransition: -1
-    property int collapsingTransition: -1
+    property real motionProgress:1
+    property rect fromRect:Qt.rect(0,0,340,360)
+    property rect toRect:fromRect
+    property real fromPanel:1
+    property real toPanel:1
+    property real fromOpacity:1
+    property real fromMini:0
+    property real toMini:0
+    property real fromRadius:Theme.panelRadius
+    property real toRadius:Theme.panelRadius
+    readonly property rect frameRect:Qt.rect(fromRect.x+(toRect.x-fromRect.x)*motionProgress,fromRect.y+(toRect.y-fromRect.y)*motionProgress,fromRect.width+(toRect.width-fromRect.width)*motionProgress,fromRect.height+(toRect.height-fromRect.height)*motionProgress)
+    readonly property real visualWidth:frameRect.width
+    readonly property real visualHeight:frameRect.height
+    readonly property real frameRadius:fromRadius+(toRadius-fromRadius)*motionProgress
+    readonly property real panelReveal:fromPanel+(toPanel-fromPanel)*motionProgress
+    readonly property real panelContentOpacity:toPanel>fromPanel ? fromOpacity+(1-fromOpacity)*Math.max(0,(motionProgress-0.2)/0.8) : fromOpacity*Math.max(0,1-motionProgress*2.5)
+    readonly property real miniReveal:fromMini+(toMini-fromMini)*motionProgress
+    readonly property bool miniTransitionRunning:motionAnimation.running && !controller.panelMotion
+    readonly property bool panelTransitionRunning:motionAnimation.running && controller.panelMotion
+    readonly property bool motionInputBlocked:motionAnimation.running || controller.transitionPending
+    property int visualTransition:-1
+    property bool pendingWidgetMenu:false
+    property Item transitionFocusItem:null
+    onMotionInputBlockedChanged:{
+        if(motionInputBlocked && active){transitionFocusItem=activeFocusItem;inputShield.forceActiveFocus()}
+        else if(!motionInputBlocked){const previous=transitionFocusItem;transitionFocusItem=null;if(active && previous && previous.visible && previous.enabled)previous.forceActiveFocus();else if(active)Qt.callLater(focusCurrentForm)}
+    }
+    onFrameRectChanged:syncInputRegion()
+    onFrameRadiusChanged:syncInputRegion()
     readonly property Control miniFocusControl: activeFocusItem as Control
     readonly property bool miniKeyboardFocus: active && (miniKeyboardInteraction || (!!miniFocusControl && [Qt.TabFocusReason,Qt.BacktabFocusReason,Qt.ShortcutFocusReason].indexOf(miniFocusControl.focusReason)>=0))
     readonly property bool interactionPressed: ballPress.active || miniPress.active || headerPress.active || miniSummary.down || miniMore.pressed || workspace.busy || errorMessage.length>0 || addingTask || taskDragging
     onActiveChanged: {
-        if(!active && !widgetMenu.visible)miniKeyboardInteraction=false
+        if(!active && !commandMenuOpen && !deleteTaskConfirmation.visible)miniKeyboardInteraction=false
         if(!active && addingTask && !addingPending && !quickTitle.text.length)addingTask=false
     }
     onMiniKeyboardFocusChanged: reportInteraction()
@@ -96,69 +118,37 @@ Window {
     onInteractingChanged: reportInteraction()
     function reportInteraction() {controller.setInteraction(miniHover.hovered,interactionPressed || interacting,widgetMenu.visible || taskMenu.visible || deleteTaskConfirmation.visible,miniKeyboardFocus)}
     function syncMiniLayout() {controller.setMiniLayout(miniBarHeight,ballDiameter)}
-    function syncSurfaceSize() {
-        if(controller.geometryChanging || controller.panelMotion)return
-        visualWidth=controller.mini ? ballDiameter+(controller.miniWidth-ballDiameter)*miniReveal : width
-        visualHeight=controller.mini ? ballDiameter+(miniBarHeight-ballDiameter)*miniReveal : height
-        panelReveal=controller.mini ? 0 : 1
-        panelContentOpacity=panelReveal
-        syncInputRegion()
+    function targetRect(){return controller.effectiveForm===0?controller.panelRect:controller.effectiveForm===1?controller.miniRect:controller.ballRect}
+    function syncSurfaceSize(){setMiniAnimation()}
+    function syncInputRegion(){controller.setRevealRegion(Qt.rect(Math.floor(frameRect.x),Math.floor(frameRect.y),Math.ceil(frameRect.x+frameRect.width)-Math.floor(frameRect.x),Math.ceil(frameRect.y+frameRect.height)-Math.floor(frameRect.y)),frameRadius)}
+    function finishVisual(immediate){
+        motionAnimation.stop();motionProgress=1;syncInputRegion()
+        if(immediate)controller.finishTransition(visualTransition)
+        else controller.presentTransition(visualTransition)
     }
-    function setMiniAnimation() {
-        if(controller.geometryChanging || visualTransition===controller.transitionId)return
-        const previous=visualTransition
-        visualTransition=controller.transitionId
-        const target=controller.targetBall ? 0 : 1
-        const inFlight=miniAnimation.running
-        miniAnimation.stop()
-        panelAnimation.stop()
-        collapsingTransition=visualTransition
-        if(controller.panelMotion && !reduceMotion && visible) {
-            miniReveal=target
-            const opening=!controller.targetBall
-            const duration=Math.max(1,Math.round((opening ? 180 : 150)*Math.abs(panelReveal-target)))
-            panelWidthAnimation.to=opening ? width : ballDiameter
-            panelHeightAnimation.to=opening ? height : ballDiameter
-            panelProgressAnimation.to=target
-            panelWidthAnimation.duration=duration;panelHeightAnimation.duration=duration;panelProgressAnimation.duration=duration
-            panelFadeDelay.duration=opening && panelContentOpacity<0.001 ? Math.min(36,duration/5) : 0
-            panelFadeAnimation.to=target
-            panelFadeAnimation.duration=opening ? Math.max(1,duration-panelFadeDelay.duration) : Math.min(60,duration)
-            panelAnimation.start()
+    function setMiniAnimation(){
+        if(!controller.ready || controller.geometryChanging)return
+        if(visualTransition===controller.transitionId){
+            if((reduceMotion || !visible || controller.clickThrough) && motionAnimation.running)finishVisual(!visible || controller.clickThrough)
+            if(pendingWidgetMenu && !controller.transitionPending){pendingWidgetMenu=false;Qt.callLater(showWidgetMenu)}
             return
         }
-        if(!controller.mini || controller.miniCollapsed || reduceMotion || !visible){miniReveal=target;controller.finishTransition(visualTransition);syncSurfaceSize();return}
-        if(!inFlight && previous<0)miniReveal=controller.revealFrom
-        else if(!inFlight && !controller.targetBall && controller.revealFrom===0)miniReveal=0
-        if(Math.abs(miniReveal-target)<0.001){miniReveal=target;controller.finishTransition(visualTransition);return}
-        miniAnimation.to=target
-        miniAnimation.duration=Math.max(1,Math.round(160*Math.abs(miniReveal-target)))
-        miniAnimation.start()
+        widgetMenu.close();taskMenu.close();pendingWidgetMenu=false
+        const currentRect=frameRect,currentPanel=panelReveal,currentMini=miniReveal,currentRadius=frameRadius,currentOpacity=panelContentOpacity
+        motionAnimation.stop();visualTransition=controller.transitionId
+        fromRect=currentRect;fromPanel=currentPanel;fromMini=currentMini;fromRadius=currentRadius;fromOpacity=currentOpacity
+        toRect=targetRect();toPanel=controller.effectiveForm===0?1:0;toMini=controller.effectiveForm===1?1:0
+        toRadius=controller.effectiveForm===0?Theme.panelRadius:controller.effectiveForm===2?ballDiameter/2:Math.min(controller.miniRect.height/2,22)
+        motionProgress=0
+        if(!controller.transitionPending || reduceMotion || !visible || controller.clickThrough){finishVisual(!controller.transitionPending || !visible || controller.clickThrough);return}
+        const distance=Math.max(Math.abs(toRect.width-fromRect.width),Math.abs(toRect.height-fromRect.height),Math.abs(toRect.x-fromRect.x),Math.abs(toRect.y-fromRect.y))
+        const span=Math.max(1,controller.panelRect.width-ballDiameter,controller.panelRect.height-ballDiameter,controller.miniRect.width-ballDiameter)
+        const duration=controller.panelMotion?(controller.targetBall?150:180):160
+        motionAnimation.duration=Math.max(1,Math.round(duration*Math.min(1,distance/span)))
+        motionAnimation.start()
     }
-    function syncInputRegion() {
-        controller.setRevealRegion(Qt.rect(Math.round(surface.x),Math.round(surface.y),Math.ceil(surface.width),Math.ceil(surface.height)),surface.radius)
-    }
-    onMiniRevealChanged: syncSurfaceSize()
-    onVisualWidthChanged: syncInputRegion()
-    onVisualHeightChanged: syncInputRegion()
-    onWidthChanged: Qt.callLater(syncSurfaceSize)
-    onHeightChanged: Qt.callLater(syncSurfaceSize)
-    NumberAnimation {id:miniAnimation;target:widget;property:"miniReveal";easing.type:Easing.OutCubic;onFinished:{widget.controller.finishTransition(widget.collapsingTransition);widget.syncInputRegion()}}
-    ParallelAnimation {
-        id:panelAnimation
-        NumberAnimation {id:panelWidthAnimation;target:widget;property:"visualWidth";easing.type:Easing.OutCubic}
-        NumberAnimation {id:panelHeightAnimation;target:widget;property:"visualHeight";easing.type:Easing.OutCubic}
-        NumberAnimation {id:panelProgressAnimation;target:widget;property:"panelReveal";easing.type:Easing.OutCubic}
-        SequentialAnimation {
-            PauseAnimation {id:panelFadeDelay}
-            NumberAnimation {id:panelFadeAnimation;target:widget;property:"panelContentOpacity";easing.type:Easing.OutCubic}
-        }
-        onFinished:{widget.controller.finishTransition(widget.collapsingTransition);widget.syncSurfaceSize()}
-    }
-    Connections {
-        target:widget.controller
-        function onStateChanged(){widget.setMiniAnimation();widget.syncSurfaceSize();Qt.callLater(widget.syncInputRegion)}
-    }
+    NumberAnimation {id:motionAnimation;target:widget;property:"motionProgress";to:1;easing.type:Easing.OutCubic;onFinished:widget.controller.presentTransition(widget.visualTransition)}
+    Connections {target:widget.controller;function onStateChanged(){widget.setMiniAnimation()}}
     Connections {target:widget.workspace;function onStateChanged(){if(!widget.workspace.errorText.length)widget.taskError=""}}
     Connections {
         target:widget.workspace
@@ -167,15 +157,28 @@ Window {
             if(operation===widget.taskOperation){widget.taskOperation="";if(!success)widget.taskError=widget.workspace.errorText}
         }
     }
-    onReduceMotionChanged: if(reduceMotion && (miniAnimation.running || panelAnimation.running)){miniAnimation.stop();panelAnimation.stop();miniReveal=controller.targetBall ? 0 : 1;controller.finishTransition(collapsingTransition);syncSurfaceSize()}
+    onReduceMotionChanged:if(reduceMotion && motionAnimation.running)finishVisual(!visible || controller.clickThrough)
     onVisibleChanged:{reportInteraction();Qt.callLater(setMiniAnimation)}
-    onMiniModeChanged: {
+    function focusCurrentForm(){
+        if(!active || !visible || motionInputBlocked)return
+        if(controller.miniCollapsed)miniBall.forceActiveFocus()
+        else if(controller.mini)miniSummary.forceActiveFocus()
+        else if(addingTask)quickTitle.forceActiveFocus()
+        else if(todayList.count>0)todayList.forceActiveFocus()
+        else addTask.forceActiveFocus()
+    }
+    onMiniModeChanged:{
         if(!(controller.effectiveForm===0 && controller.selectedForm!==0))miniKeyboardInteraction=false
-        if(active)Qt.callLater(function(){if(widget.controller.miniCollapsed)miniBall.forceActiveFocus();else if(widget.controller.mini)miniSummary.forceActiveFocus();else if(todayList.count>0)todayList.forceActiveFocus();else addTask.forceActiveFocus()})
+        if(active)Qt.callLater(focusCurrentForm)
     }
     function closeOrCompact() {if(taskMenu.visible)taskMenu.close();else if(deleteTaskConfirmation.visible)deleteTaskConfirmation.close();else if(taskDragging){const row=todayList.currentItem as WidgetTaskRow;if(row)row.finishDrag(false)}else if(addingTask){if(!quickTitle.text.length){addingTask=false;addTask.forceActiveFocus()}}else if(widgetMenu.visible)widgetMenu.close();else if(!controller.mini)controller.returnToCompact()}
     Shortcut {sequence:"Escape";enabled:widget.active;onActivated:widget.closeOrCompact()}
-    Shortcut {sequence:"Shift+F10";enabled:widget.active;onActivated:{const row=todayList.currentItem as WidgetTaskRow;if(row && !widget.addingTask)widget.openTaskMenu(row.taskId,row,Qt.point(row.width/2,row.height/2));else widget.openVerificationMenu()}}
+    function focusedTaskRow(){
+        let item=activeFocusItem
+        while(item && item!==todayList){if(item instanceof WidgetTaskRow)return item;item=item.parent}
+        return activeFocusItem===todayList ? todayList.currentItem : null
+    }
+    Shortcut {sequences:["Shift+F10","Menu"];enabled:widget.active && !widget.motionInputBlocked;onActivated:{const row=widget.controller.mini?null:widget.focusedTaskRow();if(row && !widget.addingTask)widget.openTaskMenu(row.taskId,row,Qt.point(row.width/2,row.height/2));else widget.openVerificationMenu()}}
     function verifyMenu() {
         if(!widgetMenu.visible)return "closed"
         if(widgetMenu.verifyGrouping()!=="PASS")return widgetMenu.verifyGrouping()
@@ -205,12 +208,10 @@ Window {
     function verificationOverflow() {
         return Math.ceil(Math.max(0, footer.y + footer.height - surface.height))
     }
-    function openVerificationMenu() {
-        miniAnimation.stop();panelAnimation.stop()
-        miniReveal=controller.targetBall ? 0 : 1
-        controller.finishTransition(controller.transitionId)
-        syncSurfaceSize()
-        widgetMenu.popupAt(controller.miniCollapsed ? miniBall : controller.mini ? miniMore : widgetMore)
+    function showWidgetMenu(){if(!visible || controller.clickThrough || !controller.enabledForms || widget.motionInputBlocked)return;widgetMenu.popupAt(controller.miniCollapsed?miniBall:controller.mini?miniMore:widgetMore)}
+    function openVerificationMenu(){
+        if(motionAnimation.running || controller.transitionPending){pendingWidgetMenu=true;finishVisual(false)}
+        else showWidgetMenu()
     }
     function closeVerificationMenu() {widgetMenu.close()}
     DS.Menu {
@@ -263,8 +264,8 @@ Window {
     }
     function verifyLayout() {
         if(controller.mini) {
-            if(controller.miniCollapsed)return width===height && width>=36 && miniBall.visible ? "PASS" : "mini ball geometry"
-            if(width!==controller.miniWidth || height!==miniBarHeight)return "mini target size drift: "+width+"x"+height+" expected "+controller.miniWidth+"x"+miniBarHeight
+            if(controller.miniCollapsed)return Math.abs(visualWidth-ballDiameter)<1 && Math.abs(visualHeight-ballDiameter)<1 && miniBall.visible ? "PASS" : "mini ball geometry"
+            if(Math.abs(visualWidth-controller.miniRect.width)>1 || Math.abs(visualHeight-controller.miniRect.height)>1)return "mini visual size drift: "+visualWidth+"x"+visualHeight+" expected "+controller.miniRect+" phase="+motionProgress+" target="+toRect+" transition="+visualTransition+"/"+controller.transitionId
             if(miniSummary.width<60 || miniSummary.height<Theme.controlHeight || miniTitle.width<20)return "mini content clipped"
         } else if(todayList.width<100 || todayList.height<24 || footer.y+footer.height>surface.height+1 || header.width<header.implicitWidth-1){
             const details="width="+Math.round(header.width)+" implicit="+Math.round(header.implicitWidth)+" list="+Math.round(todayList.width)+"x"+Math.round(todayList.height)+" footerBottom="+Math.round(footer.y+footer.height)+" surfaceH="+Math.round(surface.height)
@@ -272,7 +273,7 @@ Window {
         }
         return "PASS"
     }
-    Shortcut {sequences: [StandardKey.New];enabled: widget.active && !widget.controller.mini && !widget.commandInputBlocked;onActivated:{widget.addingTask=true;quickTitle.forceActiveFocus()}}
+    Shortcut {sequences: [StandardKey.New];enabled: widget.active && !widget.controller.mini && !widget.commandInputBlocked && !widget.motionInputBlocked;onActivated:{widget.addingTask=true;quickTitle.forceActiveFocus()}}
     Control {
         anchors.fill: parent
         font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize
@@ -282,31 +283,28 @@ Window {
         contentItem: Item {
           Rectangle {
             id: surface
-            x:widget.controller.growLeft ? widget.width-width : 0
-            y:widget.controller.growUp ? widget.height-height : 0
-            onXChanged:widget.syncInputRegion()
-            onYChanged:widget.syncInputRegion()
+            x:widget.frameRect.x;y:widget.frameRect.y
             width: widget.visualWidth
             height: widget.visualHeight
-            clip: widget.controller.mini || widget.controller.panelMotion
+            clip:true
             objectName: "widgetBackground"
-            radius: widget.controller.panelMotion ? Math.min(height/2,22)+(Theme.panelRadius-Math.min(height/2,22))*widget.panelReveal : widget.controller.mini ? Math.min(height/2,22) : Theme.panelRadius
-            onRadiusChanged:widget.syncInputRegion()
+            radius:widget.frameRadius
             color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,widget.workspace.preferences.solidWidget || Theme.highContrast ? 1 : widget.controller.backgroundOpacity)
             border.color: Theme.separator
             HoverHandler {id:miniHover;onHoveredChanged:widget.reportInteraction()}
             ToolButton {
                 id:miniBall;objectName:"widgetMiniBall"
-                visible:widget.controller.panelMotion ? widget.panelReveal<0.999 : widget.controller.mini && widget.miniReveal<0.999
+                visible:opacity>0.001 || widget.controller.effectiveForm===2
                 width:widget.ballDiameter;height:widget.ballDiameter
-                x:widget.controller.growLeft ? surface.width-width : 0
-                y:widget.controller.growUp ? surface.height-height : 0
+                x:widget.controller.ballRect.x-surface.x
+                y:widget.controller.ballRect.y-surface.y
                 padding:8
-                opacity:Math.max(0,1-(widget.controller.panelMotion ? widget.panelReveal : widget.miniReveal)*3)
+                opacity:Math.max(0,1-(widget.panelReveal+widget.miniReveal)*3)
                 Accessible.name:qsTr("今天 %1 项").arg(widget.workspace.todayTasks.count)+"，"+widget.primaryActionName
                 onClicked:if(!ballDrag.active)widget.controller.activatePrimary()
                 Keys.onReturnPressed:widget.controller.activatePrimary()
                 onActiveFocusChanged:if(activeFocus && [Qt.TabFocusReason,Qt.BacktabFocusReason,Qt.ShortcutFocusReason].indexOf(focusReason)>=0)widget.miniKeyboardInteraction=true
+                TapHandler {acceptedButtons:Qt.RightButton;enabled:!widget.commandInputBlocked && !widget.motionInputBlocked;onTapped:widget.openVerificationMenu()}
                 PointHandler {id:ballPress;acceptedButtons:Qt.LeftButton}
                 DragHandler {id:ballDrag;target:null;enabled:!widget.controller.locked;onActiveChanged:{if(active)widget.controller.startMove();else widget.controller.finishMove()} cursorShape:Qt.OpenHandCursor}
                 contentItem:Item {
@@ -318,12 +316,11 @@ Window {
             }
             Item {
                 id:panelContent;objectName:"widgetPanelContent"
-                visible: !widget.controller.mini
-                width:widget.width;height:widget.height
-                x:widget.controller.growLeft ? surface.width-width : 0
-                y:widget.controller.growUp ? surface.height-height : 0
+                visible:widget.panelContentOpacity>0.001 || widget.controller.effectiveForm===0
+                width:widget.controller.panelRect.width;height:widget.controller.panelRect.height
+                x:widget.controller.panelRect.x-surface.x
+                y:widget.controller.panelRect.y-surface.y
                 opacity:widget.panelContentOpacity
-                enabled:!widget.controller.targetBall
               ColumnLayout {
                 anchors.fill: parent;anchors.margins: Theme.panelPadding
                 spacing: Theme.fieldGap
@@ -437,10 +434,9 @@ Window {
             RowLayout {
                 id:miniRow
                 layoutDirection:widget.controller.growLeft ? Qt.RightToLeft : Qt.LeftToRight
-                visible: widget.controller.mini && widget.miniReveal>0.001
-                enabled:widget.miniReveal>0.99
-                x:Theme.panelPadding;y:Theme.panelPadding
-                width:widget.controller.miniWidth-2*Theme.panelPadding;height:widget.miniBarHeight-2*Theme.panelPadding
+                visible:widget.miniReveal>0.001 || widget.controller.effectiveForm===1
+                x:widget.controller.miniRect.x-surface.x+Theme.panelPadding;y:widget.controller.miniRect.y-surface.y+Theme.panelPadding
+                width:widget.controller.miniRect.width-2*Theme.panelPadding;height:widget.controller.miniRect.height-2*Theme.panelPadding
                 opacity:widget.miniReveal
                 spacing: 2
                 ToolButton {
@@ -477,20 +473,24 @@ Window {
             // Block pointer delivery without changing content enabled/palette
             // or rendering a dimmer over the transparent desktop surface.
             MouseArea {
-                objectName:"widgetCommandInputShield"
+                id:inputShield;objectName:"widgetCommandInputShield"
+                Keys.onPressed:function(event){event.accepted=true}
                 anchors.fill:parent;z:1000
-                visible:widget.commandInputBlocked
+                visible:widget.commandInputBlocked || widget.motionInputBlocked
                 acceptedButtons:Qt.AllButtons
                 preventStealing:true
                 onWheel:function(wheel){wheel.accepted=true}
             }
             MouseArea {
                 anchors.right: parent.right;anchors.bottom: parent.bottom
-                enabled:!widget.commandInputBlocked
+                enabled:!widget.commandInputBlocked && !widget.motionInputBlocked
                 width: 12;height: 12
                 visible: !widget.controller.mini && !widget.controller.panelMotion && !widget.controller.locked
                 cursorShape: Qt.SizeFDiagCursor
-                onPressed: widget.controller.startResize()
+                onPressed:widget.controller.startResize()
+                onPositionChanged:function(mouse){if(pressed)widget.controller.resizePanel(mapToGlobal(mouse.x,mouse.y))}
+                onReleased:widget.controller.finishMove()
+                onCanceled:widget.controller.finishMove()
                 Accessible.name: qsTr("调整组件大小")
             }
           }

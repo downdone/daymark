@@ -3,6 +3,7 @@
 本页是**唯一的状态摘要**，每次版本/门禁变化时更新。逐轮详细记录见[进度日志](PROGRESS.md)。
 
 ## 版本与数据
+2026-11-04 UX-75重设计组件形态渲染：稳定原生画布、单进度动效、每帧合并区域和呈现确认，收球末帧不再缩窗/清mask。Release/lint、7项相关CTest及Windows D3D11/DirectComposition的12次切换/连续三帧/实际系统区域检查通过；物理合成瞬态、混合DPI、macOS等仍UNVERIFIED，见PROGRESS。启动器指向daymark-ux75.exe，旧ZIP未覆盖、未推送，分类功能尚未实现。
 
 2026-11-04 UX-74改用Windows系统原生组件/任务菜单，取消面板空白右键；其他后端保留自绘Window回退。Release/lint、相关CTest和系统菜单生命周期/接线检查通过，真实鼠标和黑条瞬态验收仍MANUAL-UNVERIFIED，详见PROGRESS。启动器已指向daymark-ux74.exe；旧ZIP未覆盖、未推送，分类功能尚未实现。此前UX-73通过不表示用户反馈的黑条已消除。
 

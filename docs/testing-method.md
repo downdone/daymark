@@ -104,6 +104,7 @@ UX-38/39新增独立`desktop_surfaces`、`calendar_interaction`入口，当时�
 | 重复/提醒→实例→编辑/完成→去重 | recurrence_service、reminders、unified_tasks | qml_startup、task_list_interaction |
 | 备份/导入/升级→失败零修改→恢复 | data_transfer、task_service、sqlite_runtime、storage_integrity | qml_startup数据/错误入口；真实恢复仍需独立操作 |
 | 小窗/mini/独立日历→置顶/穿透→恢复 | widget_window、system_recovery、task_workspace | qml_startup/原生探针＋平台人工矩阵 |
+| 小窗/Mini/球→可逆动画→末帧稳定/输入恢复 | widget_window（画布、持久化、失败回滚） | desktop_rendering（12次切换/连续三帧）、desktop_surfaces、desktop_input_feedback；Windows实际区域和物理合成分列 |
 | 源码发布→版本/Tag/Release一致 | 版本检查、干净暂存及隐私扫描 | Git远端与GitHub Release读取确认；二进制许可/签名独立 |
 
 未知或未覆盖的链路须记UNVERIFIED，不将此表当作全产品已验收。OS通知送达、物理IME/读屏、壁纸透明对比、睡眠/多屏/8h、独立干净机、macOS本轮源码仍有独立平台门禁。

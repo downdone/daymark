@@ -131,6 +131,11 @@ QString Ux38SmokeProbe::advance() {
         QCoreApplication::sendEvent(m_widget,&move);
         QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     };
+    if(m_controller.transitionPending()){
+        m_widget->requestUpdate();
+        if(m_wait.elapsed()<1500)return {};
+        return fail("current form did not reach its presented terminal frame");
+    }
     auto* list=find(m_widget,"widgetTasks");
     auto* calendar=qobject_cast<QQuickWindow*>(find(m_main,"desktopCalendarWindow"));
     if(!list || !calendar)return fail("desktop surfaces missing");
@@ -200,8 +205,8 @@ QString Ux38SmokeProbe::advance() {
     if(m_stage==2){if(m_workspace.todayTasks()->rowCount()!=1)return fail("today fixture");m_task=m_workspace.todayTasks()->items().first().id;m_workspace.createSubtask(QStringLiteral("准备评审材料"),m_task);}
     if(m_stage==3){auto* row=find(m_widget,"widgetTask-"+m_task);if(!row || row->property("summary").toString().isEmpty() || row->property("subtaskTotal").toInt()!=1 || !layout() || !capture(m_widget,"today-light") || !capture(calendar,"calendar-light"))return fail("shared schedule and relationship");click("widgetPin");}
     if(m_stage==4){if(m_controller.alwaysOnTop())return fail("unpin");m_widgetModeGeometry=m_widget->geometry();m_widgetModeCollapse=qobject_cast<QQuickItem*>(find(m_widget,"widgetCollapse"))->mapToScene(QPointF());m_widgetModeMore=qobject_cast<QQuickItem*>(find(m_widget,"widgetMore"))->mapToScene(QPointF());click("widgetCollapse");}
-    if(m_stage==5){if(!m_controller.mini() || !layout() || !capture(m_widget,"mini-light"))return fail("mini summary");const auto more=qobject_cast<QQuickItem*>(find(m_widget,"miniMore"))->mapToScene(QPointF());if(m_widget->width()!=m_controller.miniWidth() || m_widget->position()!=m_widgetModeGeometry.topLeft() || QLineF(more,m_widgetModeMore).length()>1 || !find(m_widget,"widgetMiniGrip"))return fail("Mini independent width and dedicated drag slot");click("widgetMiniSummary");}
-    if(m_stage==6){if(m_controller.mini() || m_widget->size()!=QSize(340,360))return fail("single click restores floating geometry");m_controller.setLocked(true);m_controller.setMini(true);}
+    if(m_stage==5){if(!m_controller.mini() || !layout() || !capture(m_widget,"mini-light"))return fail("mini summary");const auto more=qobject_cast<QQuickItem*>(find(m_widget,"miniMore"))->mapToScene(QPointF());if(m_controller.miniRect().width()!=m_controller.miniWidth() || m_widget->position()!=m_widgetModeGeometry.topLeft() || QLineF(more,m_widgetModeMore).length()>1 || !find(m_widget,"widgetMiniGrip"))return fail("Mini independent width and dedicated drag slot");click("widgetMiniSummary");}
+    if(m_stage==6){if(m_controller.mini() || m_controller.panelRect().size()!=QSize(340,360))return fail("single click restores floating geometry");m_controller.setLocked(true);m_controller.setMini(true);}
     if(m_stage==7){expandWithKey(Qt::Key_Space);}
     if(m_stage==8){if(m_controller.mini() || !m_controller.errorText().isEmpty())return fail("locked mini keyboard expansion");m_controller.setLocked(false);m_workspace.setTextScale(2);m_widget->resize(260,190);auto* row=find(m_widget,"widgetTask-"+m_task);row->setProperty("rowVersion",row->property("rowVersion").toLongLong()-1);QMetaObject::invokeMethod(row,"complete");}
     if(m_stage==9){auto* row=find(m_widget,"widgetTask-"+m_task);auto* error=find(m_widget,"widgetError");const bool laidOut=layout();
@@ -533,12 +538,12 @@ QString Ux38SmokeProbe::advance() {
     }
     if(m_stage==118){
         if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1400)return {};return fail("idle mini becomes ball");}
-        if(!layout() || m_widget->size()!=QSize(36,36) || !capture(m_widget,"mini-ball-light"))return fail("compact ball geometry");
+        if(!layout() || m_controller.ballRect().size()!=QSize(36,36) || !capture(m_widget,"mini-ball-light"))return fail("compact ball geometry");
         hover(m_widget,"widgetMiniBall");
     }
     if(m_stage==119){
         if((m_controller.miniCollapsed() || m_widget->property("miniTransitionRunning").toBool() || !find(m_widget,"widgetMiniSummary")->property("enabled").toBool() || m_widget->property("miniReveal").toDouble()<0.999) && m_wait.elapsed()<1000)return {};
-        if(m_controller.miniCollapsed() || m_widget->width()!=340 || !layout() || !capture(m_widget,"mini-hover-light"))return fail("pointer expands original mini width");
+        if(m_controller.miniCollapsed() || (m_controller.mini()?m_controller.miniRect().width():m_controller.panelRect().width())!=340 || !layout() || !capture(m_widget,"mini-hover-light"))return fail("pointer expands original mini width");
         click("miniMore");
     }
     if(m_stage==120){
@@ -560,11 +565,11 @@ QString Ux38SmokeProbe::advance() {
     }
     if(m_stage==123){
         if((m_controller.miniCollapsed() || m_widget->property("miniTransitionRunning").toBool() || !find(m_widget,"widgetMiniSummary")->property("enabled").toBool() || m_widget->property("miniReveal").toDouble()<0.999) && m_wait.elapsed()<1000)return {};
-        if(m_controller.miniCollapsed() || m_widget->width()!=340 || !layout() || !capture(m_widget,"mini-hover-dark-200"))return fail("large text mini expansion");
+        if(m_controller.miniCollapsed() || (m_controller.mini()?m_controller.miniRect().width():m_controller.panelRect().width())!=340 || !layout() || !capture(m_widget,"mini-hover-dark-200"))return fail("large text mini expansion");
         expandWithKey(Qt::Key_Space);
     }
     if(m_stage==124){
-        if(m_controller.mini() || m_widget->width()!=340){qCritical()<<"Keyboard quick view state"<<m_controller.selectedForm()<<m_controller.effectiveForm()<<m_widget->geometry()<<m_widget->property("miniReveal");return fail("keyboard opens full widget");}
+        if(m_controller.mini() || (m_controller.mini()?m_controller.miniRect().width():m_controller.panelRect().width())!=340){qCritical()<<"Keyboard quick view state"<<m_controller.selectedForm()<<m_controller.effectiveForm()<<m_widget->geometry()<<m_widget->property("miniReveal");return fail("keyboard opens full widget");}
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);calendar->resize(560,540);m_workspace.setPreference("desktopCalendarVisible",true);
         auto* panel=find(calendar,"desktopCalendarPanel");panel->setProperty("independentScale","month");panel->setProperty("agendaVisible",false);panel->setProperty("anchorDate",m_workspace.dateOffset(0));panel->setProperty("selectedDate",m_workspace.dateOffset(0));
     }
@@ -584,7 +589,7 @@ QString Ux38SmokeProbe::advance() {
         m_controller.setMini(true);if(!m_controller.setMiniAutoCollapse(false))return fail("disable mini ball");
     }
     if(m_stage==127){
-        if(m_controller.miniAutoCollapse() || m_controller.miniCollapsed() || m_widget->width()!=340)return fail("disable ball restores persistent bar");
+        if(m_controller.miniAutoCollapse() || m_controller.miniCollapsed() || (m_controller.mini()?m_controller.miniRect().width():m_controller.panelRect().width())!=340)return fail("disable ball restores persistent bar");
         m_controller.setMiniAutoCollapse(true);QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     }
     if(m_stage==128){
@@ -615,7 +620,7 @@ QString Ux38SmokeProbe::advance() {
     if(m_stage==134){
         if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1500)return {};return fail("animated mini idle collapse");}
         if(m_widget->position()!=m_widgetModeGeometry.topLeft())return fail("repeated transitions keep the original anchor");
-        m_miniMotionGeometry=QRect(m_widgetModeGeometry.topLeft(),QSize(m_controller.miniWidth(),m_widget->property("miniBarHeight").toInt()));
+        m_miniMotionGeometry=m_widget->geometry();
         m_miniMotionSampled=false;m_miniMotionValid=false;
         hover(m_widget,"widgetMiniBall");
           // Sample an actual animation frame. A wall timer can fire before the
@@ -651,10 +656,11 @@ QString Ux38SmokeProbe::advance() {
         m_workspace.setPreference("reduceMotion",true);
         m_controller.selectForm(2);
         QMetaObject::invokeMethod(m_widget,"setMiniAnimation");
-        if(!m_controller.miniCollapsed() || m_widget->property("miniTransitionRunning").toBool())return fail("reduced motion collapse is immediate");
+        if(m_controller.effectiveForm()!=2 || m_widget->property("frameRect").toRect()!=m_controller.ballRect() || m_widget->property("miniTransitionRunning").toBool())return fail("reduced motion visual collapse is immediate");
+        if(m_controller.transitionPending() && !m_widget->property("motionInputBlocked").toBool())return fail("reduced motion holds input until presentation");
         m_controller.selectForm(1);
         QMetaObject::invokeMethod(m_widget,"setMiniAnimation");
-        if(m_controller.miniCollapsed() || m_widget->geometry()!=m_miniMotionGeometry || m_widget->property("miniTransitionRunning").toBool())return fail("reduced motion expansion keeps geometry");
+        if(m_controller.effectiveForm()!=1 || m_widget->property("frameRect").toRect()!=m_controller.miniRect() || m_widget->geometry()!=m_miniMotionGeometry || m_widget->property("miniTransitionRunning").toBool())return fail("reduced motion expansion keeps geometry");
         m_controller.setMini(false);m_controller.setMiniAutoCollapse(false);m_workspace.setTextScale(1);m_stage=149;
     }
     if(m_stage==150){
@@ -785,7 +791,7 @@ QString Ux38SmokeProbe::advance() {
         }
         if(!m_widget->isActive()){if(m_wait.elapsed()<1500)return {};return fail("native synthetic click fixture activates its own window");}
         if(!m_controller.miniCollapsed() || m_widget->property("panelTransitionRunning").toBool()){if(m_wait.elapsed()<800)return {};return fail("settle ball before panel animation");}
-        m_dockPoint=m_widget->geometry().topLeft();
+        m_dockPoint=m_controller.ballRect().translated(m_widget->position()).topLeft();
         auto* entry=qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"));
         qInfo()<<"Panel ball readiness"<<m_panelCycle<<m_widget->geometry()<<m_controller.selectedForm()<<m_controller.effectiveForm()<<m_controller.errorText()<<entry->isVisible()<<entry->isEnabled()<<entry->mapToScene(QPointF())<<entry->size()<<m_widget->mask().boundingRect();
         m_workspace.setPreference("reduceMotion",false);m_controller.setInteraction(true,false,false,false);m_widget->setProperty("miniKeyboardInteraction",true);
@@ -798,7 +804,7 @@ QString Ux38SmokeProbe::advance() {
             const double ball=m_widget->property("ballDiameter").toDouble();
             m_panelValid=surface && content && m_controller.panelMotion() && m_widget->property("panelTransitionRunning").toBool() &&
                 surface->width()>ball+1 && surface->width()<m_widget->width()-1 && surface->height()>ball+1 && surface->height()<m_widget->height()-1 &&
-                content->size()==QSizeF(m_widget->size()) && content->scale()==1 && content->opacity()>=0 && content->opacity()<1 && m_widget->geometry()==m_panelGeometry;
+                content->size()==QSizeF(m_controller.panelRect().size()) && content->scale()==1 && content->opacity()>=0 && content->opacity()<1 && m_widget->geometry()==m_panelGeometry;
             if(QGuiApplication::platformName()=="windows")m_panelValid=m_panelValid && !m_widget->mask().isEmpty() && m_widget->mask().boundingRect().width()<m_widget->width();
             qInfo()<<"Panel opening intermediate"<<m_panelCycle<<(surface?surface->size():QSizeF())<<(content?content->opacity():-1)<<m_panelValid<<m_widget->geometry()<<"progress"<<progress;
             capturePanelFrame(QStringLiteral("panel-opening-%1").arg(m_panelCycle));m_panelSampled=true;m_wait.restart();
@@ -817,7 +823,7 @@ QString Ux38SmokeProbe::advance() {
             auto* surface=qobject_cast<QQuickItem*>(find(m_widget,"widgetBackground"));auto* content=qobject_cast<QQuickItem*>(find(m_widget,"widgetPanelContent"));
             const double ball=m_widget->property("ballDiameter").toDouble();
             m_panelValid=surface && content && m_controller.panelMotion() && m_controller.targetBall() && m_widget->geometry()==m_panelGeometry &&
-                surface->width()>ball+1 && surface->width()<m_widget->width()-1 && content->size()==QSizeF(m_widget->size()) && content->scale()==1 && content->opacity()<0.4;
+                surface->width()>ball+1 && surface->width()<m_widget->width()-1 && content->size()==QSizeF(m_controller.panelRect().size()) && content->scale()==1 && content->opacity()<0.4;
             const auto before=surface?surface->size():QSizeF();const auto opacity=content?content->opacity():-1;const auto stale=m_controller.transitionId();
             m_controller.activatePrimary();QMetaObject::invokeMethod(m_widget,"setMiniAnimation");m_controller.finishTransition(stale);
             m_panelValid=m_panelValid && surface->size()==before && content->opacity()==opacity && m_controller.effectiveForm()==0 && m_widget->geometry()==m_panelGeometry;
@@ -834,7 +840,7 @@ QString Ux38SmokeProbe::advance() {
     }
     if(m_stage==184){
         if(!m_panelSampled || !m_controller.miniCollapsed()){if(m_wait.elapsed()<900)return {};return fail("reduced motion settles pending close");}
-        if(m_widget->property("panelTransitionRunning").toBool() || m_widget->geometry().topLeft()!=m_dockPoint || !layout())return fail("reduced motion keeps original ball anchor");
+        if(m_widget->property("panelTransitionRunning").toBool() || m_controller.ballRect().translated(m_widget->position()).topLeft()!=m_dockPoint || !layout())return fail("reduced motion keeps original ball anchor");
         m_controller.activatePrimary();
     }
     if(m_stage==185){

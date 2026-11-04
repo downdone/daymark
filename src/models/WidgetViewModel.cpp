@@ -5,8 +5,12 @@
 #include <QRegion>
 #include <QPainterPath>
 #include <cmath>
+#include <atomic>
+#include <QQuickWindow>
+#include <QCursor>
 
 namespace daymark {
+struct WidgetFrameFence {std::atomic<int> pending{-1},synced{-1};};
 WidgetViewModel::WidgetViewModel(IWindowPlatform& platform, QObject* parent)
     : QObject(parent), m_platform(platform)
 {
@@ -23,6 +27,8 @@ WidgetViewModel::WidgetViewModel(IWindowPlatform& platform, QObject* parent)
     });
     connect(&m_hoverTimer,&QTimer::timeout,this,[this]{if(m_hovered && !m_pressed && !m_menu && !m_keyboard && !m_moving)previewForm(WidgetPresentation::Mini);});
     connect(&m_idleTimer,&QTimer::timeout,this,[this]{if(!m_hovered && !m_pressed && !m_menu && !m_keyboard && !m_moving)previewForm(WidgetPresentation::Ball);});
+    m_geometryTimer.setSingleShot(true);m_geometryTimer.setInterval(0);
+    connect(&m_geometryTimer,&QTimer::timeout,this,[this]{if(m_window && !m_geometryChanging && !m_moving && m_window->geometry()!=m_appliedGeometry){captureUserGeometry();applyPresentation(m_presentation,false);}});
     m_moveTimer.setInterval(100);
     connect(&m_moveTimer,&QTimer::timeout,this,[this]{if(QGuiApplication::mouseButtons()==Qt::NoButton)finishMove();});
     if(auto* qt=dynamic_cast<QtWindowPlatform*>(&m_platform))connect(qt,&QtWindowPlatform::layerRestoreFailed,this,[this](QWindow* window){if(window==m_window)accept({WindowError::OperationRejected});});
@@ -40,32 +46,52 @@ QSize WidgetViewModel::formSize(int form) const
 {
     if(form==WidgetPresentation::Ball)return {m_ballDiameter,m_ballDiameter};
     if(form==WidgetPresentation::Mini)return {m_miniSize.width(),m_miniHeight};
-    return m_floatingSize;
+    return m_floatingSize.expandedTo(m_panelMinimum);
 }
 void WidgetViewModel::captureUserGeometry()
 {
     if(!m_window || m_geometryChanging || m_pendingCollapse)return;
-    const auto rect=m_window->geometry();const auto available=screens();
-    int index=WidgetPlacementPolicy::screenFor(rect,available);
-    if(index<0)index=available.isEmpty()?-1:0;
-    if(index<0)return;
+    const auto actual=m_window->geometry();
+    if(m_anchorValid && !m_moving){
+        bool sameTopology=false;
+        for(const auto& screen:screens())if(screen.id==m_anchor.screen && screen.available==m_anchor.reference){sameTopology=true;break;}
+        if(!sameTopology)return; // OS recovery must not overwrite a missing screen's saved intent.
+    }
+    auto rect=actual;
+    if(m_visualTransitions && !m_layout.canvas.isEmpty()){
+        rect=m_layout.forms[m_renderForm].translated(actual.topLeft());
+        if(m_renderForm==WidgetPresentation::Panel && actual.size()!=m_appliedGeometry.size())rect.setSize(rect.size()+actual.size()-m_appliedGeometry.size());
+    }
+    const auto available=screens();int index=WidgetPlacementPolicy::screenFor(rect,available);
+    if(index<0)index=available.isEmpty()?-1:0;if(index<0)return;
     m_anchor=WidgetPlacementPolicy::capture(rect,available[index]);m_anchorValid=true;
     if(m_renderForm==WidgetPresentation::Panel)m_floatingSize=rect.size();
-    m_appliedGeometry=rect;
+    m_appliedGeometry=actual;
 }
 void WidgetViewModel::watchGeometry()
 {
-    if(m_geometryChanging)return;
-    if(m_menu){m_menu=false;emit stateChanged();}
+    if(m_geometryChanging || !m_window || m_window->geometry()==m_appliedGeometry)return;
     if(m_settings)m_saveTimer.start();
+    if(m_visualTransitions && !m_moving)m_geometryTimer.start();
 }
 bool WidgetViewModel::attachWindow(QWindow* window)
 {
     if(m_window)disconnect(m_window,nullptr,this,nullptr);
     m_anchorValid=false;
-    m_window=nullptr;m_renderForm=WidgetPresentation::Panel;m_pendingCollapse=false;m_panelMotion=false;
+    m_window=nullptr;m_renderForm=WidgetPresentation::Panel;m_pendingCollapse=false;m_panelMotion=false;m_visualPending=false;
     if(!accept(m_platform.prepare(window)) || !accept(m_platform.setAlwaysOnTop(window,true))){emit stateChanged();return false;}
     m_window=window;m_floatingSize=window->size();m_presentation={};
+    const auto epoch=++m_surfaceEpoch;
+    m_frameFence=std::make_shared<WidgetFrameFence>();
+    if(auto* quick=qobject_cast<QQuickWindow*>(window)){
+        const auto fence=m_frameFence;
+        connect(quick,&QQuickWindow::afterAnimating,this,&WidgetViewModel::commitRevealRegion);
+        connect(quick,&QQuickWindow::afterSynchronizing,this,[fence]{const auto id=fence->pending.exchange(-1);if(id>=0)fence->synced=id;},Qt::DirectConnection);
+        connect(quick,&QQuickWindow::frameSwapped,this,[this,fence,epoch]{
+            const auto id=fence->synced.exchange(-1);
+            if(id>=0)QMetaObject::invokeMethod(this,[this,id,epoch]{if(epoch==m_surfaceEpoch)finishTransition(id);},Qt::QueuedConnection);
+        },Qt::DirectConnection);
+    }
     connect(window,&QWindow::visibleChanged,this,[this]{scheduleAutomatic();emit stateChanged();});
     connect(window,&QWindow::flagsChanged,this,&WidgetViewModel::stateChanged);
     connect(window,&QWindow::xChanged,this,&WidgetViewModel::watchGeometry);connect(window,&QWindow::yChanged,this,&WidgetViewModel::watchGeometry);
@@ -121,33 +147,37 @@ bool WidgetViewModel::applyPresentation(const WidgetPresentation& candidate,bool
     if(!m_window)return accept({WindowError::WindowUnavailable});
     if(m_geometryChanging)return false;
     const auto previous=m_presentation;const auto oldRender=m_renderForm;const auto original=m_window->geometry();
-    const bool previousMotion=m_panelMotion;
-    const bool previousPending=m_pendingCollapse;
-    if(!m_pendingCollapse && (original.topLeft()!=m_appliedGeometry.topLeft() || (oldRender==WidgetPresentation::Panel && original.size()!=m_appliedGeometry.size())))captureUserGeometry();
+    const auto oldLayout=m_layout;const bool oldMotion=m_panelMotion,oldPending=m_pendingCollapse,oldVisual=m_visualPending;
+    if(!m_pendingCollapse && !m_resizing && original!=m_appliedGeometry)captureUserGeometry();
     m_hoverTimer.stop();m_idleTimer.stop();m_returnTimer.stop();
     if(!candidate.enabled){
         if(!accept(m_platform.setVisible(m_window,false)))return false;
-        m_presentation=candidate;m_pendingCollapse=false;m_panelMotion=false;++m_transitionId;if(QGuiApplication::platformName()!=QStringLiteral("offscreen") && QGuiApplication::platformName()!=QStringLiteral("minimal"))m_window->setMask(QRegion());emit stateChanged();return true;
+        m_presentation=candidate;m_pendingCollapse=false;m_panelMotion=false;m_visualPending=false;++m_transitionId;emit stateChanged();return true;
     }
-    m_presentation=candidate;m_pendingCollapse=false;m_panelMotion=false;++m_transitionId;
-    m_revealFrom=oldRender==WidgetPresentation::Ball?0:1;
     const bool visual=animate && m_visualTransitions && visible() && !clickThrough();
-    if(visual && (oldRender==WidgetPresentation::Mini || oldRender==WidgetPresentation::Panel) && candidate.effective==WidgetPresentation::Ball){
-        m_panelMotion=oldRender==WidgetPresentation::Panel;
-        m_collapseRollback=previous;m_pendingCollapse=true;emit stateChanged();scheduleAutomatic();return accept({});
+    m_visualPending=visual && (oldRender!=candidate.effective || oldVisual);
+    m_presentation=candidate;++m_transitionId;m_revealFrom=oldRender==WidgetPresentation::Ball?0:1;
+    m_pendingCollapse=visual && oldRender!=WidgetPresentation::Ball && candidate.effective==WidgetPresentation::Ball;
+    m_panelMotion=visual && (oldRender!=candidate.effective || oldMotion) && (oldRender==WidgetPresentation::Panel || candidate.effective==WidgetPresentation::Panel || oldMotion);
+    if(!m_pendingCollapse)m_renderForm=candidate.effective;
+    m_geometryChanging=true;
+    if(m_visualTransitions)m_layout=WidgetPlacementPolicy::canvasLayout(m_anchor,{formSize(0),formSize(1),formSize(2)},candidate.enabled,screens());
+    else {
+        m_layout.canvas=WidgetPlacementPolicy::resolve(m_anchor,formSize(m_renderForm),screens());
+        for(int form=0;form<3;++form)m_layout.forms[form]=QRect(QPoint(),formSize(form));
+        m_layout.forms[m_renderForm]=QRect(QPoint(),m_layout.canvas.size());
     }
-    m_panelMotion=visual && candidate.effective==WidgetPresentation::Panel &&
-        (oldRender==WidgetPresentation::Ball || previousMotion ||
-         (oldRender==WidgetPresentation::Mini && candidate.temporaryOpen && candidate.selected==WidgetPresentation::Ball &&
-          formSize(WidgetPresentation::Panel).width()>=original.width() && formSize(WidgetPresentation::Panel).height()>=original.height()));
-    m_geometryChanging=true;m_renderForm=candidate.effective;emit stateChanged();
-    const auto target=WidgetPlacementPolicy::resolve(m_anchor,formSize(m_renderForm),screens());
-    const auto result=m_platform.resize(m_window,target.size());
+    const auto target=m_layout.canvas;
+    if(m_visualTransitions && target!=original){m_visualPending=false;m_pendingCollapse=false;m_panelMotion=false;m_renderForm=candidate.effective;}
+    emit stateChanged();
+    const auto result=target.size()==m_window->size()?WindowResult{}:m_platform.resize(m_window,target.size());
     if(result.succeeded()){
-        m_window->setPosition(target.topLeft());m_appliedGeometry=m_window->geometry();if(QGuiApplication::platformName()!=QStringLiteral("offscreen") && QGuiApplication::platformName()!=QStringLiteral("minimal"))m_window->setMask(QRegion());m_window->requestUpdate();
+        if(m_window->position()!=target.topLeft())m_window->setPosition(target.topLeft());
+        m_appliedGeometry=m_window->geometry();
     }else{
-        m_presentation=previous;m_renderForm=oldRender;m_panelMotion=previousMotion;m_pendingCollapse=previousPending;emit stateChanged();
-        m_window->setGeometry(original);m_appliedGeometry=original;
+        m_presentation=previous;m_renderForm=oldRender;m_panelMotion=oldMotion;m_pendingCollapse=oldPending;m_visualPending=oldVisual;m_layout=oldLayout;
+        if(m_window->geometry()!=original)m_window->setGeometry(original);
+        m_appliedGeometry=original;
     }
     m_geometryChanging=false;accept(result);emit stateChanged();scheduleAutomatic();return result.succeeded();
 }
@@ -194,7 +224,7 @@ bool WidgetViewModel::setMiniLayout(int height,int diameter)
     const int oldHeight=m_miniHeight,oldDiameter=m_ballDiameter;
     m_miniHeight=qBound(48,height,512);m_ballDiameter=qBound(36,diameter,96);
     if(oldHeight==m_miniHeight && oldDiameter==m_ballDiameter)return true;
-    if(mini() && !applyPresentation(m_presentation,false)){m_miniHeight=oldHeight;m_ballDiameter=oldDiameter;return false;}
+    if((mini() || (m_visualTransitions && m_window)) && !applyPresentation(m_presentation,false)){m_miniHeight=oldHeight;m_ballDiameter=oldDiameter;return false;}
     return true;
 }
 bool WidgetViewModel::setMiniCollapsed(bool collapsed,int diameter)
@@ -213,7 +243,7 @@ void WidgetViewModel::previewForm(int form)
 }
 void WidgetViewModel::scheduleAutomatic()
 {
-    const bool held=m_pressed || m_menu || m_keyboard || m_moving;
+    const bool held=m_pressed || m_menu || m_keyboard || m_moving || m_visualPending;
     if(!m_window || !visible() || !m_presentation.enabled || clickThrough() || held){m_hoverTimer.stop();m_idleTimer.stop();m_returnTimer.stop();return;}
     // A click borrows the larger surface; it never changes the user's docking form.
     if(m_presentation.temporaryOpen){
@@ -229,28 +259,41 @@ void WidgetViewModel::scheduleAutomatic()
 }
 void WidgetViewModel::setInteraction(bool hovered,bool pressed,bool menu,bool keyboard)
 {m_hovered=hovered;m_pressed=pressed;m_menu=menu;m_keyboard=keyboard;scheduleAutomatic();}
-void WidgetViewModel::enableVisualTransitions(){m_visualTransitions=true;}
+void WidgetViewModel::enableVisualTransitions(){if(m_visualTransitions)return;m_visualTransitions=true;if(m_window)applyPresentation(m_presentation,false);}
 void WidgetViewModel::finishTransition(int id)
 {
     if(id!=m_transitionId)return;
-    if(!m_pendingCollapse){if(m_panelMotion){m_panelMotion=false;emit stateChanged();}return;}
-    const auto candidate=m_presentation;const auto rollback=m_collapseRollback;m_pendingCollapse=false;
-    if(!applyPresentation(candidate,false)){
-        m_presentation=rollback;m_panelMotion=false;m_revealFrom=1;++m_transitionId;emit stateChanged();scheduleAutomatic();
-    }
+    if(!m_pendingCollapse && !m_panelMotion && !m_visualPending)return;
+    m_pendingCollapse=false;m_panelMotion=false;m_visualPending=false;m_renderForm=m_presentation.effective;
+    // Completion never mutates native geometry, mask, opacity or clipping.
+    emit stateChanged();scheduleAutomatic();
+}
+void WidgetViewModel::presentTransition(int id)
+{
+    if(id!=m_transitionId)return;
+    if(auto* quick=qobject_cast<QQuickWindow*>(m_window.data());quick && visible()){
+        m_frameFence->pending=id;quick->update();
+    }else finishTransition(id); // State-only QWindow fixtures have no render loop.
+}
+void WidgetViewModel::setPanelMinimumSize(int width,int height)
+{
+    const auto previous=formSize(0);const auto oldMinimum=m_panelMinimum;m_panelMinimum=QSize(qMax(260,width),qMax(190,height));
+    if(m_window && formSize(0)!=previous && !applyPresentation(m_presentation,false))m_panelMinimum=oldMinimum;
 }
 void WidgetViewModel::setRevealRegion(const QRect& rectangle,double radius)
 {
-    if(!m_window || m_geometryChanging)return;
-    // Headless backends have no OS input region; never claim this as native proof.
+    if(!m_window || m_geometryChanging || rectangle.isEmpty())return;
+    m_pendingRegion=rectangle;m_pendingRadius=radius;m_regionDirty=true;
+    if(!qobject_cast<QQuickWindow*>(m_window.data()))commitRevealRegion();
+}
+void WidgetViewModel::commitRevealRegion()
+{
+    if(!m_regionDirty || !m_window || m_geometryChanging)return;m_regionDirty=false;
     if(QGuiApplication::platformName()==QStringLiteral("offscreen") || QGuiApplication::platformName()==QStringLiteral("minimal"))return;
-    const auto rect=rectangle.intersected(QRect(QPoint(),m_window->size()));
-    if(rect.isEmpty())return;
-    QPainterPath path;radius=qBound(0.,radius,qMin(rect.width(),rect.height())/2.);
-    path.addRoundedRect(QRectF(rect),radius,radius);
-    const QRegion region(path.toFillPolygon().toPolygon());
-    if(m_window->mask()==region)return;
-    m_window->setMask(region);
+    const auto rect=m_pendingRegion.intersected(QRect(QPoint(),m_window->size()));if(rect.isEmpty())return;
+    QPainterPath path;const auto radius=qBound(0.,m_pendingRadius,qMin(rect.width(),rect.height())/2.);
+    path.addRoundedRect(QRectF(rect),radius,radius);const QRegion region(path.toFillPolygon().toPolygon());
+    if(m_window->mask()!=region)m_window->setMask(region);
 }
 bool WidgetViewModel::setAlwaysOnTop(bool enabled){const bool ok=accept(m_platform.setAlwaysOnTop(m_window,enabled));emit stateChanged();return ok;}
 bool WidgetViewModel::setDesktopPinned(bool enabled){const bool ok=accept(m_platform.setDesktopPinned(m_window,enabled));emit stateChanged();return ok;}
@@ -259,8 +302,9 @@ bool WidgetViewModel::setVisible(bool value)
 {
     if(value && !m_presentation.enabled){emit configurationRequested();accept({WindowError::OperationRejected});emit stateChanged();return false;}
     if(value){auto candidate=m_presentation;candidate.returnToSelected();if(!applyPresentation(candidate,false))return false;}
+    if(value)commitRevealRegion();
     if(!accept(m_platform.setVisible(m_window,value))){emit stateChanged();return false;}
-    m_requestedVisible=value;if(!value){m_hoverTimer.stop();m_idleTimer.stop();m_returnTimer.stop();m_pendingCollapse=false;m_panelMotion=false;++m_transitionId;}
+    m_requestedVisible=value;if(!value){m_hoverTimer.stop();m_idleTimer.stop();m_returnTimer.stop();m_pendingCollapse=false;m_panelMotion=false;m_visualPending=false;++m_transitionId;}
     emit stateChanged();scheduleAutomatic();return true;
 }
 bool WidgetViewModel::startMove()
@@ -273,11 +317,22 @@ bool WidgetViewModel::startMove()
 bool WidgetViewModel::startResize()
 {
     if(m_locked || mini())return accept({WindowError::OperationRejected});
-    const auto result=m_platform.startResize(m_window);
-    if(result.succeeded()){m_moving=true;m_moveTimer.start();}
-    return accept(result);
+    if(m_visualTransitions){m_resizing=true;m_moving=true;m_resizeCursor=QCursor::pos();m_resizeOrigin=m_layout.forms[0].translated(m_window->position());m_moveTimer.start();return accept({});}
+    const auto result=m_platform.startResize(m_window);if(result.succeeded()){m_moving=true;m_moveTimer.start();}return accept(result);
 }
-void WidgetViewModel::finishMove(){m_moveTimer.stop();if(m_moving){m_moving=false;captureUserGeometry();normalizeGeometry();emit stateChanged();scheduleAutomatic();}}
+void WidgetViewModel::resizePanel(const QPointF& globalPosition)
+{
+    if(!m_resizing || !m_window)return;
+    const auto delta=(globalPosition-m_resizeCursor).toPoint();
+    auto rect=m_resizeOrigin;rect.setSize((m_resizeOrigin.size()+QSize(delta.x(),delta.y())).expandedTo(m_panelMinimum));
+    const auto available=screens();const int index=WidgetPlacementPolicy::screenFor(rect,available);if(index<0)return;
+    const auto screen=available[index];const auto bounds=screen.available;
+    const QPoint at(m_anchor.right?rect.x()+rect.width():rect.x(),m_anchor.bottom?rect.y()+rect.height():rect.y());
+    const auto oldSize=m_floatingSize;const auto oldAnchor=m_anchor;
+    m_floatingSize=rect.size();m_anchor={screen.id,bounds,{double(at.x()-bounds.x())/qMax(1,bounds.width()),double(at.y()-bounds.y())/qMax(1,bounds.height())},oldAnchor.right,oldAnchor.bottom};
+    if(!applyPresentation(m_presentation,false)){m_floatingSize=oldSize;m_anchor=oldAnchor;}
+}
+void WidgetViewModel::finishMove(){m_moveTimer.stop();if(m_moving){m_resizing=false;captureUserGeometry();m_moving=false;normalizeGeometry();emit stateChanged();scheduleAutomatic();}}
 void WidgetViewModel::configureSettings(const QString& path){m_settings=std::make_unique<QSettings>(path,QSettings::IniFormat);}
 void WidgetViewModel::setTrayAvailable(bool available){if(!available && clickThrough() && !setClickThrough(false))setVisible(false);m_trayAvailable=available;emit stateChanged();}
 bool WidgetViewModel::setClickThrough(bool enabled)
@@ -292,9 +347,8 @@ void WidgetViewModel::setCloseToTray(bool enabled){m_closeToTray=enabled;emit st
 void WidgetViewModel::normalizeGeometry()
 {
     if(!m_window || m_geometryChanging)return;
-    m_geometryChanging=true;
-    const auto rect=WidgetPlacementPolicy::resolve(m_anchor,formSize(m_renderForm),screens());
-    m_window->setGeometry(rect);m_appliedGeometry=m_window->geometry();m_geometryChanging=false;emit stateChanged();
+    if(m_window->geometry()!=m_appliedGeometry)captureUserGeometry();
+    applyPresentation(m_presentation,false);
 }
 void WidgetViewModel::resetPosition()
 {

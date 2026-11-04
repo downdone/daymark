@@ -23,7 +23,8 @@ private:
     TaskWorkspace& m_workspace;
     WidgetViewModel& m_controller;
     QPointer<QQuickWindow> m_main,m_widget,m_menuWindow;
-    QString m_screenshot;
+    QString m_screenshot,m_inputError;
+    bool m_darkMenuReady=false;
     QElapsedTimer m_wait,m_clock;
     int m_stage=0;
     QImage m_blank;

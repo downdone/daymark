@@ -13,11 +13,15 @@
 #include <memory>
 
 namespace daymark {
+struct WidgetFrameFence;
 
 class WidgetViewModel final : public QObject {
     Q_OBJECT
     QML_ELEMENT
     QML_UNCREATABLE("Owned by AppRuntime")
+    Q_PROPERTY(QRect panelRect READ panelRect NOTIFY stateChanged)
+    Q_PROPERTY(QRect miniRect READ miniRect NOTIFY stateChanged)
+    Q_PROPERTY(QRect ballRect READ ballRect NOTIFY stateChanged)
     Q_PROPERTY(bool ready READ ready NOTIFY stateChanged)
     Q_PROPERTY(bool mini READ mini NOTIFY stateChanged)
     Q_PROPERTY(bool miniAutoCollapse READ miniAutoCollapse NOTIFY stateChanged)
@@ -36,6 +40,7 @@ class WidgetViewModel final : public QObject {
     Q_PROPERTY(double revealFrom READ revealFrom NOTIFY stateChanged)
     Q_PROPERTY(bool targetBall READ targetBall NOTIFY stateChanged)
     Q_PROPERTY(bool panelMotion READ panelMotion NOTIFY stateChanged)
+    Q_PROPERTY(bool transitionPending READ transitionPending NOTIFY stateChanged)
     Q_PROPERTY(bool alwaysOnTop READ alwaysOnTop NOTIFY stateChanged)
     Q_PROPERTY(bool desktopPinned READ desktopPinned NOTIFY stateChanged)
     Q_PROPERTY(bool visible READ visible NOTIFY stateChanged)
@@ -50,6 +55,9 @@ class WidgetViewModel final : public QObject {
 public:
     explicit WidgetViewModel(IWindowPlatform& platform, QObject* parent = nullptr);
     bool attachWindow(QWindow* window);
+    QRect panelRect() const {return m_layout.forms[0];}
+    QRect miniRect() const {return m_layout.forms[1];}
+    QRect ballRect() const {return m_layout.forms[2];}
     bool ready() const { return !m_window.isNull(); }
     bool mini() const { return m_renderForm != WidgetPresentation::Panel; }
     bool miniAutoCollapse() const { return m_autoCompact; }
@@ -68,6 +76,7 @@ public:
     double revealFrom() const {return m_revealFrom;}
     bool targetBall() const {return m_presentation.effective == WidgetPresentation::Ball;}
     bool panelMotion() const {return m_panelMotion;}
+    bool transitionPending() const {return m_visualPending;}
     bool alwaysOnTop() const { return m_window && m_window->flags().testFlag(Qt::WindowStaysOnTopHint); }
     bool desktopPinned() const {return m_window && m_window->flags().testFlag(Qt::WindowStaysOnBottomHint);}
     bool visible() const { return m_window && m_window->isVisible(); }
@@ -92,6 +101,9 @@ public:
     Q_INVOKABLE void setInteraction(bool hovered, bool pressed, bool menu, bool keyboard);
     Q_INVOKABLE void enableVisualTransitions();
     Q_INVOKABLE void finishTransition(int id);
+    Q_INVOKABLE void presentTransition(int id);
+    Q_INVOKABLE void setPanelMinimumSize(int width,int height);
+    Q_INVOKABLE void resizePanel(const QPointF& globalPosition);
     Q_INVOKABLE void setRevealRegion(const QRect& rectangle, double radius = 22);
     Q_INVOKABLE void finishMove();
     Q_INVOKABLE bool setMini(bool mini);
@@ -119,6 +131,7 @@ signals:
     void errorChanged();
 
 private:
+    void commitRevealRegion();
     bool accept(WindowResult result);
     bool applyPresentation(const WidgetPresentation& candidate, bool animate = true);
     void scheduleAutomatic();
@@ -129,7 +142,15 @@ private:
     QSize formSize(int form) const;
     IWindowPlatform& m_platform;
     QPointer<QWindow> m_window;
-    QSize m_floatingSize{340, 190};
+    QSize m_floatingSize{340, 190},m_panelMinimum{260,190};
+    WidgetCanvasLayout m_layout;
+    std::shared_ptr<WidgetFrameFence> m_frameFence;
+    int m_surfaceEpoch=0;
+    QRect m_pendingRegion;
+    double m_pendingRadius=0;
+    bool m_regionDirty=false,m_resizing=false;
+    QPointF m_resizeCursor;
+    QRect m_resizeOrigin;
     WidgetPresentation m_presentation;
     WidgetPresentation m_collapseRollback;
     WidgetPresentation::Form m_renderForm = WidgetPresentation::Panel;
@@ -137,13 +158,13 @@ private:
     QRect m_appliedGeometry;
     bool m_anchorValid=false,m_requestedVisible=true,m_autoCompact=false;
     bool m_hovered=false,m_pressed=false,m_menu=false,m_keyboard=false,m_moving=false;
-    bool m_visualTransitions=false,m_pendingCollapse=false,m_panelMotion=false;
+    bool m_visualTransitions=false,m_pendingCollapse=false,m_panelMotion=false,m_visualPending=false;
     int m_transitionId=0;
     double m_revealFrom=1;
     QSize m_miniSize{340,48};
     int m_miniHeight=48,m_ballDiameter=36;
     bool m_geometryChanging=false;
-    QTimer m_hoverTimer,m_idleTimer,m_returnTimer,m_moveTimer;
+    QTimer m_hoverTimer,m_idleTimer,m_returnTimer,m_moveTimer,m_geometryTimer;
     WindowError m_error = WindowError::None;
     bool m_trayAvailable=false,m_locked=false,m_closeToTray=true;
     double m_backgroundOpacity=0.9;

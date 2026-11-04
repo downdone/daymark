@@ -1,5 +1,21 @@
 # Daymark 实施进度
 
+### UX-75 组件统一绘制画布与呈现事务（2026-11-04，IMPLEMENTED / AUTO-PASS / MANUAL-UNVERIFIED）
+
+用户报告小窗收球完成仍闪烁，要求整体重设计。FR-012/018/035、UX-09/10/11/12/13，HIG连续性/稳定布局/减少动态及P-13/15/17。旧实现有末帧原生缩窗、清空mask后补写、多个动画属性分别写区域、终态enabled/clip切换；这些是重设计消除的交接风险，不将其认定为所有显卡闪烁的唯一原因。先设计后实施，契约见design/widget-rendering-transaction.md。
+
+现三形态共享由已启用形态包围盒确定的稳定透明画布，形态切换只改变逻辑表面；一个进度驱动位置/尺寸/圆角及内容显隐，反向承接当前视觉快照，文字尺寸固定、clip常开、不改变正文enabled。区域请求合并到afterAnimating一次提交且相同区域不写平台；末帧不缩窗、不清mask。afterSynchronizing/frameSwapped原子栅栏与窗口epoch确认当前代次，完成只改状态，旧回调无效。减少动态立即到视觉终值但仍等帧提交后恢复输入；隐藏/穿透安全路径立即收敛。屏障覆盖鼠标/滚轮/普通键盘，恢复原焦点或当前入口；菜单请求等待呈现，新代次取消旧请求，小窗空白右键保持无动作。
+
+Panel逻辑尺寸与画布尺寸分开持久化；手柄按全局拖动差调整逻辑Panel，屏幕恢复不覆盖缺失屏幕的原停靠意图。Qt Test新增四角/负屏/宽Mini包围盒、50×6次几何不变、逻辑窄Panel重启及配置失败回滚；不把QWindow状态夹具当OS渲染。新增desktop_rendering真实QQuick探针覆盖浅色100%左上、深色200%右下各6次切换、中间帧、连续三帧稳定、远角alpha=0、原生区域和场景图不失效。
+
+最终官方开源Qt6.10.2 Release及两项QML lint通过（build/ux75/verified-build2.log、verified-build3.log）。7项相关CTest均有通过证据：widget_window、brand_rendering、desktop_rendering、desktop_input_feedback、task_list_interaction在verified-ui.log/xml通过；其中qml_startup与desktop_surfaces首次失败，修正测试准备顺序/断言后仅这两项复核2/2 PASS、104.32秒（corrected-ui.log/xml）。未因局部变更重跑全30项。94 QML样式、175 Markdown文件本地链接、git diff --check及16个编译源副本一致性检查通过。
+
+保留失败证据：输入探针曾点击字体变化后已脱离窗口的菜单项，GDB定位空window；新增明确失败报告并将字体准备、菜单呈现和点击分帧，实际输入断言不删。旧菜单测试在resize同事件打开，下一几何事务正常关闭菜单；现一次打开后验证，不循环重开。减少动态旧断言把miniCollapsed立即变更当视觉完成；现直接核对视觉目标与输入屏障，呈现语义不回退。另一次新探针构建漏QObject完整头已修正。没有放宽超时或靠重试制造通过。
+
+Windows原生专项最终退出0，实际D3D11/Intel UHD Graphics与DirectComposition，12次切换原生尺寸事件均0、实际GetWindowRgnBox匹配、每次收球连续三帧一致，3窗且warnings=false（native-final.stderr.log，场景完成8142ms）。浅深保存帧已目视。首轮12次断言也通过但命令截图路径缺.png导致最终退出2，保留native.stderr.log；仅修正输出路径后完成专项，未改产品或预算。原生程序帧/区域证据不等于物理DWM合成瞬态无闪烁；真实桌面手势/IME/读屏、混合DPI和macOS保持UNVERIFIED。
+
+本地build/Launch-Daymark.cmd更新为bin/daymark-ux75.exe，旧入口备份在build/ux75/Launch-Daymark.before.cmd；需先从托盘退出旧实例。原bin/daymark.exe拒绝覆盖，仍用忽略目录中生成Ninja/CTest副本重定向输出，不修改仓库编译/CI脚本；CMake仅登记探针/测试依赖。旧便携ZIP未覆盖，未推送/打tag；保留独立CI改动，不访问真实任务库/账号或提交SDK、缓存、诊断图。分类功能仍为UX-72设计。
+
 ### UX-74 Windows组件原生菜单与空白右键语义（2026-11-04，IMPLEMENTED / AUTO-PASS / MANUAL-UNVERIFIED）
 
 用户实机反馈UX-73仍有黑条，明确发生在菜单即将显示/关闭后的透明区域；UX-73静态原生截图与像素通过不等于消除合成瞬态。FR-012/018/035，HIG平台熟悉感/用户控制/稳定反馈，UX-09/10/11/13。移除整面板空白右键；Windows两个组件菜单优先Popup.Native，让平台绘制，其他平台和不支持原生的后端保留实体Window回退。保留任务上下文、更多入口、焦点/菜单保持与恢复。验证分别覆盖回退QML输入/Windows原生菜单生命周期及实际系统交互，不能以程序触发信号冒充真实点击。无新依赖、不改CI/编译脚本、用户资料或分类范围。

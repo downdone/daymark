@@ -64,4 +64,13 @@ bool nativeWindowAbove(QWindow* upper,QWindow* lower)
     for(auto sibling=GetWindow(bottom,GW_HWNDPREV);sibling;sibling=GetWindow(sibling,GW_HWNDPREV))if(sibling==top)return true;
     return false;
 }
+bool nativeWindowRegionMatches(QWindow* window,const QRect& logicalBounds)
+{
+    if(!window || !window->handle() || QGuiApplication::platformName()!=QStringLiteral("windows"))return false;
+    RECT bounds{};if(GetWindowRgnBox(reinterpret_cast<HWND>(window->winId()),&bounds)<=NULLREGION)return false;
+    const auto scale=window->devicePixelRatio();
+    return qAbs(bounds.left-qRound(logicalBounds.x()*scale))<=2 && qAbs(bounds.top-qRound(logicalBounds.y()*scale))<=2 &&
+        qAbs((bounds.right-bounds.left)-qRound(logicalBounds.width()*scale))<=2 && qAbs((bounds.bottom-bounds.top)-qRound(logicalBounds.height()*scale))<=2;
+}
+
 }

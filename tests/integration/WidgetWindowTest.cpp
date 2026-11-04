@@ -44,6 +44,43 @@ public:
 class WidgetWindowTest : public QObject {
     Q_OBJECT
 private slots:
+    void canvasLayoutContainsAllFormsAndKeepsTheirGlobalAnchors()
+    {
+        const QList<WidgetScreen> screens={{"primary",QRect(0,0,1280,800)},{"left",QRect(-1280,0,1280,800)}};
+        for(const auto at:{QPoint(20,20),QPoint(1224,20),QPoint(20,744),QPoint(1224,744),QPoint(-40,400)}){
+            const auto index=WidgetPlacementPolicy::screenFor(QRect(at,QSize(36,36)),screens);
+            const auto anchor=WidgetPlacementPolicy::capture(QRect(at,QSize(36,36)),screens[index]);
+            const std::array<QSize,3> sizes={QSize(280,360),QSize(480,64),QSize(36,36)};
+            const auto layout=WidgetPlacementPolicy::canvasLayout(anchor,sizes,7,screens);
+            for(int form=0;form<3;++form){QVERIFY(QRect(QPoint(),layout.canvas.size()).contains(layout.forms[form]));QCOMPARE(layout.forms[form].translated(layout.canvas.topLeft()),WidgetPlacementPolicy::resolve(anchor,sizes[form],screens));}
+        }
+    }
+    void renderedFormsShareOneCanvasAndCompletionDoesNotResize()
+    {
+        RejectingPlatform platform;WidgetViewModel model(platform);QWindow window;window.setGeometry(100,100,420,360);
+        QVERIFY(model.attachWindow(&window));QVERIFY(model.setFormEnabled(2,true));QVERIFY(model.setVisible(true));model.enableVisualTransitions();
+        const auto canvas=window.geometry();
+        // Once all forms have reserved space, even a rejecting resize backend
+        // cannot affect shape changes or their completion.
+        platform.rejectResize=true;
+        for(int cycle=0;cycle<50;++cycle)for(int form:{2,0,1,2,1,0}){
+            QVERIFY(model.selectForm(form));QCOMPARE(window.geometry(),canvas);
+            const auto id=model.transitionId();model.finishTransition(id-1);model.presentTransition(id);
+            QCOMPARE(model.effectiveForm(),form);QCOMPARE(window.geometry(),canvas);QVERIFY(!model.transitionPending());
+        }
+        QCOMPARE(model.ballRect().size(),QSize(36,36));QCOMPARE(model.panelRect().size(),QSize(420,360));
+    }
+
+    void canvasEnvelopeNeverOverwritesLogicalPanelSizeOnRestart()
+    {
+        QTemporaryDir dir;QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;
+        window.setGeometry(80,100,260,240);model.configureSettings(dir.filePath("canvas.ini"));QVERIFY(model.attachWindow(&window));window.resize(260,240);
+        QVERIFY(model.setFormEnabled(2,true));model.enableVisualTransitions();QVERIFY(model.selectForm(2));
+        QCOMPARE(window.size(),QSize(340,240));QCOMPARE(model.panelRect().size(),QSize(260,240));model.saveSettings();
+        QSettings stored(dir.filePath("canvas.ini"),QSettings::IniFormat);QCOMPARE(stored.value("widget/v2/panelSize").toSize(),QSize(260,240));
+        WidgetViewModel restored(platform);QWindow other;other.resize(340,360);restored.configureSettings(dir.filePath("canvas.ini"));restored.enableVisualTransitions();QVERIFY(restored.attachWindow(&other));
+        QCOMPARE(restored.selectedForm(),2);QCOMPARE(restored.panelRect().size(),QSize(260,240));QCOMPARE(other.size(),QSize(340,240));
+    }
     void quickOpenPreservesDockingIntentAndCancelsOnExplicitSelection()
     {
         for(int compact:{1,2}){
@@ -167,13 +204,13 @@ private slots:
         QVERIFY(model.selectForm(2));model.setTrayAvailable(true);QVERIFY(model.setClickThrough(true));QVERIFY(model.miniCollapsed());QCOMPARE(model.selectedForm(),2);
         QVERIFY(model.setClickThrough(false));
     }
-    void animationResizeFailureRestoresStableUserIntent()
+    void canvasConfigurationFailureRestoresStableUserIntent()
     {
         RejectingPlatform platform;WidgetViewModel model(platform);QWindow window;window.setGeometry(80,80,340,240);QVERIFY(model.attachWindow(&window));QVERIFY(model.setFormEnabled(2,true));QVERIFY(model.setVisible(true));
-        model.enableVisualTransitions();QVERIFY(model.selectForm(1));const auto rect=window.geometry();QVERIFY(model.selectForm(2));platform.rejectResize=true;
-        model.finishTransition(model.transitionId());QCOMPARE(model.selectedForm(),1);QCOMPARE(model.effectiveForm(),1);QCOMPARE(window.geometry(),rect);QVERIFY(!model.errorText().isEmpty());
+        model.enableVisualTransitions();QVERIFY(model.selectForm(1));model.finishTransition(model.transitionId());const auto rect=window.geometry();platform.rejectResize=true;
+        QVERIFY(!model.setMiniLayout(400));QCOMPARE(model.selectedForm(),1);QCOMPARE(model.effectiveForm(),1);QCOMPARE(model.miniRect().height(),48);QCOMPARE(window.geometry(),rect);QVERIFY(!model.errorText().isEmpty());
     }
-    void panelMotionDefersShrinkAndRejectsStaleReverseCompletion()
+    void panelMotionKeepsCanvasAndRejectsStaleReverseCompletion()
     {
         QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;window.setGeometry(80,80,340,240);
         QVERIFY(model.attachWindow(&window));QVERIFY(model.setFormEnabled(2,true));QVERIFY(model.selectForm(2));QVERIFY(model.setVisible(true));
@@ -184,7 +221,7 @@ private slots:
         model.activatePrimary();const auto reopening=model.transitionId();QVERIFY(reopening!=closing);QCOMPARE(window.geometry(),panel);
         model.finishTransition(closing);QVERIFY(model.panelMotion());QCOMPARE(model.effectiveForm(),0);QCOMPARE(window.geometry(),panel);
         model.finishTransition(reopening);QVERIFY(!model.panelMotion());model.returnToCompact();model.finishTransition(model.transitionId());
-        QVERIFY(model.miniCollapsed());QCOMPARE(window.geometry(),ball);
+        QVERIFY(model.miniCollapsed());QCOMPARE(window.geometry(),panel);QCOMPARE(model.ballRect().translated(window.position()),ball);
     }
     void panelMotionFailureAndConfigurationHaveStableRecovery()
     {
@@ -192,20 +229,21 @@ private slots:
         QVERIFY(model.attachWindow(&window));QVERIFY(model.setFormEnabled(2,true));QVERIFY(model.selectForm(2));QVERIFY(model.setVisible(true));model.enableVisualTransitions();
         model.activatePrimary();model.finishTransition(model.transitionId());const auto panel=window.geometry();
         model.returnToCompact();platform.rejectResize=true;model.finishTransition(model.transitionId());
-        QVERIFY(!model.panelMotion());QCOMPARE(model.selectedForm(),2);QCOMPARE(model.effectiveForm(),0);QCOMPARE(window.geometry(),panel);QVERIFY(!model.errorText().isEmpty());
+        QVERIFY(!model.panelMotion());QCOMPARE(model.selectedForm(),2);QCOMPARE(model.effectiveForm(),2);QCOMPARE(window.geometry(),panel);QVERIFY(model.errorText().isEmpty());
+        QVERIFY(!model.setMiniLayout(400));QCOMPARE(window.geometry(),panel);QVERIFY(!model.errorText().isEmpty());
         platform.rejectResize=false;model.clearError();model.returnToCompact();const auto stale=model.transitionId();
         QVERIFY(model.setFormEnabled(2,false));QVERIFY(!model.panelMotion());QCOMPARE(model.effectiveForm(),0);model.finishTransition(stale);QCOMPARE(window.geometry(),panel);
         QVERIFY(model.setFormEnabled(2,true));QVERIFY(model.selectForm(2));QVERIFY(model.panelMotion());
         QVERIFY(model.setVisible(false));QVERIFY(!model.panelMotion());QVERIFY(model.setVisible(true));QVERIFY(model.miniCollapsed());
     }
-    void miniPreviewOnlyAnimatesIntoPanelThatContainsItsSurface()
+    void canvasAllowsMiniToNarrowPanelWithoutClippingTheNativeSurface()
     {
         for(const int width:{260,420}){
             QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;window.setGeometry(80,80,width,240);
             QVERIFY(model.attachWindow(&window));QVERIFY(model.setFormEnabled(2,true));QVERIFY(model.selectForm(2));QVERIFY(model.setAutoCompact(true));QVERIFY(model.setVisible(true));
             QVERIFY(model.setMiniCollapsed(false));QCOMPARE(window.width(),340);QCOMPARE(model.selectedForm(),2);
             model.enableVisualTransitions();model.activatePrimary();
-            QCOMPARE(model.panelMotion(),width>=340);QCOMPARE(window.size(),QSize(width,240));QCOMPARE(model.selectedForm(),2);QCOMPARE(model.effectiveForm(),0);
+            QVERIFY(model.panelMotion());QCOMPARE(model.panelRect().size(),QSize(width,240));QCOMPARE(window.size(),QSize(qMax(width,340),240));QCOMPARE(model.selectedForm(),2);QCOMPARE(model.effectiveForm(),0);
             model.finishTransition(model.transitionId());QVERIFY(!model.panelMotion());
         }
     }

@@ -58,4 +58,6 @@ bool nativeWindowAbove(QWindow* upper,QWindow* lower)
         return topIndex!=NSNotFound && bottomIndex!=NSNotFound && topIndex<bottomIndex;
     }
 }
+bool nativeWindowRegionMatches(QWindow*,const QRect&){return false;} // Not verified by these backends.
+
 }

@@ -33,8 +33,9 @@ QObject* Ux71SmokeProbe::find(QObject* root,const QString& name) const {
     return nullptr;
 }
 void Ux71SmokeProbe::click(QQuickItem* item,QQuickWindow* receiver){
-    if(!item)return;
-    auto* window=receiver?receiver:item->window();const auto global=item->mapToGlobal(QPointF(item->width()/2,item->height()/2));const auto at=window->mapFromGlobal(global);
+    if(!item){m_inputError="missing input item";return;}
+    auto* window=receiver?receiver:item->window();if(!window){m_inputError=QStringLiteral("input item has no presented window: %1").arg(item->objectName());return;}
+    const auto global=item->mapToGlobal(QPointF(item->width()/2,item->height()/2));const auto at=window->mapFromGlobal(global);
     for(const auto type:{QEvent::MouseMove,QEvent::MouseButtonPress,QEvent::MouseButtonRelease}){
         QMouseEvent event(type,at,global,type==QEvent::MouseMove?Qt::NoButton:Qt::LeftButton,type==QEvent::MouseButtonPress?Qt::LeftButton:Qt::NoButton,Qt::NoModifier);
         QCoreApplication::sendEvent(window,&event);
@@ -62,6 +63,7 @@ bool Ux71SmokeProbe::nativeRoundtrip(QObject* menu,const QString& command){
     return m_nativePresented;
 }
 QString Ux71SmokeProbe::advance(){
+    if(!m_inputError.isEmpty())return QStringLiteral("UX71 stage %1: %2").arg(m_stage).arg(m_inputError);
     if(m_stage==99)return "DONE";
     if(m_wait.elapsed()<100)return {};
     // A native runner can be occluded; force the same layout/presentation
@@ -150,10 +152,8 @@ QString Ux71SmokeProbe::advance(){
     if(nativeWindows && m_stage>=56 && m_stage<=62){
         auto* menu=find(m_widget,"widgetMenu");
         if(m_stage==56 && (!nativeRoundtrip(menu,"widgetFormPanel") || m_controller.selectedForm()!=0 || m_main->isVisible()))return fail("native Panel menu lifecycle/wiring");
-        if(m_stage==60){
-            m_workspace.setThemeMode(2);m_workspace.setTextScale(2);
-            if(!nativeRoundtrip(menu,"widgetFormBall") || m_controller.selectedForm()!=2 || m_main->isVisible())return fail("native Ball menu lifecycle/wiring");
-        }
+        if(m_stage==60){m_workspace.setThemeMode(2);m_workspace.setTextScale(2);}
+        if(m_stage==61 && (!nativeRoundtrip(menu,"widgetFormBall") || m_controller.selectedForm()!=2 || m_main->isVisible()))return fail("native Ball menu lifecycle/wiring");
         if(m_stage==62)m_controller.activatePrimary();
         ++m_stage;m_wait.restart();return {};
     }
@@ -179,9 +179,13 @@ QString Ux71SmokeProbe::advance(){
     if(m_stage==60){
         if(m_controller.selectedForm()!=0 || find(m_widget,"widgetMenu")->property("visible").toBool() || m_main->isVisible())return fail("menu selection opens a task instead of selecting Panel");
         if(m_leaked || m_flickered)return fail(QStringLiteral("reproduced regressions: scrollbar=%1 backgroundTask=%2").arg(m_flickered).arg(m_leaked));
-        m_workspace.setThemeMode(2);m_workspace.setTextScale(2);QMetaObject::invokeMethod(m_widget,"openVerificationMenu");
+        m_workspace.setThemeMode(2);m_workspace.setTextScale(2);
     }
-    if(m_stage==61){click(qobject_cast<QQuickItem*>(find(m_widget,"widgetFormBall")));}
+    if(m_stage==61){
+        if(!m_darkMenuReady){QMetaObject::invokeMethod(m_widget,"openVerificationMenu");m_darkMenuReady=true;m_wait.restart();return {};}
+        if(!find(m_widget,"widgetMenu")->property("visible").toBool())return fail("prepared dark menu did not remain open");
+        click(qobject_cast<QQuickItem*>(find(m_widget,"widgetFormBall")));
+    }
     if(m_stage==62){
         if(m_controller.selectedForm()!=2 || m_main->isVisible())return fail("dark 200 percent menu command");
         m_controller.activatePrimary();

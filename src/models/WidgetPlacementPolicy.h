@@ -3,6 +3,7 @@
 #include <QPointF>
 #include <QRect>
 #include <QString>
+#include <array>
 
 namespace daymark {
 struct WidgetScreen { QString id; QRect available; };
@@ -12,6 +13,7 @@ struct WidgetAnchor {
     QPointF fraction{0.05, 0.05};
     bool right = false, bottom = false;
 };
+struct WidgetCanvasLayout { QRect canvas; std::array<QRect,3> forms; };
 struct WidgetPlacementPolicy {
     static int screenFor(const QRect& rectangle, const QList<WidgetScreen>& screens) {
         int best = -1; qint64 area = 0;
@@ -44,5 +46,12 @@ struct WidgetPlacementPolicy {
         point.setY(qBound(available.top(),point.y(),available.y()+available.height()-size.height()));
         return {point,size};
     }
+    static WidgetCanvasLayout canvasLayout(const WidgetAnchor& anchor,const std::array<QSize,3>& sizes,int enabled,const QList<WidgetScreen>& screens) {
+        WidgetCanvasLayout result;
+        for(int form=0;form<3;++form){result.forms[form]=resolve(anchor,sizes[form],screens);if(enabled & (1<<form))result.canvas=result.canvas.united(result.forms[form]);}
+        for(auto& rect:result.forms)rect.translate(-result.canvas.topLeft());
+        return result;
+    }
+
 };
 }
