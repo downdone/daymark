@@ -1,6 +1,18 @@
 #include "ReminderSchedule.h"
+#include "TaskService.h"
 #include <algorithm>
 namespace daymark {
+QDateTime ReminderSchedule::nextPending(const QList<Task>& tasks)
+{
+    QDateTime earliest;
+    for(const auto& task:tasks){
+        if(!QueryService::effectiveActive(task) || task.remindAtUtc.isEmpty())continue;
+        if(!task.reminderFiredAtUtc.isEmpty() && task.reminderRepeat==QStringLiteral("NONE"))continue;
+        const auto at=QDateTime::fromString(task.remindAtUtc,Qt::ISODateWithMs);
+        if(at.isValid() && (!earliest.isValid() || at<earliest))earliest=at;
+    }
+    return earliest;
+}
 QDateTime ReminderSchedule::nextAfter(const QDateTime& anchor,const QString& frequency,int interval,const QTimeZone& zone,const QDateTime& now)
 {
     if(!anchor.isValid() || !now.isValid() || !zone.isValid() || interval<1 || frequency==QStringLiteral("NONE"))return {};

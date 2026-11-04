@@ -13,6 +13,29 @@ public:QDateTime now=QDateTime(QDate(2024,3,9),QTime(12,0),QTimeZone::UTC);
 class ReminderTest:public QObject {
     Q_OBJECT
 private slots:
+    void nextPendingUsesEffectiveStateAndAbsoluteTime()
+    {
+        const auto now=QDateTime::fromString("2026-11-04T08:00:00Z",Qt::ISODate);
+        Task future;future.id="future";future.planningState="ACTIVE";future.remindAtUtc=now.addSecs(60).toString(Qt::ISODateWithMs);
+        Task past=future;past.id="past";past.remindAtUtc=now.addSecs(-60).toString(Qt::ISODateWithMs);
+        QCOMPARE(ReminderSchedule::nextPending({future,past}),now.addSecs(-60));
+        for(int exclusion=0;exclusion<7;++exclusion){auto excluded=past;
+            if(exclusion==0)excluded.status="COMPLETED";
+            if(exclusion==1)excluded.deletedAtUtc="deleted";
+            if(exclusion==2)excluded.planningState="SOMEDAY";
+            if(exclusion==3)excluded.areaArchived=true;
+            if(exclusion==4){excluded.projectId="project";excluded.projectDeleted=true;}
+            if(exclusion==5)excluded.syncRemoteDeletionPending=true;
+            if(exclusion==6)excluded.reminderFiredAtUtc=now.toString(Qt::ISODateWithMs);
+            QCOMPARE(ReminderSchedule::nextPending({excluded,future}),now.addSecs(60));
+        }
+        past.reminderFiredAtUtc=now.toString(Qt::ISODateWithMs);past.reminderRepeat="DAILY";
+        QCOMPARE(ReminderSchedule::nextPending({future,past}),now.addSecs(-60));
+        future.remindAtUtc="invalid";QVERIFY(!ReminderSchedule::nextPending({future}).isValid());QVERIFY(!ReminderSchedule::nextPending({}).isValid());
+        // Comparing the saved UTC instant against now handles clock jumps both ways.
+        const auto next=ReminderSchedule::nextPending({past});QVERIFY(next<=now);QVERIFY(next>now.addSecs(-120));
+        future.remindAtUtc="2026-11-04T16:00:00.000+08:00";QCOMPARE(ReminderSchedule::nextPending({future}),now);
+    }
     void popupPresentationPreservesRecurrenceAndExpiresSafely() {
         ReminderClock clock;const auto now=clock.now;
         Task task;task.id="popup";task.title="待办";task.planningState="ACTIVE";

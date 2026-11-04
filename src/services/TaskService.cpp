@@ -34,7 +34,8 @@ bool QueryService::effectiveActive(const Task& t)
 }
 bool QueryService::inView(const Task& input, const QString& view, const QDate& d)
 {
-    const auto t=withUnifiedDates(input);
+    const auto normalized=input.schedule?std::optional<Task>(withUnifiedDates(input)):std::nullopt;
+    const auto& t=normalized?*normalized:input;
     if(t.syncRemoteDeletionPending)return false;
     if(view==QStringLiteral("trash"))return !t.deletedAtUtc.isEmpty();
     if(!t.deletedAtUtc.isEmpty()) return false;
@@ -85,7 +86,9 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
         if(!search.isEmpty() && !task.title.contains(search,Qt::CaseInsensitive) && !task.notes.contains(search,Qt::CaseInsensitive)) continue;
         output.append(withUnifiedDates(task));
     }
-    std::stable_sort(output.begin(),output.end(),[&view,&d](const Task& a,const Task& b) {
+    QList<qsizetype> order;order.reserve(output.size());for(qsizetype row=0;row<output.size();++row)order.append(row);
+    std::stable_sort(order.begin(),order.end(),[&view,&d,&output](qsizetype left,qsizetype right) {
+        const auto& a=output[left];const auto& b=output[right];
         if(view==QStringLiteral("scheduled")){const auto ad=plannedDate(a),bd=plannedDate(b);if(ad!=bd)return ad<bd;}
         if(view==QStringLiteral("all") && a.categoryOrderPath!=b.categoryOrderPath && (!a.categoryOrderPath.isEmpty() || !b.categoryOrderPath.isEmpty()))return a.categoryOrderPath<b.categoryOrderPath;
         if(view==QStringLiteral("all")){const auto ag=a.areaName+QLatin1Char('/')+a.projectName,bg=b.areaName+QLatin1Char('/')+b.projectName;if(ag!=bg)return ag<bg;}
@@ -123,13 +126,22 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
         if(a.sortOrder!=b.sortOrder) return a.sortOrder<b.sortOrder;
         return a.id<b.id;
     });
+    QList<Task> sorted;sorted.reserve(output.size());for(const auto row:order)sorted.append(std::move(output[row]));output=std::move(sorted);
     if(!nestChildren){for(auto& task:output){task.listDepth=0;task.listChildCount=0;}return output;}
-    QHash<QString,Task> visible;for(const auto& task:output)visible.insert(task.id,task);
-    QHash<QString,QList<Task>> children;QList<Task> roots;
-    for(const auto& task:output)if(!task.parentTaskId.isEmpty() && visible.contains(task.parentTaskId) && visible.value(task.parentTaskId).projectId==task.projectId && visible.value(task.parentTaskId).areaId==task.areaId && (view!=QStringLiteral("trash") || (!task.deletionGroupId.isEmpty() && task.deletionGroupId==visible.value(task.parentTaskId).deletionGroupId)))children[task.parentTaskId].append(task);else roots.append(task);
-    QList<Task> tree;QSet<QString> emitted;QList<QPair<Task,int>> pending;
+    QHash<QString,qsizetype> visible;visible.reserve(output.size());for(qsizetype row=0;row<output.size();++row)visible.insert(output[row].id,row);
+    QHash<QString,QList<qsizetype>> children;QList<qsizetype> roots;roots.reserve(output.size());
+    for(qsizetype row=0;row<output.size();++row){
+        const auto& task=output[row];const auto parent=visible.constFind(task.parentTaskId);
+        if(!task.parentTaskId.isEmpty() && parent!=visible.cend() && output[*parent].projectId==task.projectId && output[*parent].areaId==task.areaId && (view!=QStringLiteral("trash") || (!task.deletionGroupId.isEmpty() && task.deletionGroupId==output[*parent].deletionGroupId)))children[task.parentTaskId].append(row);else roots.append(row);
+    }
+    QList<Task> tree;tree.reserve(output.size());QSet<QString> emitted;QList<QPair<qsizetype,int>> pending;pending.reserve(roots.size());
     for(auto it=roots.crbegin();it!=roots.crend();++it)pending.append({*it,0});
-    while(!pending.isEmpty()){auto item=pending.takeLast();auto task=item.first;if(emitted.contains(task.id))continue;emitted.insert(task.id);task.listDepth=item.second;task.listChildCount=children.value(task.id).size();tree.append(task);if(search.isEmpty() && collapsed.contains(task.id))continue;const auto nested=children.value(task.id);for(auto it=nested.crbegin();it!=nested.crend();++it)pending.append({*it,item.second+1});}
+    while(!pending.isEmpty()){
+        const auto item=pending.takeLast();if(emitted.contains(output[item.first].id))continue;
+        auto task=std::move(output[item.first]);emitted.insert(task.id);task.listDepth=item.second;task.listChildCount=children.value(task.id).size();
+        const auto id=task.id;tree.append(std::move(task));if(search.isEmpty() && collapsed.contains(id))continue;
+        const auto nested=children.value(id);for(auto it=nested.crbegin();it!=nested.crend();++it)pending.append({*it,item.second+1});
+    }
     return tree;
 }
 

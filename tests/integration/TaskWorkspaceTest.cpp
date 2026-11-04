@@ -22,6 +22,50 @@ using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
 private slots:
+    void navigationLeavesIndependentModelsStableUntilDataChanges()
+    {
+        QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("navigation.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));
+        QVERIFY(workspace.createTodayTask("independent"));QVERIFY(daymark::test::awaitIdle(workspace));const auto id=workspace.todayTasks()->taskIdAt(0);const auto initial=workspace.todayTasks()->items();const auto counts=workspace.viewCounts();
+        QPersistentModelIndex selected(workspace.todayTasks()->index(0));QSignalSpy changed(workspace.todayTasks(),&QAbstractItemModel::dataChanged);
+        workspace.setView("all");workspace.setView("someday");workspace.setTagFilter("absent");workspace.setProjectFilter("absent");workspace.setIncludeCompleted(true);workspace.setSearch("absent");QTest::qWait(300);
+        QCOMPARE(workspace.todayTasks()->items(),initial);QCOMPARE(workspace.viewCounts(),counts);QCOMPARE(changed.count(),0);QCOMPARE(selected.data(TaskListModel::Id).toString(),id);
+        const auto before=workspace.task(id);QVERIFY(workspace.saveTask(id,before.value("rowVersion").toLongLong(),"updated","",before.value("planningState").toString(),before.value("startOn").toString(),before.value("deadlineOn").toString(),true));QVERIFY(daymark::test::awaitIdle(workspace));QCOMPARE(workspace.todayTasks()->data(workspace.todayTasks()->index(0),TaskListModel::Title).toString(),QString("updated"));QVERIFY(changed.count()>0);
+    }
+    void indexedSnapshotRemainsCurrentAfterMutationsAndReload()
+    {
+        QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("index.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));
+        QVERIFY(workspace.createTodayTask("first"));QVERIFY(daymark::test::awaitIdle(workspace));QVERIFY(workspace.createTodayTask("second"));QVERIFY(daymark::test::awaitIdle(workspace));
+        const auto first=workspace.todayTasks()->taskIdAt(0),second=workspace.todayTasks()->taskIdAt(1);QCOMPARE(workspace.task(first).value("title").toString(),QString("first"));
+        const auto before=workspace.task(first);QVERIFY(workspace.saveTask(first,before.value("rowVersion").toLongLong(),"edited","",before.value("planningState").toString(),before.value("startOn").toString(),before.value("deadlineOn").toString(),before.value("todayFocus").toBool()));QVERIFY(daymark::test::awaitIdle(workspace));QCOMPARE(workspace.task(first).value("title").toString(),QString("edited"));
+        QVERIFY(workspace.moveTodayTask(second,-1));QVERIFY(daymark::test::awaitIdle(workspace));QCOMPARE(workspace.todayTasks()->taskIdAt(0),second);QCOMPARE(workspace.task(first).value("title").toString(),QString("edited"));
+        QVERIFY(workspace.changeState(second,workspace.task(second).value("rowVersion").toLongLong(),"delete"));QVERIFY(daymark::test::awaitIdle(workspace));QVERIFY(workspace.task(second).isEmpty());QVERIFY(workspace.task("absent").isEmpty());
+        workspace.reload();QVERIFY(daymark::test::awaitIdle(workspace));QCOMPARE(workspace.task(first).value("title").toString(),QString("edited"));QVERIFY(workspace.task(second).isEmpty());
+    }
+    void listPermutationPreservesIdentityAndQuietRefresh()
+    {
+        TaskListModel model;QAbstractItemModelTester tester(&model,QAbstractItemModelTester::FailureReportingMode::QtTest);
+        Task a;a.id="a";Task b;b.id="b";Task c;c.id="c";const QDate today(2026,11,4);
+        model.replace({a,b,c},today);QPersistentModelIndex first(model.index(0)),last(model.index(2));
+        QSignalSpy resets(&model,&QAbstractItemModel::modelReset),count(&model,&TaskListModel::countChanged),changed(&model,&QAbstractItemModel::dataChanged);
+        model.replace({a,b,c},today);QCOMPARE(count.count(),0);QCOMPARE(changed.count(),0);
+        b.title="edited";model.replace({c,b,a},today);QCOMPARE(first.row(),2);QCOMPARE(last.row(),0);QCOMPARE(first.data(TaskListModel::Id).toString(),QString("a"));QCOMPARE(model.data(model.index(1),TaskListModel::Title).toString(),QString("edited"));QCOMPARE(resets.count(),0);QCOMPARE(count.count(),0);
+        model.replace({b,a},today);QVERIFY(!last.isValid());QCOMPARE(first.row(),1);QCOMPARE(count.count(),1);
+        Task d;d.id="d";model.replace({d,b,a,c},today);QCOMPARE(first.row(),2);QCOMPARE(count.count(),2);
+        model.replace({d,b,a,c},today.addDays(1));QVERIFY(changed.count()>0);QCOMPARE(resets.count(),0);
+    }
+    void listReplacementBaseline()
+    {
+        const QDate today(2026,11,4);const int requested=qEnvironmentVariableIntValue("DAYMARK_PERF_MODEL_SIZE"),size=requested>0?requested:10000;QList<Task> tasks;tasks.reserve(size);
+        for(int i=0;i<size;++i){Task task;task.id=QString::number(i);task.title=QStringLiteral("synthetic");tasks.append(task);}
+        TaskListModel model;model.replace(tasks,today);QSignalSpy count(&model,&TaskListModel::countChanged);
+        QList<qint64> unchanged,reordered;
+        for(int sample=0;sample<5;++sample){QElapsedTimer clock;clock.start();model.replace(tasks,today);unchanged.append(clock.nsecsElapsed());}
+        auto reversed=tasks;std::reverse(reversed.begin(),reversed.end());
+        for(int sample=0;sample<4;++sample){QElapsedTimer clock;clock.start();model.replace(sample%2?tasks:reversed,today);reordered.append(clock.nsecsElapsed());}
+        std::sort(unchanged.begin(),unchanged.end());std::sort(reordered.begin(),reordered.end());
+        qInfo()<<"PERF model tasks="<<tasks.size()<<"unchanged_median_us="<<unchanged[2]/1000.0<<"reverse_median_us="<<reordered[2]/1000.0<<"count_notifications="<<count.count();
+        QCOMPARE(model.taskIdAt(0),tasks.first().id);QCOMPARE(model.rowCount(),size);
+    }
     void widgetCommandsUseTodayWithoutChangingMainContext() {
         QTemporaryDir dir;const auto path=dir.filePath("widget-today.sqlite");TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));
         w.setView("all");w.setSearch("not matching widget tasks");w.setTagFilter("missing");
@@ -248,6 +292,9 @@ private slots:
         const auto id=w.tasks()->data(w.tasks()->index(9999),TaskListModel::Id).toString();QElapsedTimer timer;timer.start();
         for(int i=0;i<50;++i){QVERIFY(w.canMoveTask(id,-1));QVERIFY(!w.canMoveTask(id,1));}
         const auto micros=timer.nsecsElapsed()/1000.0;qInfo()<<"10k menu availability, 50 open pairs, mean us:"<<micros/50.0;QVERIFY2(micros<500000,"Repeated menu availability exceeded 10 ms per pair");
+        QList<qint64> navigation;
+        for(int i=0;i<8;++i){timer.restart();w.setView(i%2?QStringLiteral("today"):QStringLiteral("all"));const auto elapsed=timer.nsecsElapsed();if(i>1)navigation.append(elapsed);QCOMPARE(w.todayTasks()->rowCount(),10000);}
+        std::sort(navigation.begin(),navigation.end());qInfo()<<"PERF navigation tasks=10000 median_us="<<navigation[navigation.size()/2]/1000.0;
     }
     void catalogCreationReturnsIdentityAndKeepsTaskUnchanged() {
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath(QStringLiteral("create.sqlite")));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(w.ready());

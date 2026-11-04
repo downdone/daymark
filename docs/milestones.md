@@ -1,5 +1,7 @@
 # 里程碑与可执行任务队列
 
+PERF-01按[性能与内存策略](design/performance-and-memory.md)先基线和分层审查，再逐切片实现/对比/回归；P1～P7已有实现和定向证据，QML/同步/Go层保留审查决定，详见[记录](performance-report-2026-11.md)。下一步是修复独立的菜单长流程失败、补整应用/长时/GPU及真实同步负载测量，不混入待发布1.8.1；状态只见PROGRESS。
+
 UX-76：跨行/空白后右键实际输入回归→释放后派发/稳定正文/原生菜单层级→QML实体与命令目标、Windows实际系统菜单和键盘恢复→本地构建及证据。契约见[桌面菜单](design/desktop-menu-anchoring.md)，状态只见PROGRESS。
 
 UX-75：组件稳定画布/单进度动效/呈现确认→逻辑尺寸与故障回滚→临时资料Qt输入、末帧连续性与Windows原生区域验证→文档及本地构建。契约见[组件绘制事务](design/widget-rendering-transaction.md)，实际状态只见PROGRESS；不自动推送或更新便携ZIP。

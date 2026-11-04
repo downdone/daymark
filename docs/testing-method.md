@@ -1,5 +1,7 @@
 # 测试方法与链路责任（1.0）
 
+PERF-01复用performance、task_workspace、task_service、calendar、recurrence、reminders及既有QML交互入口，不新增同义CTest、不放宽预算。增加独立逐日日历对照、模型持久索引/通知、导航与写后独立列表一致、UTC下一提醒、无活动规则读取故障注入和有界基准；临时库全部QTemporaryDir。分清未优化开发对照与真实-O3 Release、索引私有提交与整应用/GPU，数据及失败记录见[性能记录](performance-report-2026-11.md)。菜单长流程已有阶段232失败保持失败，不能用短切片、强制grabWindow或扩大超时把它写成通过。
+
 UX-69新增widget-actions切片220～241，并在desktop_surfaces侧栏链之后执行；保持原90秒预算。真实QML输入、右键菜单实际命令、普通拖动和软删撤销均在主窗隐藏/搜索下运行；到期期间开启interactionActive，验证不能无限抑制提醒。桌面长链看门狗按Ux38实际子场景进度更新，只有阶段前进才重置，45秒卡顿保护及90秒外层预算不变；原436阶段故障仍由qml_watchdog_late验真。Windows专项核对弹窗未激活与实际Topmost样式，浅色100/深色200%截图和按钮前景色断言；关闭/延后/完成各自点击。reminders纯时间测试不等待10分钟，task_workspace临时库覆盖CAS、重启、写失败及资料隔离。最终窗口数仍为3，不以减少原门禁掩盖测试准备问题。完成后进入242幂等终态，允许运行时孵化重试；旧Mini133～135改用afterAnimating实际中间帧与异步截图，仍保留1.5秒时限、四轮、规范几何和锚点断言，不用210ms墙钟采样假定悬停已开始。拖动时断言interactionActive与syncApplyPaused。
 
 UX-68新增sidebar-footer切片200～211并接入桌面全链：LOCAL缓存名仍显示“登录”、真实点击最近删除/选中反馈、Tab焦点+Space打开专用账号窗、合成已认证账号名与200%长名省略、折叠三个图标及完整辅助名称、折叠设置→通用→数据与备份实际接线，ACCOUNT已退出则恢复“登录”。展示态每步重施合成状态，避免真实离线协调器刷新覆盖fixture；不触发认证或上传。Windows隐藏启动时显式显示主窗后才测live resize/缩放，防止元数据变了但布局仍旧；200%折叠字标区边距与负宽度修复后所有按钮须在44 DIP侧栏内。continuous_calendar原备份图标断言迁移为设置/最近删除图标+账号文字，备份路由由新增真实点击链验证。

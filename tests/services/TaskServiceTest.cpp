@@ -21,6 +21,22 @@ class TaskServiceTest : public QObject {
         return repo.update(task.value,task.value.rowVersion);
     }
 private slots:
+    void indexedProjectionKeepsGroupingCollapseAndSearchSemantics()
+    {
+        const QDate today(2026,11,4);Task root;root.id="root";root.title="match root";root.sortOrder=2;
+        Task child=root;child.id="child";child.title="match child";child.parentTaskId=root.id;child.sortOrder=1;
+        Task detached=child;detached.id="detached";detached.areaId="other";
+        Task grandchild=child;grandchild.id="grandchild";grandchild.parentTaskId=child.id;grandchild.sortOrder=3;
+        const QList<Task> input{grandchild,child,detached,root};const auto original=input;
+        const auto selected=QueryService::select(input,"all",today);QCOMPARE(selected.size(),4);
+        int nested=-1;for(int i=0;i<selected.size();++i)if(selected[i].id==root.id)nested=i;
+        QVERIFY(nested>=0);QCOMPARE(selected[nested].listChildCount,1);QCOMPARE(selected[nested+1].id,child.id);QCOMPARE(selected[nested+1].listDepth,1);QCOMPARE(selected[nested+2].id,grandchild.id);QCOMPARE(selected[nested+2].listDepth,2);
+        const auto collapsed=QueryService::select(input,"all",today,{},false,{},0,0,{}, {root.id});QCOMPARE(collapsed.size(),2);
+        const auto searched=QueryService::select(input,"all",today,"match",false,{},0,0,{}, {root.id});QCOMPARE(searched.size(),4);
+        auto deleted=input;for(auto& task:deleted){task.deletedAtUtc="deleted";task.deletionGroupId="group";}deleted[1].deletionGroupId="other";
+        const auto trash=QueryService::select(deleted,"trash",today);QCOMPARE(trash.size(),4);for(const auto& task:trash)if(task.id==child.id)QCOMPARE(task.listDepth,0);
+        QCOMPARE(input,original);
+    }
     void batchRestoreIsAtomicAndPreservesOlderDeletions() {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("batch-restore.sqlite")).ok());
         TaskRepository repo(db.connection());FixedClock clock;TaskService service(repo,clock);

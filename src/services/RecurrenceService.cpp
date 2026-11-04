@@ -60,6 +60,7 @@ Result<void> RecurrenceService::stop(const QString& id,qint64 version,bool remov
 Result<int> RecurrenceService::generate(const QDate& from,const QDate& through,const QStringList& completionPriority)
 {
     const auto rules=m_rules.all();if(!rules.ok())return {{},rules.error};
+    if(std::none_of(rules.value.cbegin(),rules.value.cend(),[](const RecurrenceRule& rule){return rule.active;}))return {0,{}};
     const auto tasks=m_tasks.all();if(!tasks.ok())return {{},tasks.error};
     int generated=0;const auto today=m_clock.localToday();
     for(const auto& rule:rules.value) {

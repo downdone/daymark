@@ -1007,9 +1007,16 @@ QString Ux38SmokeProbe::advance() {
         if(m_workspace.todayTasks()->taskIdAt(0)!=m_actionLast || m_main->isVisible())return fail("real widget drag commits Today ordering");
         auto* row=qobject_cast<QQuickItem*>(find(m_widget,"widgetTask-"+m_actionLast));row->forceActiveFocus();QKeyEvent key(QEvent::KeyPress,Qt::Key_Menu,Qt::NoModifier);QCoreApplication::sendEvent(row,&key);
     }
-    if(m_stage==231){if(!find(m_widget,"widgetTaskMenu")->property("visible").toBool())return fail("keyboard task context");click("widgetTaskDelete",find(m_widget,"widgetTaskMenu"));}
+    if(m_stage==231){
+        auto* menu=find(m_widget,"widgetTaskMenu");if(!menu->property("visible").toBool())return fail("keyboard task context");
+        auto* item=qobject_cast<QQuickItem*>(find(menu,"widgetTaskDelete"));
+        qInfo()<<"Widget delete input"<<(item?item->isVisible():false)<<(item?item->isEnabled():false)<<(item?item->size():QSizeF())<<(item?item->mapToScene(QPointF()):QPointF())<<"context"<<m_widget->property("contextTask").toMap().value("taskId");
+        if(item && item->window())qInfo()<<"Widget delete window"<<item->window()->geometry()<<"scale"<<m_workspace.textScale()<<"menu"<<menu->property("width")<<menu->property("height")<<"hit"<<item->window()->contentItem()->childAt(item->mapToScene(QPointF(item->width()/2,item->height()/2)).x(),item->mapToScene(QPointF(item->width()/2,item->height()/2)).y());
+        click("widgetTaskDelete",menu);
+    }
     if(m_stage==232){
-        if(m_workspace.todayTasks()->rowCount()!=2 || !find(m_widget,"widgetUndoDelete")->property("visible").toBool())return fail("widget soft deletion offers undo");click("widgetUndoDelete");
+        if(m_workspace.todayTasks()->rowCount()!=2 || !find(m_widget,"widgetUndoDelete")->property("visible").toBool())return fail(QStringLiteral("widget soft deletion offers undo: rows=%1 undo=%2 menu=%3 operation=%4 error=%5 confirmation=%6").arg(m_workspace.todayTasks()->rowCount()).arg(find(m_widget,"widgetUndoDelete")->property("visible").toBool()).arg(find(m_widget,"widgetTaskMenu")->property("visible").toBool()).arg(m_widget->property("taskOperation").toString(),m_widget->property("taskError").toString()).arg(find(m_widget,"widgetTaskDeleteConfirmation")->property("visible").toBool()));
+        click("widgetUndoDelete");
     }
     if(m_stage==233){
         if(m_workspace.todayTasks()->rowCount()!=3)return fail("widget deletion restores exact task");

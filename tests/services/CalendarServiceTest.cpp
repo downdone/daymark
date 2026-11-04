@@ -6,6 +6,18 @@ using namespace daymark;
 class CalendarServiceTest:public QObject {
     Q_OBJECT
 private slots:
+    void visibleRangeMatchesIndependentPerDaySelection()
+    {
+        const QDate anchor(2026,11,4);QList<Task> tasks;
+        for(int i=-50;i<80;++i){Task task;task.id=QString::number(i);task.planningState="ACTIVE";task.startOn=anchor.addDays(i);if(i%3==0)task.deadlineOn=anchor.addDays(i+12);if(i%7==0)task.status="COMPLETED";tasks.append(task);}
+        Task spanning;spanning.id="long-range";spanning.planningState="ACTIVE";spanning.startOn=QDate(1000,1,1);spanning.deadlineOn=QDate(9000,1,1);tasks.append(spanning);
+        Task invalid;invalid.id="invalid";invalid.startOn=QDate();tasks.append(invalid);
+        for(bool week:{false,true})for(bool sunday:{false,true})for(bool completed:{false,true}){
+            const auto days=CalendarService::days(tasks,anchor,week,sunday,completed);
+            QCOMPARE(days.size(),week?7:42);
+            for(const auto& day:days){const auto expected=CalendarService::entries(tasks,day.date,completed);QCOMPARE(day.entries.size(),expected.size());for(int i=0;i<expected.size();++i){QCOMPARE(day.entries[i].task,expected[i].task);QCOMPARE(day.entries[i].kind,expected[i].kind);}}
+        }
+    }
     void calendarRangeMoveAndEdgeAreAtomic() {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("range-move.sqlite")).ok());SystemClock clock;TaskRepository repo(db.connection());TaskService service(repo,clock);
         auto saved=service.create("range");QVERIFY(saved.ok());TaskPatch dates;dates.startOn=FieldPatch<QDate>::set(QDate(2026,10,24));dates.deadlineOn=FieldPatch<QDate>::set(QDate(2026,11,20));saved=service.edit(saved.value.id,saved.value.rowVersion,dates);QVERIFY(saved.ok());

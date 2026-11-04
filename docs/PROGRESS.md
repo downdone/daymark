@@ -1,4 +1,17 @@
 # Daymark 实施进度
+### PERF-01 性能与内存分层优化（2026-11-04，IMPLEMENTED / TARGETED-PASS / KNOWN-UI-FAIL）
+
+用户要求先策略/方法、逐层分析、再逐项实现。按design/performance-and-memory.md的P0～P10执行，NFR-01～05及P-02/03/05/08/10/12；固定Qt6.10.2，合成临时库、基线/输出一致、逐项测量，不改测试阈值/CI脚本或用户数据库。先测CalendarService离屏日期索引、完整Task重复索引、每秒提醒全扫及模型通知，后审视快照刷新/SQL/Query/QML/同步/Go，证据不足不盲改。发布候选与性能工作分开：1.8.1第一候选01596af已推main，本地31/31通过并打包；GitHub Mac watchdog阶段118、Windows桌面阶段232失败，未创建tag；发布树另有6a5ba80准备时序修复尚未推。此前远端诊断自动审批因用量限制无法完成，保留日志，不把发布标完成。
+
+P1～P7实现：日历只索引可见端点；快照id→行号代替完整Task副本，提醒呈现同步只读查找；缓存下一有效UTC提醒避免每秒全扫；模型首次批量插入、相同集合layout重排并重映射持久索引、无变化不发count通知；导航/筛选只刷新主列表，写/同步/日期/重载仍全量；未到期提醒先读时间再构造Task、无活动重复规则不读全图；查询排序/树/遍历中间结构存行号。数据/错误/CAS/树/时间语义与协议不变，无schema迁移。QML/窗口、同步、Go逐层审查后保留原实现，风险和后续测量见[策略](design/performance-and-memory.md)及[完整记录](performance-report-2026-11.md)。
+
+旧开发构建实际未开C++优化，所有前后对比仅限同配置：4万稀疏任务周/月投影120.56/108.91→8.16/7.98ms；1000行逆序785.30→1.279ms；4万树投影测试进程峰值私有提交367.10→169.63MiB；1万导航448.79→204.62ms。不能拿新Release除以旧开发数据报倍数。最终显式-O3 -DNDEBUG、官方Qt6.10.2完整重建相关目标/应用204步和两项QML lint通过。真实Release：4万稀疏周/月2.65/3.00ms，4万树171.26ms，1万行逆序5.83ms/不变替换0.027ms，1万导航54.83ms；1万根+3万子任务加载517/搜索7/月投影17ms。独立Release进程索引额外私有提交68.52→1.81MiB，不能当整应用内存。
+
+Release性能7通过；task_workspace 39通过/0失败/1跳过（未配置真实Go TLS夹具），task_service/calendar/recurrence/reminders四项CTest通过；正常用户权限下calendar_interaction、desktop_task_menu、task_list_interaction通过。完整desktop_surfaces仍在阶段232失败，与原1.8.1 Windows CI同位置；单独widget-actions通过。诊断见build/perf01/widget-geometry与widget-presentation：菜单窗口226高，本体12高，未命中删除；显式读取呈现帧仍无效，已撤回强制重绘，仅留状态诊断，不放宽预算/重试直到通过。原生首轮漏设既有菜单回退验证变量，未进入soak而退出，日志保留；按既有后端契约配置后原生短流程通过，22.995秒/2轮/2次完整性检查/事件循环最大延迟13ms/3窗无QML警告。64次内存采样峰值私有提交541.46、末次231.68MiB，不能称稳定平台或整应用SLA通过。
+
+已知测量纠正：ACTIVE夹具、Copy-Item时间戳导致旧对象、备注NOT NULL与误用saveDetails均保留失败记录并修正；过慢10k旧逆序基线主动停止，改有界1000行对照。沙箱IPC失败不冒充产品失败，GUI用正常用户权限；不禁用单实例。完整UI失败、Windows物理DWM/GPU/冷启动/长时增长/多屏、真实同步负载、Go压力及macOS仍未通过本轮验收。不得将首轮定向优化记为全应用性能已完成、全量CTest通过或发布READY；未推送/打tag，不改默认1.8.1启动器。
+
+收尾检查：94 QML样式、153个已跟踪/本轮新增Markdown文件的本地链接、17个编译源副本一致性及git diff --check通过；无本机路径/凭据进入本轮新增代码/文档。独立CI/打包改动与历史品牌草稿保持原状，不进入性能提交。
 
 ### UX-76 小窗跨行右键与任务菜单实体呈现（2026-11-04，IMPLEMENTED / AUTO-PASS / MANUAL-UNVERIFIED）
 

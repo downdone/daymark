@@ -29,7 +29,7 @@ QList<Task> TaskWorkspace::calendarSelection() const
     // Include completed tasks using the same scope predicates, keeping their real status.
     if(m_calendarCompleted)for(auto& item:candidates)if(item.status==QStringLiteral("COMPLETED"))item.status=QStringLiteral("OPEN");
     auto result=QueryService::select(candidates,m_scope,m_today,m_search,false,m_tagFilter,0,0,m_projectFilter,{},true,false);
-    for(auto& item:result)if(m_taskIndex.contains(item.id))item.status=m_taskIndex.value(item.id).status;
+    for(auto& item:result)if(const auto* task=cachedTask(item.id))item.status=task->status;
     return result;
 }
 QVariantList TaskWorkspace::unscheduledTasks()const
@@ -54,7 +54,7 @@ QVariantList TaskWorkspace::calendarDaysFor(const QString& anchor,bool week,bool
     const auto zone=QTimeZone::systemTimeZone();
     if(!days.isEmpty())for(const auto& event:m_events) {
         if(!included.contains(event.id))continue;
-        const auto found=m_taskIndex.constFind(event.id);if(found==m_taskIndex.cend())continue;auto visible=found.value();if(visible.status==QStringLiteral("COMPLETED") && m_calendarCompleted)visible.status=QStringLiteral("OPEN");if(!QueryService::effectiveActive(visible))continue;
+        const auto* found=cachedTask(event.id);if(!found)continue;auto visible=*found;if(visible.status==QStringLiteral("COMPLETED") && m_calendarCompleted)visible.status=QStringLiteral("OPEN");if(!QueryService::effectiveActive(visible))continue;
         for(const auto& instance:EventService::occurrences(event,days.first().date,days.last().date,zone)) {
             const auto dates=EventService::visibleDates(instance,days.first().date,days.last().date,zone);
             auto map=eventMap(instance);map.insert(QStringLiteral("sourceType"),QStringLiteral("event"));map.insert(QStringLiteral("recurring"),event.repeatFrequency!=QStringLiteral("NONE"));
@@ -344,7 +344,7 @@ QVariantList TaskWorkspace::recurrenceRules() const
 }
 QVariantList TaskWorkspace::notifications() const
 {
-    QVariantList result;for(const auto& notification:m_taskNotifications){auto record=notification.toMap();const auto id=record.value(QStringLiteral("taskId")).toString();const auto found=m_taskIndex.constFind(id);if(found!=m_taskIndex.cend())record.insert(QStringLiteral("title"),found->title);result.append(record);}
+    QVariantList result;for(const auto& notification:m_taskNotifications){auto record=notification.toMap();const auto id=record.value(QStringLiteral("taskId")).toString();const auto* found=cachedTask(id);if(found)record.insert(QStringLiteral("title"),found->title);result.append(record);}
     std::stable_sort(result.begin(),result.end(),[](const auto& a,const auto& b){return a.toMap().value(QStringLiteral("firedAt")).toString()>b.toMap().value(QStringLiteral("firedAt")).toString();});while(result.size()>50)result.removeLast();return result;
 }
 QString TaskWorkspace::localReminder(const QString& utc) const

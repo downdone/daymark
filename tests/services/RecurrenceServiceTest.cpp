@@ -4,6 +4,7 @@
 #include <QTemporaryDir>
 #include <QtTest>
 #include <QTimeZone>
+#include <QSqlQuery>
 using namespace daymark;
 class Clock:public IClock {
 public: QDate day=QDate(2024,2,1);QDate localToday()const override{return day;}
@@ -12,6 +13,16 @@ public: QDate day=QDate(2024,2,1);QDate localToday()const override{return day;}
 class RecurrenceServiceTest:public QObject {
     Q_OBJECT
 private slots:
+    void inactiveRulesDoNotLoadTaskSnapshot()
+    {
+        QTemporaryDir directory;SqliteDatabase database;QVERIFY(database.open(directory.filePath("inactive.sqlite")).ok());Clock clock;RecurrenceRepository rules(database.connection());TaskRepository tasks(database.connection());RecurrenceService service(rules,tasks,clock);
+        RecurrenceRule rule;rule.title="inactive";rule.notes=QStringLiteral("");rule.anchor=clock.day;rule.active=false;const auto saved=rules.save(rule,clock.nowUtc().toString(Qt::ISODateWithMs),clock.day);QVERIFY(saved.ok());
+        // Shadow only this temporary connection's task reads. No active rule
+        // means generating occurrences must not access the task snapshot.
+        QSqlQuery guard(database.connection());QVERIFY(guard.exec("CREATE TEMP VIEW tasks AS SELECT * FROM missing_read_guard"));
+        const auto none=service.generate();QVERIFY(none.ok());QCOMPARE(none.value,0);
+        QVERIFY(guard.exec("UPDATE recurrence_templates SET active=1"));QVERIFY(!service.generate().ok());
+    }
     void calendarRules()
     {
         RecurrenceRule r;r.anchor=QDate(2024,1,1);r.frequency=QStringLiteral("MONTHLY");r.monthDay=31;

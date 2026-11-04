@@ -209,14 +209,14 @@ public:
     void setThemeMode(int mode);
     void setTextScale(double scale);
     bool includeCompleted() const {return m_includeCompleted;}
-    void setIncludeCompleted(bool enabled) {m_includeCompleted=enabled;refresh();emit stateChanged();}
+    void setIncludeCompleted(bool enabled) {m_includeCompleted=enabled;refresh(false);emit stateChanged();}
     int completedToday() const;
     QString firstTodayTitle()const{return m_todayTasks.rowCount()>0 ? m_todayTasks.data(m_todayTasks.index(0),TaskListModel::Title).toString() : QString();}
     QString localToday() const {return m_today.toString(QStringLiteral("yyyy年M月d日"));}
     Q_INVOKABLE QString dateOffset(int days) const {return m_today.addDays(days).toString(Qt::ISODate);}
     Q_INVOKABLE QVariantMap datePicker(const QString& anchor,int offset) const;
-    Q_INVOKABLE void setTagFilter(const QString& id) {m_tagFilter=id;refresh();emit stateChanged();}
-    Q_INVOKABLE void setProjectFilter(const QString& id){m_projectFilter=id;refresh();emit stateChanged();}
+    Q_INVOKABLE void setTagFilter(const QString& id) {m_tagFilter=id;refresh(false);emit stateChanged();}
+    Q_INVOKABLE void setProjectFilter(const QString& id){m_projectFilter=id;refresh(false);emit stateChanged();}
     Q_INVOKABLE void refreshClock();
     int upcomingDays()const{return m_upcomingDays;}
     Q_INVOKABLE void loadMoreUpcoming(){m_upcomingDays=qMin(36500,m_upcomingDays+30);refresh();emit stateChanged();}
@@ -304,7 +304,8 @@ private:
     bool prepareTaskPatch(const QString& id,const QString& title,const QString& notes,const QString& planning,const QString& start,const QString& deadline,bool focus,const QVariantMap& details,TaskPatch& patch);
     bool begin(bool clearFeedback=true);
     QVariantMap eventMap(const CalendarEvent& event) const;
-    void refresh();
+    void refresh(bool snapshotChanged=true);
+    const Task* cachedTask(const QString& id) const;
     bool canDropInView(const QString& source,const QString& target,const QString& view) const;
     bool dropInView(const QString& source,const QString& target,const QString& view);
     void loadReminderPresentation();
@@ -319,7 +320,8 @@ private:
     TaskWorker* m_worker=nullptr;
     TaskListModel m_tasks, m_todayTasks,m_deadlineTasks;
     QList<Task> m_cache;
-    QHash<QString,Task> m_taskIndex;
+    QHash<QString,qsizetype> m_taskIndex;
+    QDateTime m_nextReminder;
     QSet<QString> m_collapsedTasks;
     QList<CalendarEvent> m_events;
     QString m_eventUndoId,m_eventDeleteCandidate;

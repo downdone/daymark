@@ -197,7 +197,7 @@ Result<QList<Task>> TaskRepository::claimDueReminders(const QString& now)
     }
     QList<Task> due;
     const auto instant=QDateTime::fromString(now,Qt::ISODateWithMs);
-    while(q.next()) {auto task=readTask(q);const auto at=QDateTime::fromString(task.remindAtUtc,Qt::ISODateWithMs);if(at.isValid() && at<=instant)due.append(task);}
+    while(q.next()) {const auto at=QDateTime::fromString(q.value(23).toString(),Qt::ISODateWithMs);if(at.isValid() && at<=instant)due.append(readTask(q));}
     q.finish();
     if(!loadDetails(m_db,due)){writeScope.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));}
     QList<Task> claimed;

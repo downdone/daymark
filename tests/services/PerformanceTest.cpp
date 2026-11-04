@@ -4,10 +4,64 @@
 #include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QtTest>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <psapi.h>
+#endif
 using namespace daymark;
 class PerformanceTest:public QObject {
     Q_OBJECT
 private slots:
+    void futureReminderPollingBenchmark()
+    {
+        QTemporaryDir directory;SqliteDatabase database;QVERIFY(database.open(directory.filePath("future-reminders.sqlite")).ok());auto connection=database.connection();QVERIFY(connection.transaction());QSqlQuery query(connection);
+        query.prepare("INSERT INTO tasks(id,title,planning_state,remind_at_utc,created_at_utc,updated_at_utc) VALUES(?,?,'ACTIVE',?,?,?)");const QString now="2026-11-04T08:00:00.000Z",future="2026-11-05T08:00:00.000Z";
+        for(int i=0;i<10000;++i){query.bindValue(0,QString::number(i));query.bindValue(1,QStringLiteral("synthetic reminder"));query.bindValue(2,future);query.bindValue(3,now);query.bindValue(4,now);QVERIFY(query.exec());}QVERIFY(connection.commit());TaskRepository repository(connection);QList<qint64> samples;
+        for(int sample=0;sample<6;++sample){QElapsedTimer timer;timer.start();const auto due=repository.claimDueReminders(now);const auto ns=timer.nsecsElapsed();QVERIFY(due.ok());QVERIFY(due.value.isEmpty());if(sample)samples.append(ns);}
+        std::sort(samples.begin(),samples.end());qInfo()<<"PERF future reminders rows=10000 median_us="<<samples[2]/1000.0;
+    }
+    void hierarchicalSelectionBenchmark()
+    {
+        QList<Task> tasks;tasks.reserve(40000);
+        for(int root=0;root<10000;++root){Task task;task.id=QStringLiteral("root-%1").arg(root);task.planningState="ACTIVE";task.sortOrder=root*4;tasks.append(task);for(int child=0;child<3;++child){auto nested=task;nested.id=QStringLiteral("child-%1-%2").arg(root).arg(child);nested.parentTaskId=task.id;nested.sortOrder+=child+1;tasks.append(nested);}}
+        QList<qint64> samples;
+        for(int sample=0;sample<6;++sample){QElapsedTimer clock;clock.start();const auto selected=QueryService::select(tasks,"all",QDate(2026,11,4));const auto ns=clock.nsecsElapsed();QCOMPARE(selected.size(),40000);QCOMPARE(selected[0].listChildCount,3);QCOMPARE(selected[1].listDepth,1);QCOMPARE(selected[39999].parentTaskId,selected[39996].id);if(sample)samples.append(ns);}
+        std::sort(samples.begin(),samples.end());
+        quint64 peakPrivate=0;
+#ifdef Q_OS_WIN
+        using ReadMemory=BOOL(WINAPI*)(HANDLE,PPROCESS_MEMORY_COUNTERS,DWORD);const auto read=reinterpret_cast<ReadMemory>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"),"K32GetProcessMemoryInfo"));PROCESS_MEMORY_COUNTERS_EX memory{};memory.cb=sizeof(memory);if(read && read(GetCurrentProcess(),reinterpret_cast<PPROCESS_MEMORY_COUNTERS>(&memory),sizeof(memory)))peakPrivate=memory.PeakPagefileUsage;
+#endif
+        qInfo()<<"PERF tree projection rows="<<tasks.size()<<"median_us="<<samples[2]/1000.0<<"peak_process_private_bytes="<<peakPrivate;
+    }
+    void snapshotIndexFootprint()
+    {
+        QList<Task> tasks;tasks.reserve(40000);for(int i=0;i<40000;++i){Task task;task.id=QString::number(i);task.notes=QStringLiteral("synthetic notes");tasks.append(task);}
+        auto memory=[]()->QPair<quint64,quint64>{
+#ifdef Q_OS_WIN
+            using ReadMemory=BOOL(WINAPI*)(HANDLE,PPROCESS_MEMORY_COUNTERS,DWORD);
+            const auto read=reinterpret_cast<ReadMemory>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"),"K32GetProcessMemoryInfo"));
+            PROCESS_MEMORY_COUNTERS_EX state{};state.cb=sizeof(state);
+            if(read && read(GetCurrentProcess(),reinterpret_cast<PPROCESS_MEMORY_COUNTERS>(&state),sizeof(state)))return {state.PrivateUsage,state.WorkingSetSize};
+#endif
+            return {};
+        };
+        const auto before=memory();const bool full=qEnvironmentVariable("DAYMARK_PERF_INDEX")=="full";
+        QHash<QString,Task> fullIndex;QHash<QString,qsizetype> rowIndex;
+        if(full){fullIndex.reserve(tasks.size());for(const auto& task:tasks)fullIndex.insert(task.id,task);QCOMPARE(fullIndex.size(),tasks.size());}
+        else{rowIndex.reserve(tasks.size());for(qsizetype i=0;i<tasks.size();++i)rowIndex.insert(tasks[i].id,i);QCOMPARE(rowIndex.size(),tasks.size());QCOMPARE(tasks[rowIndex.value("39999")].id,QString("39999"));}
+        const auto after=memory();
+        qInfo()<<"PERF isolated snapshot index tasks="<<tasks.size()<<"full_task_values="<<full<<"private_bytes_delta="<<qint64(after.first)-qint64(before.first)<<"working_set_delta="<<qint64(after.second)-qint64(before.second)<<"platform_memory_available="<<(before.first>0);
+    }
+    void sparseCalendarRange()
+    {
+        const QDate today(2026,11,4);QList<Task> tasks;tasks.reserve(40000);
+        for(int i=0;i<40000;++i){Task task;task.id=QString::number(i);task.planningState="ACTIVE";task.title=QStringLiteral("synthetic");task.startOn=today.addDays(100+i);tasks.append(task);}
+        for(const bool week:{true,false}){
+            QList<qint64> samples;
+            for(int sample=0;sample<7;++sample){QElapsedTimer clock;clock.start();const auto days=CalendarService::days(tasks,today,week,false);const auto ns=clock.nsecsElapsed();QCOMPARE(days.size(),week?7:42);for(const auto& day:days)QVERIFY(day.entries.isEmpty());if(sample)samples.append(ns);}
+            std::sort(samples.begin(),samples.end());qInfo()<<"PERF sparse calendar tasks="<<tasks.size()<<"days="<<(week?7:42)<<"median_us="<<samples[samples.size()/2]/1000.0<<"min_us="<<samples.first()/1000.0<<"max_us="<<samples.last()/1000.0<<"task_struct_bytes="<<sizeof(Task);
+        }
+    }
     void tenThousandTasks()
     {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath(QStringLiteral("benchmark.sqlite"))).ok());

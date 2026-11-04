@@ -12,10 +12,14 @@ struct ReminderPresentation {
         return QString::fromLatin1(QCryptographicHash::hash((taskId+QLatin1Char('\n')+occurrence).toUtf8(),QCryptographicHash::Sha256).toHex());
     }
     static QVariantList pending(const QVariantList& candidates,const QHash<QString,Task>& tasks,const QVariantMap& state,const QDateTime& now) {
+        return pendingUsing(candidates,[&tasks](const QString& id)->const Task*{const auto found=tasks.constFind(id);return found==tasks.cend()?nullptr:&*found;},state,now);
+    }
+    template<class Lookup>
+    static QVariantList pendingUsing(const QVariantList& candidates,Lookup lookup,const QVariantMap& state,const QDateTime& now) {
         QVariantList result;
         for(const auto& value:candidates) {
             auto alert=value.toMap();const auto id=alert.value("taskId").toString();
-            const auto task=tasks.constFind(id);if(task==tasks.cend())continue;
+            const auto* task=lookup(id);if(!task)continue;
             if(!QueryService::effectiveActive(*task) || task->remindAtUtc.isEmpty() || task->reminderFiredAtUtc!=alert.value("firedAt").toString())continue;
             const auto identity=key(id,alert.value("occurrenceAt").toString());const auto saved=state.value(identity).toMap();
             if(saved.value("dismissed").toBool())continue;

@@ -22,6 +22,8 @@
 | [工程方法](engineering.md) | 人机协作流程、任务状态、验证层级 |
 | [工程原则](principles.md) | P-01～P-21，含 Apple HIG 约束（P-13） |
 | [测试方法](testing-method.md) | 测试分层、标签、fast/ui/full、链路责任 |
+| [性能与内存策略](design/performance-and-memory.md) | 基线、分层分析、逐项优化与内存证据 |
+| [性能优化记录](performance-report-2026-11.md) | PERF-01同配置对比、真实Release测量、回归及剩余边界 |
 | [里程碑](milestones.md) | 执行队列与阶段门禁 |
 | [发布规则](release-policy.md) | 版本、标签、源码与二进制门禁 |
 | [第三方说明](third-party-notices.md) | Qt/SQLite/MinGW 许可与再分发义务 |

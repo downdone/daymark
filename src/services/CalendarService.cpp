@@ -12,7 +12,8 @@ bool eligible(const Task& task,bool includeCompleted) {
 }
 QString CalendarService::timeSummary(const Task& input,const QDate& today,const QTimeZone& zone)
 {
-    const auto task=QueryService::withUnifiedDates(input);
+    const auto normalized=input.schedule?std::optional<Task>(QueryService::withUnifiedDates(input)):std::nullopt;
+    const auto& task=normalized?*normalized:input;
     auto dateText=[today](const QDate& date){return date.toString(date.year()==today.year()?QStringLiteral("M-d"):QStringLiteral("yyyy-M-d"));};
     if(task.schedule && !task.schedule->allDay){const auto start=task.schedule->startUtc.toTimeZone(zone),end=task.schedule->endUtc.toTimeZone(zone);return dateText(start.date())+QStringLiteral(" ")+start.time().toString(QStringLiteral("HH:mm"))+QStringLiteral("–")+(start.date()==end.date()?QString():dateText(end.date())+QStringLiteral(" "))+end.time().toString(QStringLiteral("HH:mm"));}
     if(task.startOn && task.deadlineOn && *task.startOn!=*task.deadlineOn)return dateText(*task.startOn)+QStringLiteral(" → ")+dateText(*task.deadlineOn);
@@ -108,8 +109,8 @@ QList<CalendarDay> CalendarService::days(const QList<Task>& tasks,const QDate& a
     QHash<QDate,QList<Task>> indexed;
     for(const auto& task:tasks) {
         if(task.schedule || !eligible(task,includeCompleted))continue;
-        if(task.startOn)indexed[*task.startOn].append(task);
-        if(task.deadlineOn && task.deadlineOn!=task.startOn)indexed[*task.deadlineOn].append(task);
+        if(task.startOn && *task.startOn>=from && *task.startOn<=to)indexed[*task.startOn].append(task);
+        if(task.deadlineOn && task.deadlineOn!=task.startOn && *task.deadlineOn>=from && *task.deadlineOn<=to)indexed[*task.deadlineOn].append(task);
         if(task.startOn && task.deadlineOn && *task.startOn<*task.deadlineOn)
             for(auto date=qMax(from,task.startOn->addDays(1)),last=qMin(to,task.deadlineOn->addDays(-1));date<=last;date=date.addDays(1))indexed[date].append(task);
     }
