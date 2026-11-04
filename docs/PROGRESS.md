@@ -1,4 +1,16 @@
 # Daymark 实施进度
+### PKG-PERF-01 性能分支本地便携包（2026-11-04，LOCAL-PREVIEW-PASS / FULL-NATIVE-FAIL）
+
+用户要求构建当前性能版本便携包。从eb59dfb建立干净独立工作树，使用官方开源Qt6.10.2、Release完整构建及标准完整CTest；不改阈值、预览白名单、CI或版本/tag，不读真实用户库。当前源码版本标识1.8.0，1.8.1发布树继续独立。最初字节比较发现旧镜像8个UI及1个账号测试文件不同，规范化CRLF/LF后确认9份均仅换行格式差异、程序内容一致，已纠正归属判断；仅既有独立TaggedPackagingTest脚本有内容差异，不属本轮产品。标准打包仍使用干净工作树重新构建。完整门禁失败则定位修复，不能将新失败塞入LocalPreview白名单。
+
+干净工作树build/perf-package/ship固定eb59dfb544ae3732b0caac6e58046c674c8ef7e6，官方开源Qt6.10.2、-O3 -DNDEBUG，383步Release构建及两项QML lint通过。完整CTest只执行一次，31/31 PASS、346.63秒，含desktop_surfaces 53.68秒、qml_startup 54.77秒、qml_watchdog_late 90.59秒。上一轮开发目录的菜单阶段232失败未在本次干净构建复现；没有修改菜单或宣称根因已解决。
+
+标准包SDK隔离原生完整smoke在Mini切换阶段76等待呈现超时，未创建标准ZIP；失败报告build/perf-package/ship/build/daymark-package-check-e25b023f42ef417385de8d455485b4da保留。随后按ADR-024本地预览范围继续：程序、DLL和源码均未变化，固定源码SHA/干净状态/原生报告中程序SHA，并把原始完整CTest控制台输出中的31个唯一用例、序号、通过状态和总摘要与CTest库存交叉验证；没有重跑完整测试、造JUnit、改阈值/断言/白名单或把原生失败记PASS。读取CTest库存会覆盖LastTest.log，因此最终证据使用保留的package.log，摘要携带该日志SHA256，解析过程在build/perf-package中可复核。
+
+新预览目录保留原标准目录不覆盖，BUILD-INFO明确localPreview=true、fullTestGatePassed=true（仅指CTest）、nativeFullSmokePassed=false及阶段76说明，README与TEST-RESULTS同步披露。原仓库Test-Package按预览既有contextual-workspace原生入口检查：退出0、17964ms、2窗/warnings=false，实际Qt/qwindows/qsqlite等模块全部来自包或允许的Windows系统库，报告daymark-package-check-f77f0cb4d46f454bb78fac6e9f5e114c。清单、ZIP逐文件及SHA256校验PASS，未签名、未上传；独立干净机/macOS/长期内存与完整原生体验仍未验收。
+
+交付dist/Daymark-1.8.0-windows-x64-preview-20261104-205134.zip，39,833,192字节；SHA256 e803190f6f01cd26f9ff1d1e327cbc00853e84eb22ac53eb0966784d8a712478，旁有.sha256。复制到根dist后再次核对散列一致。默认1.8.1启动器未改；解压新包并退出旧进程后运行daymark.exe。未推送/打tag，无产品代码或编译/CI脚本变更。
+
 ### PERF-01 性能与内存分层优化（2026-11-04，IMPLEMENTED / TARGETED-PASS / KNOWN-UI-FAIL）
 
 用户要求先策略/方法、逐层分析、再逐项实现。按design/performance-and-memory.md的P0～P10执行，NFR-01～05及P-02/03/05/08/10/12；固定Qt6.10.2，合成临时库、基线/输出一致、逐项测量，不改测试阈值/CI脚本或用户数据库。先测CalendarService离屏日期索引、完整Task重复索引、每秒提醒全扫及模型通知，后审视快照刷新/SQL/Query/QML/同步/Go，证据不足不盲改。发布候选与性能工作分开：1.8.1第一候选01596af已推main，本地31/31通过并打包；GitHub Mac watchdog阶段118、Windows桌面阶段232失败，未创建tag；发布树另有6a5ba80准备时序修复尚未推。此前远端诊断自动审批因用量限制无法完成，保留日志，不把发布标完成。

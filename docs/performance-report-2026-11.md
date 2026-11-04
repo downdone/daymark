@@ -64,6 +64,12 @@ Windows原生短流程在既有DAYMARK_SMOKE_MENU_FALLBACK=1配置下通过：�
 
 ## 复现与后续门槛
 
+### 干净打包补验
+
+同日用户要求便携包后，从eb59dfb建立全新工作树，383步Release及两项QML lint通过；完整CTest一次31/31 PASS、346.63秒，含desktop_surfaces。前述菜单阶段232失败在此未复现，未修改菜单、不宣称根因已解决。旧镜像9份UI/账号测试文件最初有字节差异，确认仅CRLF/LF格式不同；干净重建避免依赖旧生成资源。
+
+标准包Windows原生完整smoke在Mini阶段76等待呈现超时，标准ZIP未生成。按ADR-024交付本地预览，复用同源码/同程序已完成的31项真实控制台结果，完整库存/状态/日志散列核对后保留摘要，不再跑整套测试；BUILD-INFO另外明确nativeFullSmokePassed=false，不能把CTest全通过当原生全通过。预览既有contextual-workspace原生SDK隔离验证通过（17964ms、2窗、无QML警告），清单/运行库来源/ZIP及SHA256通过。包名、散列和完整失败证据见PROGRESS；未签名、不上传，版本仍1.8.0，1.8.1候选继续独立。
+
 Windows设置DAYMARK_QT（Qt6.10.2）与DAYMARK_MINGW后，使用`scripts/build-windows.ps1`及`scripts/test-windows.ps1`；确认实际Release优化参数。定向入口：`test_performance`、`test_task_workspace`，以及上述四个核心CTest和界面入口。索引测试可在两个独立进程中分别设置DAYMARK_PERF_INDEX=full / 清除该变量，运行`test_performance snapshotIndexFootprint`；模型规模可用DAYMARK_PERF_MODEL_SIZE=1000，默认10000。不得使用用户资料目录作为数据库。
 
 macOS使用`bash scripts/build-macos.sh`后在对应目录运行`ctest -R 'performance|task_workspace'`，本轮未实测。测试没有放宽既有时间阈值。Windows物理DWM帧延迟、冷启动、整应用/GPU内存、休眠/多屏、长时间增长斜率、真实同步负载和Go并发/分配仍UNVERIFIED；短测试不能证明长期无泄漏。
