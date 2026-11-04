@@ -89,10 +89,19 @@ QString Ux71SmokeProbe::advance(){
         }
     }
     if(m_stage==55){
-        m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_workspace.setView("today");
-        m_main->hide();m_controller.setFormEnabled(0,true);m_controller.setFormEnabled(2,true);m_controller.setFormEnabled(1,false);
-        m_controller.setAutoCompact(false);m_controller.setLayer(1);m_controller.selectForm(0);m_controller.setVisible(true);m_widget->resize(400,420);m_widget->setPosition(200,120);
-        m_controller.selectForm(2);m_controller.activatePrimary();
+        // Real users perform these operations across presented frames. Do not
+        // recreate a hidden native surface, resize it and reverse its form in
+        // one event turn while the previous window's theme is still changing.
+        static int setup=0;
+        if(setup==0){m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_workspace.setView("today");}
+        if(setup==1){
+            m_main->hide();m_controller.setFormEnabled(0,true);m_controller.setFormEnabled(2,true);m_controller.setFormEnabled(1,false);
+            m_controller.setAutoCompact(false);m_controller.selectForm(0);m_controller.setLayer(1);m_widget->resize(400,420);m_widget->setPosition(200,120);m_controller.setVisible(true);m_widget->grabWindow();
+        }
+        if(setup==2){m_controller.selectForm(2);m_widget->grabWindow();}
+        if(setup==3){m_controller.activatePrimary();m_widget->grabWindow();}
+        qInfo()<<"Widget input fixture presented setup"<<setup;
+        if(++setup<4){m_wait.restart();return {};}
     }
     if(m_stage==56){
         if(bar->property("visible").toBool() || list->property("interactive").toBool())return fail("nonoverflowing list remains scrollable");
