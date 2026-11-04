@@ -1,4 +1,8 @@
 * text=auto eol=lf
+*.pdf binary
+*.png binary
+*.ico binary
+*.icns binary
 *.md whitespace=-blank-at-eol
 # Preserve upstream notice bytes (their checksums are recorded in modules.json).
 server/licenses/** whitespace=-blank-at-eof
