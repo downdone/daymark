@@ -20,4 +20,4 @@ BrandMark以100格绘制；16/20/24微型控制点按1/8物理像素校准，32�
 
 作者源、导出资产与文档生成独立于CMake；正常构建只消费已提交资源。旧日历勾图标生成器改为调用现行作者源，防止下一次再生成旧标识。历史设计不参与生产，也不作为新功能状态图标。数据库/schema保持不变。
 
-品牌路径选择Qt内置CurveRenderer，减少缩放时的折线感并使用其原生抗锯齿；后端不支持时由Qt回退，不增加运行时插件。依据：[Qt 6.10 Shape](https://doc.qt.io/qt-6.10/qml-qtquick-shapes-shape.html#rendererType-prop)。原生截图与离屏测试均在最终渲染器下验证。
+品牌路径使用GeometryRenderer与独立8倍MSAA图层，并在实际保存帧检查重复绘制，减少缩放时的锯齿及原生抓帧丢失。Shape渲染后端见[Qt 6.10文档](https://doc.qt.io/qt-6.10/qml-qtquick-shapes-shape.html#rendererType-prop)，最终结果以本项目原生验证为准。

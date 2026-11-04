@@ -30,8 +30,9 @@ Item {
             x:(root.width-Math.min(root.width,root.height))/2
             y:(root.height-Math.min(root.width,root.height))/2
             transform: Scale {xScale:Math.min(root.width,root.height)/100;yScale:xScale}
-            layer.enabled: true; layer.smooth: true
-            preferredRendererType: Shape.CurveRenderer
+            antialiasing: true
+            layer.enabled: true; layer.samples: 8; layer.smooth: true
+            preferredRendererType: Shape.GeometryRenderer
             ShapePath { strokeWidth: -1; fillColor: root.ink; PathSvg { path: root.artwork[0] } }
             ShapePath { strokeWidth: -1; fillColor: root.ink; PathSvg { path: root.artwork[1] } }
             ShapePath { strokeWidth: -1; fillColor: root.singleColor ? root.ink : "transparent"; PathSvg { path: root.artwork[2] } }

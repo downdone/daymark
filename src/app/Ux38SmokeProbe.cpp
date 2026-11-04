@@ -155,7 +155,11 @@ QString Ux38SmokeProbe::advance() {
             settings->setProperty("categoryIndex",3);
         }
         if(m_stage==251){
-            if(!checkSidebar() || !painted(settings,"aboutBrand") || !painted(settings,"aboutBrand") || !painted(m_main,"sidebarWordmark") || !capture(settings,"brand-about-light"))return fail("brand light repeated rendering");
+            if(!checkSidebar())return fail("brand sidebar first frame");
+            if(!painted(settings,"aboutBrand"))return fail("brand about first frame");
+            if(!painted(settings,"aboutBrand"))return fail("brand about repeated frame");
+            if(!painted(m_main,"sidebarWordmark"))return fail("brand sidebar repeated frame");
+            if(!capture(settings,"brand-about-light"))return fail("brand about saved frame");
             settings->close();if(!capture(m_main,"brand-main-light"))return fail("brand main capture");
             m_workspace.setThemeMode(2);m_workspace.setTextScale(2);
         }
