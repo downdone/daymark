@@ -1,5 +1,7 @@
 # UI/UX目标验收与迁移计划
 
+UX-71：desktop_input_feedback以临时最近删除列表验证真实连续滚轮、逐帧滑块opacity、浅深/200%与无溢出；Panel/Ball启用且Mini禁用时重放宿主同坐标输入不得打开任务，菜单鼠标动作正确切换，关闭后行点击恢复。Windows合成原生输入与物理多屏/读屏/macOS分别记录。
+
 UX-70：brand_assets验证多尺寸/颜色/透明和平台容器；brand_rendering覆盖主窗/关于/账号/球的浅深、高对比与200%绘制。沿用已有键盘、错误反馈与恢复测试。物理混合DPI、读屏与macOS单列UNVERIFIED，具体证据见PROGRESS。
 
 UX-69验收见[小窗操作与提醒](widget-task-actions-and-reminder-popup.md)：主窗隐藏/搜索时真实小窗录入、Enter清空/Esc空输入退出；右键/Menu及置顶、拖动落点/排序持久化、删除撤销；到期弹窗实体置顶且不抢焦点，浅深/200%按钮文字对比与可达性，真实关闭/延后/完成。临时库补并发失败、展示写失败、周期锚点与资料隔离，实际证据见PROGRESS。

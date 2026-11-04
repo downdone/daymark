@@ -1,8 +1,19 @@
 # Daymark 实施进度
 
-### UX-71 滚轮反馈稳定与组件菜单输入隔离（2026-11-04，IN_PROGRESS）
+### UX-72 小窗分类快查（2026-11-04，DESIGN-REVIEW / SCOPE-CONFIRMED / NOT-IMPLEMENTED）
 
-用户报告最近删除滚轮时滚动条闪烁，以及点击组件菜单“小窗”却打开下方任务详情。本轮FR-012/018/035，映射UX-09/10/11/13及P-13/15/16：HIG一致反馈与用户控制，滚动不得引入亮度脉冲，菜单命令与背景操作必须互斥。检查发现共享ScrollBar的opacity直接跟随active，窗口菜单未显式隔离背景输入。计划以临时资料复现滚轮脉冲/浅深200%与无溢出、Panel/Ball且Mini禁用时的菜单点击及关闭恢复，先补回归场景再最小修复，Qt6.10.2增量构建/CTest和Windows原生验证。保留CI恢复改动和用户资料；不改编译脚本或时间阈值。实际结果待追加。
+用户参考同类产品提出小窗分类快速检索，随后明确默认该分类全部未完成、设置可改为今天。完成独立上下文、常用快捷栏/就近选择器、两级汇总、三形态摘要/停靠空间、原草稿上下文、原子创建、排序与归档/删除/账号隔离、强类型接口及测试切片设计；当前只交付设计文档和三联SVG/PNG，未实现分类功能。图形沿现行Daymark中性/蓝色UI，图钉复用原创路径，未拷贝参考产品折纸与四色外观。见design/widget-category-quick-find.md与assets/design/widget-category-quick-find。FR-044范围规则已确认，其余布局为待评审建议，不标实际平台通过。
+
+
+### UX-71 滚轮反馈稳定与组件菜单输入隔离（2026-11-04，CTEST-PASS / NATIVE-INPUT-PASS / LOCAL-PREVIEW）
+
+用户报告最近删除滚轮时滚动条闪烁，以及点击组件菜单“小窗”却打开下方任务详情。本轮FR-012/018/035，映射UX-09/10/11/13及P-13/15/16：HIG一致反馈与用户控制，滚动不得引入亮度脉冲，菜单命令与背景操作必须互斥。检查发现共享ScrollBar的opacity直接跟随active，窗口菜单未显式隔离背景输入。计划以临时资料复现滚轮脉冲/浅深200%与无溢出、Panel/Ball且Mini禁用时的菜单点击及关闭恢复，先补回归场景再最小修复，Qt6.10.2增量构建/CTest和Windows原生验证。保留CI恢复改动和用户资料；不改编译脚本或时间阈值。
+
+实现共享滚动条不再跟随active短脉冲改变透明度，仅hover/pressed/高对比提升亮度；原生Window菜单显式modal且不遮暗，组件菜单打开期间隔离正文、拖动、球与Mini输入，关闭后恢复。新增input-feedback临时资料探针，实际滚轮与呈现帧采样、浅深/200%、无溢出、Mini禁用下球借用小窗菜单切换、底层点击隔离及菜单关闭后正常任务点击均验证。测试准备跨帧呈现，避免在同一事件重建/改变窗口形态；菜单focus条件化试验破坏Escape后已撤回，最终维持focus=true。
+
+最终源码a37753dd5352fa9dc391c31b9d7d2a9caa258f5b，官方开源Qt6.10.2 Release构建、完整29/29 CTest PASS（337.48秒，build/ux71/final-tests.log/xml），两项QML lint及94 QML样式检查PASS。部署包仅系统PATH下滚轮/菜单原生专项PASS：15263ms、3窗、warnings=false；39项观察模块来自包内，D3DCompiler_47为允许系统来源；未访问真实资料，报告build/ux71/daymark-package-check-12625da0250842ccbb25e2c9bda1a36b。
+
+完整SDK隔离原生长链在后台焦点及提示框界限断言仍失败（package.log、frame-deployed-full.log），不记为完整原生通过、不继续重跑。遵循ADR-024交付本地预览，TEST-RESULTS来自上述真实29项JUnit；专项校验使用忽略目录内诊断副本，仓库Test-Package与编译/CI脚本未改。包dist/Daymark-1.8.0-windows-x64-preview-20261104-094757.zip，版本1.8.0/schema10，39,779,441字节，SHA256 2c6799a574131928ac32be10fa25034afa0a57cd899c51342fcfd07f5e5d93c2，未签名，清单/ZIP逐文件/SHA256通过。源码与设计尚未推送；macOS、读屏、物理混合DPI、独立干净机保持UNVERIFIED。
 
 
 ### BRAND-24 A母版定稿、软件接入与GitHub/便携包（2026-11-04，WINDOWS-VERIFIED / VI-COMPLETE）
