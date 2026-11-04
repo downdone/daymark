@@ -78,8 +78,9 @@ ItemDelegate {
         enabled: row.workspace.ready && !row.workspace.busy
         entry: ({taskId:row.taskId})
         dragDistance: row.workspace.dragDistance
+        contextOnRelease: true
         onActivated: row.openRequested(row.taskId)
-        onContextRequested: function(position){row.forceActiveFocus();row.contextRequested(row.taskId,row,mapToItem(row,position.x,position.y))}
+        onContextRequested: function(position){row.contextRequested(row.taskId,row,mapToItem(row,position.x,position.y))}
         onDragStarted: function(entry,source,origin){
             row.forceActiveFocus();row.dragging=true;dragProxy.parent=row.dragLayer || row
             const at=source.mapToItem(dragProxy.parent,origin.x,origin.y);dragProxy.x=at.x-12;dragProxy.y=at.y-row.height/2

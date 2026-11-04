@@ -105,6 +105,7 @@ UX-38/39新增独立`desktop_surfaces`、`calendar_interaction`入口，当时�
 | 备份/导入/升级→失败零修改→恢复 | data_transfer、task_service、sqlite_runtime、storage_integrity | qml_startup数据/错误入口；真实恢复仍需独立操作 |
 | 小窗/mini/独立日历→置顶/穿透→恢复 | widget_window、system_recovery、task_workspace | qml_startup/原生探针＋平台人工矩阵 |
 | 小窗/Mini/球→可逆动画→末帧稳定/输入恢复 | widget_window（画布、持久化、失败回滚） | desktop_rendering（12次切换/连续三帧）、desktop_surfaces、desktop_input_feedback；Windows实际区域和物理合成分列 |
+| 小窗跨行/空白后右键→菜单目标→焦点恢复 | desktop_task_menu（临时三任务） | QML回退实体像素/实际置顶点击；Windows系统菜单存在与Z序/三层级；物理输入另验 |
 | 源码发布→版本/Tag/Release一致 | 版本检查、干净暂存及隐私扫描 | Git远端与GitHub Release读取确认；二进制许可/签名独立 |
 
 未知或未覆盖的链路须记UNVERIFIED，不将此表当作全产品已验收。OS通知送达、物理IME/读屏、壁纸透明对比、睡眠/多屏/8h、独立干净机、macOS本轮源码仍有独立平台门禁。
@@ -129,6 +130,8 @@ ctest --preset macos-release # 发布完整
 ```
 
 真实Windows包：PowerShell 7运行`scripts/Test-Package.ps1`；真实macOS签名/公证与平台矩阵另验。Qt 许可与再分发条件见[第三方说明](third-party-notices.md)与[ADR-027](ADR/027-open-source-qt-ci.md)。
+
+桌面菜单专项可用`DAYMARK_SMOKE_UI_SLICE=task-menu`运行`daymark --desktop-surfaces-smoke --screenshot <完整PNG路径>`，使用隔离临时任务。Windows自绘回退另设`DAYMARK_SMOKE_MENU_FALLBACK=1`，仅verification入口在加载QML前启用Qt的AA_DontUseNativeMenuWindows，再明确请求Popup.Window；不要把动态popupType配置值当实际后端证据。普通运行不读取此测试开关。原生专项与离屏动画回归串行运行，不能让外部进程绕过CTest的daymark_ui锁造成采样竞争。macOS无该Win32菜单检查，保持平台未验证。
 
 ## 以后增加测试的准则
 

@@ -1,5 +1,23 @@
 # Daymark 实施进度
 
+### UX-76 小窗跨行右键与任务菜单实体呈现（2026-11-04，IMPLEMENTED / AUTO-PASS / MANUAL-UNVERIFIED）
+
+用户在ux75实机报告选中第二行后第一行右键无效，点空白后右键菜单透明；已核对运行进程确为ux75。范围FR-012/018/035，UX-09/10/11/13，HIG就近操作/一致反馈/用户控制及P-13/15/17。先补临时三任务的实际Qt指针路径，再修复；契约见design/desktop-menu-anchoring.md的UX-76，不改业务数据模式、CI或编译脚本。
+
+证据发现三处问题：原生路径在MouseArea按下中进入嵌套菜单循环，空白后下一次右键已在red-native.stderr.log失败；宿主恢复置顶只枚举QQuickWindow，漏掉系统菜单，fix-native.stderr.log以实际Win32 Z序复现菜单低于透明宿主，表现像菜单变透明；同形态布局被当作关闭分支，诊断host截图正文完全透明。它们分别由释放后派发、原生拥有菜单层级恢复、Panel相同权重收敛为opacity=1修正，不用强制重绘/改超时掩盖。
+
+仅小窗TaskDragGesture启用contextOnRelease，释放后记录命中taskId/位置/代次/自动清空的Item来源，Qt.callLater再聚焦、读取最新任务版本并开菜单；待打开期间保持临时查看，隐藏/换形态/来源失效取消。原选中行不再决定上下文，关闭后恢复仍有效的来源，空白右键仍无动作。Windows平台通过GUITHREADINFO确认本宿主拥有的活动菜单，恢复宿主层级后把同线程原生菜单保持在上方，不动其他进程窗口。QML回退继续独立实体Window，正文不禁用换色。
+
+新desktop_task_menu覆盖4轮：浅色100%置顶、深色200%置顶、普通层、桌面层；每轮跨行右键、空白点击后右键及Menu键，共12次菜单。回退分支还实际点击置顶/取消置顶，检查只有目标任务变化；独立窗口/祖先opacity/中心像素alpha=255，Windows另查实际上下关系。原生分支以真实#32768窗口和Z序验证，调用宿主恢复层级后再次检查；系统菜单命令鼠标/物理输入不以程序触发信号冒充。
+
+官方开源Qt6.10.2 Release与两项QML lint通过（build/ux76/final-build.log，最终测试入口补充后fallback-build.log）。5项相关CTest有通过证据：widget_window 12.98秒、desktop_rendering 9.48秒（final-tests.xml）；desktop_input_feedback 27.58秒（fix-tests.xml）；desktop_surfaces 52.78秒及desktop_task_menu 8.49秒（verification-tests.xml，串行2/2共61.28秒）。没有重跑全31项、删除阶段或增大阈值。
+
+失败记录保留：初始离屏Menu键失败，发现直接Qt鼠标派发不包含物理点击的窗口激活，夹具在键盘前显式激活自己的接收窗；查找也排除未呈现的旧委托，实际输入断言保留。一次离屏动画长链与外部原生专项并行时stage182未采到中间帧；记录final-tests.log，后续串行复核通过，新增失败状态诊断但不改原采样断言/900ms预算，不能将这次通过解释为机器负载SLA。
+
+Windows系统菜单专项退出0，12次均实际显示、命中上下文/键盘有效、层级恢复后位于宿主上方，3窗/warnings=false，场景7939ms（final-native.stderr.log）。Windows回退首轮未得到独立QML窗口且原生循环未退出，外层35秒终止，保留window-fallback.stderr.log；不记PASS。在仅verification且显式DAYMARK_SMOKE_MENU_FALLBACK的入口使用Qt官方AA_DontUseNativeMenuWindows，在创建菜单前选择回退；普通客户端不受该测试变量影响。补后端诊断/失败清理，最终Windows回退12次实体像素/实际层级/目标命令均通过，退出0，3窗/warnings=false，场景18944ms（fallback-final.stderr.log）；浅深菜单保存帧已目视。最后仅补测试后端选择/诊断，产品修复与上述5项证据一致，无全量重复运行。
+
+94 QML样式、175 Markdown文件链接、13个编译源副本一致性及git diff --check通过。实际Qt合成输入/OS菜单窗口和Z序、回退GPU像素已验证；物理鼠标/键盘与DWM瞬时观感、混合DPI、读屏、macOS仍UNVERIFIED。没有访问用户资料或自动终止旧ux75进程。build/Launch-Daymark.cmd指向daymark-ux76.exe，旧入口备份在build/ux76；需托盘退出旧实例。未更新ZIP、未推送/打tag；保留独立CI改动。
+
 ### UX-75 组件统一绘制画布与呈现事务（2026-11-04，IMPLEMENTED / AUTO-PASS / MANUAL-UNVERIFIED）
 
 用户报告小窗收球完成仍闪烁，要求整体重设计。FR-012/018/035、UX-09/10/11/12/13，HIG连续性/稳定布局/减少动态及P-13/15/17。旧实现有末帧原生缩窗、清空mask后补写、多个动画属性分别写区域、终态enabled/clip切换；这些是重设计消除的交接风险，不将其认定为所有显卡闪烁的唯一原因。先设计后实施，契约见design/widget-rendering-transaction.md。

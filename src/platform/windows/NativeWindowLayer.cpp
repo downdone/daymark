@@ -27,6 +27,26 @@ public:
     }
 };
 DesktopLayerFilter& filter(){static DesktopLayerFilter instance;return instance;}
+bool restoreOwnedNativeMenus(HWND host)
+{
+    const auto thread=GetWindowThreadProcessId(host,nullptr);
+    GUITHREADINFO info{};info.cbSize=sizeof(info);
+    if(!GetGUIThreadInfo(thread,&info) || !(info.flags & GUI_INMENUMODE))return true;
+    bool ownsMenu=false;
+    for(auto owner=info.hwndMenuOwner;owner;owner=GetWindow(owner,GW_OWNER))if(owner==host){ownsMenu=true;break;}
+    if(!ownsMenu)return true;
+    QList<HWND> menus;
+    EnumThreadWindows(thread,[](HWND window,LPARAM context)->BOOL{
+        wchar_t name[32]{};GetClassNameW(window,name,32);
+        if(IsWindowVisible(window) && std::wcscmp(name,L"#32768")==0)reinterpret_cast<QList<HWND>*>(context)->append(window);
+        return TRUE;
+    },reinterpret_cast<LPARAM>(&menus));
+    // Native menus are absent from QGuiApplication::topLevelWindows(). Preserve
+    // submenu order and keep the restored transparent host behind its menus.
+    for(auto menu=menus.crbegin();menu!=menus.crend();++menu)
+        if(!SetWindowPos(*menu,HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_NOOWNERZORDER))return false;
+    return true;
+}
 }
 WindowResult applyNativeWindowLayer(QWindow* window,WindowLayer layer)
 {
@@ -38,7 +58,7 @@ WindowResult applyNativeWindowLayer(QWindow* window,WindowLayer layer)
     }else if(layer!=WindowLayer::Desktop)guard.windows.remove(window);
     const auto handle=reinterpret_cast<HWND>(window->winId());
     const auto after=layer==WindowLayer::Desktop?HWND_BOTTOM:layer==WindowLayer::Topmost?HWND_TOPMOST:HWND_NOTOPMOST;
-    return SetWindowPos(handle,after,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_NOOWNERZORDER)
+    return SetWindowPos(handle,after,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_NOOWNERZORDER) && restoreOwnedNativeMenus(handle)
         ?WindowResult{}:WindowResult{WindowError::OperationRejected};
 }
 bool nativeWindowLayerMatches(QWindow* window,WindowLayer layer)

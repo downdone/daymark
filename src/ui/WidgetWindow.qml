@@ -30,6 +30,9 @@ Window {
     property bool taskDragging: false
     property point taskDragPoint: Qt.point(0,0)
     property var contextTask: ({})
+    property var pendingTaskContext:null
+    property Item pendingTaskSource:null
+    onPendingTaskContextChanged:reportInteraction()
     property string taskOperation: ""
     property bool localDeletion: false
     readonly property bool commandMenuOpen: widgetMenu.visible || taskMenu.visible
@@ -47,9 +50,22 @@ Window {
         if(!addingPending)taskError=workspace.errorText || qsTr("暂时无法添加，请稍后重试。")
     }
     function openTaskMenu(id,source,position) {
-        contextTask=workspace.task(id)
+        if(commandInputBlocked || motionInputBlocked || !source)return
+        pendingTaskSource=source
+        pendingTaskContext={taskId:id,position:position,transition:controller.transitionId}
+        Qt.callLater(presentTaskMenu)
+    }
+    function presentTaskMenu() {
+        const request=pendingTaskContext,source=pendingTaskSource;pendingTaskContext=null;pendingTaskSource=null
+        if(!request || !visible || controller.mini || controller.clickThrough || commandInputBlocked || motionInputBlocked || request.transition!==controller.transitionId || !source || !source.visible || !source.enabled)return
+        contextTask=workspace.task(request.taskId)
         if(!contextTask.taskId)return
-        taskMenu.popupAtPoint(source,position)
+        source.forceActiveFocus(Qt.PopupFocusReason)
+        taskMenu.popupAtPoint(source,request.position)
+    }
+    function restoreTaskMenuFocus() {
+        const source=taskMenu.anchorItem
+        if(active && visible && !controller.mini && !commandMenuOpen && !deleteTaskConfirmation.visible && source && source.visible && source.enabled)source.forceActiveFocus(Qt.PopupFocusReason)
     }
     function taskAction(action) {
         taskError=""
@@ -92,7 +108,7 @@ Window {
     readonly property real visualHeight:frameRect.height
     readonly property real frameRadius:fromRadius+(toRadius-fromRadius)*motionProgress
     readonly property real panelReveal:fromPanel+(toPanel-fromPanel)*motionProgress
-    readonly property real panelContentOpacity:toPanel>fromPanel ? fromOpacity+(1-fromOpacity)*Math.max(0,(motionProgress-0.2)/0.8) : fromOpacity*Math.max(0,1-motionProgress*2.5)
+    readonly property real panelContentOpacity:toPanel>fromPanel ? fromOpacity+(1-fromOpacity)*Math.max(0,(motionProgress-0.2)/0.8) : toPanel<fromPanel ? fromOpacity*Math.max(0,1-motionProgress*2.5) : fromOpacity+(toPanel-fromOpacity)*motionProgress
     readonly property real miniReveal:fromMini+(toMini-fromMini)*motionProgress
     readonly property bool miniTransitionRunning:motionAnimation.running && !controller.panelMotion
     readonly property bool panelTransitionRunning:motionAnimation.running && controller.panelMotion
@@ -116,7 +132,7 @@ Window {
     onMiniKeyboardFocusChanged: reportInteraction()
     onInteractionPressedChanged: reportInteraction()
     onInteractingChanged: reportInteraction()
-    function reportInteraction() {controller.setInteraction(miniHover.hovered,interactionPressed || interacting,widgetMenu.visible || taskMenu.visible || deleteTaskConfirmation.visible,miniKeyboardFocus)}
+    function reportInteraction() {controller.setInteraction(miniHover.hovered,interactionPressed || interacting,widgetMenu.visible || taskMenu.visible || deleteTaskConfirmation.visible || pendingTaskContext!==null,miniKeyboardFocus)}
     function syncMiniLayout() {controller.setMiniLayout(miniBarHeight,ballDiameter)}
     function targetRect(){return controller.effectiveForm===0?controller.panelRect:controller.effectiveForm===1?controller.miniRect:controller.ballRect}
     function syncSurfaceSize(){setMiniAnimation()}
@@ -133,7 +149,7 @@ Window {
             if(pendingWidgetMenu && !controller.transitionPending){pendingWidgetMenu=false;Qt.callLater(showWidgetMenu)}
             return
         }
-        widgetMenu.close();taskMenu.close();pendingWidgetMenu=false
+        widgetMenu.close();taskMenu.close();pendingWidgetMenu=false;pendingTaskContext=null;pendingTaskSource=null
         const currentRect=frameRect,currentPanel=panelReveal,currentMini=miniReveal,currentRadius=frameRadius,currentOpacity=panelContentOpacity
         motionAnimation.stop();visualTransition=controller.transitionId
         fromRect=currentRect;fromPanel=currentPanel;fromMini=currentMini;fromRadius=currentRadius;fromOpacity=currentOpacity
@@ -217,6 +233,7 @@ Window {
     DS.Menu {
         id:taskMenu;objectName:"widgetTaskMenu";parent:widget.contentItem;popupType:Qt.platform.pluginName==="windows" ? Popup.Native : Popup.Window
         onVisibleChanged:widget.reportInteraction()
+        onClosed:Qt.callLater(widget.restoreTaskMenuFocus)
         MenuItem {text:qsTr("任务详情");onTriggered:widget.openTaskRequested(widget.contextTask.taskId)}
         MenuItem {objectName:"widgetTaskPin";text:widget.contextTask.pinned ? qsTr("取消置顶") : qsTr("置顶");onTriggered:widget.taskAction("pin")}
         MenuItem {objectName:"widgetTaskImportant";text:widget.contextTask.important ? qsTr("取消特别关注") : qsTr("特别关注");onTriggered:widget.taskAction("important")}

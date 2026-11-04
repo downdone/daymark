@@ -1,5 +1,13 @@
 # UX-54：透明桌面组件的实体菜单与来源锚点
 
+## UX-76：跨行上下文与实际呈现
+
+任务行右键不依赖此前选中哪行；以本次命中的taskId更新当前行与命令上下文，一次完整手势只打开一次菜单，不触发详情/完成/拖动。右键准备不主动改变键盘焦点再同步弹出；呈现与当前鼠标派发解耦，失效/隐藏/换形态取消待打开请求。空白单击后下一次右键同样有效；空白右键仍无动作。键盘菜单作用于实际聚焦行，Esc关闭后恢复该行。
+
+菜单声明及可视父级都在稳定Window根，不能挂在会淡出/禁用的任务正文。实际原生系统菜单由OS呈现；若Qt回退为QML，必须使用独立不透明窗口，实体底色、有效祖先opacity=1、命令正常可用且位于宿主之上。不能把请求Popup.Native或contentItem仍在宿主等同于已显示系统菜单；Windows测试查询当前测试线程实际菜单窗口，QML回退另核对窗口、像素与输入。两条用户路径、键盘、浅深100/200%及60%宿主透明度分别验收，不改业务数据模式。
+
+实现中仅小窗TaskDragGesture启用contextOnRelease，其他列表保留原语义；待呈现请求保存taskId/位置/形态代次及自动清空的Item来源，持有临时查看直到完成派发。Qt.callLater后重新读取任务版本，失效则取消；命令仍走TaskWorkspace。Windows平台层以[GUITHREADINFO](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-guithreadinfo)确认活动菜单拥有者，仅恢复本宿主所拥有、同线程的系统菜单；按原上下序逆向[SetWindowPos](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos)保持子菜单顺序，不修改其他进程窗口。Qt的[原生菜单限制](https://doc.qt.io/qt-6.10/qml-qtquick-controls-menu.html#limitations-when-using-native-menus)说明弹出调用在部分平台阻塞，因此不在MouseArea按下事件里进入该循环。
+
 ## UX-67：动画隔离与原生上层
 
 桌面Window菜单的声明与可视父级必须位于宿主稳定根容器，不能挂在会淡入淡出、裁剪或随形态禁用的内容层。来源按钮仅提供锚点；Window菜单将来源全局坐标转换到宿主contentItem，不继承来源透明度或enabled。打开任务组件菜单前停止并完成当前过渡，按最终稳定形态重新选择锚点；菜单保持期间不自动收起。

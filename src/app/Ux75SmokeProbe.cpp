@@ -62,6 +62,7 @@ QString Ux75SmokeProbe::advance(){
         }
         if(m_widget->geometry()!=m_canvas || m_geometryEvents!=m_geometryBaseline)return fail("shape change resized/repositioned native canvas");
         if(m_emptyMask || m_lostGraph)return fail("shape change cleared mask or invalidated scene graph");
+        if(targets[m_target]==0 && qAbs(m_widget->property("panelContentOpacity").toDouble()-1)>0.001)return fail("stable Panel content is faded");
         const auto expected=targets[m_target]==0?m_controller.panelRect():targets[m_target]==1?m_controller.miniRect():m_controller.ballRect();
         auto* surface=qobject_cast<QQuickItem*>(find(m_widget,"widgetBackground"));
         if(!surface || (surface->position()-expected.topLeft()).manhattanLength()>1 || qAbs(surface->width()-expected.width())>1 || qAbs(surface->height()-expected.height())>1)return fail("visual rectangle differs from logical target");

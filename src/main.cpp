@@ -60,6 +60,8 @@ int main(int argc, char* argv[])
         }
     } else if(parser.isSet(QStringLiteral("soak-report"))) {std::fprintf(stderr,"--soak-report requires --soak-seconds.\n");return 2;}
     const bool verification=parser.isSet(QStringLiteral("calendar-interaction-smoke")) || parser.isSet(QStringLiteral("desktop-surfaces-smoke")) || parser.isSet(QStringLiteral("task-list-smoke")) || parser.isSet(QStringLiteral("smoke-test")) || parser.isSet(QStringLiteral("continuous-calendar-smoke")) || parser.isSet(QStringLiteral("contextual-workspace-smoke")) || soakSeconds>0;
+    if(verification && qEnvironmentVariableIsSet("DAYMARK_SMOKE_MENU_FALLBACK"))
+        QCoreApplication::setAttribute(Qt::AA_DontUseNativeMenuWindows);
     if(verification) {
         qInstallMessageHandler([](QtMsgType,const QMessageLogContext&,const QString& message){
             const auto utf8=message.toUtf8();

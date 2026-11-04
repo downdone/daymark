@@ -812,7 +812,7 @@ QString Ux38SmokeProbe::advance() {
         click("widgetMiniBall");m_panelGeometry=m_widget->geometry();
     }
     if(m_stage==182){
-        if(!m_panelSampled || m_widget->property("panelTransitionRunning").toBool()){if(m_wait.elapsed()<900)return {};return fail("panel opening completes");}
+        if(!m_panelSampled || m_widget->property("panelTransitionRunning").toBool()){if(m_wait.elapsed()<900)return {};return fail(QStringLiteral("panel opening completes: sampled=%1 progress=%2 running=%3 pending=%4 form=%5").arg(m_panelSampled).arg(m_widget->property("panelReveal").toDouble()).arg(m_widget->property("panelTransitionRunning").toBool()).arg(m_controller.transitionPending()).arg(m_controller.effectiveForm()));}
         if(!m_panelValid || !layout())return fail("opening has intermediate background and fixed content dimensions");
         capturePanelFrame(QStringLiteral("panel-open-%1").arg(m_panelCycle));
         m_panelSampled=false;m_panelValid=false;

@@ -15,6 +15,7 @@ MouseArea {
     signal dragEnded(bool commit)
     property bool doubleTap: false
     property bool contextGesture: false
+    property bool contextOnRelease: false
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     signal contextRequested(point position)
     signal doubleActivated
@@ -23,7 +24,7 @@ MouseArea {
     onPressed: function (mouse) {
         started = false;doubleTap=false;
         contextGesture=mouse.button===Qt.RightButton || (Qt.platform.os==="osx" && (mouse.modifiers & Qt.MetaModifier));
-        if(contextGesture){contextRequested(Qt.point(mouse.x,mouse.y));return}
+        if(contextGesture){if(!contextOnRelease)contextRequested(Qt.point(mouse.x,mouse.y));return}
         origin = Qt.point(mouse.x, mouse.y);
     }
     onPositionChanged: function (mouse) {
@@ -37,8 +38,8 @@ MouseArea {
             dragMoved(root, Qt.point(mouse.x, mouse.y));
     }
     onDoubleClicked: {if(!contextGesture){doubleTap=true;doubleActivated()}}
-    onReleased: {
-        if(contextGesture)return
+    onReleased: function(mouse) {
+        if(contextGesture){if(contextOnRelease)contextRequested(Qt.point(mouse.x,mouse.y));return}
         if (started)
             dragEnded(true);
         else if(!doubleTap)
