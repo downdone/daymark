@@ -29,6 +29,11 @@ function Get-DaymarkReleaseExecutable([string]$BuildRoot) {
     if (@($candidates).Count -ne 1) { throw 'Exactly one Release executable is required; missing or ambiguous build output.' }
     return $candidates
 }
+function Write-DaymarkArchiveChecksum([string]$Archive) {
+    $hash = (Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant()
+    $name = [IO.Path]::GetFileName($Archive)
+    [IO.File]::WriteAllText("$Archive.sha256", "$hash  $name`n", [Text.Encoding]::ASCII)
+}
 $binary = Get-DaymarkReleaseExecutable $BuildDirectory
 if (!(Test-Path -LiteralPath "$env:DAYMARK_QT/bin/windeployqt.exe")) { throw 'windeployqt missing; set DAYMARK_QT to the Qt kit.' }
 
@@ -80,6 +85,5 @@ $files = Get-ChildItem -LiteralPath $stage -Recurse -File
 
 $archive = "$stage.zip"
 Compress-Archive -LiteralPath $stage -DestinationPath $archive -CompressionLevel Optimal
-$hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-"$hash  $([IO.File]::GetFileName($archive))" | Set-Content -LiteralPath "$archive.sha256" -Encoding ascii
+Write-DaymarkArchiveChecksum $archive
 Write-Output "PASS: $archive ($($files.Count) files)"

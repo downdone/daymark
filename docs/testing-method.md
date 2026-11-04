@@ -131,7 +131,7 @@ ctest --preset macos-release # 发布完整
 
 真实Windows包：PowerShell 7运行`scripts/Test-Package.ps1`；真实macOS签名/公证与平台矩阵另验。Qt 许可与再分发条件见[第三方说明](third-party-notices.md)与[ADR-027](ADR/027-open-source-qt-ci.md)。
 
-桌面菜单专项可用`DAYMARK_SMOKE_UI_SLICE=task-menu`运行`daymark --desktop-surfaces-smoke --screenshot <完整PNG路径>`，使用隔离临时任务。Windows自绘回退另设`DAYMARK_SMOKE_MENU_FALLBACK=1`，仅verification入口在加载QML前启用Qt的AA_DontUseNativeMenuWindows，再明确请求Popup.Window；不要把动态popupType配置值当实际后端证据。普通运行不读取此测试开关。原生专项与离屏动画回归串行运行，不能让外部进程绕过CTest的daymark_ui锁造成采样竞争。macOS无该Win32菜单检查，保持平台未验证。
+桌面菜单专项可用`DAYMARK_SMOKE_UI_SLICE=task-menu`运行`daymark --desktop-surfaces-smoke --screenshot <完整PNG路径>`，使用隔离临时任务。Windows自绘回退另设`DAYMARK_SMOKE_MENU_FALLBACK=1`；旧完整`--smoke-test`固定验证QML菜单几何。这两类verification入口在加载QML前启用Qt的AA_DontUseNativeMenuWindows，再明确请求Popup.Window，避免原生阻塞循环与分阶段QML检查混用。实际系统菜单由独立task-menu/input-feedback原生夹具检查，不据此宣称物理输入通过。不要把动态popupType配置值当实际后端证据；普通运行不读取此测试开关。原生专项与离屏动画回归串行运行，不能让外部进程绕过CTest的daymark_ui锁造成采样竞争。macOS无该Win32菜单检查，保持平台未验证。
 
 ## 以后增加测试的准则
 

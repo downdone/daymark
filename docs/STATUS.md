@@ -3,6 +3,8 @@
 本页是**唯一的状态摘要**，每次版本/门禁变化时更新。逐轮详细记录见[进度日志](PROGRESS.md)。
 
 ## 版本与数据
+
+2026-11-04准备发布1.8.1：包含UX-64～76及批准品牌母版，schema10不变；构建/完整门禁与GitHub实际状态见PROGRESS，不预先标记成功。旧1.8.0恢复请求不纳入本次改动。
 2026-11-04 UX-76修复任务跨行右键/空白后右键时序，以及原生菜单被透明宿主层级恢复盖住的问题；稳定Panel重复布局不再误淡出。Release/lint、5项相关CTest和Windows原生/自绘回退各12次菜单的目标/实际层级/实体像素验证通过，详见PROGRESS。启动器改为daymark-ux76.exe，需退出旧实例；ZIP未覆盖、未推送。物理输入/合成瞬态及macOS仍未验证。
 
 2026-11-04 UX-75重设计组件形态渲染：稳定原生画布、单进度动效、每帧合并区域和呈现确认，收球末帧不再缩窗/清mask。Release/lint、7项相关CTest及Windows D3D11/DirectComposition的12次切换/连续三帧/实际系统区域检查通过；物理合成瞬态、混合DPI、macOS等仍UNVERIFIED，见PROGRESS。启动器指向daymark-ux75.exe，旧ZIP未覆盖、未推送，分类功能尚未实现。
@@ -23,7 +25,7 @@
 
 | 项 | 值 |
 |---|---|
-| 应用版本 | 1.8.0（`CMakeLists.txt` 与 `DAYMARK_VERSION`） |
+| 应用版本 | 1.8.1（`CMakeLists.txt` 与 `DAYMARK_VERSION`） |
 | 数据库 schema | 10（追加账号/同步元数据，历史1～9未覆盖） |
 | 平台目标 | Windows 10/11 x64、macOS 13+ |
 | 技术栈 | C++20、Qt 6.10.2（LGPLv3 动态链接）、SQLite（QSQLITE） |
