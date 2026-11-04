@@ -44,6 +44,9 @@ bool Ux71SmokeProbe::capture(QQuickWindow* window,const QString& name) const {
 QString Ux71SmokeProbe::advance(){
     if(m_stage==65)return "DONE";
     if(m_wait.elapsed()<100)return {};
+    // A native runner can be occluded; force the same layout/presentation
+    // synchronization used by the other probes before delivering wheel input.
+    if(m_stage>=32 && m_stage<=56)m_main->grabWindow();
     const auto fail=[&](const QString& reason){capture(m_main,"failure");return QStringLiteral("UX71 stage %1: %2").arg(m_stage).arg(reason);};
     auto* list=qobject_cast<QQuickItem*>(find(m_main,"taskList"));auto* bar=find(m_main,"taskScrollBar");
     if(!list || !bar)return fail("list/scrollbar missing");
