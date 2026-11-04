@@ -63,6 +63,7 @@ QString Ux71SmokeProbe::advance(){
         if(phase==0){
             m_workspace.setThemeMode(m_stage>=44?2:1);m_workspace.setTextScale(m_stage>=44?2:1);
             list->setProperty("contentY",list->property("originY"));m_opacity=-1;
+            m_main->show();m_main->requestActivate();list->forceActiveFocus();
         }else if(phase==10){
             if(list->property("contentY").toDouble()<=m_beforeY || !bar->property("visible").toBool())return fail("real wheel did not scroll overflowing trash");
             if(!capture(m_main,m_stage>=44?"trash-dark-200":"trash-light"))return fail("capture");
@@ -72,9 +73,11 @@ QString Ux71SmokeProbe::advance(){
                 if(m_opacity>=0 && qAbs(opacity-m_opacity)>0.01)m_flickered=true;
                 m_opacity=opacity;m_beforeY=list->property("contentY").toDouble();
                 const auto at=list->mapToScene(QPointF(list->width()/2,list->height()/2));
-                QWheelEvent wheel(at,m_main->mapToGlobal(at),QPoint(0,-72),QPoint(0,-120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
+                QMouseEvent move(QEvent::MouseMove,at,m_main->mapToGlobal(at),Qt::NoButton,Qt::NoButton,Qt::NoModifier);QCoreApplication::sendEvent(m_main,&move);
+                QWheelEvent wheel(at,m_main->mapToGlobal(at),{},QPoint(0,-120),Qt::NoButton,Qt::NoModifier,Qt::NoScrollPhase,false);
                 wheel.setTimestamp(static_cast<quint64>(m_clock.elapsed()));
                 QCoreApplication::sendEvent(m_main,&wheel);
+                qInfo()<<"Wheel delivery"<<wheel.isAccepted()<<m_main->isActive()<<list->property("interactive")<<list->property("contentY")<<list->property("contentHeight");
             }else{
                 const auto opacity=bar->property("contentItem").value<QObject*>()->property("opacity").toDouble();
                 qInfo()<<"Wheel feedback"<<m_stage<<bar->property("active")<<opacity;

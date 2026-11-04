@@ -30,6 +30,7 @@ Window {
     property var contextTask: ({})
     property string taskOperation: ""
     property bool localDeletion: false
+    readonly property bool commandMenuOpen: widgetMenu.visible || taskMenu.visible
     function submitTask() {
         if(addingPending || !quickTitle.text.trim().length)return
         taskError="";addingPending=workspace.createTodayTask(quickTitle.text)
@@ -285,9 +286,10 @@ Window {
             color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,widget.workspace.preferences.solidWidget || Theme.highContrast ? 1 : widget.controller.backgroundOpacity)
             border.color: Theme.separator
             HoverHandler {id:miniHover;onHoveredChanged:widget.reportInteraction()}
-            TapHandler {acceptedButtons:Qt.RightButton;onTapped:widget.openVerificationMenu()}
+            TapHandler {enabled:!widget.commandMenuOpen;acceptedButtons:Qt.RightButton;onTapped:widget.openVerificationMenu()}
             ToolButton {
                 id:miniBall;objectName:"widgetMiniBall"
+                enabled:!widget.commandMenuOpen
                 visible:widget.controller.panelMotion ? widget.panelReveal<0.999 : widget.controller.mini && widget.miniReveal<0.999
                 width:widget.ballDiameter;height:widget.ballDiameter
                 x:widget.controller.growLeft ? surface.width-width : 0
@@ -314,7 +316,7 @@ Window {
                 x:widget.controller.growLeft ? surface.width-width : 0
                 y:widget.controller.growUp ? surface.height-height : 0
                 opacity:widget.panelContentOpacity
-                enabled:!widget.controller.targetBall
+                enabled:!widget.controller.targetBall && !widget.commandMenuOpen
               ColumnLayout {
                 anchors.fill: parent;anchors.margins: Theme.panelPadding
                 spacing: Theme.fieldGap
@@ -429,7 +431,7 @@ Window {
                 id:miniRow
                 layoutDirection:widget.controller.growLeft ? Qt.RightToLeft : Qt.LeftToRight
                 visible: widget.controller.mini && widget.miniReveal>0.001
-                enabled:widget.miniReveal>0.99
+                enabled:widget.miniReveal>0.99 && !widget.commandMenuOpen
                 x:Theme.panelPadding;y:Theme.panelPadding
                 width:widget.controller.miniWidth-2*Theme.panelPadding;height:widget.miniBarHeight-2*Theme.panelPadding
                 opacity:widget.miniReveal
@@ -467,6 +469,7 @@ Window {
             }
             MouseArea {
                 anchors.right: parent.right;anchors.bottom: parent.bottom
+                enabled:!widget.commandMenuOpen
                 width: 12;height: 12
                 visible: !widget.controller.mini && !widget.controller.panelMotion && !widget.controller.locked
                 cursorShape: Qt.SizeFDiagCursor

@@ -3,6 +3,9 @@ import QtQuick.Templates as T
 T.Menu {
     id: control
     popupType: T.Popup.Item
+    focus: true
+    modal: popupType===T.Popup.Window
+    dim: false
     // Conditional commands must not leave leading, trailing or doubled rules.
     function updateGroups() {
         let hasItem=false,pending=null
