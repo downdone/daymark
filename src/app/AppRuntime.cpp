@@ -1370,7 +1370,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     if(!widget || (!screenshotPath.isEmpty() && !widget->grabWindow().save(screenshotPath+QStringLiteral(".v1-widget.png"))) || !m_widget.setMini(true)){fail("native mini transition");return;}
                 } else if(phase==76) {
                     auto* widget=mainWindow->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
-                    if(widget && m_widget.transitionPending()){widget->update();return;}
+                    // An occluded native window may defer update(). Request a real
+                    // frame so the presentation acknowledgement can settle normally.
+                    if(widget && m_widget.transitionPending()){widget->grabWindow();return;}
                     if(!widget || !m_widget.mini() || m_widget.miniRect().height()<48 || m_widget.miniRect().height()>100 || (!screenshotPath.isEmpty() && !widget->grabWindow().save(screenshotPath+QStringLiteral(".v1-mini.png"))) || !m_widget.setMini(false)){fail("mini rendering and restore");return;}
                 }
             } else if(phase>=26) {

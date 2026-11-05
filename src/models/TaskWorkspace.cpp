@@ -1,6 +1,7 @@
 #include "ReminderPresentation.h"
 #include <QScreen>
 #include "TaskWorkspace.h"
+#include "OfficialServiceConfig.h"
 #include "platform/common/QtWindowPlatform.h"
 #include "services/ReminderSchedule.h"
 #include <QGuiApplication>
@@ -19,6 +20,7 @@
 #include <QSettings>
 #include <QDir>
 #include <QFileInfo>
+#include <QCryptographicHash>
 #include <QPointer>
 #include <QSet>
 #include <QTimeZone>
@@ -223,7 +225,7 @@ TaskWorkspace::~TaskWorkspace()
     m_thread.quit();m_thread.wait();
 }
 void TaskWorkspace::start(const QString& path) {
-    m_path=path;loadReminderPresentation();
+    m_path=path;loadReminderPresentation();loadWidgetBrowsePreferences();
     QSettings settings(QFileInfo(path).dir().filePath(QStringLiteral("ui.ini")),QSettings::IniFormat);
     m_sundayFirst=settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool();
     m_themeMode=qBound(0,settings.value(QStringLiteral("appearance/themeMode"),0).toInt(),2);
@@ -285,6 +287,7 @@ void TaskWorkspace::refresh(bool snapshotChanged)
     if(snapshotChanged){
         m_todayTasks.replace(QueryService::select(m_cache,QStringLiteral("today"),m_today,{},false,{},0,0,{}, {},true,false),m_today);
         m_deadlineTasks.replace(QueryService::select(m_cache,QStringLiteral("deadlines"),m_today,{},false,{},m_upcomingDays),m_today);
+        refreshWidgetBrowse();
     }
     refreshReminderAlerts();
 }
@@ -336,7 +339,7 @@ void TaskWorkspace::switchSyncDatabase(const QString& path,std::function<void(Re
     QMetaObject::invokeMethod(worker,[self,worker,path,previous,completed=std::move(completed)]{
         auto tasks=worker->load(path);const auto loadError=tasks.error;if(!tasks.ok())tasks=worker->load(previous);
         const auto catalog=tasks.ok()?worker->catalog->all():Result<QList<CatalogItem>>{};const auto rules=tasks.ok()?worker->recurrence->all():Result<QList<RecurrenceRule>>{};
-        if(self)QMetaObject::invokeMethod(self.data(),[self,path,previous,tasks,catalog,rules,loadError,completed]{if(!self)return;self->m_busy=false;self->m_ready=tasks.ok() && catalog.ok() && rules.ok();self->m_path=loadError.code==ErrorCode::None?path:previous;self->loadReminderPresentation();if(self->m_ready){self->m_cache=tasks.value;self->m_catalog=catalog.value;self->m_rules=rules.value;self->refresh();}self->m_error=loadError;emit self->stateChanged();completed(Result<void>{loadError});if(self->m_ready)self->maintain();},Qt::QueuedConnection);
+        if(self)QMetaObject::invokeMethod(self.data(),[self,path,previous,tasks,catalog,rules,loadError,completed]{if(!self)return;self->m_busy=false;self->m_ready=tasks.ok() && catalog.ok() && rules.ok();self->m_path=loadError.code==ErrorCode::None?path:previous;self->loadReminderPresentation();self->loadWidgetBrowsePreferences();if(self->m_ready){self->m_cache=tasks.value;self->m_catalog=catalog.value;self->m_rules=rules.value;self->refresh();}self->m_error=loadError;emit self->stateChanged();completed(Result<void>{loadError});if(self->m_ready)self->maintain();},Qt::QueuedConnection);
     },Qt::QueuedConnection);
 }
 void TaskWorkspace::syncExecute(const QString& operation,const QJsonObject& input,std::function<void(Result<QJsonObject>)> completed)
@@ -433,6 +436,159 @@ bool TaskWorkspace::createTask(const QString& title)
     const auto view=calendarMode()?m_scope:m_view;
     return runTask(QStringLiteral("create"),[title,view](TaskWorker& w){return w.service->create(title,view);});
 }
+void TaskWorkspace::loadWidgetBrowsePreferences()
+{
+    m_widgetContext=QStringLiteral("today");m_widgetCategoryToday=false;m_widgetShowShortcuts=true;
+    m_widgetShortcutsInitialized=false;m_widgetShortcutKeys.clear();m_widgetCatalog.clear();
+    m_widgetPreferenceError.clear();m_widgetNotice.clear();
+    m_widgetProfileToken=QString::fromLatin1(QCryptographicHash::hash(m_path.toUtf8(),QCryptographicHash::Sha256).toHex());
+    QSettings settings(m_path+QStringLiteral(".widget.ini"),QSettings::IniFormat);
+    if(settings.value(QStringLiteral("format"),1).toInt()!=1){m_widgetNotice=tr("小窗浏览设置格式无效，已回到今天。");return;}
+    m_widgetContext=settings.value(QStringLiteral("context"),QStringLiteral("today")).toString();
+    auto boolean=[&](const QString& key,bool fallback){
+        const auto value=settings.value(key,fallback);const auto text=value.toString();
+        if(value.metaType().id()==QMetaType::Bool || text==QStringLiteral("true") || text==QStringLiteral("false"))return value.toBool();
+        m_widgetNotice=tr("部分小窗浏览设置无效，已使用默认值。");return fallback;
+    };
+    m_widgetCategoryToday=boolean(QStringLiteral("todayOnly"),false);
+    m_widgetShowShortcuts=boolean(QStringLiteral("showShortcuts"),true);
+    m_widgetShortcutsInitialized=boolean(QStringLiteral("shortcutsInitialized"),false);
+    QSet<QString> seen;
+    for(const auto& key:settings.value(QStringLiteral("shortcuts")).toStringList())if(!seen.contains(key)){seen.insert(key);m_widgetShortcutKeys.append(key);}
+    if(settings.status()!=QSettings::NoError)m_widgetPreferenceError=tr("小窗浏览设置未能读取，请检查数据目录权限。");
+}
+bool TaskWorkspace::saveWidgetBrowsePreferences()
+{
+    QSettings settings(m_path+QStringLiteral(".widget.ini"),QSettings::IniFormat);
+    settings.setValue(QStringLiteral("format"),1);settings.setValue(QStringLiteral("context"),m_widgetContext);
+    settings.setValue(QStringLiteral("todayOnly"),m_widgetCategoryToday);settings.setValue(QStringLiteral("showShortcuts"),m_widgetShowShortcuts);
+    settings.setValue(QStringLiteral("shortcutsInitialized"),m_widgetShortcutsInitialized);settings.setValue(QStringLiteral("shortcuts"),m_widgetShortcutKeys);
+    settings.sync();
+    m_widgetPreferenceError=settings.status()==QSettings::NoError?QString():tr("小窗浏览设置未保存，请检查数据目录权限后重试。");
+    return m_widgetPreferenceError.isEmpty();
+}
+bool TaskWorkspace::retryWidgetBrowsePreferences()
+{const bool saved=saveWidgetBrowsePreferences();emit widgetBrowseChanged();return saved;}
+QString TaskWorkspace::officialSyncOrigin() const
+{return QString::fromLatin1(build::officialServiceOrigin);}
+
+QString TaskWorkspace::widgetContextTitle() const
+{
+    if(m_widgetContext==QStringLiteral("today"))return tr("今天");
+    for(const auto& value:m_widgetCatalog){const auto item=value.toMap();if(item.value("key")==m_widgetContext)return item.value("title").toString();}
+    return tr("今天");
+}
+QString TaskWorkspace::widgetRangeLabel() const
+{
+    if(m_widgetContext==QStringLiteral("today"))return {};
+    auto label=m_widgetCategoryToday?tr("今天"):tr("全部未完成");
+    for(const auto& value:m_widgetCatalog){const auto item=value.toMap();if(item.value("key")==m_widgetContext){if(item.value("childCount").toInt()>0)label+=tr(" · 含子分类");else if(item.value("depth").toInt()>0)label+=QStringLiteral(" · ")+item.value("parentTitle").toString();}}
+    return label;
+}
+QVariantList TaskWorkspace::widgetCategories() const
+{
+    auto result=m_widgetCatalog;
+    for(auto& value:result){auto item=value.toMap();item.insert(QStringLiteral("favorite"),m_widgetShortcutKeys.contains(item.value("key").toString()));value=item;}
+    return result;
+}
+QVariantList TaskWorkspace::widgetShortcuts() const
+{
+    QVariantList result;
+    for(const auto& key:m_widgetShortcutKeys)for(const auto& value:m_widgetCatalog)if(value.toMap().value("key")==key){result.append(value);break;}
+    return result;
+}
+void TaskWorkspace::refreshWidgetBrowse()
+{
+    m_widgetCatalog.clear();QSet<QString> available,existing;
+    for(const auto& item:m_catalog)if(item.kind==QStringLiteral("area") || item.kind==QStringLiteral("project"))existing.insert(item.kind+QLatin1Char(':')+item.id);
+    for(const auto& value:navigationCatalog()){
+        auto item=value.toMap();const auto key=item.value("kind").toString()+QLatin1Char(':')+item.value("id").toString();
+        item.insert(QStringLiteral("key"),key);available.insert(key);m_widgetCatalog.append(item);
+    }
+    bool changed=false;
+    if(!m_widgetShortcutsInitialized && !m_widgetCatalog.isEmpty()){
+        for(const auto& value:m_widgetCatalog){const auto item=value.toMap();if(item.value("depth").toInt()==0 && m_widgetShortcutKeys.size()<3)m_widgetShortcutKeys.append(item.value("key").toString());}
+        m_widgetShortcutsInitialized=true;changed=true;
+    }
+    for(int i=m_widgetShortcutKeys.size()-1;i>=0;--i)if(!existing.contains(m_widgetShortcutKeys[i])){m_widgetShortcutKeys.removeAt(i);changed=true;}
+    if(m_widgetContext!=QStringLiteral("today") && !available.contains(m_widgetContext)){
+        emit widgetContextChanging();m_widgetContext=QStringLiteral("today");m_widgetNotice=tr("原分类已不可用，已回到今天。");changed=true;
+    }
+    if(changed)saveWidgetBrowsePreferences();
+    const auto selected=m_widgetContext==QStringLiteral("today")?m_todayTasks.items():QueryService::selectWidget(m_cache,m_widgetContext,m_widgetCategoryToday,m_today);
+    m_widgetTasks.replace(selected,m_today);m_widgetRows.clear();m_widgetRows.reserve(selected.size());
+    for(qsizetype row=0;row<selected.size();++row)m_widgetRows.insert(selected[row].id,row);
+    emit widgetBrowseChanged();
+}
+bool TaskWorkspace::setWidgetContext(const QString& key)
+{
+    if(!m_ready || m_busy)return false;
+    if(key!=QStringLiteral("today") && std::none_of(m_widgetCatalog.cbegin(),m_widgetCatalog.cend(),[&](const QVariant& item){return item.toMap().value("key")==key;})){
+        m_widgetNotice=tr("分类已不可用，请重新选择。");emit widgetBrowseChanged();return false;
+    }
+    if(key==m_widgetContext)return true;
+    emit widgetContextChanging();m_widgetContext=key;m_widgetNotice.clear();saveWidgetBrowsePreferences();refreshWidgetBrowse();return true;
+}
+bool TaskWorkspace::setWidgetCategoryToday(bool enabled)
+{
+    if(!m_ready || m_busy)return false;if(m_widgetCategoryToday==enabled)return true;
+    emit widgetContextChanging();m_widgetCategoryToday=enabled;m_widgetNotice.clear();saveWidgetBrowsePreferences();refreshWidgetBrowse();return true;
+}
+bool TaskWorkspace::setWidgetShowShortcuts(bool enabled)
+{m_widgetShowShortcuts=enabled;saveWidgetBrowsePreferences();emit widgetBrowseChanged();return true;}
+bool TaskWorkspace::setWidgetShortcut(const QString& key,bool enabled)
+{
+    if(enabled && std::none_of(m_widgetCatalog.cbegin(),m_widgetCatalog.cend(),[&](const QVariant& item){return item.toMap().value("key")==key;}))return false;
+    if(enabled && !m_widgetShortcutKeys.contains(key))m_widgetShortcutKeys.append(key);
+    if(!enabled)m_widgetShortcutKeys.removeAll(key);
+    m_widgetShortcutsInitialized=true;saveWidgetBrowsePreferences();emit widgetBrowseChanged();return true;
+}
+bool TaskWorkspace::moveWidgetShortcut(const QString& key,int direction)
+{
+    const auto visible=widgetShortcuts();int row=-1;
+    for(int i=0;i<visible.size();++i)if(visible[i].toMap().value("key")==key)row=i;
+    const auto target=row+direction;
+    if((direction!=-1 && direction!=1) || row<0 || target<0 || target>=visible.size())return false;
+    m_widgetShortcutKeys.move(m_widgetShortcutKeys.indexOf(key),m_widgetShortcutKeys.indexOf(visible[target].toMap().value("key").toString()));saveWidgetBrowsePreferences();emit widgetBrowseChanged();return true;
+}
+bool TaskWorkspace::createWidgetTask(const QString& title,const QString& context,bool todayOnly,const QString& profileToken)
+{
+    if(profileToken!=m_widgetProfileToken){m_widgetNotice=tr("资料已切换，原输入未保存。请返回原资料，或复制内容后清空输入。");emit widgetBrowseChanged();return false;}
+    if(context!=QStringLiteral("today") && std::none_of(m_widgetCatalog.cbegin(),m_widgetCatalog.cend(),[&](const QVariant& item){return item.toMap().value("key")==context;})){
+        m_widgetNotice=tr("输入所属分类已不可用，内容尚未保存。请复制后重新选择分类。");emit widgetBrowseChanged();return false;
+    }
+    return runTask(QStringLiteral("widgetCreate"),[title,context,todayOnly](TaskWorker& w){return w.service->create(title,context,todayOnly && context!=QStringLiteral("today")?w.clock.localToday():QDate());});
+}
+bool TaskWorkspace::canDropWidgetTask(const QString& source,const QString& target) const
+{
+    if(widgetTaskIndex(source)<0 || widgetTaskIndex(target)<0)return false;
+    if(m_widgetContext==QStringLiteral("today"))return canDropTodayTask(source,target);
+    const auto* a=cachedTask(source);const auto* b=cachedTask(target);if(!a || !b)return false;
+    if(a->projectId!=b->projectId || a->areaId!=b->areaId || a->headingId!=b->headingId)return false;
+    return canDropInView(source,target,m_widgetCategoryToday?QStringLiteral("today"):m_widgetContext);
+}
+bool TaskWorkspace::dropWidgetTask(const QString& source,const QString& target)
+{
+    if(!canDropWidgetTask(source,target))return false;
+    if(m_widgetContext==QStringLiteral("today"))return dropTodayTask(source,target);
+    const bool today=m_widgetCategoryToday;const auto view=today?QStringLiteral("today"):m_widgetContext;
+    auto tasks=QueryService::select(m_cache,view,m_today,{},false,{},0,0,{}, {},true,false);int from=-1,to=-1;
+    for(int row=0;row<tasks.size();++row){if(tasks[row].id==source)from=row;if(tasks[row].id==target)to=row;}
+    if(from<0 || to<0)return false;
+    OrderChange change;change.taskId=source;if(today)change.evening=tasks[to].evening;tasks.move(from,to);
+    return runCatalog([tasks,today,change](TaskWorker& w){return w.repository->reorder(tasks,today,w.clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),change);},QStringLiteral("reorder"));
+}
+bool TaskWorkspace::canMoveWidgetTask(const QString& id,int direction) const
+{
+    if(direction!=-1 && direction!=1)return false;
+    const auto row=widgetTaskIndex(id),target=row+direction;const auto& tasks=m_widgetTasks.items();
+    if(row<0 || target<0 || target>=tasks.size())return false;
+    if((m_widgetContext==QStringLiteral("today") || m_widgetCategoryToday) && QueryService::todayPeriod(tasks[row],m_today)!=QueryService::todayPeriod(tasks[target],m_today))return false;
+    return canDropWidgetTask(id,tasks[target].id);
+}
+bool TaskWorkspace::moveWidgetTask(const QString& id,int direction)
+{return canMoveWidgetTask(id,direction) && dropWidgetTask(id,m_widgetTasks.taskIdAt(widgetTaskIndex(id)+direction));}
+
 bool TaskWorkspace::createTodayTask(const QString& title)
 {
     return runTask(QStringLiteral("widgetCreate"),[title](TaskWorker& w){return w.service->create(title,QStringLiteral("today"));});

@@ -105,9 +105,9 @@ ItemDelegate {
         id:dropZone;anchors.fill:parent;keys:["daymark-widget-task"]
         property bool allowed:false
         readonly property WidgetTaskRow sourceTask:drag.source as WidgetTaskRow
-        onEntered:function(drag){const source=drag.source as WidgetTaskRow;allowed=!!source && row.workspace.canDropTodayTask(source.taskId,row.taskId)}
+        onEntered:function(drag){const source=drag.source as WidgetTaskRow;allowed=!!source && row.workspace.canDropWidgetTask(source.taskId,row.taskId)}
         onExited:allowed=false
-        onDropped:function(drop){const source=drop.source as WidgetTaskRow;if(source && row.workspace.canDropTodayTask(source.taskId,row.taskId)){row.actionStarted();if(row.workspace.dropTodayTask(source.taskId,row.taskId)){row.reorderStarted();drop.acceptProposedAction()}else row.errorReported(row.workspace.errorText)}allowed=false}
+        onDropped:function(drop){const source=drop.source as WidgetTaskRow;if(source && row.workspace.canDropWidgetTask(source.taskId,row.taskId)){row.actionStarted();if(row.workspace.dropWidgetTask(source.taskId,row.taskId)){row.reorderStarted();drop.acceptProposedAction()}else row.errorReported(row.workspace.errorText)}allowed=false}
     }
     Rectangle {x:0;y:dropZone.sourceTask && dropZone.sourceTask.index>row.index ? 0 : row.height-2;width:row.width;height:2;color:Theme.accent;visible:dropZone.containsDrag && dropZone.allowed}
     DS.ToolTip {contextualFeedback:true;delay:0;timeout:-1;visible:dropZone.containsDrag && !dropZone.allowed && !!dropZone.sourceTask;text:qsTr("只能在同父任务、同置顶组内排序；具体时段请在日历调整。")}

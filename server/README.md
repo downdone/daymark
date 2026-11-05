@@ -55,6 +55,23 @@ unset secret
 
 ## 备份、删除与恢复
 
+### Linux 公网运行布局
+
+推荐专用`daymark`系统账号和`daymark.service`，二进制按源码版本保存在`/opt/daymark/releases/`、`current`指向运行版本；配置`/etc/daymark/config.json`为root:daymark 0640，`/var/lib/daymark`为daymark 0700。后端只监听127.0.0.1:8080，Nginx负责HTTPS，`public_origin`与客户端填写的唯一HTTPS地址一致；80端口仅供ACME挑战与HTTPS跳转，不转发明文账号请求。部署前核实现有服务/数据/端口，升级不能用空目录覆盖已有数据库。
+
+systemd使用Restart=on-failure、NoNewPrivileges、ProtectSystem=strict、ProtectHome、PrivateTmp和明确的数据写入目录，停止预算要大于服务自身15秒退出预算。2核2GB主机可采用read_pool=2、kdf_parallelism=1及512MiB Go软内存目标/1GiB服务硬上限，不能为节省内存降低口令KDF参数。限制是容量保护，不代表已通过压力/故障域验收。
+
+Certbot使用webroot签发域名证书；续期timer需启用，deploy hook先`nginx -t`再热重载，必须实际执行一次`certbot renew --dry-run --run-deploy-hooks`。证书/数据私钥只留服务器受保护目录，不加入部署源码或打包归档。运行检查：
+
+```sh
+systemctl status daymark nginx --no-pager
+systemctl list-timers --all '*certbot*' --no-pager
+journalctl -u daymark -n 50 --no-pager
+curl --fail https://sync.example.com/health/ready
+```
+
+客户端填入公共HTTPS源，通过注册入口创建Daymark账号。用临时本地资料/随机合成账号完成真实注册、登录和双端同步后才能称桌面联调通过；不能用`curl -k`或health成功代替认证/同步验收。独立备份目标、密钥与最新删除账本托管另行配置，下面的恢复约束仍适用。
+
 SQLite 使用 WAL、`synchronous=FULL`、外键和校验迁移；业务、变更批次与幂等回执同事务。磁盘满/IO/损坏进入写保护。进程锁、掉响应重试与子进程 kill 有自动测试，但不等于真实断电/硬件故障已验收。
 
 服务启动恢复中断作业，定期创建一致快照，检查完整性并加密。配置 `backup_target` 与 `backup_target_external:true`，由运维保证该目录实际位于独立故障域；这个布尔值只是运维声明，不能证明异机持久性。仅在保留点的本地/目标副本均验证后，按 `backup_keep` 轮换。未配置目标时不自动裁剪恢复点。可停服务后执行 `-backup-now` 生成并验证一次备份。

@@ -1,0 +1,4 @@
+#pragma once
+namespace daymark::build {
+inline constexpr char officialServiceOrigin[] = "@DAYMARK_OFFICIAL_ORIGIN@";
+}

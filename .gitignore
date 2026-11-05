@@ -3,6 +3,7 @@
 /Testing/
 /CMakeUserPresets.json
 /.qt/
+/config/official-service.local.txt
 /.idea/
 /.vscode/
 *.user

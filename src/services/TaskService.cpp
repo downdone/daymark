@@ -145,6 +145,17 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
     return tree;
 }
 
+QList<Task> QueryService::selectWidget(const QList<Task>& tasks,const QString& context,bool todayOnly,const QDate& today)
+{
+    if(context==QStringLiteral("today"))return select(tasks,context,today,{},false,{},0,0,{}, {},true,false);
+    if((!context.startsWith(QStringLiteral("project:")) || context.size()==8) &&
+       (!context.startsWith(QStringLiteral("area:")) || context.size()==5))return {};
+    if(!todayOnly)return select(tasks,context,today,{},false,{},0,0,{}, {},true,false);
+    QList<Task> candidates;
+    for(const auto& task:tasks)if(inView(task,context,today) && inView(task,QStringLiteral("today"),today))candidates.append(task);
+    return select(candidates,QStringLiteral("today"),today,{},false,{},0,0,{}, {},true,false);
+}
+
 Result<void> TaskService::validate(Task& t) const
 {
     t.title=t.title.trimmed();

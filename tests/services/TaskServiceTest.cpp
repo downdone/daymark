@@ -21,6 +21,31 @@ class TaskServiceTest : public QObject {
         return repo.update(task.value,task.value.rowVersion);
     }
 private slots:
+    void widgetCategoryRangeUsesCanonicalOwnershipAndToday()
+    {
+        const QDate today(2026,11,5);QList<Task> tasks;
+        for(int i=0;i<220;++i){
+            Task task;task.id=QString::number(i);task.title=task.id;task.planningState=i%4==0?"SOMEDAY":"ACTIVE";
+            task.status=i%11==0?"COMPLETED":i%13==0?"CANCELLED":"OPEN";
+            task.areaId=i%3==0?"root":"";task.projectId=i%3==1?"child":"";
+            task.projectAreaId=task.projectId.isEmpty()?QString():QString("root");task.projectStatus="OPEN";task.projectPlanning="ACTIVE";
+            if(i%2)task.startOn=today.addDays(i%7-3);if(i%17==0)task.deletedAtUtc="deleted";
+            task.areaArchived=i%19==0;task.projectDeleted=i%23==0;task.syncRemoteDeletionPending=i%29==0;
+            if(i%5==0)task.parentTaskId="parent";tasks.append(task);
+        }
+        const auto original=tasks;
+        for(const QString context:{QString("today"),QString("area:root"),QString("project:root"),QString("project:child")})for(const bool todayOnly:{false,true}){
+            QSet<QString> expected,actual;
+            for(const auto& task:tasks)if(QueryService::inView(task,context,today) && (context=="today" || !todayOnly || QueryService::inView(task,"today",today)))expected.insert(task.id);
+            const auto selected=QueryService::selectWidget(tasks,context,todayOnly,today);
+            for(const auto& task:selected){QCOMPARE(task.listDepth,0);actual.insert(task.id);}
+            QCOMPARE(actual,expected);QCOMPARE(selected.size(),actual.size());
+        }
+        const auto all=QueryService::selectWidget(tasks,"project:child",false,today);
+        QVERIFY(std::any_of(all.cbegin(),all.cend(),[](const Task& task){return task.planningState=="SOMEDAY";}));
+        QVERIFY(QueryService::selectWidget(tasks,"all",false,today).isEmpty());
+        QVERIFY(QueryService::selectWidget(tasks,"project:",false,today).isEmpty());QCOMPARE(tasks,original);
+    }
     void indexedProjectionKeepsGroupingCollapseAndSearchSemantics()
     {
         const QDate today(2026,11,4);Task root;root.id="root";root.title="match root";root.sortOrder=2;

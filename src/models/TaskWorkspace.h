@@ -53,6 +53,19 @@ class TaskWorkspace : public QObject {
     QML_UNCREATABLE("Owned by AppRuntime")
     Q_PROPERTY(daymark::TaskListModel* tasks READ tasks CONSTANT)
     Q_PROPERTY(daymark::TaskListModel* todayTasks READ todayTasks CONSTANT)
+    Q_PROPERTY(daymark::TaskListModel* widgetTasks READ widgetTasks CONSTANT)
+    Q_PROPERTY(QString widgetContext READ widgetContext NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(QString widgetContextTitle READ widgetContextTitle NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(QString widgetRangeLabel READ widgetRangeLabel NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(QString widgetProfileToken READ widgetProfileToken NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(QString widgetBrowseKey READ widgetBrowseKey NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(QString widgetBrowseError READ widgetBrowseError NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(bool widgetPreferencesUnsaved READ widgetPreferencesUnsaved NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(bool widgetCategoryToday READ widgetCategoryToday NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(bool widgetShowShortcuts READ widgetShowShortcuts NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(QVariantList widgetCategories READ widgetCategories NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(QVariantList widgetShortcuts READ widgetShortcuts NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(QString firstWidgetTitle READ firstWidgetTitle NOTIFY widgetBrowseChanged)
     Q_PROPERTY(daymark::TaskListModel* deadlineTasks READ deadlineTasks CONSTANT)
     Q_PROPERTY(int dragDistance READ dragDistance CONSTANT)
     Q_PROPERTY(bool ready READ ready NOTIFY stateChanged)
@@ -100,6 +113,7 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(QVariantMap systemAccessibility READ systemAccessibility NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap backupInfo READ backupInfo NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap syncState READ syncState NOTIFY syncStateChanged)
+    Q_PROPERTY(QString officialSyncOrigin READ officialSyncOrigin CONSTANT)
     Q_PROPERTY(bool syncApplyPaused READ syncApplyPaused WRITE setSyncApplyPaused NOTIFY syncApplyPausedChanged)
 public:
     explicit TaskWorkspace(QObject* parent=nullptr);
@@ -107,6 +121,7 @@ public:
     void start(const QString& databasePath);
     QString databasePath() const {return m_path;}
     QVariantMap syncState() const {return m_syncState;}
+    QString officialSyncOrigin() const;
     bool syncApplyPaused()const{return m_syncApplyPaused;}
     void setSyncApplyPaused(bool paused){if(m_syncApplyPaused==paused)return;m_syncApplyPaused=paused;emit syncApplyPausedChanged();}
     void setSyncState(const QVariantMap& state){m_syncState=state;emit syncStateChanged();}
@@ -121,6 +136,32 @@ public:
     Q_INVOKABLE void syncResolveConflict(const QString& id,const QString& decision){emit syncActionRequested(QStringLiteral("resolve"),{{"conflict_id",id},{"decision",decision}});}
     TaskListModel* tasks() { return &m_tasks; }
     TaskListModel* todayTasks() { return &m_todayTasks; }
+    TaskListModel* widgetTasks() {return &m_widgetTasks;}
+    QString widgetContext() const {return m_widgetContext;}
+    QString widgetContextTitle() const;
+    QString widgetRangeLabel() const;
+    QString widgetProfileToken() const {return m_widgetProfileToken;}
+    QString widgetBrowseKey() const {return m_widgetContext==QStringLiteral("today")?m_widgetContext:m_widgetContext+QLatin1Char('/')+(m_widgetCategoryToday?QStringLiteral("today"):QStringLiteral("all"));}
+    QString widgetBrowseError() const {return m_widgetPreferenceError.isEmpty()?m_widgetNotice:m_widgetPreferenceError+(m_widgetNotice.isEmpty()?QString():QLatin1Char('\n')+m_widgetNotice);}
+    bool widgetPreferencesUnsaved() const {return !m_widgetPreferenceError.isEmpty();}
+    bool widgetCategoryToday() const {return m_widgetCategoryToday;}
+    bool widgetShowShortcuts() const {return m_widgetShowShortcuts;}
+    QVariantList widgetCategories() const;
+    QVariantList widgetShortcuts() const;
+    QString firstWidgetTitle() const {return m_widgetTasks.items().isEmpty()?QString():m_widgetTasks.items().first().title;}
+    Q_INVOKABLE bool setWidgetContext(const QString& key);
+    Q_INVOKABLE bool setWidgetCategoryToday(bool enabled);
+    Q_INVOKABLE void requestWidgetCategoryToday(bool enabled){emit widgetCategoryRangeRequested(enabled);}
+    Q_INVOKABLE bool setWidgetShowShortcuts(bool enabled);
+    Q_INVOKABLE bool setWidgetShortcut(const QString& key,bool enabled);
+    Q_INVOKABLE bool moveWidgetShortcut(const QString& key,int direction);
+    Q_INVOKABLE bool retryWidgetBrowsePreferences();
+    Q_INVOKABLE bool createWidgetTask(const QString& title,const QString& context,bool todayOnly,const QString& profileToken);
+    Q_INVOKABLE int widgetTaskIndex(const QString& id) const {return int(m_widgetRows.value(id,-1));}
+    Q_INVOKABLE bool canDropWidgetTask(const QString& source,const QString& target) const;
+    Q_INVOKABLE bool dropWidgetTask(const QString& source,const QString& target);
+    Q_INVOKABLE bool canMoveWidgetTask(const QString& id,int direction) const;
+    Q_INVOKABLE bool moveWidgetTask(const QString& id,int direction);
     TaskListModel* deadlineTasks() {return &m_deadlineTasks;}
     int dragDistance() const;
     bool ready() const { return m_ready; }
@@ -279,6 +320,9 @@ public:
     Q_INVOKABLE bool moveCatalog(const QString& kind,const QString& id,qint64 version,int direction);
     Q_INVOKABLE bool saveDetails(const QString& id,qint64 version,const QVariantMap& details);
 signals:
+    void widgetBrowseChanged();
+    void widgetContextChanging();
+    void widgetCategoryRangeRequested(bool enabled);
     void syncStateChanged();
     void syncApplyPausedChanged();
     void syncActionRequested(const QString& action,const QVariantMap& values);
@@ -305,6 +349,9 @@ private:
     bool begin(bool clearFeedback=true);
     QVariantMap eventMap(const CalendarEvent& event) const;
     void refresh(bool snapshotChanged=true);
+    void loadWidgetBrowsePreferences();
+    bool saveWidgetBrowsePreferences();
+    void refreshWidgetBrowse();
     const Task* cachedTask(const QString& id) const;
     bool canDropInView(const QString& source,const QString& target,const QString& view) const;
     bool dropInView(const QString& source,const QString& target,const QString& view);
@@ -318,7 +365,12 @@ private:
     bool runTransfer(const QString& operation,std::function<Result<QString>(TaskWorker&)> command);
     QThread m_thread;
     TaskWorker* m_worker=nullptr;
-    TaskListModel m_tasks, m_todayTasks,m_deadlineTasks;
+    TaskListModel m_tasks, m_todayTasks,m_deadlineTasks,m_widgetTasks;
+    QString m_widgetContext=QStringLiteral("today"),m_widgetProfileToken,m_widgetNotice,m_widgetPreferenceError;
+    bool m_widgetCategoryToday=false,m_widgetShowShortcuts=true,m_widgetShortcutsInitialized=false;
+    QStringList m_widgetShortcutKeys;
+    QVariantList m_widgetCatalog;
+    QHash<QString,qsizetype> m_widgetRows;
     QList<Task> m_cache;
     QHash<QString,qsizetype> m_taskIndex;
     QDateTime m_nextReminder;

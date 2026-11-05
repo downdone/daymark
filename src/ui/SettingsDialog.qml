@@ -178,6 +178,15 @@ ApplicationWindow {
                         }
                     }
                     SettingsGroup {
+                        heading:qsTr("任务组件 · 分类检索")
+                        detail:qsTr("小窗标题下的“分类”入口始终可用；今天入口不受此范围影响。")
+                        SettingsRow {
+                            label:qsTr("分类任务范围")
+                            ComboBox {objectName:"widgetCategoryRangeSetting";Layout.fillWidth:true;Accessible.name:qsTr("小窗分类任务范围");model:[qsTr("全部未完成"),qsTr("仅今天")];currentIndex:root.workspace.widgetCategoryToday?1:0;enabled:root.workspace.ready && !root.workspace.busy;onActivated:{root.workspace.requestWidgetCategoryToday(currentIndex===1);currentIndex=Qt.binding(function(){return root.workspace.widgetCategoryToday?1:0})}}
+                        }
+                        SettingsToggle {objectName:"widgetShowShortcutsSetting";separator:false;text:qsTr("显示常用分类");checked:root.workspace.widgetShowShortcuts;onClicked:root.workspace.setWidgetShowShortcuts(checked)}
+                      }
+                      SettingsGroup {
                         heading:qsTr("任务组件 · 窗口与交互")
                         detail:qsTr("鼠标穿透可从托盘或这里关闭；重启后恢复为可点击。")
                         SettingsRow {

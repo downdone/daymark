@@ -14,6 +14,9 @@ ApplicationWindow {
     signal syncRebuildRequested()
     signal dismissed()
     property bool syncRegisterMode: false
+    property int serviceMode:0
+    readonly property bool officialConfigured:workspace.officialSyncOrigin.length>0
+    readonly property string activeOrigin:serviceMode===0?workspace.officialSyncOrigin:syncOrigin.text
     property bool serverExpanded: true
     property bool showPassword: false
     property bool prefilled: false
@@ -21,7 +24,7 @@ ApplicationWindow {
     readonly property bool connected: !!workspace.syncState.authenticated
     readonly property bool connecting: !!workspace.syncState.busy
     readonly property bool validRegistration: Array.from(syncPassword.text).length >= 15 && syncConfirmPassword.text === syncPassword.text
-    readonly property bool canSubmit: !connecting && syncOrigin.text.trim().length > 0 && syncLogin.text.trim().length > 0 && syncPassword.text.length > 0 && (!syncRegisterMode || validRegistration)
+    readonly property bool canSubmit: !connecting && activeOrigin.trim().length > 0 && syncLogin.text.trim().length > 0 && syncPassword.text.length > 0 && (!syncRegisterMode || validRegistration)
     title: qsTr("账号 · Daymark")
     visible: false
     modality: Qt.WindowModal
@@ -47,7 +50,8 @@ ApplicationWindow {
         clearSecrets()
         const profileId = workspace.syncState.profile_id || ""
         if (!prefilled || profileId !== prefillProfileId) {
-            syncOrigin.text = workspace.syncState.server_origin || ""
+            const origin=workspace.syncState.server_origin || ""
+            if(origin){serviceMode=officialConfigured && origin===workspace.officialSyncOrigin?0:1;if(serviceMode===1)syncOrigin.text=origin}
             syncLogin.text = workspace.syncState.login_label || ""
             prefillProfileId = profileId; prefilled = true
         }
@@ -56,7 +60,7 @@ ApplicationWindow {
         x = Math.max(Screen.virtualX, Math.min(transientParent ? transientParent.x + (transientParent.width - width) / 2 : x, Screen.virtualX + Screen.width - width))
         y = Math.max(Screen.virtualY, Math.min(transientParent ? transientParent.y + (transientParent.height - height) / 2 : y, Screen.virtualY + Screen.height - height))
         show(); requestActivate()
-        Qt.callLater(function() { if (root.visible && !root.connected) { if (root.serverExpanded) syncOrigin.forceActiveFocus(); else if (!syncLogin.text) syncLogin.forceActiveFocus(); else syncPassword.forceActiveFocus() } })
+        Qt.callLater(function() { if (root.visible && !root.connected) { if (root.serviceMode===1 && root.serverExpanded) syncOrigin.forceActiveFocus(); else if (!syncLogin.text) syncLogin.forceActiveFocus(); else syncPassword.forceActiveFocus() } })
     }
     function close() { hide(); clearSecrets(); syncRegisterMode = false; dismissed(); if (transientParent) transientParent.requestActivate() }
     function reveal(item) {
@@ -71,11 +75,19 @@ ApplicationWindow {
     }
     function submit() {
         if (!canSubmit) return
-        if (syncRegisterMode) syncRegisterRequested(syncOrigin.text, syncLogin.text, syncPassword.text)
-        else syncLoginRequested(syncOrigin.text, syncLogin.text, syncPassword.text)
+        if (syncRegisterMode) syncRegisterRequested(activeOrigin, syncLogin.text, syncPassword.text)
+        else syncLoginRequested(activeOrigin, syncLogin.text, syncPassword.text)
         clearSecrets()
     }
     onSyncRegisterModeChanged: clearSecrets()
+    onServiceModeChanged:{
+        clearSecrets()
+        if(visible && !connected)Qt.callLater(function(){
+            // Do not let a queued provider change steal a later field focus.
+            if(!root.visible || root.connected || (root.activeFocusItem && root.activeFocusItem!==officialService && root.activeFocusItem!==customService))return
+            if(root.serviceMode===1 && root.serverExpanded)syncOrigin.forceActiveFocus();else syncLogin.forceActiveFocus()
+        })
+    }
     onVisibleChanged: if (!visible) clearSecrets()
     onClosing: function(event) { event.accepted = false; close() }
     onActiveFocusItemChanged: Qt.callLater(function() { root.reveal(root.activeFocusItem) })
@@ -86,7 +98,9 @@ ApplicationWindow {
             if (root.connected) {
                 root.clearSecrets(); root.syncRegisterMode = false
                 root.prefillProfileId = root.workspace.syncState.profile_id || ""; root.prefilled = true
-                syncOrigin.text = root.workspace.syncState.server_origin || ""
+                const origin=root.workspace.syncState.server_origin || ""
+                root.serviceMode=root.officialConfigured && origin===root.workspace.officialSyncOrigin?0:1
+                if(root.serviceMode===1)syncOrigin.text=origin
                 syncLogin.text = root.workspace.syncState.login_label || ""
                 root.serverExpanded = false
             }
@@ -122,7 +136,14 @@ ApplicationWindow {
                         visible: !root.connected
                         Layout.fillWidth: true
                         spacing: Theme.blockGap
+                        GridLayout {
+                            objectName:"accountServiceChoice";Layout.fillWidth:true;columns:width<320*Theme.scale?1:2;columnSpacing:Theme.fieldGap;rowSpacing:Theme.fieldGap
+                            Button {id:officialService;objectName:"accountOfficialService";Layout.fillWidth:true;Layout.minimumWidth:0;text:qsTr("官方账号登录");checkable:true;autoExclusive:true;checked:root.serviceMode===0;highlighted:checked;Accessible.description:checked?qsTr("当前登录方式"):qsTr("切换登录方式");enabled:!root.connecting;onClicked:root.serviceMode=0;KeyNavigation.right:customService;KeyNavigation.down:customService}
+                            Button {id:customService;objectName:"accountCustomService";Layout.fillWidth:true;Layout.minimumWidth:0;text:qsTr("自定义URL");checkable:true;autoExclusive:true;checked:root.serviceMode===1;highlighted:checked;Accessible.description:checked?qsTr("当前登录方式"):qsTr("切换登录方式");enabled:!root.connecting;onClicked:root.serviceMode=1;KeyNavigation.left:officialService;KeyNavigation.up:officialService}
+                        }
+                        Label {objectName:"accountOfficialExplanation";visible:root.serviceMode===0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:root.officialConfigured?Theme.secondary:Theme.danger;text:root.officialConfigured?qsTr("使用 Daymark 官方账号，在设备之间同步资料。"):qsTr("此构建未配置官方服务，请选择自定义URL连接你的服务器。");font.pixelSize:Theme.captionSize}
                         ColumnLayout {
+                            visible:root.serviceMode===1
                             Layout.fillWidth: true; spacing: Theme.fieldGap
                             RowLayout {
                                 Layout.fillWidth: true
@@ -167,7 +188,7 @@ ApplicationWindow {
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: Theme.fieldGap
                             Label { objectName: "accountIdentity"; Layout.fillWidth: true; text: root.workspace.syncState.login_label || ""; wrapMode: Text.WrapAnywhere; font.pixelSize: Theme.sectionSize; font.weight: Font.DemiBold }
-                            Label { Layout.fillWidth: true; text: root.workspace.syncState.server_origin || ""; wrapMode: Text.WrapAnywhere; color: Theme.secondary; font.pixelSize: Theme.captionSize }
+                            Label { Layout.fillWidth: true; text: root.officialConfigured && root.workspace.syncState.server_origin===root.workspace.officialSyncOrigin?qsTr("官方账号服务"):root.workspace.syncState.server_origin || ""; wrapMode: Text.WrapAnywhere; color: Theme.secondary; font.pixelSize: Theme.captionSize }
                         }
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: Theme.fieldGap

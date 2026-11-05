@@ -26,6 +26,7 @@ T.Menu {
     // A menu shared by Mini and the expanded widget must acquire a fresh anchor.
     property Item anchorItem: null
     property bool pointAnchor: false
+    property bool preserveSubmenuPosition: false
     property point sourcePoint: Qt.point(0,0)
     readonly property var anchorWindow: anchorItem ? anchorItem.Window.window : null
     readonly property var menuWindow: contentItem ? contentItem.Window.window : null
@@ -56,7 +57,7 @@ T.Menu {
         popup(root,position.x,position.y)
     }
     function refreshAnchor() {
-        if(!visible || nativePresented || !anchorItem || !parent)return
+        if(!visible || nativePresented || preserveSubmenuPosition || !anchorItem || !parent)return
         const at=anchorPosition(anchorItem)
         const position=parent.mapFromGlobal(anchorItem.mapToGlobal(at.x,at.y))
         x=position.x;y=position.y

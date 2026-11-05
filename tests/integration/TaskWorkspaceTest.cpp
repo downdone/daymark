@@ -9,6 +9,7 @@
 #include <QSqlQuery>
 #include <QElapsedTimer>
 #include <QSettings>
+#include <QDir>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -21,7 +22,80 @@
 using namespace daymark;
 class TaskWorkspaceTest : public QObject {
     Q_OBJECT
+    static QVariantMap addWidgetCategory(TaskWorkspace& workspace,const QString& title,const QString& parent={}) {
+        if(!workspace.saveCatalog({{"kind","project"},{"title",title},{"parentId",parent}}) || !daymark::test::awaitIdle(workspace))return {};
+        for(const auto& value:workspace.widgetCategories())if(value.toMap().value("title")==title)return value.toMap();
+        return {};
+    }
 private slots:
+    void widgetBrowseIsIndependentAndCreationKeepsOwnershipAtomic()
+    {
+        QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("widget-context.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));
+        const auto root=addWidgetCategory(workspace,"Work");QVERIFY(!root.isEmpty());
+        const auto child=addWidgetCategory(workspace,"Delivery",root.value("id").toString());QVERIFY(!child.isEmpty());
+        workspace.setView("all");workspace.setSearch("does not match");workspace.setTagFilter("missing");
+        QVERIFY(workspace.setWidgetContext(root.value("key").toString()));const auto token=workspace.widgetProfileToken();
+        QVERIFY(workspace.createWidgetTask("unscheduled",child.value("key").toString(),false,token));QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.widgetTasks()->rowCount(),1);QCOMPARE(workspace.todayTasks()->rowCount(),0);
+        const auto first=workspace.widgetTasks()->taskIdAt(0);const auto saved=workspace.task(first);
+        QCOMPARE(saved.value("projectId"),child.value("id"));QCOMPARE(saved.value("rowVersion").toLongLong(),1LL);QVERIFY(saved.value("startOn").toString().isEmpty());
+        QVERIFY(workspace.createWidgetTask("today",child.value("key").toString(),true,token));QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.widgetTasks()->rowCount(),2);QCOMPARE(workspace.todayTasks()->rowCount(),1);
+        QVERIFY(workspace.setWidgetCategoryToday(true));QCOMPARE(workspace.widgetTasks()->rowCount(),1);
+        QCOMPARE(workspace.widgetTasks()->taskIdAt(0),workspace.todayTasks()->taskIdAt(0));
+        QCOMPARE(workspace.view(),QString("all"));QTest::qWait(300);QCOMPARE(workspace.tasks()->rowCount(),0);
+        QCOMPARE(workspace.widgetTasks()->rowCount(),1);QVERIFY(!workspace.createWidgetTask("wrong profile","today",true,"other-profile"));
+        QVERIFY(!workspace.widgetBrowseError().isEmpty());QCOMPARE(workspace.todayTasks()->rowCount(),1);
+        QVERIFY(workspace.setWidgetCategoryToday(false));QVERIFY(workspace.setWidgetContext("today"));QCOMPARE(workspace.widgetTasks()->items(),workspace.todayTasks()->items());
+    }
+    void widgetPreferencesRestoreAndStayInsideTheirProfile()
+    {
+        QTemporaryDir directory;const auto path=directory.filePath("first.sqlite");QString context,token;
+        {
+            TaskWorkspace workspace;workspace.start(path);QVERIFY(daymark::test::awaitIdle(workspace));
+            const auto category=addWidgetCategory(workspace,"Private");QVERIFY(!category.isEmpty());context=category.value("key").toString();token=workspace.widgetProfileToken();
+            for(const auto& value:workspace.widgetShortcuts())QVERIFY(workspace.setWidgetShortcut(value.toMap().value("key").toString(),false));
+            QVERIFY(workspace.setWidgetContext(context));QVERIFY(workspace.setWidgetCategoryToday(true));QVERIFY(workspace.setWidgetShowShortcuts(false));
+        }
+        TaskWorkspace workspace;workspace.start(path);QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.widgetContext(),context);QVERIFY(workspace.widgetCategoryToday());QVERIFY(!workspace.widgetShowShortcuts());QVERIFY(workspace.widgetShortcuts().isEmpty());
+        bool finished=false,success=false;
+        workspace.switchSyncDatabase(directory.filePath("second.sqlite"),[&](Result<void> result){success=result.ok();finished=true;});
+        QTRY_VERIFY_WITH_TIMEOUT(finished,5000);QVERIFY(success);QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.widgetContext(),QString("today"));QVERIFY(!workspace.widgetCategoryToday());QVERIFY(workspace.widgetShowShortcuts());QVERIFY(workspace.widgetCategories().isEmpty());
+        QVERIFY(!workspace.createWidgetTask("must not leak","today",true,token));QCOMPARE(workspace.widgetTasks()->rowCount(),0);
+        finished=false;workspace.switchSyncDatabase(path,[&](Result<void> result){success=result.ok();finished=true;});
+        QTRY_VERIFY_WITH_TIMEOUT(finished,5000);QVERIFY(success);QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.widgetContext(),context);QCOMPARE(workspace.widgetProfileToken(),token);QVERIFY(workspace.widgetShortcuts().isEmpty());
+    }
+    void widgetArchiveFallbackAndLocalSortKeepOtherTasks()
+    {
+        QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("widget-sort.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));
+        auto category=addWidgetCategory(workspace,"Work");QVERIFY(!category.isEmpty());const auto context=category.value("key").toString();
+        const auto other=addWidgetCategory(workspace,"Other");QVERIFY(!other.isEmpty());QVERIFY(workspace.setWidgetContext(context));
+        const auto token=workspace.widgetProfileToken();QStringList outside;
+        for(const auto& name:{QString("first"),QString("outside-a"),QString("outside-b"),QString("last")}){
+            QVERIFY(workspace.createWidgetTask(name,name.startsWith("outside")?other.value("key").toString():context,true,token));QVERIFY(daymark::test::awaitIdle(workspace));
+        }
+        for(const auto& task:workspace.todayTasks()->items())if(task.title.startsWith("outside"))outside.append(task.id);
+        QVERIFY(workspace.setWidgetCategoryToday(true));QCOMPARE(workspace.widgetTasks()->rowCount(),2);
+        const auto last=workspace.widgetTasks()->taskIdAt(1);QVERIFY(workspace.moveWidgetTask(last,-1));QVERIFY(daymark::test::awaitIdle(workspace));QCOMPARE(workspace.widgetTasks()->taskIdAt(0),last);
+        QStringList after;for(const auto& task:workspace.todayTasks()->items())if(task.title.startsWith("outside"))after.append(task.id);QCOMPARE(after,outside);
+        QVERIFY(!workspace.canDropWidgetTask(last,outside.first()));
+        for(const auto& value:workspace.categoryTree())if(value.toMap().value("id")==category.value("id"))category=value.toMap();
+        category.insert("archived",true);QVERIFY(workspace.saveCatalog(category));QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.widgetContext(),QString("today"));QVERIFY(!workspace.widgetBrowseError().isEmpty());
+        const auto shortcuts=workspace.widgetShortcuts();QVERIFY(std::none_of(shortcuts.cbegin(),shortcuts.cend(),[&](const QVariant& value){return value.toMap().value("key")==context;}));
+    }
+    void widgetPreferenceWriteFailureKeepsBrowsingAndCanRetry()
+    {
+        QTemporaryDir directory;const auto path=directory.filePath("widget-write.sqlite");QVERIFY(QDir().mkdir(path+".widget.ini"));
+        TaskWorkspace workspace;workspace.start(path);QVERIFY(daymark::test::awaitIdle(workspace));const auto category=addWidgetCategory(workspace,"Work");QVERIFY(!category.isEmpty());
+        QVERIFY(workspace.setWidgetContext(category.value("key").toString()));QVERIFY(workspace.widgetPreferencesUnsaved());QVERIFY(!workspace.retryWidgetBrowsePreferences());
+        QCOMPARE(workspace.widgetContext(),category.value("key").toString());QVERIFY(QDir().rmdir(path+".widget.ini"));
+        QVERIFY(workspace.retryWidgetBrowsePreferences());QVERIFY(!workspace.widgetPreferencesUnsaved());
+        QSettings saved(path+".widget.ini",QSettings::IniFormat);QCOMPARE(saved.value("context").toString(),workspace.widgetContext());
+    }
     void navigationLeavesIndependentModelsStableUntilDataChanges()
     {
         QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("navigation.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));

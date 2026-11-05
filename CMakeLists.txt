@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 1.8.0 LANGUAGES CXX)
-set(DAYMARK_VERSION "1.8.0")
+project(Daymark VERSION 2.0.0 LANGUAGES CXX)
+set(DAYMARK_VERSION "2.0.0")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,6 +9,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options($<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/utf-8>)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 include(CTest)
+
+set(DAYMARK_OFFICIAL_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/config/official-service.local.txt" CACHE FILEPATH "Local official service configuration (never committed)")
+include(cmake/OfficialService.cmake)
+daymark_generate_official_service("${DAYMARK_OFFICIAL_CONFIG}" "${CMAKE_CURRENT_BINARY_DIR}/generated/OfficialServiceConfig.h")
 
 find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Widgets Sql Network)
 qt_standard_project_setup(REQUIRES 6.10)
@@ -49,7 +53,7 @@ add_library(daymark_core STATIC
     src/services/RecurrenceService.h src/services/RecurrenceService.cpp
     src/persistence/DataTransfer.h src/persistence/DataTransfer.cpp
 )
-target_include_directories(daymark_core PUBLIC src)
+target_include_directories(daymark_core PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(daymark_core PUBLIC Qt6::Core Qt6::Sql)
 qt_add_resources(daymark_core daymark_schema PREFIX "/daymark" FILES src/persistence/migrations/001_init.sql src/persistence/migrations/002_area_archive.sql src/persistence/migrations/003_calendar_events.sql src/persistence/migrations/004_event_series.sql
         src/persistence/migrations/005_categories.sql
@@ -146,6 +150,10 @@ else()
 endif()
 
 if(BUILD_TESTING)
+    add_test(NAME official_service_config COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR} -DTEST_OUTPUT=${CMAKE_CURRENT_BINARY_DIR}/config-tests
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/OfficialServiceConfigTest.cmake)
+    set_tests_properties(official_service_config PROPERTIES LABELS "package" TIMEOUT 30)
     find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Test)
     qt_add_executable(test_brand_assets tests/integration/BrandAssetsTest.cpp src/platform/common/BrandIcons.cpp)
     target_include_directories(test_brand_assets PRIVATE src)
