@@ -1,5 +1,9 @@
 # Daymark 实施进度
-### UX-79 关于页产品说明（2026-11-05，IN_PROGRESS）
+### UX-79 关于页产品说明（2026-11-05，WINDOWS-PASS / PACKAGE-PASS）
+
+最终干净交付提交ea2abd583ce148e8e9e5122644cff9b2a584e35b，Qt6.10.2 Release、两项QML lint及标准完整32/32 CTest PASS（361.79秒），desktop_surfaces 57.27秒、末段watchdog 94.31秒；原始31/32失败证据仍保留。标准非预览便携包的SDK隔离完整原生smoke/运行全周期DLL来源/版本/清单/ZIP内容与SHA256全部通过。额外使用包内程序进行Windows品牌/关于页原生专项PASS（4853ms、3窗、warnings=false），实际截图目视确认新说明完整显示、换行与既有布局正常；无真实任务/账号数据操作。
+
+交付Daymark-2.0.0-windows-x64-local-20261105-120123.zip，39,899,191字节，SHA256 8a1dc83af0b9c2154b931583f51bb55373d87879e33d96159d984a50baa98cc8，exe SHA256 63fc1c1e05253a32f9bcc858fbd597ffd6489bb606ea80380cc622414ac51288。BUILD-INFO记录上述源码SHA、localPreview=false/fullTestGatePassed=true/knownTestFailures=[]；根dist副本散列一致、启动器已指向新包，旧包保留。内置IP仍仅从Git忽略的本地配置读取，账号/同步/数据库行为和版本2.0.0不变；包不包含用户数据库/备份/私有配置文件。只推送已授权源码，不自动打tag或上传Qt二进制，两份CI本地改动保留。未签名、macOS本轮/物理多屏/读屏/独立干净机保持UNVERIFIED；此后仅验证文档变更，不改变包归属。
 
 第一轮标准门禁31/32通过（363.78秒），失败为既有desktop_surfaces阶段232的小窗删除/撤销，关于页阶段及独立品牌用例通过。失败证据为删除项可见且位于y=192，但Popup逻辑高度仅12、窗口仍226、命中nullptr，输入落外部并关闭菜单；不是文案断言失败。探针阶段231在输入前抓取真实Popup帧并检查逻辑高度/实际命中区域，最长使用既有1.5秒就绪预算，保持删除/撤销全部断言、不开菜单重试、不提高全局预算。定向widget-actions链通过（8581ms、3窗、warnings=false），实际高度226且命中QQuickPopupItem；继续以修正后的干净提交打包。最初误读“进入下一项”为上一项通过，已向用户纠正，原失败日志保留，不标全量PASS。
 
