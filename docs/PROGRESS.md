@@ -1,5 +1,11 @@
 # Daymark 实施进度
-### REL-2.0 官方/自定义账号与完整交付（2026-11-05，IN_PROGRESS）
+### REL-2.0 官方/自定义账号与完整交付（2026-11-05，LOCAL-PASS / SOURCE-READY）
+
+最终交付源码合并远端1.8.1，固定5e5b6f64cab400cc618c40dd2189c187c199d206，干净独立工作树、官方开源Qt6.10.2、Release构建；标准完整CTest 32/32 PASS（372.22秒），含desktop_surfaces 56.45秒、account_access 11.14秒、qml_startup 51.34秒、末段watchdog 103.96秒。两项QML lint无诊断、94份QML样式/四主题颜色、180份文档链接及源码发布隐私守卫通过。未提高阈值或循环重试完整测试。末段watchdog为预期失败检测，不代表应用正常启动需等待该时长。
+
+标准非预览Windows便携包Daymark-2.0.0-windows-x64-local-20261105-104450.zip，39,897,501字节，SHA256 a2a4c8310a0418a9aa9d3f35e16b5eae4302461ba22843877169b6e71bbddfe0。SDK隔离完整原生smoke、运行全周期DLL来源审计、版本/清单/ZIP内容校验PASS，包内BUILD-INFO标识2.0.0、上述源码SHA、localPreview=false/fullTestGatePassed=true/knownTestFailures=[]；exe SHA256 a0d9719eb05062cc840dcee03dfd553550df94c07df8d1a17ab14a901de02cb4。复制到根dist后散列一致，启动器已指向新包。包内程序额外完成Windows账号专项（11539ms、3窗、warnings=false），最终截图目视确认官方选择态和无URL输入。包与二进制未签名、未上传；macOS本轮UI、物理多屏/读屏/独立干净机及完整再分发验收保持UNVERIFIED。此后记录改动仅文档，不改变包内二进制归属。
+
+本地隐私清理：删除13份本轮部署留存（配置/脚本、SSH known_hosts、原始服务及Qt联调日志、上传二进制）；删除本轮临时目录内7份合成测试残留；核对名称及SHA256前缀后，从当前用户Root移除此前导入的Daymark WSL local verification CA，正式公网服务使用系统信任的正式证书。源码及待推送可达历史未检出真实部署域名/IP、提供的口令或本机用户路径；config/official-service.local.txt仍被Git忽略并作为唯一手工维护来源，公开仅README/示例。本地程序和构建生成文件自然包含运行地址，不宣称二进制隐藏地址。保留用户任务库、平台审计/会话记录、无关未提交工作；两份CI配置未改动，等同远端1.8.1的包装脚本通过可恢复stash核对后合并。自动审批曾拒绝未先核对的hard-reset方案，最终使用先检查/stash再普通switch/merge；未强制覆盖工作树或远端。源码将按用户授权非强制推送main，不自动打新tag/创建Release，最终远端结果以实际Git核对为准。
 
 分类切片离屏最终通过；Windows原生窗口/QML后备菜单分类专项通过，实际浅色/深色200%、260宽导航与选择页PNG已目视检查。原生账号专项通过（3窗、warnings=false，11703ms），覆盖官方无URL/自定义保留、注册错误/忙碌/成功及资料；截图复审补强服务选择的选中底色/字重与辅助状态，最终完整门禁将覆盖。菜单默认系统Native会阻塞Qt探针定时器，Windows后备专项显式使用既有DAYMARK_SMOKE_MENU_FALLBACK；不将其写成系统原生子菜单输入已验收。过程中固定键数导航失败改为按菜单命令身份遍历（不重开菜单/不提高预算）；返回窗口后显式激活焦点；最终失败曾仅因测试截图路径无扩展名无法编码，改为PNG后通过；分类功能断言均通过。发布守卫14项在默认沙箱临时目录失败，改项目内临时目录/正常用户权限后14/14通过；不把环境失败隐去。
 
@@ -17,7 +23,7 @@ UX-77/78已实现，查询23/23、工作区43通过/1真实外部夹具未配置
 
 公网HTTP挑战路径从Windows验证成功，HTTP→HTTPS 308正确；服务本机严格TLS的live/ready为ok。Windows curl Schannel因本机在线吊销检查网络不可达返回CRYPT_E_REVOCATION_OFFLINE，未关闭证书检查或导入新CA；随后真实生产Qt VerifyPeer/系统默认信任的accountSyncRealServer external用例通过（3/3含夹具、16087ms），涵盖合成注册/登录、双Qt工作区双向复制、离线恢复/退出零网络、冲突及重复后继。口令随机仅进程内使用，未操作用户任务；合成账号数据按账号隔离。实际部署参数、失败记录及访问地址在忽略的deployment-state.json/日志内；已退出SSH，托管服务独立运行。UX-77继续推进，未推GitHub或上传客户端数据。
 
-### UX-77 小窗分类入口与导航重设计（2026-11-05，IN_PROGRESS）
+### UX-77 小窗分类入口与导航重设计（2026-11-05，IMPLEMENTED / WINDOWS-AUTO-PASS）
 
 用户询问分类入口并要求分析参考图意图、先设计后实现。已明确当前UX-72仅设计没有入口；沿用用户已确认的分类默认全部未完成/设置可选今天。先对比外侧页签、内置侧栏与标题下常用导航，选择常驻“今天/常用/分类”导航及同窗口实体选择页，保留正文宽度和稳定原生画布，球/Mini共用上下文；不照搬透明折纸/无明确语义红点。范围FR-012/026/043、UX-09～13及P-02/03/05/13～21，详见design/widget-category-quick-find.md的v2契约。随后按查询、独立浏览状态/资料偏好、原位命令及QML切片实现和定向验证；不改编译/CI脚本、用户数据库、版本或默认发布。
 
