@@ -79,6 +79,10 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     }
 
     auto* widgetWindow = m_engine.rootObjects().first()->findChild<QQuickWindow*>(QStringLiteral("widgetWindow"));
+    if(smokeTest && smokeProfile.isEmpty() && widgetWindow)
+        for(const auto* name:{"widgetMenu","widgetTaskMenu"})
+            if(auto* menu=widgetWindow->findChild<QObject*>(QString::fromLatin1(name)))
+                QMetaObject::invokeMethod(menu,"useWindowFallbackForVerification");
     m_widget.configureSettings(QDir(directory).filePath(QStringLiteral("ui.ini")));
     if (!m_widget.attachWindow(widgetWindow)) {
         if (!smokeTest)

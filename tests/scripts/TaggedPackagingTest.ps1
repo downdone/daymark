@@ -7,6 +7,9 @@ $function=$ast.Find({param($node) $node -is [Management.Automation.Language.Func
 if(!$function){throw 'Release executable resolver missing'}
 # Load only the real pure resolver, without deploying or running any executable.
 . ([scriptblock]::Create($function.Extent.Text))
+$checksum=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Write-DaymarkArchiveChecksum'},$true)
+if(!$checksum){throw 'Archive checksum writer missing'}
+. ([scriptblock]::Create($checksum.Extent.Text))
 $fixture=Join-Path ([IO.Path]::GetTempPath()) ('daymark-tagged-layout-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
 try {
@@ -28,7 +31,13 @@ try {
         try {$null=Get-DaymarkReleaseExecutable $build} catch {$rejected=$true}
         if(!$rejected){throw 'Missing, Debug-only or ambiguous output was admitted'}
     }
+    $archive=Join-Path $fixture 'synthetic.zip'
+    [IO.File]::WriteAllBytes($archive,[byte[]](0,1,2,3))
+    Write-DaymarkArchiveChecksum $archive
+    $text=[IO.File]::ReadAllText("$archive.sha256")
+    if($text.Contains("`r") -or !$text.EndsWith("  synthetic.zip`n") -or $text.Substring(0,64) -cne (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()){throw 'Checksum must preserve the archive hash and portable LF filename'}
     'PASS: MSVC/Ninja Release layouts; reject missing, Debug-only and ambiguous output'
+    'PASS: checksum basename, SHA256 and LF on Windows'
 } finally {
     $resolved=[IO.Path]::GetFullPath($fixture)
     $tempRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar

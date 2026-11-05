@@ -75,6 +75,6 @@ Windows 与 macOS 是工程目标。CI 在两端执行构建、完整 CTest 与 
 - [详细设计](docs/design/architecture.md)、[模块契约](docs/design/contracts.md)。
 - UI：[调研](docs/design/ui-research.md)、[设计基准](docs/design/ui-baseline.md)、[验收](docs/design/ui-acceptance.md)。
 - [里程碑](docs/milestones.md)、[平台矩阵](docs/platform-test-matrix.md)、[发布规则](docs/release-policy.md)。
-- 发行说明：[1.8.0](docs/release-notes-v1.8.0.md)。
+- 发行说明：[1.8.1](docs/release-notes-v1.8.1.md)。
 
 Things 仅为交互原则参考，未复制其图标、字体或二进制资产。
