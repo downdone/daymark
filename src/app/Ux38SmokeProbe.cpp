@@ -1024,6 +1024,16 @@ QString Ux38SmokeProbe::advance() {
     if(m_stage==231){
         auto* menu=find(m_widget,"widgetTaskMenu");if(!menu->property("visible").toBool())return fail("keyboard task context");
         auto* item=qobject_cast<QQuickItem*>(find(menu,"widgetTaskDelete"));
+        // Popup visibility can precede its first layout/render after reparenting.
+        // Present the actual popup and wait for a reachable hit area before input;
+        // never reopen the menu or skip the deletion/undo assertions.
+        if(!item || !item->window())return fail("delete menu item missing");
+        auto* popup=item->window();popup->grabWindow();
+        const auto center=item->mapToScene(QPointF(item->width()/2,item->height()/2));
+        if(menu->property("height").toDouble()<center.y()+item->height()/2 || !popup->contentItem()->childAt(center.x(),center.y())){
+            if(m_wait.elapsed()<1500)return {};
+            return fail("delete menu has no presented hit area");
+        }
         qInfo()<<"Widget delete input"<<(item?item->isVisible():false)<<(item?item->isEnabled():false)<<(item?item->size():QSizeF())<<(item?item->mapToScene(QPointF()):QPointF())<<"context"<<m_widget->property("contextTask").toMap().value("taskId");
         if(item && item->window())qInfo()<<"Widget delete window"<<item->window()->geometry()<<"scale"<<m_workspace.textScale()<<"menu"<<menu->property("width")<<menu->property("height")<<"hit"<<item->window()->contentItem()->childAt(item->mapToScene(QPointF(item->width()/2,item->height()/2)).x(),item->mapToScene(QPointF(item->width()/2,item->height()/2)).y());
         click("widgetTaskDelete",menu);
