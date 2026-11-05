@@ -86,7 +86,7 @@ func TestRegistrationIsAtomicConcurrentAndNeverReplacesIdentity(t *testing.T) {
 func TestRegistrationRejectsInvalidInputBeforeCreatingRows(t *testing.T) {
 	f := newFixture(t)
 	for _, c := range []struct{ name, password string }{
-		{"new-account", "short"}, {"new-account", strings.Repeat("🔑", 14)},
+		{"new-account", "1234567"}, {"new-account", strings.Repeat("🔑", 7)},
 		{"new-account", strings.Repeat("字", 400)}, {"invalid account", "long-valid-password"},
 		{"Kelvin", "long-valid-password"},
 	} {
@@ -103,8 +103,34 @@ func TestRegistrationRejectsInvalidInputBeforeCreatingRows(t *testing.T) {
 	}); e != nil {
 		t.Fatal(e)
 	}
-	if e := f.auth.Register(t.Context(), "unicode-password", []byte(strings.Repeat("🔑", 15))); e != nil {
+	if e := f.auth.Register(t.Context(), "unicode-password", []byte(strings.Repeat("🔑", 8))); e != nil {
 		t.Fatal("unicode password rejected", e)
+	}
+}
+
+func TestEightCharacterPasswordRegisterLoginAndReset(t *testing.T) {
+	f := newFixture(t)
+	const name = "eight-character-account"
+	const password = "12345678"
+	if e := f.auth.Register(t.Context(), name, []byte(password)); e != nil {
+		t.Fatal("eight characters must register", e)
+	}
+	input := LoginInput{1, name, password, domain.StableID("eight-character-device"), "test", "windows"}
+	if _, e := f.auth.Login(t.Context(), input); e != nil {
+		t.Fatal("eight-character account must log in", e)
+	}
+	if e := f.auth.ResetPasswordAdmin(t.Context(), name, []byte("1234567")); domain.Code(e) != "validation_failed" {
+		t.Fatal("seven-character reset accepted", e)
+	}
+	if _, e := f.auth.Login(t.Context(), input); e != nil {
+		t.Fatal("rejected reset changed old password", e)
+	}
+	if e := f.auth.ResetPasswordAdmin(t.Context(), name, []byte("abcdefgh")); e != nil {
+		t.Fatal("eight-character reset rejected", e)
+	}
+	input.Password = "abcdefgh"
+	if _, e := f.auth.Login(t.Context(), input); e != nil {
+		t.Fatal("reset password cannot log in", e)
 	}
 }
 

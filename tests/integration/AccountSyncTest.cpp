@@ -128,7 +128,9 @@ int run() {
         system.read(credentialId).value != synthetic || !system.remove(credentialId).ok() ||
         !system.read(credentialId).value.isEmpty())
         return failed("native credential write/read/delete");
-    QTemporaryDir temporary;
+    // Account profiles add a SHA-256 directory and a daily-snapshot filename.
+    // Keep this fixture's prefix short enough for SQLite's Windows path limit.
+    QTemporaryDir temporary(QDir::tempPath()+QStringLiteral("/dm-sync-XXXXXX"));
     if (!temporary.isValid())
         return failed("temporary directory");
     const auto dirA = temporary.filePath("a"), dirB = temporary.filePath("b");

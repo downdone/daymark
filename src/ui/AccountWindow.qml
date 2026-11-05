@@ -23,7 +23,7 @@ ApplicationWindow {
     property string prefillProfileId: ""
     readonly property bool connected: !!workspace.syncState.authenticated
     readonly property bool connecting: !!workspace.syncState.busy
-    readonly property bool validRegistration: Array.from(syncPassword.text).length >= 15 && syncConfirmPassword.text === syncPassword.text
+    readonly property bool validRegistration: Array.from(syncPassword.text).length >= 8 && syncConfirmPassword.text === syncPassword.text
     readonly property bool canSubmit: !connecting && activeOrigin.trim().length > 0 && syncLogin.text.trim().length > 0 && syncPassword.text.length > 0 && (!syncRegisterMode || validRegistration)
     title: qsTr("账号 · Daymark")
     visible: false
@@ -164,7 +164,7 @@ ApplicationWindow {
                             Label { text: qsTr("密码"); font.pixelSize: Theme.bodySize }
                             RowLayout {
                                 Layout.fillWidth: true; spacing: Theme.fieldGap
-                                TextField { id: syncPassword; objectName: "syncPassword"; Layout.fillWidth: true; placeholderText: root.syncRegisterMode ? qsTr("至少15个字符") : qsTr("输入密码"); Accessible.name: qsTr("密码"); echoMode: root.showPassword ? TextInput.Normal : TextInput.Password; enabled: !root.connecting; onAccepted: { if (root.syncRegisterMode) syncConfirmPassword.forceActiveFocus(); else root.submit() } }
+                                TextField { id: syncPassword; objectName: "syncPassword"; Layout.fillWidth: true; placeholderText: root.syncRegisterMode ? qsTr("至少8个字符") : qsTr("输入密码"); Accessible.name: qsTr("密码"); echoMode: root.showPassword ? TextInput.Normal : TextInput.Password; enabled: !root.connecting; onAccepted: { if (root.syncRegisterMode) syncConfirmPassword.forceActiveFocus(); else root.submit() } }
                                 WidgetAction { objectName: "accountShowPassword"; symbol: "eye"; description: root.showPassword ? qsTr("隐藏密码") : qsTr("显示密码"); enabled: !root.connecting; checked: root.showPassword; onClicked: root.showPassword = !root.showPassword }
                             }
                         }
@@ -172,7 +172,7 @@ ApplicationWindow {
                             visible: root.syncRegisterMode; Layout.fillWidth: true; spacing: Theme.fieldGap
                             Label { text: qsTr("确认密码"); font.pixelSize: Theme.bodySize }
                             TextField { id: syncConfirmPassword; objectName: "syncConfirmPassword"; Layout.fillWidth: true; placeholderText: qsTr("再次输入密码"); Accessible.name: qsTr("确认密码"); echoMode: root.showPassword ? TextInput.Normal : TextInput.Password; enabled: !root.connecting; onAccepted: root.submit() }
-                            Label { objectName: "accountPasswordHint"; Layout.fillWidth: true; wrapMode: Text.Wrap; text: syncConfirmPassword.text.length > 0 && syncConfirmPassword.text !== syncPassword.text ? qsTr("两次密码不一致，请重新确认。") : qsTr("密码至少15个字符。请妥善保存，当前不提供邮件找回。"); color: syncConfirmPassword.text.length > 0 && syncConfirmPassword.text !== syncPassword.text ? Theme.danger : Theme.secondary; font.pixelSize: Theme.captionSize }
+                            Label { objectName: "accountPasswordHint"; Layout.fillWidth: true; wrapMode: Text.Wrap; text: syncConfirmPassword.text.length > 0 && syncConfirmPassword.text !== syncPassword.text ? qsTr("两次密码不一致，请重新确认。") : qsTr("密码至少8个字符。请妥善保存，当前不提供邮件找回。"); color: syncConfirmPassword.text.length > 0 && syncConfirmPassword.text !== syncPassword.text ? Theme.danger : Theme.secondary; font.pixelSize: Theme.captionSize }
                         }
                         Label { objectName: "accountError"; visible: !root.connecting && !!root.workspace.syncState.safe_error_code; Layout.fillWidth: true; wrapMode: Text.Wrap; text: root.workspace.syncState.status || ""; color: Theme.danger; font.pixelSize: Theme.bodySize; Accessible.role: Accessible.AlertMessage }
                         ColumnLayout {

@@ -18,7 +18,7 @@ TokenPair = {AccessToken, RefreshToken, AccessExpiresAt, RefreshExpiresAt, Sessi
 
 注入AccountReader、UnitOfWork、PasswordHasher、TokenSource、Clock、KdfGate、LoginRateLimiter。AdminCapability来自受控维护命令，不能从普通HTTP参数创建。会话列表只显示安全的设备标签、创建/过期/撤销状态，不返回token摘要。
 
-登录名trim后ASCII小写，允许`[a-z0-9._@+-]`、3～254字符；它是账号名，不代表已验证邮箱。密码不trim/正规化，设计默认12～1024 UTF-8字节；管理员建号同一规则。若产品更改口令政策，应修改单一配置及边界用例，不能客户端/服务端各写一套限制。
+登录名trim后ASCII小写，允许`[a-z0-9._@+-]`、3～254字符；它是账号名，不代表已验证邮箱。密码不trim/正规化，至少8个Unicode字符、最多1024 UTF-8字节；管理员建号同一规则。若产品更改口令政策，应修改单一配置及边界用例，不能客户端/服务端各写一套限制。
 
 PasswordHasher接口为`Hash(password)->PHC`、`Verify(PHC,password)->bool/error`、`NeedsRehash(PHC)->bool`。Argon2id采用独立16-byte盐、32-byte输出和版本化PHC编码；候选初值memory=64MiB/time=3/parallelism=1，目标机校准；解析输入设上限防止损坏PHC要求无限内存。真实密码算法组件单独测，业务UT用FakeHasher，不在每条逻辑UT执行昂贵KDF。[Go Argon2接口](https://pkg.go.dev/golang.org/x/crypto/argon2)
 

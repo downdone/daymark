@@ -42,7 +42,7 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	password := "synthetic-isolated-password"
+	password := "12345678" // Exercise the product's exact minimum through real Qt TLS registration/login.
 	for _, login := range []string{"second@example.invalid"} {
 		if _, e = auth.CreateUser(ctx, login, []byte(password)); e != nil {
 			t.Fatal(e)

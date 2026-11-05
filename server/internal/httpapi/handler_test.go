@@ -84,7 +84,7 @@ func TestTLSLoginAtomicPushPullAndProtocolErrors(t *testing.T) {
 	if cap["protocol_version"] != float64(1) {
 		t.Fatal("capability")
 	}
-	registration := []byte(`{"protocol_version":1,"login":" Synthetic@Example.Invalid ","password":"synthetic-password"}`)
+	registration := []byte(`{"protocol_version":1,"login":" Synthetic@Example.Invalid ","password":"12345678"}`)
 	if status, _ = request("POST", "/v1/auth/register", "", registration); status != 204 {
 		t.Fatal("registration", status)
 	}
@@ -104,7 +104,7 @@ func TestTLSLoginAtomicPushPullAndProtocolErrors(t *testing.T) {
 		t.Fatal("registration limit bypassed", status)
 	}
 	installation := domain.StableID("tls-installation")
-	login, _ := json.Marshal(application.LoginInput{ProtocolVersion: 1, Login: "synthetic@example.invalid", Password: "synthetic-password", InstallationID: installation, DeviceName: "TLS test", Platform: "windows"})
+	login, _ := json.Marshal(application.LoginInput{ProtocolVersion: 1, Login: "synthetic@example.invalid", Password: "12345678", InstallationID: installation, DeviceName: "TLS test", Platform: "windows"})
 	status, raw = request("POST", "/v1/auth/login", "", login)
 	if status != 200 {
 		t.Fatal("login", status)

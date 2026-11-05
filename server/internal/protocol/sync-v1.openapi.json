@@ -6066,7 +6066,7 @@
             "minLength": 1,
             "maxLength": 1024,
             "writeOnly": true,
-            "description": "Policy checks UTF-8 byte length 12..1024 without trimming or Unicode normalization."
+            "description": "Policy requires at least 8 Unicode code points and at most 1024 UTF-8 bytes without trimming or Unicode normalization."
           }
         },
         "required": [
@@ -6951,10 +6951,10 @@
           },
           "password": {
             "type": "string",
-            "minLength": 15,
+            "minLength": 8,
             "maxLength": 1024,
             "writeOnly": true,
-            "description": "15 or more Unicode code points; at most 1024 UTF-8 bytes. Never truncated."
+            "description": "8 or more Unicode code points; at most 1024 UTF-8 bytes. Never truncated."
           }
         },
         "required": [

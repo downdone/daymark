@@ -1,4 +1,12 @@
 # Daymark 实施进度
+### AUTH-08 注册登录故障与8字符密码（2026-11-05，IN_PROGRESS）
+
+公网IP正式Let's Encrypt YE2证书签发成功，SAN为IP、到期2026-11-11 18:21:01 UTC；Nginx新增IP默认TLS入口，原域名入口保留。Windows curl/Qt均使用系统默认信任严格验证成功，未改HTTP/ignoreSslErrors/自签CA。Certbot timer启用，IP renew --dry-run --run-deploy-hooks通过并实际校验/重载Nginx。停旧服务后生成并验证一致性加密备份，再原子切换新服务二进制99529f1076eeb08acb03c222808cbe5565fc07b796faaf4a1b92d8ed70003f71及public_origin；原数据/密钥不覆盖、旧版本可回滚，NRestarts=0。本地唯一官方配置已切到IP，未进入Git。Windows真实公网Qt external用随机8字符口令完成注册/登录、两个工作区的双向同步、离线恢复、冲突/周期后继及凭据清理，3/3通过、10288ms。完整长链/最终便携包继续收尾。
+
+已确认公网中途拦截：源站网卡捕获Nginx返回308到HTTPS，Windows收到302至腾讯云webblock，HTTPS被reset；A记录正确、源站严格HTTPS健康检查200。用户确认域名未备案并明确授权先改IP确保服务。开始签发公网IP的正式短期证书、保留域名vhost及数据、切换本地编译地址和服务public_origin，实际注册/登录/同步验证后交付修复包。客户端工作区/数据契约/账号UI定向3/3通过（26.62秒），含真实TCP断连消息与本地数据保留、7/8/Unicode边界；Go业务测试通过。真实Qt↔Go长链首次通过8字符注册/双端复制但账户切换阶段backupFailed，已确认测试根56字符时账户日备份路径266字符超过Windows限制，夹具改用短前缀临时目录验证，不扩大等待阈值、不删断言；旧失败保留。
+
+用户反馈2.0官方注册/登录网络错误，要求密码最少8位。先使用随机合成账号和临时库复现：真实Qt对公网服务失败于首次导入，safe_error_code=syncNetworkError；便携包实际Schannel只读健康探针HTTP0/network2（Connection closed），并非已证实密码验证失败。继续检查部署服务/TLS入口，再修复具体原因，不关闭证书校验。规则统一为至少8个Unicode字符、最多1024 UTF-8字节，客户端表单、共享OpenAPI、Go注册/改密/维护入口及提示一致；保留旧账号口令可登录、不修改用户密码/资料。补7/8边界、Unicode、失败零写入与实际Qt↔Go验证，更新服务及本地修复包；不动现有CI工作。
+
 ### REL-2.0 官方/自定义账号与完整交付（2026-11-05，LOCAL-PASS / SOURCE-READY）
 
 最终交付源码合并远端1.8.1，固定5e5b6f64cab400cc618c40dd2189c187c199d206，干净独立工作树、官方开源Qt6.10.2、Release构建；标准完整CTest 32/32 PASS（372.22秒），含desktop_surfaces 56.45秒、account_access 11.14秒、qml_startup 51.34秒、末段watchdog 103.96秒。两项QML lint无诊断、94份QML样式/四主题颜色、180份文档链接及源码发布隐私守卫通过。未提高阈值或循环重试完整测试。末段watchdog为预期失败检测，不代表应用正常启动需等待该时长。

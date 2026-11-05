@@ -10,6 +10,9 @@
 #include <QElapsedTimer>
 #include <QSettings>
 #include <QDir>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QScopeGuard>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -28,6 +31,33 @@ class TaskWorkspaceTest : public QObject {
         return {};
     }
 private slots:
+    void authenticationDisconnectIsActionableAndPreservesLocalData()
+    {
+        QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("disconnect.sqlite"));
+        QVERIFY(daymark::test::awaitIdle(workspace));QVERIFY(workspace.createTask("local-only"));QVERIFY(daymark::test::awaitIdle(workspace));
+        const auto identity=workspace.tasks()->taskIdAt(0);const auto originalPath=workspace.databasePath();
+        daymark::test::sync_account::MemoryCredentials credentials;
+        sync::Coordinator coordinator(workspace,directory.path(),credentials);
+        QTRY_VERIFY(workspace.syncState().contains("mode"));
+        QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost));
+        int requests=0;
+        connect(&server,&QTcpServer::newConnection,&server,[&]{
+            auto* socket=server.nextPendingConnection();
+            connect(socket,&QTcpSocket::disconnected,socket,&QObject::deleteLater);
+            connect(socket,&QTcpSocket::readyRead,socket,[&,socket]{socket->readAll();++requests;socket->disconnectFromHost();});
+        });
+        const auto previous=qgetenv("DAYMARK_SYNC_ALLOW_LOOPBACK_HTTP");qputenv("DAYMARK_SYNC_ALLOW_LOOPBACK_HTTP","1");
+        const auto restoreEnvironment=qScopeGuard([&]{if(previous.isNull())qunsetenv("DAYMARK_SYNC_ALLOW_LOOPBACK_HTTP");else qputenv("DAYMARK_SYNC_ALLOW_LOOPBACK_HTTP",previous);});
+        const auto url=QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort());
+        workspace.syncLogin(url,"synthetic-user","12345678");
+        QTRY_VERIFY(!workspace.syncState().value("safe_error_code").toString().isEmpty());
+        QCOMPARE(workspace.syncState().value("safe_error_code").toString(),QStringLiteral("syncNetworkConnectionClosed"));
+        QVERIFY(workspace.syncState().value("status").toString().contains(QStringLiteral("连接已中断")));
+        QVERIFY(!workspace.syncState().value("busy").toBool());QVERIFY(!workspace.syncState().value("authenticated").toBool());
+        QVERIFY(!workspace.syncState().value("status").toString().contains("12345678"));
+        QCOMPARE(workspace.databasePath(),originalPath);QVERIFY(!workspace.task(identity).isEmpty());QVERIFY(credentials.values.isEmpty());
+        QVERIFY(requests>=1); // Qt may retry an idempotent GET internally; no login POST succeeds.
+    }
     void widgetBrowseIsIndependentAndCreationKeepsOwnershipAtomic()
     {
         QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("widget-context.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));

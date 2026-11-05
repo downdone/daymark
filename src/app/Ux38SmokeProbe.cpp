@@ -387,6 +387,11 @@ QString Ux38SmokeProbe::advance() {
             qCritical()<<"Registration readiness"<<find(settings,"syncServerOrigin")->property("text").toString().length()<<find(settings,"syncLogin")->property("text").toString().length()<<find(settings,"syncPassword")->property("text").toString().length()<<find(settings,"syncConfirmPassword")->property("text").toString().length()<<m_workspace.syncState().value("busy");
             return fail("matching registration password enables explicit submit");
         }
+        for(int length:{7,8}){
+            const auto boundary=QString(length,QLatin1Char('a'));
+            find(settings,"syncPassword")->setProperty("text",boundary);find(settings,"syncConfirmPassword")->setProperty("text",boundary);
+            if(find(settings,"syncSubmit")->property("enabled").toBool()!=(length==8))return fail("registration password seven/eight character boundary");
+        }
         settings->setProperty("syncRegisterMode",false);
         if(!find(settings,"syncPassword")->property("text").toString().isEmpty() || !find(settings,"syncConfirmPassword")->property("text").toString().isEmpty())return fail("leaving registration clears both passwords");
         settings->setProperty("syncRegisterMode",true);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);

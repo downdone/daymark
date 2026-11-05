@@ -297,8 +297,19 @@ class Coordinator final : public QObject {
                     if (*tooLarge)
                         result.code = "syncPayloadTooLarge";
                     else if (result.status == 0 ||
-                             (networkError != QNetworkReply::NoError && result.status < 400))
-                        result.code = "syncNetworkError";
+                             (networkError != QNetworkReply::NoError && result.status < 400)) {
+                        // Keep diagnostics actionable without exposing URLs, credentials
+                        // or platform error strings in persisted sync state.
+                        switch (networkError) {
+                        case QNetworkReply::SslHandshakeFailedError: result.code = "syncNetworkTlsFailed"; break;
+                        case QNetworkReply::HostNotFoundError: result.code = "syncNetworkHostNotFound"; break;
+                        case QNetworkReply::TimeoutError:
+                        case QNetworkReply::OperationCanceledError: result.code = "syncNetworkTimeout"; break;
+                        case QNetworkReply::ConnectionRefusedError: result.code = "syncNetworkConnectionRefused"; break;
+                        case QNetworkReply::RemoteHostClosedError: result.code = "syncNetworkConnectionClosed"; break;
+                        default: result.code = "syncNetworkError"; break;
+                        }
+                    }
                     if (result.status == 401 && authorized && !retried && !tokens.isEmpty()) {
                         refresh([this, method, path, data, schema, done, chunkHash] {
                             request(method, path, data, schema, done, true, true, chunkHash);
@@ -419,7 +430,7 @@ class Coordinator final : public QObject {
                                   {"password", values.value("password").toString()}}), {},
                             [this, values](Response registered) {
                                 if (!registered.ok()) {
-                                    fail((registered.code == "syncNetworkError" || registered.code == "commit_result_unknown" || registered.code == "timeout") ? "syncRegistrationUncertain" :
+                                    fail((registered.code.startsWith("syncNetwork") || registered.code == "commit_result_unknown" || registered.code == "timeout") ? "syncRegistrationUncertain" :
                                          registered.code == "validation_failed" ? "syncRegistrationInvalid" : registered.code);
                                     return;
                                 }
@@ -742,7 +753,7 @@ class Coordinator final : public QObject {
         else if (code == "syncRegistrationUncertain")
             message = tr("未收到注册结果。账号可能已创建，请先尝试登录；本地资料仍保留。");
         else if (code == "syncRegistrationInvalid")
-            message = tr("请使用3～254位英文字母、数字或 . _ @ + - 作为账号；密码至少15个字符，最多1024字节。");
+            message = tr("请使用3～254位英文字母、数字或 . _ @ + - 作为账号；密码至少8个字符，最多1024字节。");
         else if (code == "rate_limited")
             message = tr("请求过于频繁，请稍后重试。");
         else if (code == "invalid_credentials")
@@ -751,6 +762,16 @@ class Coordinator final : public QObject {
             message = tr("此资料属于其他账号或服务器，请打开该账号的独立本地资料后登录。");
         else if (code == "syncHttpsRequired")
             message = tr("服务器地址必须使用 HTTPS。");
+        else if (code == "syncNetworkTlsFailed")
+            message = tr("无法建立安全连接，请检查服务器证书、系统时间或网络代理。");
+        else if (code == "syncNetworkHostNotFound")
+            message = tr("无法解析服务器域名，请检查网络或自定义服务器地址。");
+        else if (code == "syncNetworkTimeout")
+            message = tr("连接服务器超时，请检查网络和服务器状态后重试。");
+        else if (code == "syncNetworkConnectionRefused")
+            message = tr("服务器拒绝连接，请检查服务是否启动及端口是否开放。");
+        else if (code == "syncNetworkConnectionClosed")
+            message = tr("服务器连接已中断，请检查服务可达性及域名访问状态。");
         else if (code == "syncOriginInvalid")
             message = tr("请输入服务器根地址，例如 https://sync.example.com。");
         else if (code == "syncCredentialsLocked" || code == "syncCredentialsUnavailable")

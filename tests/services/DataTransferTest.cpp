@@ -113,7 +113,10 @@ private slots:
         QJsonObject input{{"protocol_version",1},{"login",QStringLiteral("new-user")},{"password",QStringLiteral("long-valid-password")}};
         QVERIFY(sync::Schema::accepts("RegistrationRequest",input));
         input.insert("extra",true);QVERIFY(!sync::Schema::accepts("RegistrationRequest",input));input.remove("extra");
-        input.insert("password",QStringLiteral("short"));QVERIFY(!sync::Schema::accepts("RegistrationRequest",input));
+        input.insert("password",QStringLiteral("1234567"));QVERIFY(!sync::Schema::accepts("RegistrationRequest",input));
+        input.insert("password",QStringLiteral("12345678"));QVERIFY(sync::Schema::accepts("RegistrationRequest",input));
+        input.insert("password",QString::fromUtf8("🔑🔑🔑🔑🔑🔑🔑"));QVERIFY(!sync::Schema::accepts("RegistrationRequest",input));
+        input.insert("password",QString::fromUtf8("🔑🔑🔑🔑🔑🔑🔑🔑"));QVERIFY(sync::Schema::accepts("RegistrationRequest",input));
         input.insert("password",QStringLiteral("long-valid-password"));input.remove("login");QVERIFY(!sync::Schema::accepts("RegistrationRequest",input));
     }
     void syncSharedContractFixturesAndGoldenCanonicalBytes() {

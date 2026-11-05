@@ -144,7 +144,7 @@ func (a *Auth) ResetPasswordAdmin(ctx context.Context, login string, password []
 	return e
 }
 func passwordPolicy(v []byte) error {
-	if len(v) < 12 || len(v) > 1024 || !utf8.Valid(v) {
+	if len(v) > 1024 || !utf8.Valid(v) || utf8.RuneCount(v) < 8 {
 		return domain.Invalid("/password")
 	}
 	return nil
@@ -208,9 +208,6 @@ func (a *Auth) CreateUser(ctx context.Context, login string, password []byte) (d
 // Register never alters an existing identity, including disabled/deleted users.
 // A generic success avoids exposing whether a normalized login already exists.
 func (a *Auth) Register(ctx context.Context, login string, password []byte) error {
-	if utf8.RuneCount(password) < 15 {
-		return domain.Invalid("/password")
-	}
 	_, e := a.CreateUser(ctx, login, password)
 	if domain.Code(e) == "revision_conflict" {
 		return nil
