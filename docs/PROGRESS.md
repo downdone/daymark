@@ -1,5 +1,11 @@
 # Daymark 实施进度
-### AUTH-08 注册登录故障与8字符密码（2026-11-05，IN_PROGRESS）
+### AUTH-08 注册登录故障与8字符密码（2026-11-05，IP-DEPLOYED / WINDOWS-PASS）
+
+最终包内Windows原生账号专项通过（12480ms、3窗、warnings=false），截图已目视检查，实际7/8提交边界断言通过。已退出SSH并清理服务端上传暂存文件/ACME探测文件；本地本轮SSH主机记录、独立验证工具/上传二进制和专用临时目录已清理，保留必要测试证据与Git忽略的唯一官方配置，未修改用户账号口令或任务。源码按既有授权同步GitHub，不上传本地地址或便携包、不移动标签。
+
+最终源码e98ebf7631bc32b14a51d85c5f9db4bbe66c2d07的Qt6.10.2 Release、两项QML lint与标准完整32/32 CTest通过（382.59秒）；Go完整测试包含真实Qt↔Go TLS长链通过，httpapi 59.060秒，覆盖8字符注册/登录、1000任务传输/掉响应重放、账户切换/备份恢复。长临时目录导致Windows日备份路径266字符的两次旧失败保留，夹具改短前缀后通过，未改生产备份语义/断言/超时。网络断连、7/8/Unicode及本地数据保护定向3/3通过；106共享Schema副本、94份QML样式、四主题颜色和180份文档链接检查通过。
+
+Windows标准非预览修复包Daymark-2.0.0-windows-x64-local-20261105-113547.zip，39,898,809字节，SHA256 129f732f3dcb2380e27601a8b34e5fee59ccec53049a5998bd474f166cbce727；根dist副本散列一致、启动器已切新包，旧包保留。SDK隔离完整原生smoke、全周期DLL来源、版本/清单/ZIP内容检查通过，exe SHA256 023249b641fbe618a8aebbcea49be0bc7aea521d1b0659d58f5ce01e61b857d3；BUILD-INFO携带上述源码SHA、localPreview=false、fullTestGatePassed=true。额外用包内Qt/网络/SQLite/TLS DLL和独立QtTest工具进行公网IP 8字符注册/登录/双向同步/离线冲突测试，3/3 PASS（15734ms），默认系统信任、无自定义CA，Qt6Test.dll只在测试目录、不进入包。修复包未签名、未上传；macOS本轮和物理多屏/读屏/独立干净机未验证。此后修改仅验证文档，不改变二进制归属。
 
 公网IP正式Let's Encrypt YE2证书签发成功，SAN为IP、到期2026-11-11 18:21:01 UTC；Nginx新增IP默认TLS入口，原域名入口保留。Windows curl/Qt均使用系统默认信任严格验证成功，未改HTTP/ignoreSslErrors/自签CA。Certbot timer启用，IP renew --dry-run --run-deploy-hooks通过并实际校验/重载Nginx。停旧服务后生成并验证一致性加密备份，再原子切换新服务二进制99529f1076eeb08acb03c222808cbe5565fc07b796faaf4a1b92d8ed70003f71及public_origin；原数据/密钥不覆盖、旧版本可回滚，NRestarts=0。本地唯一官方配置已切到IP，未进入Git。Windows真实公网Qt external用随机8字符口令完成注册/登录、两个工作区的双向同步、离线恢复、冲突/周期后继及凭据清理，3/3通过、10288ms。完整长链/最终便携包继续收尾。
 
