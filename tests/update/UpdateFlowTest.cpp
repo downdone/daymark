@@ -3,6 +3,7 @@
 #include <QProcess>
 #include <QTemporaryDir>
 #include <QtTest>
+#include <cstdio>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -78,13 +79,31 @@ class UpdateFlowTest final : public QObject {
                          QCoreApplication::applicationDirPath(),
                          "--repo",
                          QStringLiteral(DAYMARK_TEST_REPO)};
-        if (qEnvironmentVariableIsSet("DAYMARK_UPDATE_REAL_OLD"))
+        const bool publicGitHub = qEnvironmentVariable("DAYMARK_UPDATE_PUBLIC_GITHUB") == "1";
+        if (publicGitHub) {
+            QVERIFY(qEnvironmentVariableIsSet("DAYMARK_UPDATE_PUBLIC_REPORT_DIR"));
+            args = {QStringLiteral(DAYMARK_TEST_REPO) + "/tests/update/github_flow.py",
+                    "--work", temporary.filePath("public-github"),
+                    "--wait-for-target-seconds", "3600",
+                    "--export-artifacts", qEnvironmentVariable("DAYMARK_UPDATE_PUBLIC_REPORT_DIR")};
+        } else if (qEnvironmentVariableIsSet("DAYMARK_UPDATE_REAL_OLD"))
             args << "--old-payload" << qEnvironmentVariable("DAYMARK_UPDATE_REAL_OLD")
                  << "--new-payload" << qEnvironmentVariable("DAYMARK_UPDATE_REAL_NEW");
+        QByteArray output;
+        if (publicGitHub) {
+            connect(&process, &QProcess::readyReadStandardOutput, &process, [&] {
+                const auto chunk = process.readAllStandardOutput();
+                output += chunk;
+                std::fwrite(chunk.constData(), 1, static_cast<size_t>(chunk.size()), stderr);
+                std::fflush(stderr);
+            });
+        }
         process.start(QStringLiteral(DAYMARK_TEST_PYTHON), args);
         QVERIFY2(process.waitForStarted(), qPrintable(process.errorString()));
-        const bool finished = process.waitForFinished(180000);
-        const auto output = process.readAll();
+        // The opt-in public acceptance includes two real Internet downloads and
+        // publication coordination. The ordinary local fixture keeps its budget.
+        const bool finished = process.waitForFinished(publicGitHub ? 90 * 60 * 1000 : 180000);
+        output += process.readAll();
         QFile evidence(QCoreApplication::applicationDirPath() +
                        QStringLiteral("/update-flow-child.log"));
         if (evidence.open(QIODevice::WriteOnly | QIODevice::Truncate))
@@ -95,7 +114,8 @@ class UpdateFlowTest final : public QObject {
         }
         QVERIFY2(finished, output.constData());
         QVERIFY2(process.exitCode() == 0, output.constData());
-        QVERIFY2(output.contains("PASS: signed Windows flow"), output.constData());
+        QVERIFY2(output.contains(publicGitHub ? "PASS: public GitHub Qt update flow" :
+                                               "PASS: signed Windows flow"), output.constData());
         qInfo().noquote() << output;
     }
 };

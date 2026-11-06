@@ -74,3 +74,5 @@ macOS/Linux按[轻量UI设计](native-ui.md)后续独立交付，不在Windows�
 每片记录源码SHA、工具链、用例/输出、平台/失败边界到PROGRESS；不在多份设计文档维护当前状态。Windows沿既有build-windows/test-windows入口，macOS沿build-macos.sh；具体target接入后写可复制命令。性能同配置比较GUI/CLI包体/启动/峰值私有内存、任务输入延迟，不用理论数字冒充实测。
 
 本表定义目标矩阵，不代表全部已通过；实际已运行、失败保留及外部未验证项只记录于PROGRESS。
+
+显式Qt Test入口通过`DAYMARK_UPDATE_PUBLIC_GITHUB=1`选择公共验收，`DAYMARK_UPDATE_PUBLIC_REPORT_DIR`指定新的证据目录，再运行`test_update_flow signedWindowsTransaction`；全部SQLite位于其QTemporaryDir。默认不设该变量时继续原本地夹具，180秒预算不变。公共模式包含两次真实网络下载及资源发布等待，外层最多90分钟，独立工作流整体45分钟；记录下载、等待和实际Qt切换时间，不将等待计作产品切换性能。工作流`.github/workflows/verify-windows-update.yml`不使用发布Environment/Secrets，实际生产子进程清除SDK/Qt路径和CI Token，并审计Qt/SQL/CRT的映像来源。导出的ZIP必须来自实际下载并匹配签名清单，合成DB不进入artifact。

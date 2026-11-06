@@ -75,6 +75,30 @@ try {
 }
 $info.cleanMachine = $true
 $info.deploymentValidation = [ordered]@{kind='independent-windows-hosted-runner';runtimeOriginsAudited=$true;minimumWindows10Verified=$false}
+$info.scope = 'Managed Windows payload; self-signed and independently deployment-validated'
+@"
+Daymark $Version - managed Windows payload
+
+Start the daymark.exe in the top-level portable directory. Keep versions/ and
+all bundled files together. This payload is not a standalone application folder.
+
+The four Daymark programs have project self-signed Authenticode signatures,
+verified against the reviewed certificate pin. Windows public publisher trust
+is not established; Windows/SmartScreen can still display a publisher warning.
+No certificate must be installed in a root store to use the application.
+
+The update manifest and complete file index are verified using the project's
+embedded ECDSA P-256 public key. After a successful restart and durable RUNNING
+confirmation, only unchanged old program files are cleaned up.
+
+Qt 6.10.2 is dynamically linked under LGPLv3. You may replace Qt libraries with
+a compatible build; see THIRD-PARTY-NOTICES.md and the included license texts.
+Microsoft's x64 release CRT is bundled for app-local use under its distribution terms.
+
+Independent hosted Windows deployment and module origins were tested. This
+does not certify every Windows version, physical DPI/multi-screen or screen reader.
+"@ | Set-Content -LiteralPath (Join-Path $payload 'README.txt') -Encoding utf8
+$info.fileCount = @(Get-ChildItem -LiteralPath $payload -Recurse -File).Count
 $info | ConvertTo-Json -Depth 9 | Set-Content -LiteralPath $infoPath -Encoding utf8
 $inventory = @(foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File | Sort-Object FullName) {
     if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse point in validated candidate.' }

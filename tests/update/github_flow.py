@@ -5,10 +5,14 @@ The signed managed bootstrap ZIP must be an existing public GitHub asset.
 """
 from __future__ import annotations
 import argparse
+import ctypes
+from ctypes import wintypes
 import hashlib
 import json
+import os
 from pathlib import Path
 import sqlite3
+import shutil
 import subprocess
 import sys
 import time
@@ -18,9 +22,68 @@ import zipfile
 from flow_fixture import stop_owned, process_exited
 
 
-def run(command, timeout=40):
+def stop_remaining_owned(root):
+    """Reap only test-root images even if startup failed before registration."""
+    class Entry(ctypes.Structure):
+        _fields_ = [('size',wintypes.DWORD),('usage',wintypes.DWORD),('pid',wintypes.DWORD),
+                    ('heap',ctypes.c_size_t),('module',wintypes.DWORD),('threads',wintypes.DWORD),
+                    ('parent',wintypes.DWORD),('priority',wintypes.LONG),('flags',wintypes.DWORD),
+                    ('name',wintypes.WCHAR*260)]
+    kernel = ctypes.WinDLL('kernel32',use_last_error=True)
+    kernel.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD,wintypes.DWORD]
+    kernel.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    kernel.Process32FirstW.argtypes = kernel.Process32NextW.argtypes = [wintypes.HANDLE,ctypes.POINTER(Entry)]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    snapshot = kernel.CreateToolhelp32Snapshot(2,0)
+    if snapshot == ctypes.c_void_p(-1).value:
+        return
+    try:
+        entry = Entry();entry.size = ctypes.sizeof(entry)
+        more = kernel.Process32FirstW(snapshot,ctypes.byref(entry))
+        while more:
+            if entry.name.lower().startswith('daymark'):
+                stop_owned(root,entry.pid)  # Independently checks the actual image path.
+            more = kernel.Process32NextW(snapshot,ctypes.byref(entry))
+    finally:
+        kernel.CloseHandle(snapshot)
+
+
+def audit_qt_runtime(pid, payload):
+    """Observe real production modules; a parent Qt SDK must not satisfy them."""
+    import re
+    kernel = ctypes.WinDLL('kernel32',use_last_error=True)
+    kernel.OpenProcess.argtypes = [wintypes.DWORD,wintypes.BOOL,wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.K32EnumProcessModulesEx.argtypes = [wintypes.HANDLE,ctypes.POINTER(wintypes.HMODULE),wintypes.DWORD,ctypes.POINTER(wintypes.DWORD),wintypes.DWORD]
+    kernel.K32GetModuleFileNameExW.argtypes = [wintypes.HANDLE,wintypes.HMODULE,wintypes.LPWSTR,wintypes.DWORD]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    process = kernel.OpenProcess(0x410,False,int(pid))
+    if not process:raise AssertionError('Unable to audit production Qt process modules')
+    try:
+        modules = (wintypes.HMODULE*2048)();needed = wintypes.DWORD()
+        if not kernel.K32EnumProcessModulesEx(process,modules,ctypes.sizeof(modules),ctypes.byref(needed),3) or needed.value>ctypes.sizeof(modules):
+            raise AssertionError('Production module inventory unavailable or incomplete')
+        observed = set()
+        for module in modules[:needed.value//ctypes.sizeof(wintypes.HMODULE)]:
+            name = ctypes.create_unicode_buffer(32768)
+            if not kernel.K32GetModuleFileNameExW(process,module,name,len(name)):
+                # Optional modules may unload between the snapshot and lookup.
+                # The required Qt/SQL/CRT set below must still be observed.
+                continue
+            path = Path(name.value).resolve()
+            if re.fullmatch(r'(Qt6.*|qwindows|qsqlite|msvcp140.*|vcruntime140.*|concrt140|vccorlib140)\.dll',path.name,re.I):
+                if payload.resolve() not in path.parents:
+                    raise AssertionError('Production runtime resolved outside signed payload: '+path.name)
+                observed.add(path.name.lower())
+        if not {'qt6core.dll','qwindows.dll','qsqlite.dll','msvcp140.dll','vcruntime140.dll'}.issubset(observed):
+            raise AssertionError('Expected production Qt/SQL/CRT modules were not observed')
+        return sorted(observed)
+    finally:kernel.CloseHandle(process)
+
+
+def run(command, timeout=40, environment=None):
     result = subprocess.run(list(map(str, command)), capture_output=True, text=True,
-                            encoding='utf-8', timeout=timeout)
+                            encoding='utf-8', timeout=timeout,env=environment)
     if result.returncode:
         raise AssertionError(f'{Path(command[0]).name} {command[1]} failed ({result.returncode}): {result.stdout[-1200:]} {result.stderr[-600:]}')
     return result.stdout
@@ -58,15 +121,33 @@ def main():
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--old-version', default='2.0.1')
     parser.add_argument('--new-version', default='2.0.2')
+    parser.add_argument('--wait-for-target-seconds',type=int,default=0,
+                        help='Wait for public target assets before launching Qt; never changes updater state')
+    parser.add_argument('--export-artifacts',type=Path,
+                        help='New report directory for public ZIPs and verification evidence; never copies the synthetic database')
     args = parser.parse_args()
     import re
     if any(not re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)', version)
            for version in (args.old_version,args.new_version)):
         raise ValueError('Two stable semantic versions are required')
+    if not 0 <= args.wait_for_target_seconds <= 3600:
+        raise ValueError('Target publication wait must be bounded to 0..3600 seconds')
     args.work = args.work.resolve()
     if args.work.exists():
         raise ValueError('Evidence directory already exists; no overwrite')
     args.work.mkdir(parents=True)
+    runtime_environment = dict(os.environ)
+    for key in ('QT_PLUGIN_PATH','QT_QPA_PLATFORM_PLUGIN_PATH','QML_IMPORT_PATH','QML2_IMPORT_PATH','QT_CONF_PATH',
+                'GH_TOKEN','GITHUB_TOKEN','ACTIONS_RUNTIME_TOKEN','ACTIONS_ID_TOKEN_REQUEST_TOKEN'):
+        runtime_environment.pop(key,None)
+    windows = Path(os.environ['SystemRoot'])
+    runtime_environment['PATH'] = str(windows/'System32')+';'+str(windows)
+    runtime_environment['QT_QPA_PLATFORM'] = 'windows'
+    if args.export_artifacts:
+        args.export_artifacts = args.export_artifacts.resolve()
+        if args.export_artifacts.exists() or args.work == args.export_artifacts or args.work in args.export_artifacts.parents:
+            raise ValueError('A new artifact directory outside the temporary installation is required')
+        args.export_artifacts.mkdir(parents=True)
     started = time.monotonic()
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     def public_json(url):
@@ -89,15 +170,23 @@ def main():
     request = urllib.request.Request(asset['url']+'?daymark_verify='+str(int(time.time())),
               headers={'User-Agent':'Daymark-public-update-verification','Accept':'application/octet-stream'})
     print('Downloading actual anonymous GitHub bootstrap asset', asset['id'], flush=True)
+    download_started = time.monotonic()
+    progress_at = download_started
     with opener.open(request, timeout=90) as response, archive.open('xb') as output:
         while chunk := response.read(1024*1024):
             output.write(chunk)
             if output.tell() > asset['size']:
                 raise ValueError('Public bootstrap exceeds declared size')
+            if time.monotonic()-progress_at >= 30:
+                print('BOOTSTRAP',output.tell(),'/',asset['size'],'bytes',flush=True)
+                progress_at = time.monotonic()
     with archive.open('rb') as source:
         actual = hashlib.file_digest(source,'sha256').hexdigest()
     if archive.stat().st_size != asset['size'] or 'sha256:'+actual != asset['digest']:
         raise ValueError('Anonymous bootstrap integrity mismatch')
+    if args.export_artifacts:
+        shutil.copy2(archive,args.export_artifacts/archive.name)
+    download_seconds = time.monotonic()-download_started
     root = args.work/f'Daymark-{args.old_version}-windows-x64'
     with zipfile.ZipFile(archive) as source:
         seen = set()
@@ -124,13 +213,26 @@ def main():
     if len(payloads) != 1:
         raise ValueError('A single signed bootstrap payload is required')
     verify_executables([payloads[0], root/'daymark.exe', root/'daymark-update-cli.exe', root/'daymark-updater.exe'],pin)
-    current = json.loads(run([root/'daymark-update-cli.exe','initialize','--root',root,'--json']))
+    current = json.loads(run([root/'daymark-update-cli.exe','initialize','--root',root,'--json'],environment=runtime_environment))
     if current['version'] != args.old_version:
         raise ValueError('Signed bootstrap version mismatch')
+    target_wait_started = time.monotonic()
+    required_assets = {f'Daymark-{args.new_version}-windows-x64.zip','update-windows-x64.json','update-windows-x64.json.sig'}
+    while True:
+        target = public_json('https://api.github.com/repos/downdone/daymark/releases/tags/v'+args.new_version)
+        if (not target['draft'] and not target['prerelease'] and target['tag_name'] == 'v'+args.new_version
+                and required_assets.issubset({a['name'] for a in target['assets'] if a['state']=='uploaded'})):
+            break
+        if time.monotonic()-target_wait_started >= args.wait_for_target_seconds:
+            raise AssertionError('Target signed assets are not yet public; Qt was not launched')
+        print('Waiting for complete signed public target assets; updater state untouched',flush=True)
+        time.sleep(30)
+    target_wait_seconds = time.monotonic()-target_wait_started
+    qt_started = time.monotonic()
     data = args.work/'synthetic-data'
     processes = []
     try:
-        run([root/'daymark.exe','--data-dir',data])
+        run([root/'daymark.exe','--data-dir',data],environment=runtime_environment)
         def instance(version):
             for path in (root/'update-state/instances').glob('*.json'):
                 value = json.loads(path.read_text())
@@ -143,6 +245,7 @@ def main():
             with sqlite3.connect(data/'daymark.sqlite') as db:
                 return db.execute('PRAGMA user_version').fetchone()[0] == 10
         wait_for(schema_ready,30,'synthetic database creation',root)
+        old_modules = audit_qt_runtime(old['pid'],root/current['current'])
         with sqlite3.connect(data/'daymark.sqlite') as db:
             db.execute('INSERT INTO tasks(id,title,created_at_utc,updated_at_utc) VALUES(?,?,?,?)',
                 ('github-update-synthetic-task','Public GitHub update preservation check','2026-11-06T00:00:00.000Z','2026-11-06T00:00:00.000Z'))
@@ -154,12 +257,19 @@ def main():
         assert old_exe.exists()
         assert json.loads((root/'current.json').read_text())['version'] == args.old_version
         assert (root/ready['payload_dir']/'daymark.exe').exists()
+        if args.export_artifacts:
+            cache_key = Path(ready['payload_dir']).name
+            cached_archive = root/'update-state/downloads'/cache_key/'package.zip'
+            metadata = json.loads((root/'update-state/releases'/cache_key/'manifest.json').read_text())
+            with cached_archive.open('rb') as source:
+                assert hashlib.file_digest(source,'sha256').hexdigest() == metadata['package']['sha256']
+            shutil.copy2(cached_archive,args.export_artifacts/metadata['package']['name'])
         unknown = old_directory/'personal-note.txt'; unknown.write_text('Synthetic unknown user file',encoding='utf-8')
         modified = old_directory/'README.txt'
         if not modified.exists():
             raise AssertionError('Expected indexed README.txt for modified-file preservation test')
         modified.write_text('Synthetic modified indexed file',encoding='utf-8')
-        response = run([root/'daymark-update-cli.exe','apply','--root',root,'--data-dir',data,'--json'])
+        response = run([root/'daymark-update-cli.exe','apply','--root',root,'--data-dir',data,'--json'],environment=runtime_environment)
         assert 'restart_requested' in response
         wait_for(lambda:process_exited(old['pid']),40,'old Qt saved/exited',root)
         wait_for(lambda:json.loads((root/'update-state/journal.json').read_text()).get('phase') == 'cleaned',90,'new Qt commit/RUNNING/cleanup',root)
@@ -172,6 +282,7 @@ def main():
         assert modified.read_text(encoding='utf-8') == 'Synthetic modified indexed file'
         assert not (root/'update-state/prepared-update.json').exists()
         assert instance(args.new_version)
+        new_modules = audit_qt_runtime(journal['new_pid'],root/current['current'])
         accepted_manifest = json.loads((root/'update-state/releases'/Path(current['current']).name/'manifest.json').read_text())
         with sqlite3.connect(data/'daymark.sqlite') as db:
             assert db.execute('PRAGMA quick_check').fetchone()[0] == 'ok'
@@ -181,10 +292,20 @@ def main():
                       bootstrapReleaseId=release['id'],bootstrapAssetId=asset['id'],bootstrapSha256=actual,
                       targetReleaseId=accepted_manifest['release_id'],targetAssetId=accepted_manifest['package']['asset_id'],
                       targetSourceRevision=accepted_manifest['source_revision'],
+                      oldQtModules=old_modules,newQtModules=new_modules,productionEnvironmentIsolated=True,
                       automaticPrepare=True,productionCompiledTrust=True,anonymousGitHub=True,fixtureOverrides=False,
                       qtSaveQuitRestart=True,durableCommitAndRunning=True,oldExecutableDeleted=True,
                       unknownAndModifiedFilesPreserved=True,syntheticSqlitePreserved=True,seconds=round(time.monotonic()-started,3))
+        result.update(bootstrapDownloadSeconds=round(download_seconds,3),
+                      targetPublicationWaitSeconds=round(target_wait_seconds,3),
+                      qtUpdateSeconds=round(time.monotonic()-qt_started,3))
         (args.work/'report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+        if args.export_artifacts:
+            (args.export_artifacts/'report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+            for name in ('current.json','update-state/journal.json','update-state/running-receipt.json'):
+                path = root/name
+                if path.exists():shutil.copy2(path,args.export_artifacts/Path(name).name)
+        print('PASS: public GitHub Qt update flow',flush=True)
         print(json.dumps(result),flush=True)
     finally:
         for name,field in [('update-state/journal.json','worker_pid'),('update-state/status.json','owner_pid')]:
@@ -196,6 +317,7 @@ def main():
             try:processes.append(json.loads(path.read_text())['pid'])
             except (OSError,ValueError):pass
         for pid in set(processes):stop_owned(root,pid)
+        stop_remaining_owned(root)
 
 
 if __name__ == '__main__':main()

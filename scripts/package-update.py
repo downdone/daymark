@@ -87,6 +87,22 @@ def build(args: argparse.Namespace) -> dict:
             destination.mkdir(parents=True)
             shutil.copy2(license_root / dependency / 'LICENSE', destination / 'LICENSE')
         shutil.copy2(license_root / 'SOURCES.json', root / 'update-licenses' / 'SOURCES.json')
+        policy = ('Local verification fixture; not a formal release.' if args.local_fixture else
+                  'Project self-signed Authenticode; Windows public publisher trust is not established.'
+                  if getattr(args, 'self_signed_cert_sha256', '') else 'Public Authenticode signing policy.')
+        (root / 'README.txt').write_text(
+            f'Daymark {args.version} - managed Windows portable package\n\n'
+            'Start daymark.exe in this top-level directory. Keep the whole directory together; '
+            'do not run or move only a version subdirectory.\n\n'
+            'Startup checks GitHub and prepares a signed new version in the background. '
+            'Restart after the notification; unchanged old program files are removed only '
+            'after the new application confirms successful startup.\n\n'
+            f'{policy}\n'
+            'Update integrity and authenticity use the embedded ECDSA P-256 public key. '
+            'No root certificate import or TLS verification bypass is required.\n\n'
+            'Qt 6.10.2 and the release runtime are bundled. License texts, module SBOMs and '
+            'source access information are inside versions/<version>/. '
+            'User task data is not bundled and must not be stored under versions/.\n', encoding='utf-8')
         files = []
         for path in sorted(root.rglob('*')):
             if not path.is_file():

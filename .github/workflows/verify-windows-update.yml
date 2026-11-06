@@ -1,0 +1,58 @@
+name: Verify public Windows update
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-windows-update-verification
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main' && github.repository == 'downdone/daymark'
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.13'
+          architecture: x64
+      # No signing Environment/Secrets. This builds only the QTemporaryDir test
+      # host and native fixture dependencies, never the two production payloads.
+      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          version: '6.10.2'
+          arch: win64_msvc2022_64
+          cache: true
+          aqtversion: '==3.3.0'
+          install-deps: false
+      - name: Configure the isolated acceptance host
+        run: cmake -S . -B build/public-acceptance -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+      - name: Build only the acceptance host
+        run: cmake --build build/public-acceptance --config Release --target test_update_flow --parallel 4
+      - name: Actual anonymous GitHub Qt upgrade in QTemporaryDir
+        shell: pwsh
+        env:
+          DAYMARK_UPDATE_PUBLIC_GITHUB: '1'
+        run: |
+          $env:DAYMARK_UPDATE_PUBLIC_REPORT_DIR = "$PWD/build/public-update-proof"
+          $hostExe = @('build/public-acceptance/bin/Release/test_update_flow.exe','build/public-acceptance/bin/test_update_flow.exe') | Where-Object { Test-Path -LiteralPath $_ }
+          if (@($hostExe).Count -ne 1) { throw 'Exactly one public acceptance host required' }
+          & $hostExe signedWindowsTransaction *> build/public-update-live.log
+          $result = $LASTEXITCODE
+          Get-Content build/public-update-live.log
+          if ($result -ne 0) { exit $result }
+          $report = Get-Content build/public-update-proof/report.json -Raw | ConvertFrom-Json
+          if (!$report.passed -or !$report.anonymousGitHub -or !$report.productionEnvironmentIsolated -or
+              !$report.qtSaveQuitRestart -or !$report.durableCommitAndRunning -or !$report.oldExecutableDeleted -or
+              !$report.syntheticSqlitePreserved -or $report.fixtureOverrides) { throw 'Actual public flow report incomplete' }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: public-windows-update-proof
+          path: |
+            build/public-update-proof/
+            build/public-update-live.log
+          if-no-files-found: error
