@@ -1,5 +1,6 @@
 #pragma once
 #include "Transport.h"
+#include <memory>
 
 namespace daymark::update::win {
 struct Settings {
@@ -8,6 +9,7 @@ struct Settings {
     NetworkPolicy network;
     std::string api = "https://api.github.com/repos/downdone/daymark";
     std::function<void(std::string_view)> checkpoint;
+    bool installationOperation = false;
 };
 class FileLock {
     Handle handle;
@@ -30,6 +32,7 @@ Json verifySignature(std::string_view raw, std::string_view signature,
                      const std::vector<TrustKey> &, std::string_view domain);
 class Engine {
     Settings settings;
+    std::unique_ptr<FileLock> installationLease;
     Cancellation &cancel;
     Notify notify;
     std::string loggedState;
@@ -41,6 +44,8 @@ class Engine {
 
   public:
     Engine(Settings, Cancellation &, Notify = {});
+    std::vector<FileEntry> ownedFiles() const;
+    Version installedVersion() const;
     Json current();
     Json status() const;
     std::optional<Release> check(bool manual = false);

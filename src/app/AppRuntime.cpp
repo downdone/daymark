@@ -4,6 +4,7 @@
 #include "Ux37SmokeProbe.h"
 #include "Ux38SmokeProbe.h"
 #include "TimeInputSmokeProbe.h"
+#include "WidgetPointerSmokeProbe.h"
 #include "Ux39SmokeProbe.h"
 #include "Ux71SmokeProbe.h"
 #include "Ux75SmokeProbe.h"
@@ -197,6 +198,12 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto* ready=new QTimer(&m_engine);ready->setInterval(50);
         QObject::connect(ready,&QTimer::timeout,&m_engine,[this]{if(m_workspace.ready() && !m_workspace.busy()){m_verificationCompleted=true;QCoreApplication::exit(m_qmlWarnings?3:0);}});ready->start();
         QTimer::singleShot(25000,&m_engine,[]{QCoreApplication::exit(3);});return true;
+    }
+    if(smokeTest && smokeProfile==QStringLiteral("widget-pointer")) {
+        auto test=std::make_shared<WidgetPointerSmokeProbe>(m_widget,widgetWindow);
+        auto* timer=new QTimer(&m_engine);timer->setInterval(250);
+        QObject::connect(timer,&QTimer::timeout,&m_engine,[this,test,timer]{const auto result=test->advance();if(result.isEmpty())return;timer->stop();if(result=="DONE"){m_verificationCompleted=true;qInfo()<<"PASS: WID08 actual QML Mini click and pointer routing";QCoreApplication::exit(m_qmlWarnings?3:0);}else{qCritical()<<result;QCoreApplication::exit(3);}});
+        timer->start();QTimer::singleShot(10000,&m_engine,[]{QCoreApplication::exit(3);});return true;
     }
     if(smokeTest && smokeProfile==QStringLiteral("time-input")) {
         auto test=std::make_shared<TimeInputSmokeProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath);

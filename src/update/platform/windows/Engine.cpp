@@ -213,6 +213,8 @@ Engine::Engine(Settings value, Cancellation &cancellation, Notify callback)
     : settings(std::move(value)), cancel(cancellation), notify(std::move(callback)) {
     settings.root = fs::absolute(settings.root).lexically_normal();
     noLinks(settings.root);
+    const auto installGate=settings.root.parent_path()/(L"."+settings.root.filename().native()+L".daymark-setup.lock");
+    if(!settings.installationOperation && fs::exists(installGate))installationLease=std::make_unique<FileLock>(installGate,false);
     if (settings.root.native().starts_with(L"\\\\"))
         fail("update.directory_unsupported", 21);
     wchar_t volume[MAX_PATH]{}, filesystem[MAX_PATH]{};
@@ -275,6 +277,30 @@ Json Engine::descriptor(std::string_view relative, bool full, bool verify) const
         verifyFiles(settings.root, fileIndex(index), std::string(relative) + "/", full);
     desc["index_raw"] = index;
     return desc;
+}
+std::vector<FileEntry> Engine::ownedFiles() const {
+    auto seed=verifySignature(read(settings.root/"bootstrap-release.json"),read(settings.root/"bootstrap-release.json.sig",4096),settings.keys,"Daymark.BootstrapPayload.v1");
+    const auto initial=descriptor(field(seed,"payload_dir"),false,false);
+    auto result=fileIndex(field(initial,"index_raw",8*1024*1024));
+    for(const auto& name:{"bootstrap-release.json","bootstrap-release.json.sig","FILES.json"}){
+        const auto path=settings.root/name;result.push_back({name,fileHash(path),fs::file_size(path)});
+    }
+    if(fs::exists(settings.root/"versions"))for(const auto& item:fs::directory_iterator(settings.root/"versions")) {
+        if(!item.is_directory())continue;
+        const auto relative="versions/"+utf8(item.path().filename().native());
+        if(relative==field(seed,"payload_dir"))continue;
+        try {const auto description=descriptor(relative,false,false);auto entries=fileIndex(field(description,"index_raw",8*1024*1024));
+            for(auto& entry:entries)if(entry.path.starts_with(relative+"/"))result.push_back(std::move(entry));
+        }catch(const Failure&){/* Unknown/untrusted directories are never owned by this installation. */}
+    }
+    return result;
+}
+Version Engine::installedVersion() const {
+    const auto state=parseJson(read(settings.root/"current.json"));
+    if(number(state,"format",1)!=1 || field(state,"status")!="committed")fail("update.recovery_required",41);
+    const auto trusted=descriptor(field(state,"current"),false,false);
+    if(field(state,"version")!=field(trusted,"version"))fail("update.recovery_required",41);
+    return Version::parse(field(trusted,"version"));
 }
 Json Engine::current() {
     const auto file = settings.root / "current.json";

@@ -90,6 +90,22 @@
     "syncLegacyRecurrenceUnsupported": "C313",
     "syncLegacyUnsupported": "C314",
     "syncProfilePath": "C407",
-    "syncRemoteVersionMissing": "C315"
+    "syncRemoteVersionMissing": "C315",
+    "setup.target_unsafe": "C801",
+    "setup.target_filesystem": "C802",
+    "setup.source_target_overlap": "C803",
+    "setup.extra_bundle_file": "C804",
+    "setup.file_remove": "C805",
+    "setup.directory_commit": "C806",
+    "setup.receipt_invalid": "C807",
+    "setup.target_not_managed": "C808",
+    "setup.downgrade": "C809",
+    "setup.disk_space": "C810",
+    "setup.recovery_required": "C811",
+    "setup.not_running": "C812",
+    "setup.cleanup_required": "C813",
+    "setup.filesystem": "C814",
+    "setup.internal": "C815",
+    "setup.update_dependency": "C850"
   }
 }

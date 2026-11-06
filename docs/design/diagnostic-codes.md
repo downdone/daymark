@@ -31,3 +31,7 @@
 ## 当前超时调查边界
 
 生产 ready/capabilities 本机200不能证明其他机器可达；保留原15秒传输无进展预算及总周期预算，未关闭TLS校验、未自动绕过代理。通过新诊断在发生问题的机器区分 DNS/代理/握手/等待响应，再修复对应配置或传输。TLS 吊销服务器不可达、系统时间、企业代理或服务入口均是待证实原因，不作为已定位事实。
+
+## 安装器诊断
+
+SETUP-01 的安装、卸载和启动后清理使用客户端 8xx 范围；编号仍由 docs/api/diagnostics.json 唯一分配，通过 CMake 生成无 Qt 的原生映射，不另存第二份表。JSON format=1 保留 error（稳定 setup key）、code（S000-C8xx）、platform_error（若有）、exit_code。基础更新 SDK 的拒绝以 setup.update_dependency 模块码关联，并保留原 update.* key/Win32 码。NSIS 错误页显示原始结构化终态，不只显示“安装失败”。无服务请求，故 S000。

@@ -23,6 +23,8 @@
 | [工程方法](engineering.md) | 人机协作流程、任务状态、验证层级 |
 | [工程原则](principles.md) | P-01～P-22，含 Apple HIG 约束（P-13） |
 | [测试方法](testing-method.md) | 测试分层、标签、fast/ui/full、链路责任 |
+| [Windows 安装器设计](design/windows-installer.md) | 完整安装向导、SDK事务、修复/卸载与数据保护 |
+| [桌面组件指针移动](design/widget-pointer-move.md) | Mini 按钮职责、统一拖动与置顶/锁定状态 |
 | [全局日志与底层诊断](design/runtime-diagnostics.md) | 本地日志入口、轮换、脱敏、Qt/TLS错误与请求关联 |
 | [性能与内存策略](design/performance-and-memory.md) | 基线、分层分析、逐项优化与内存证据 |
 | [性能优化记录](performance-report-2026-11.md) | PERF-01同配置对比、真实Release测量、回归及剩余边界 |

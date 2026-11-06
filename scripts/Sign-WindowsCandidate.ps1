@@ -12,6 +12,7 @@ $certificate = Get-Item -LiteralPath "Cert:\CurrentUser\My\$CertificateThumbprin
 $pin = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($certificate.RawData)).ToLowerInvariant()
 if ($pin -cne $CertificateSha256 -or !$certificate.HasPrivateKey) { throw 'The signing certificate does not match the independent pin or lacks a private key.' }
 $files = @('payload/daymark.exe','native/daymark-launcher.exe','native/daymark-update-cli.exe','native/daymark-updater.exe')
+if(Test-Path (Join-Path $Directory "native/daymark-setup-helper.exe")){$files += "native/daymark-setup-helper.exe"}
 foreach ($relative in $files) {
     $file = Join-Path $Directory $relative
     if (!(Test-Path -LiteralPath $file -PathType Leaf)) { throw "Candidate executable missing: $relative" }
@@ -30,4 +31,4 @@ $info = [IO.File]::ReadAllText($infoPath) | ConvertFrom-Json -AsHashtable
 $info.signed = $false
 $info.authenticode = [ordered]@{policy='self-signed-pinned';certificateSha256=$CertificateSha256;publicTrust=$false;files=$evidence}
 $info | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $infoPath -Encoding utf8
-Write-Output 'PASS: four Daymark executables signed and verified with a pinned self-signed certificate; Windows public trust remains false.'
+Write-Output 'PASS: Daymark executables signed and verified with a pinned self-signed certificate; Windows public trust remains false.'

@@ -114,6 +114,8 @@ public:
     Q_INVOKABLE bool setAlwaysOnTop(bool enabled);
     Q_INVOKABLE bool setDesktopPinned(bool enabled);
     Q_INVOKABLE bool setVisible(bool visible);
+    Q_INVOKABLE bool beginPointerMove(const QPointF& globalPress);
+    Q_INVOKABLE bool movePointer(const QPointF& globalPosition);
     Q_INVOKABLE bool startMove();
     Q_INVOKABLE bool startResize();
     Q_INVOKABLE void clearError();
@@ -151,6 +153,9 @@ private:
     bool m_regionDirty=false,m_resizing=false;
     QPointF m_resizeCursor;
     QRect m_resizeOrigin;
+    QPointF m_pointerPress;
+    QPoint m_pointerOrigin;
+    bool m_pointerMoving=false;
     WidgetPresentation m_presentation;
     WidgetPresentation m_collapseRollback;
     WidgetPresentation::Form m_renderForm = WidgetPresentation::Panel;

@@ -74,11 +74,11 @@ def check_gates(info: dict, certificate_sha256: str = '') -> None:
 
 def verify_executables(files, certificate_sha256: str) -> None:
     files = list(files)
-    if len(files) != 4:
-        raise ValueError('exactly four executable paths are required')
+    if len(files) not in (4,5):
+        raise ValueError('four updater hosts, optionally with the setup helper, are required')
     script = Path(__file__).with_name('Verify-WindowsSignatures.ps1')
     command = ['pwsh', '-NoProfile', '-File', str(script), '-CertificateSha256', certificate_sha256]
-    for option, file in zip(('Payload', 'Launcher', 'Cli', 'Updater'), files):
+    for option, file in zip(('Payload', 'Launcher', 'Cli', 'Updater', 'SetupHelper'), files):
         command += ['-' + option, str(file)]
     subprocess.run(command, check=True, timeout=60)
 

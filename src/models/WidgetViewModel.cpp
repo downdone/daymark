@@ -300,12 +300,25 @@ bool WidgetViewModel::setDesktopPinned(bool enabled){const bool ok=accept(m_plat
 bool WidgetViewModel::setLayer(int value){if(value<0 || value>2)return accept({WindowError::OperationRejected});return value==2?setDesktopPinned(true):setAlwaysOnTop(value==1);}
 bool WidgetViewModel::setVisible(bool value)
 {
+    if(!value)finishMove();
     if(value && !m_presentation.enabled){emit configurationRequested();accept({WindowError::OperationRejected});emit stateChanged();return false;}
     if(value){auto candidate=m_presentation;candidate.returnToSelected();if(!applyPresentation(candidate,false))return false;}
     if(value)commitRevealRegion();
     if(!accept(m_platform.setVisible(m_window,value))){emit stateChanged();return false;}
     m_requestedVisible=value;if(!value){m_hoverTimer.stop();m_idleTimer.stop();m_returnTimer.stop();m_pendingCollapse=false;m_panelMotion=false;m_visualPending=false;++m_transitionId;}
     emit stateChanged();scheduleAutomatic();return true;
+}
+bool WidgetViewModel::beginPointerMove(const QPointF& globalPress)
+{
+    if(m_locked || !m_window || !visible() || clickThrough() || !std::isfinite(globalPress.x()) || !std::isfinite(globalPress.y()))return accept({WindowError::OperationRejected});
+    m_pointerPress=globalPress;m_pointerOrigin=m_window->position();m_pointerMoving=true;m_moving=true;
+    m_hoverTimer.stop();m_idleTimer.stop();m_returnTimer.stop();m_moveTimer.stop();return accept({});
+}
+bool WidgetViewModel::movePointer(const QPointF& globalPosition)
+{
+    if(!m_pointerMoving || !m_moving || m_locked || !m_window || !std::isfinite(globalPosition.x()) || !std::isfinite(globalPosition.y()))return false;
+    const auto result=m_platform.move(m_window,m_pointerOrigin+(globalPosition-m_pointerPress).toPoint());
+    if(!result.succeeded()){finishMove();return accept(result);}return true;
 }
 bool WidgetViewModel::startMove()
 {
@@ -332,16 +345,17 @@ void WidgetViewModel::resizePanel(const QPointF& globalPosition)
     m_floatingSize=rect.size();m_anchor={screen.id,bounds,{double(at.x()-bounds.x())/qMax(1,bounds.width()),double(at.y()-bounds.y())/qMax(1,bounds.height())},oldAnchor.right,oldAnchor.bottom};
     if(!applyPresentation(m_presentation,false)){m_floatingSize=oldSize;m_anchor=oldAnchor;}
 }
-void WidgetViewModel::finishMove(){m_moveTimer.stop();if(m_moving){m_resizing=false;captureUserGeometry();m_moving=false;normalizeGeometry();emit stateChanged();scheduleAutomatic();}}
+void WidgetViewModel::finishMove(){m_pointerMoving=false;m_moveTimer.stop();if(m_moving){m_resizing=false;captureUserGeometry();m_moving=false;normalizeGeometry();emit stateChanged();scheduleAutomatic();}}
 void WidgetViewModel::configureSettings(const QString& path){m_settings=std::make_unique<QSettings>(path,QSettings::IniFormat);}
 void WidgetViewModel::setTrayAvailable(bool available){if(!available && clickThrough() && !setClickThrough(false))setVisible(false);m_trayAvailable=available;emit stateChanged();}
 bool WidgetViewModel::setClickThrough(bool enabled)
 {
+    if(enabled)finishMove();
     if(enabled && !m_trayAvailable)return accept({WindowError::OperationRejected});
     if(enabled && (m_pendingCollapse || m_panelMotion) && !applyPresentation(m_presentation,false))return false;
     const bool ok=accept(m_platform.setClickThrough(m_window,enabled));emit stateChanged();scheduleAutomatic();return ok;
 }
-void WidgetViewModel::setLocked(bool locked){m_locked=locked;emit stateChanged();}
+void WidgetViewModel::setLocked(bool locked){if(locked)finishMove();m_locked=locked;emit stateChanged();}
 void WidgetViewModel::setBackgroundOpacity(double opacity){m_backgroundOpacity=std::isfinite(opacity)?qBound(0.6,opacity,1.0):0.9;emit stateChanged();}
 void WidgetViewModel::setCloseToTray(bool enabled){m_closeToTray=enabled;emit stateChanged();}
 void WidgetViewModel::normalizeGeometry()

@@ -86,3 +86,23 @@ UX-36新建草稿通过`TaskService::draftForScope`只读预填同一范围语�
 测试层级、fast/ui/full、等待信号和每项删减的断言去向遵守[测试方法](testing-method.md)；不能删除关键风险用例或增大watchdog预算代替修复不稳定等待。1.0源码发布决策见[ADR-022](ADR/022-test-layers-and-source-release.md)。
 
 公开提交与标签按[发布规则](release-policy.md)：已发布标签不可改指，新快照使用递增版本及独立发行说明；源码发布与二进制许可/质量门禁严格分开。
+
+## SETUP-01 本地安装包构建
+
+安装器契约见 [Windows 安装向导](design/windows-installer.md)、[ADR-035](ADR/035-native-windows-installer.md)。本机候选使用固定开源 Qt 6.10.2 / MinGW13.1，与正式 CI 的 MSVC143 严格区分。先完成构建、完整 CTest，提交本轮实现输入，再构建候选；不会自动上传 GitHub。
+
+Windows PowerShell 7（Kit/签名工具路径通过参数注入）：
+
+```powershell
+cmake --build <build-directory> --parallel 4
+ctest --test-dir <build-directory> --output-on-failure --output-junit installer-full.xml
+./scripts/Prepare-LocalInstaller.ps1 -BuildDirectory <build-directory> -QtRoot $env:DAYMARK_QT -MingwRoot $env:DAYMARK_MINGW -CTestReport <build-directory>/installer-full.xml -Makensis <nsis-3.13>/makensis.exe -SignTool <windows-sdk>/signtool.exe -OutputDirectory <new-output-directory>
+$env:DAYMARK_INSTALLER_ARTIFACT='<new-output-directory>/Daymark-2.1.0-windows-x64-setup-local.exe'
+<build-directory>/bin/test_installer_flow.exe -o <new-report>.txt,txt
+```
+
+私钥由本机 DPAPI vault 解封，仅在 owner/SYSTEM 可访问的临时文件中供签名 CLI 使用，finally 删除；不将证书/凭据放进安装包。测试使用 QTemporaryDir，实际启动安装后的 Qt 程序，独立数据目录，不触碰用户任务。已有真实 Daymark 卸载登记时自动关闭测试的系统整合，避免覆盖；否则验证 HKCU/开始菜单并卸载恢复。
+
+完整正式包可使用 `scripts/package-setup.py` 包装已过正式门禁且含 setup-helper 的签名 managed bundle，并签名 Setup/内嵌卸载器。原有 package-update 默认门禁保持，local candidate 不产生正式 manifest；本地 MinGW 候选不能作为 MSVC 线上更新包。
+
+macOS/Linux：本切片不构建安装器，当前结果 UNVERIFIED，不执行 Windows 脚本。

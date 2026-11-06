@@ -147,6 +147,11 @@ WindowResult QtWindowPlatform::setVisible(QWindow* window, bool visible)
     return window->isVisible() == visible ? WindowResult{} : WindowResult{WindowError::OperationRejected};
 }
 
+WindowResult QtWindowPlatform::move(QWindow* window,const QPoint& position)
+{
+    if(!window || !window->isVisible())return {WindowError::WindowUnavailable};
+    window->setPosition(position);return {};
+}
 WindowResult QtWindowPlatform::startMove(QWindow* window)
 {
     if (!window || !window->isVisible())

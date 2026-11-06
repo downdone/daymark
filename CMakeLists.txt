@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 2.0.2 LANGUAGES CXX)
-set(DAYMARK_VERSION "2.0.2")
+project(Daymark VERSION 2.1.0 LANGUAGES CXX)
+set(DAYMARK_VERSION "2.1.0")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -77,7 +77,7 @@ set(DAYMARK_WORKSPACE_SOURCES
     src/models/TaskWorkspace.h src/models/TaskWorkspace.cpp src/models/TaskWorkspaceCalendar.cpp src/models/TaskWorkspaceWindow.cpp
 )
 
-qt_add_executable(daymark src/app/TimeInputSmokeProbe.h src/app/TimeInputSmokeProbe.cpp src/app/Ux35SmokeProbe.h src/app/Ux35SmokeProbe.cpp src/app/Ux34SmokeProbe.h src/app/Ux34SmokeProbe.cpp src/platform/common/ApplicationMenus.h src/platform/common/ApplicationMenus.cpp src/main.cpp src/app/AppRuntime.h src/app/AppRuntime.cpp src/app/SoakRunner.h src/app/SoakRunner.cpp)
+qt_add_executable(daymark src/app/WidgetPointerSmokeProbe.h src/app/WidgetPointerSmokeProbe.cpp src/app/TimeInputSmokeProbe.h src/app/TimeInputSmokeProbe.cpp src/app/Ux35SmokeProbe.h src/app/Ux35SmokeProbe.cpp src/app/Ux34SmokeProbe.h src/app/Ux34SmokeProbe.cpp src/platform/common/ApplicationMenus.h src/platform/common/ApplicationMenus.cpp src/main.cpp src/app/AppRuntime.h src/app/AppRuntime.cpp src/app/SoakRunner.h src/app/SoakRunner.cpp)
 set(DAYMARK_BRAND_ICONS)
 foreach(size IN ITEMS 16 20 24 32 48 64 128 256 512 1024)
     list(APPEND DAYMARK_BRAND_ICONS assets/icons/daymark-${size}.png)
@@ -136,7 +136,7 @@ qt_add_qml_module(daymark
     VERSION 1.0
     QML_FILES src/ui/AccountWindow.qml src/ui/TaskSelection.qml src/ui/BrandWordmark.qml src/ui/BrandMark.qml src/ui/BrandLockup.qml src/ui/SettingsAboutPage.qml src/ui/TaskRowSummary.qml src/ui/TagMenu.qml src/ui/WindowResizeHandles.qml src/ui/TimeRangePicker.qml src/ui/PopoverSurface.qml
     QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/WidgetTaskRow.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/SettingsGroup.qml src/ui/SettingsRow.qml src/ui/SettingsToggle.qml src/ui/SettingsLink.qml src/ui/InspectorTabs.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
-    QML_FILES src/ui/CalendarMetrics.qml src/ui/CalendarMonthStream.qml src/ui/CalendarMonthGrid.qml src/ui/ListViewportState.qml src/ui/CalendarDateMoveDialog.qml src/ui/CalendarCreatePopup.qml src/ui/UnscheduledTasksPanel.qml src/ui/TaskDragGesture.qml src/ui/TaskDragPayload.qml src/ui/TaskInspectorPicker.qml src/ui/CalendarTimeline.qml src/ui/YearCalendar.qml src/ui/TaskEditorSession.qml src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/InputTimePreview.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
+    QML_FILES src/ui/WidgetMoveHandle.qml src/ui/CalendarMetrics.qml src/ui/CalendarMonthStream.qml src/ui/CalendarMonthGrid.qml src/ui/ListViewportState.qml src/ui/CalendarDateMoveDialog.qml src/ui/CalendarCreatePopup.qml src/ui/UnscheduledTasksPanel.qml src/ui/TaskDragGesture.qml src/ui/TaskDragPayload.qml src/ui/TaskInspectorPicker.qml src/ui/CalendarTimeline.qml src/ui/YearCalendar.qml src/ui/TaskEditorSession.qml src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/InputTimePreview.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES ${DAYMARK_WINDOW_SOURCES} ${DAYMARK_WORKSPACE_SOURCES} src/platform/common/StartupController.h src/platform/common/StartupController.cpp
         src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp
 )
@@ -176,6 +176,18 @@ if(BUILD_TESTING)
         add_dependencies(test_update_flow daymark-update-cli daymark-updater test_update_cli test_update_bootstrap test_update_payload_old test_update_payload_new)
         add_test(NAME update_windows_flow COMMAND test_update_flow -o -,txt)
         set_tests_properties(update_windows_flow PROPERTIES TIMEOUT 180 LABELS "update;windows;integration")
+        qt_add_executable(test_setup_flow tests/update/SetupFlowTest.cpp)
+        set_target_properties(test_setup_flow PROPERTIES WIN32_EXECUTABLE FALSE)
+        target_link_libraries(test_setup_flow PRIVATE Qt6::Core Qt6::Test)
+        target_compile_definitions(test_setup_flow PRIVATE DAYMARK_TEST_PYTHON="${Python3_EXECUTABLE}" DAYMARK_SETUP_FLOW_SCRIPT="${CMAKE_CURRENT_SOURCE_DIR}/tests/update/setup_fixture.py")
+        add_dependencies(test_setup_flow test_setup_helper daymark-update-cli test_update_payload_old test_update_payload_new)
+        add_test(NAME setup_windows_flow COMMAND test_setup_flow -o -,txt -o setup-flow-results.txt,txt)
+        set_tests_properties(setup_windows_flow PROPERTIES TIMEOUT 100 LABELS "setup;windows;integration")
+        # Post-package acceptance needs a real installer; not a pre-package CTest gate.
+        qt_add_executable(test_installer_flow tests/update/InstallerFlowTest.cpp)
+        set_target_properties(test_installer_flow PROPERTIES WIN32_EXECUTABLE FALSE)
+        target_link_libraries(test_installer_flow PRIVATE Qt6::Core Qt6::Test)
+        target_compile_definitions(test_installer_flow PRIVATE DAYMARK_TEST_PYTHON="${Python3_EXECUTABLE}" DAYMARK_INSTALLER_FLOW_SCRIPT="${CMAKE_CURRENT_SOURCE_DIR}/tests/update/installer_fixture.py" DAYMARK_TEST_REPO="${CMAKE_CURRENT_SOURCE_DIR}")
     endif()
     add_test(NAME official_service_config COMMAND ${CMAKE_COMMAND}
         -DSOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR} -DTEST_OUTPUT=${CMAKE_CURRENT_BINARY_DIR}/config-tests
@@ -231,6 +243,8 @@ if(BUILD_TESTING)
     qt_add_executable(test_task_service tests/services/TaskServiceTest.cpp)
     target_link_libraries(test_task_service PRIVATE daymark_core Qt6::Test)
     add_test(NAME task_service COMMAND test_task_service)
+    add_test(NAME widget_pointer_ui COMMAND daymark --widget-pointer-smoke)
+    set_tests_properties(widget_pointer_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15 LABELS "ui" RESOURCE_LOCK daymark_ui)
     add_test(NAME time_input_ui COMMAND daymark --time-input-smoke)
     set_tests_properties(time_input_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30 LABELS "ui" RESOURCE_LOCK daymark_ui)
     qt_add_executable(test_catalog_service tests/services/CatalogServiceTest.cpp)

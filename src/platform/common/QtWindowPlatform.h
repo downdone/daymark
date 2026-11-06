@@ -15,6 +15,7 @@ public:
     WindowResult setDesktopPinned(QWindow* window, bool enabled) override;
     WindowResult resize(QWindow* window, const QSize& size) override;
     WindowResult setVisible(QWindow* window, bool visible) override;
+    WindowResult move(QWindow* window,const QPoint& position) override;
     WindowResult startMove(QWindow* window) override;
     WindowResult setClickThrough(QWindow* window, bool enabled) override;
     WindowResult startResize(QWindow* window) override;

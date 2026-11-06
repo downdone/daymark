@@ -21,7 +21,10 @@ struct StartupUpdateGate::Impl {
 #ifdef Q_OS_WIN
     HANDLE lease = INVALID_HANDLE_VALUE, pipe = INVALID_HANDLE_VALUE;
     OVERLAPPED lock{};
+    HANDLE installationLease=INVALID_HANDLE_VALUE;
+    OVERLAPPED installationLock{};
     ~Impl() {
+        if(installationLease!=INVALID_HANDLE_VALUE){UnlockFileEx(installationLease,0,1,0,&installationLock);CloseHandle(installationLease);}
         if (!instanceFile.isEmpty())
             QFile::remove(instanceFile);
         if (pipe != INVALID_HANDLE_VALUE)
@@ -69,6 +72,12 @@ bool StartupUpdateGate::acquire(const QString &handoff, const QString &version) 
         d->root = parent.canonicalPath();
         if (d->root.isEmpty())
             throw std::runtime_error("update.process_identity");
+        const auto installGate=QDir(QFileInfo(d->root).absolutePath()).filePath("."+QFileInfo(d->root).fileName()+".daymark-setup.lock");
+        if(QFileInfo::exists(installGate)){
+            d->installationLease=CreateFileW(reinterpret_cast<const wchar_t*>(installGate.utf16()),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,0,nullptr);
+            const auto error=d->installationLease==INVALID_HANDLE_VALUE?GetLastError():update::win::acquireByteLock(d->installationLease,false,d->installationLock);
+            if(error!=ERROR_SUCCESS)throw std::runtime_error(std::string(update::win::lockErrorKey(error,d->installationLease==INVALID_HANDLE_VALUE))+" (Win32 "+std::to_string(error)+")");
+        }
         if (!handoff.isEmpty()) {
             bool ok = false;
             const auto number = handoff.toULongLong(&ok);
@@ -272,6 +281,18 @@ bool StartupUpdateGate::running() {
                 !output.commit())
                 throw std::runtime_error("update.file_write");
             d->recordedRunning = true;
+            if(QFileInfo::exists(QDir(d->root).filePath("update-state/install-receipt.json")) &&
+               QFileInfo::exists(QDir(d->root).filePath("daymark-setup-helper.exe"))) {
+                auto* cleanup=new QProcess(QCoreApplication::instance());
+                cleanup->setProgram(QDir(d->root).filePath("daymark-setup-helper.exe"));
+                cleanup->setArguments({QStringLiteral("finish-install"),QStringLiteral("--root"),d->root});
+                QObject::connect(cleanup,&QProcess::finished,cleanup,[cleanup](int code){
+                    if(code!=0)diagnostics::event("setup","cleanup_deferred",{{"exit_code",code},{"detail",QString::fromUtf8(cleanup->readAllStandardOutput()).left(512)}},"warning");
+                    cleanup->deleteLater();
+                });
+                QObject::connect(cleanup,&QProcess::errorOccurred,cleanup,[cleanup]{diagnostics::event("setup","cleanup_start_failed",{{"error",int(cleanup->error())}},"warning");cleanup->deleteLater();});
+                cleanup->start();
+            }
             if (restricted()) {
                 try {
                     d->send("RUNNING");

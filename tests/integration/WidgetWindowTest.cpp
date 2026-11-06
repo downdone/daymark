@@ -29,6 +29,7 @@ public:
     {return rejectDesktop?WindowResult{WindowError::OperationRejected}:qt.setDesktopPinned(w,enabled);}
     WindowResult setVisible(QWindow* w, bool visible) override { return qt.setVisible(w, visible); }
     WindowResult setClickThrough(QWindow* w,bool enabled) override {return qt.setClickThrough(w,enabled);}
+    WindowResult move(QWindow* w,const QPoint& at)override{return qt.move(w,at);}
     WindowResult startMove(QWindow*) override { return {WindowError::MoveUnsupported}; }
 };
 
@@ -44,6 +45,15 @@ public:
 class WidgetWindowTest : public QObject {
     Q_OBJECT
 private slots:
+    void pointerMoveKeepsLayerAndFinishesWhenLocked() {
+        QWindow window;QtWindowPlatform platform;WidgetViewModel model(platform);model.attachWindow(&window);model.setVisible(true);
+        QVERIFY(model.setAlwaysOnTop(true));const auto origin=window.position();
+        QVERIFY(model.beginPointerMove(QPointF(100,100)));QVERIFY(model.movePointer(QPointF(125,113)));
+        QCOMPARE(window.position(),origin+QPoint(25,13));QVERIFY(model.alwaysOnTop());
+        model.finishMove();QVERIFY(!model.movePointer(QPointF(130,130)));
+        QVERIFY(model.beginPointerMove(QPointF(200,200)));model.setLocked(true);QVERIFY(!model.movePointer(QPointF(220,220)));QVERIFY(!model.beginPointerMove(QPointF(220,220)));
+        model.setLocked(false);QVERIFY(model.beginPointerMove(QPointF(300,300)));QVERIFY(model.movePointer(QPointF(308,309)));model.finishMove();QVERIFY(model.alwaysOnTop());
+    }
     void canvasLayoutContainsAllFormsAndKeepsTheirGlobalAnchors()
     {
         const QList<WidgetScreen> screens={{"primary",QRect(0,0,1280,800)},{"left",QRect(-1280,0,1280,800)}};

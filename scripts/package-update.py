@@ -49,20 +49,33 @@ def build(args: argparse.Namespace) -> dict:
     version_probe = subprocess.run([str(payload / 'daymark.exe'), '--version'], capture_output=True, text=True, timeout=15)
     if version_probe.returncode or version_probe.stdout.strip() != 'Daymark ' + args.version:
         raise ValueError('payload executable version does not match the requested package version')
+    local_candidate = getattr(args, "local_candidate", False)
+    if args.local_fixture and local_candidate: raise ValueError("conflicting package scopes")
     if not args.local_fixture:
         info = json.loads((payload / 'BUILD-INFO.json').read_text(encoding='utf-8-sig'))
-        if info.get('version') != args.version or info.get('sourceRevision') != args.source or info.get('localPreview'):
+        if info.get('version') != args.version or info.get('sourceRevision') != args.source or (info.get('localPreview') and not local_candidate):
             raise ValueError('release payload identity is not a matching non-preview build')
         pin = getattr(args, 'self_signed_cert_sha256', '')
-        check_gates(info, pin)
-        if args.deployment_report is None or args.deployment_report.resolve() != payload.parent / 'deployment-report.json':
+        if local_candidate:
+            import xml.etree.ElementTree as ET
+            report = getattr(args, 'local_test_report', None)
+            if not pin or not report or info.get('cleanMachine') is not False or info.get('fullTestGatePassed') is not True:
+                raise ValueError('local candidate requires explicit local test and pinned signature evidence')
+            suite=ET.parse(report).getroot(); cases=list(suite.iter('testcase'))
+            if len(cases)<44 or any(c.find('failure') is not None or c.find('error') is not None or c.find('skipped') is not None for c in cases):
+                raise ValueError('complete local CTest report required, no failed or skipped cases')
+        else:
+            check_gates(info, pin)
+        if not local_candidate and (args.deployment_report is None or args.deployment_report.resolve() != payload.parent / 'deployment-report.json'):
             raise ValueError('matching independent candidate deployment report required')
-        verify_deployment_report(payload.parent, info)
+        if not local_candidate: verify_deployment_report(payload.parent, info)
         for file, name in ((args.launcher, 'daymark-launcher.exe'), (args.cli, 'daymark-update-cli.exe'), (args.updater, 'daymark-updater.exe')):
             if file.resolve() != payload.parent / 'native' / name:
                 raise ValueError('native host differs from the independently validated candidate layout')
+        if getattr(args,'setup_helper',None) and args.setup_helper.resolve()!=payload.parent/'native/daymark-setup-helper.exe':
+            raise ValueError('setup helper differs from candidate layout')
         if pin:
-            verify_executables([payload / 'daymark.exe', args.launcher, args.cli, args.updater], pin)
+            verify_executables([payload / 'daymark.exe', args.launcher, args.cli, args.updater] + ([args.setup_helper] if getattr(args,'setup_helper',None) else []), pin)
         if args.release_id or args.asset_id:
             raise ValueError('upload the immutable ZIP first, then use finalize-update.py with actual GitHub asset metadata')
     for path in payload.rglob('*'):
@@ -70,7 +83,7 @@ def build(args: argparse.Namespace) -> dict:
             raise ValueError('payload contains a link or forbidden private file')
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
-    name = f'Daymark-{args.version}-windows-x64'
+    name = f'Daymark-{args.version}-windows-x64' + ('-local' if local_candidate else '')
     archive = out / (name + '.zip')
     if archive.exists() or (out / 'update-windows-x64.json').exists() or (out / 'update-windows-x64.draft.json').exists():
         raise ValueError('refusing to replace an existing release asset')
@@ -81,13 +94,15 @@ def build(args: argparse.Namespace) -> dict:
         shutil.copytree(payload, target)
         for source, filename in [(args.launcher, 'daymark.exe'), (args.updater, 'daymark-updater.exe'), (args.cli, 'daymark-update-cli.exe')]:
             shutil.copy2(source, root / filename)
+        if getattr(args,'setup_helper',None): shutil.copy2(args.setup_helper, root / 'daymark-setup-helper.exe')
         license_root = Path(__file__).resolve().parents[1] / 'third_party' / 'update'
         for dependency in ('miniz', 'json'):
             destination = root / 'update-licenses' / dependency
             destination.mkdir(parents=True)
             shutil.copy2(license_root / dependency / 'LICENSE', destination / 'LICENSE')
         shutil.copy2(license_root / 'SOURCES.json', root / 'update-licenses' / 'SOURCES.json')
-        policy = ('Local verification fixture; not a formal release.' if args.local_fixture else
+        policy = ('Local installation candidate; independent hosted clean-machine validation has not run.' if local_candidate else
+                  'Local verification fixture; not a formal release.' if args.local_fixture else
                   'Project self-signed Authenticode; Windows public publisher trust is not established.'
                   if getattr(args, 'self_signed_cert_sha256', '') else 'Public Authenticode signing policy.')
         (root / 'README.txt').write_text(
@@ -141,7 +156,7 @@ def build(args: argparse.Namespace) -> dict:
         if args.local_fixture:
             write_json(out / 'update-windows-x64.json', manifest)
             subprocess.run([str(args.cli.resolve()), 'sign', str(args.key.resolve()), str(out / 'update-windows-x64.json')], check=True, timeout=30)
-        else:
+        elif not local_candidate:
             write_json(out / 'update-windows-x64.draft.json', manifest)
         (out / (archive.name + '.sha256')).write_text(digest(archive) + '  ' + archive.name + '\n', encoding='ascii')
         (out / 'SHA256SUMS.txt').write_text(digest(archive) + '  ' + archive.name + '\n', encoding='ascii')
@@ -163,6 +178,9 @@ def main() -> None:
     parser.add_argument('--min-windows-build', type=int, required=True)
     parser.add_argument('--release-id', type=int, default=0)
     parser.add_argument('--asset-id', type=int, default=0)
+    parser.add_argument('--setup-helper', type=Path)
+    parser.add_argument('--local-candidate', action='store_true', help='Locally tested signed installer candidate; never generates publishable update metadata')
+    parser.add_argument('--local-test-report', type=Path)
     parser.add_argument('--local-fixture', action='store_true', help='Synthetic local test package; not a formal release')
     parser.add_argument('--self-signed-cert-sha256', default='', help='Explicit pinned self-signed publisher policy; does not imply Windows public trust')
     parser.add_argument('--deployment-report', type=Path)

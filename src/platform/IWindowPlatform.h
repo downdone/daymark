@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QSize>
+#include <QPoint>
 
 class QWindow;
 
@@ -22,6 +23,7 @@ public:
     virtual WindowResult setDesktopPinned(QWindow*,bool) {return {WindowError::OperationRejected};}
     virtual WindowResult resize(QWindow* window, const QSize& size) = 0;
     virtual WindowResult setVisible(QWindow* window, bool visible) = 0;
+    virtual WindowResult move(QWindow*,const QPoint&) {return {WindowError::MoveUnsupported};}
     virtual WindowResult startMove(QWindow* window) = 0;
     virtual WindowResult setClickThrough(QWindow*, bool) { return {WindowError::OperationRejected}; }
     virtual WindowResult startResize(QWindow*) {return {WindowError::OperationRejected};}

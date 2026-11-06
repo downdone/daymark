@@ -17,6 +17,7 @@ if ($SourceRevision -cnotmatch '^[0-9a-f]{40}$' -or $info.sourceRevision -cne $S
 }
 $policy = Get-Content -LiteralPath (Join-Path $repo 'config/authenticode-policy.json') -Raw | ConvertFrom-Json
 $files = @('payload/daymark.exe','native/daymark-launcher.exe','native/daymark-update-cli.exe','native/daymark-updater.exe')
+if(Test-Path (Join-Path $root "native/daymark-setup-helper.exe")){$files += "native/daymark-setup-helper.exe"}
 foreach ($file in $files) { $null = Assert-DaymarkSelfSignedExecutable (Join-Path $root $file) $policy.certificate_sha256 }
 $native = @($files | Select-Object -Skip 1 | ForEach-Object { Join-Path $root $_ })
 & python (Join-Path $PSScriptRoot 'audit-native-imports.py') @native
@@ -82,7 +83,7 @@ Daymark $Version - managed Windows payload
 Start the daymark.exe in the top-level portable directory. Keep versions/ and
 all bundled files together. This payload is not a standalone application folder.
 
-The four Daymark programs have project self-signed Authenticode signatures,
+The Daymark programs have project self-signed Authenticode signatures,
 verified against the reviewed certificate pin. Windows public publisher trust
 is not established; Windows/SmartScreen can still display a publisher warning.
 No certificate must be installed in a root store to use the application.

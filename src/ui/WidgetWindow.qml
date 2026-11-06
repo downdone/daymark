@@ -474,7 +474,7 @@ Window {
                 onActiveFocusChanged:if(activeFocus && [Qt.TabFocusReason,Qt.BacktabFocusReason,Qt.ShortcutFocusReason].indexOf(focusReason)>=0)widget.miniKeyboardInteraction=true
                 TapHandler {acceptedButtons:Qt.RightButton;enabled:!widget.commandInputBlocked && !widget.motionInputBlocked;onTapped:widget.openVerificationMenu()}
                 PointHandler {id:ballPress;acceptedButtons:Qt.LeftButton}
-                DragHandler {id:ballDrag;target:null;enabled:!widget.controller.locked;onActiveChanged:{if(active)widget.controller.startMove();else widget.controller.finishMove()} cursorShape:Qt.OpenHandCursor}
+                WidgetMoveHandle {id:ballDrag;controller:widget.controller}
                 contentItem:Item {
                     implicitWidth:24;implicitHeight:24
                     BrandMark {objectName:"widgetBrandMark";anchors.fill:parent;visible:!widget.controller.errorText.length;Accessible.ignored:true}
@@ -499,6 +499,7 @@ Window {
                     Layout.fillWidth: true
                     spacing: 2
                     Item {
+                        objectName:"widgetHeaderGrip"
                         Layout.fillWidth: true;Layout.minimumWidth: 0
                         implicitHeight: headerText.implicitHeight
                         Column {
@@ -518,7 +519,7 @@ Window {
                             }
                         }
                         PointHandler {id:headerPress;acceptedButtons:Qt.LeftButton}
-                        DragHandler {id: headerDrag;target: null;enabled: !widget.controller.locked;onActiveChanged:{if(active)widget.controller.startMove();else widget.controller.finishMove()} cursorShape: Qt.OpenHandCursor}
+                        WidgetMoveHandle {id:headerDrag;controller:widget.controller}
                     }
                     WidgetAction {Layout.alignment:Qt.AlignTop;visible:widget.controller.panelRect.width>=300*Theme.scale;objectName: "widgetPin";symbol: "pin";checked: widget.controller.alwaysOnTop;Accessible.checkable: true;Accessible.checked: checked;description: checked ? qsTr("取消置顶") : qsTr("置顶组件");onClicked: widget.controller.setAlwaysOnTop(!widget.controller.alwaysOnTop)}
                     WidgetAction {Layout.alignment:Qt.AlignTop;objectName: "widgetCollapse";visible:widget.controller.canCompact;symbol: widget.controller.growUp ? "down" : "up";description: widget.controller.selectedForm===2 ? qsTr("返回悬浮球") : qsTr("收起任务组件");onClicked: widget.controller.returnToCompact()}
@@ -667,13 +668,13 @@ Window {
                 ToolButton {
                     id:miniGrip;objectName:"widgetMiniGrip"
                     Layout.preferredWidth:Math.max(32,Theme.iconSize+8);Layout.fillHeight:true
-                    focusPolicy:Qt.NoFocus;padding:4
-                    Accessible.name:widget.controller.selectedForm===2 ? qsTr("打开任务或拖动 Mini 条") : qsTr("拖动 Mini 条")
-                    onClicked:if(widget.controller.selectedForm===2)widget.controller.activatePrimary()
+                    focusPolicy:Qt.StrongFocus;padding:4
+                    Accessible.name:widget.primaryActionName+qsTr("，或拖动 Mini 条")
+                    onClicked:widget.controller.activatePrimary()
                     contentItem:AppIcon {name:"today";ink:Theme.secondary}
                     background:Rectangle {radius:Theme.controlRadius;color:miniGrip.down ? Theme.pressed : miniGrip.hovered ? Theme.hover : "transparent"}
                     PointHandler {id:miniPress;acceptedButtons:Qt.LeftButton}
-                    DragHandler {id:miniDrag;target:null;enabled:!widget.controller.locked;onActiveChanged:{if(active)widget.controller.startMove();else widget.controller.finishMove()} cursorShape:Qt.OpenHandCursor}
+                    WidgetMoveHandle {id:miniDrag;controller:widget.controller}
                 }
                 ToolButton {
                     id: miniSummary

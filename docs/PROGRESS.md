@@ -2,6 +2,16 @@
 
 更新：2026-11-06。**2.0.2 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
+## WID-08 / SETUP-01（实现通过，实际安装包验收中）
+
+按用户授权修复Mini小太阳及置顶拖动，单代理执行新增能力标准：[指针设计](design/widget-pointer-move.md)、[安装器契约](design/windows-installer.md)、[ADR-035](ADR/035-native-windows-installer.md)均完成自审，没有冒称独立评审。开发候选版本2.1.0，线上正式版本仍2.0.2；不自动推送、发布或打tag。
+
+WID-08：Mini太阳统一执行主要动作，常驻Mini也可展开；Panel/Mini/Ball共用单一DragHandler→C++位移，不再在QML抓取中转交startSystemMove。位移不改窗口层级，锁定/穿透结束拖动，可再次解锁拖动。实际QML Mini点击与Mini/置顶Panel拖动、锁定恢复测试PASS；物理多显示器跨DPI、用户现场偶发问题仍UNVERIFIED。
+
+SETUP-01：每用户原生NSIS向导，签名managed布局、根宿主/Qt完整离线部署、HKCU/快捷方式/卸载、安装SDK JSON/稳定错误码/Win32细节。可信索引验签及全文件散列、运行占用拒绝、外安装互斥、同卷暂存/回滚与崩溃恢复、损坏程序修复、反复重装备份链、RUNNING后清理、保留未知/修改文件。数据库schema10/HTTP协议不变，无新服务/系统服务/Root证书导入。正式CI门禁保持，本地候选不生成正式更新manifest，不把本机MinGW冒充MSVC线上升级。
+
+构建PASS。全量CTest **44/44 PASS，428.72s**（本轮中间快照）；最终安装SDK调整后针对性 **7/7 PASS，44.63s**，实际Mini/置顶Panel QML拖动最终 **1/1 PASS，4.05s**。首次Mini探针因零时间戳的合成鼠标事件未触发DragHandler，修正测试事件时间戳后通过；安装事务首轮Windows内部句柄阻止目录改名已通过外锁重设计修复。一次旧SDK构建对应更新后“损坏程序修复”夹具失败，最终重建后7/7通过。实际签名Setup/向导/安装启动/重装/卸载验收待产物生成，不提前写PASS。独立干净Windows、物理多屏/读屏以及macOS/Linux继续UNVERIFIED。
+
 ## TIME-01 智能时间输入（本地完成，未发布）
 
 用户授权设计评审后全面实现，并要求固化新增能力工程标准。已将[统一设计标准](design/new-capability-standard.md)和[模板](templates/capability-design.md)接入AGENTS、engineering、工程原则P-22；后续新增能力默认覆盖功能定义、选型、架构、模块、协议、接口/数据、数据库、UX、可靠性、测试及评审，不涉及项说明原因。[TIME-01契约](design/task-time-recognition.md)和[ADR-034](ADR/034-offline-task-time-recognition.md)记录了单代理技术自审、问题修订及准入；没有冒称独立评审。
