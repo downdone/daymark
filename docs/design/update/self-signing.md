@@ -21,10 +21,10 @@ BUILD-INFO的旧` signed `公共签名字段维持false，新增`authenticode.po
 Windows PowerShell7，工具路径通过参数传入；命令不包含私钥值或服务URL：
 
 ```powershell
-./scripts/Initialize-UpdateSigning.ps1 -Directory build/private-signing -UpdateCli build/update-dev/bin/daymark-update-cli.exe
+./scripts/Initialize-UpdateSigning.ps1 -Directory config/signing.local -UpdateCli build/update-dev/bin/daymark-update-cli.exe
 ./scripts/Sign-WindowsCandidate.ps1 -Directory <隔离候选> -CertificateThumbprint <个人库指纹> -CertificateSha256 <已审查SHA256> -SignTool <WindowsSDK的signtool.exe>
 ./tests/scripts/SelfSigningTest.ps1 -CandidateDirectory <隔离候选> -UnsignedExecutable <未签名CLI> -CertificateSha256 <已审查SHA256>
-./tests/scripts/UpdateSigningTest.ps1 -WorkDirectory <新的证据目录> -SigningDirectory build/private-signing -CandidateDirectory <隔离候选> -RuntimeDirectory <已部署Qt运行目录>
+./tests/scripts/UpdateSigningTest.ps1 -WorkDirectory <新的证据目录> -SigningDirectory config/signing.local -CandidateDirectory <隔离候选> -RuntimeDirectory <已部署Qt运行目录>
 python -m unittest discover -s tests -p test_update_publication.py -v
 ```
 

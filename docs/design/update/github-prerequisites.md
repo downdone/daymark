@@ -42,7 +42,7 @@ update-windows-x64.json.sig
 
 用户随后明确只优先Windows：默认release-build矩阵现为windows-2022/MSVC2022，保留历史已验证Unix资产的恢复校验代码，不新增Unix构建工作。普通标签流水线产出`windows-update-candidate`，另有手动受保护`windows-update.yml`负责正式发布。已有普通包与托管包ZIP同名，因此启用前必须设置`DAYMARK_MANAGED_WINDOWS_RELEASE=true`，让普通附件上传job退出；不能在同一tag覆盖旧包来切换布局。
 
-本轮已实现工具与工作流文件，**未修改远端variable/Environment/secret，也未执行远端workflow或上传**。普通候选仍声明未签名/未干净机验证；正式入口检测真实Authenticode和BUILD-INFO全部门禁，会明确拒绝当前候选。接下来应将签名和独立干净机证据加入可信候选生产流程，而不是修改布尔值绕过。候选run必须对应相同tag源码SHA、成功push构建和固定workflow；恢复工具分支的不同SHA产物不自动提升为正式候选。
+初始准备阶段只实现工具与工作流，不代表远端已配置；现行配置和发行结果只见PROGRESS。普通候选必须声明未签名/未独立部署验证，受保护流水线按明确的公共签名或self-signed-pinned策略真实校验、独立验证后才发布，不允许只修改布尔值绕过。候选run必须对应相同tag源码SHA、成功push构建和固定workflow；恢复工具分支的不同SHA产物不自动提升为正式候选。
 
 2026-11-06用户已授权实际启用与发布，现行队列见PROGRESS的UPD-06。签名接入分为两件事：P-256更新清单密钥可由项目受控生成；Windows Authenticode需要公开可信的代码签名证书/服务，网站TLS证书不能代替。现有证书须明确签发机构、令牌/HSM/云服务或既有可导出PFX形式；私钥、密码不经聊天或源码传递。新申请须先核对签发机构的身份和硬件保护要求；自签名不能冒充公开Windows信任，清单签名也不能承诺消除SmartScreen。若选择暂不使用Authenticode，须明确变更发布策略、保留真实未签名状态，不能把signed字段改成true。
 

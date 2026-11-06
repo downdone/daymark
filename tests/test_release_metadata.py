@@ -94,7 +94,10 @@ class ReleaseGuards(unittest.TestCase):
         self.assertEqual(release.release_input(self.root, 'v1.0.1'), ('1.0.1',notes))
 
     def test_tracked_runtime_or_database_is_rejected(self):
-        for name in ("runtime.dll", "sample.db", "secret.dpapi", ".env", "build/cache.txt", "__pycache__/cache.pyc"):
+        for name in ("runtime.dll", "sample.db", "secret.dpapi", "private.json", "PRIVATE.JSON",
+                     "config/signing.local/public.json", "config/SIGNING.LOCAL/public.json",
+                     "config/official-service.local.txt", "config/official-service.LOCAL.txt",
+                     ".env", "build/cache.txt", "__pycache__/cache.pyc"):
             with self.subTest(name=name):
                 self.write(name, "synthetic")
                 self.git("add", "-f", name)

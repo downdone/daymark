@@ -4,6 +4,7 @@
 /CMakeUserPresets.json
 /.qt/
 /config/official-service.local.txt
+/config/signing.local/
 /.idea/
 /.vscode/
 *.user

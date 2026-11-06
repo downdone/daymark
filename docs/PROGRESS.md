@@ -1,92 +1,62 @@
 # Daymark 当前进度
 
-更新：2026-11-06。当前版本 **2.0.2源码候选 / schema10 / HTTP JSON v1 / Qt6.10.2**。本文件只维护现行状态；逐轮原始证据保留在[历史记录](PROGRESS-HISTORY.md)，旧过程标题不再充当未完成任务。
+更新：2026-11-06。**2.0.2 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## 本轮范围
+## 已完成范围
 
-用户要求完成PROGRESS任务，随后明确：**Linux、macOS跳过，先完成Windows功能性事项**。本轮不降级当前2.0源码、不覆盖历史tag/资产、不把正式签名发布、干净机/物理设备/8h性能测量混成业务功能欠账；不读取真实任务库，不上传私有资料，保持单代理。
+用户授权完整实现Windows功能、启用GitHub并验证实际更新，选择项目自签名，允许官方地址通过受保护CI Secret编译。当前功能收尾CLOSE-01、发行启用UPD-06均完成；Linux/macOS按用户指示跳过。未覆盖用户数据库、不上传真实任务/隐私日志、不移动旧tag/资产，保持单代理。
 
-用户随后明确授权“GitHub直接启用，全流程验证更新”。新增 **UPD-06**：配置真实仓库发布信任与Environment，以两个不可变递增版本验证公开GitHub下载、真实Qt重启、数据保留和旧版清理。授权覆盖必要的源码推送、仓库配置及新Release；不覆盖旧tag/资产，不上传本地私有资料。
-
-## UPD-06 启用队列
-
-| 顺序 | 事项 | 状态 |
+| 功能 | 当前结果 | 证据与边界 |
 |---|---|---|
-| G0 | 核对远端、认证与正式发布缺口 | DONE：已明确选择downdone账号，API确认admin权限；远端main与四个旧tag已复核，v2.0.1固定9e5ead1，v2.0.2固定0bdaca9；旧标签均未改动 |
-| G1 | 信任密钥、受控环境与干净Windows候选验证 | IN_PROGRESS：自有P-256和自签名代码证书已生成并真实验证；2.0.1已完成真实签名/独立Windows部署并发布，2.0.2候选及桌面/同步全CI均通过，正在签名；未冒充公共信任 |
-| G2 | 两个递增版本构建与不可变发布 | IN_PROGRESS：2.0.1五资源已发布（run42161946172）；2.0.2候选run42161583632已通过，待最终签名/独立部署上传 |
-| G3 | 匿名资源验证与真实GitHub Qt升级链 | TODO：已启动本机匿名CDN下载验收但读超时，保留失败；独立Windows公网验收工作流待执行，绝不冒充本机网络恢复 |
+| 本地任务/分类/标签/日历/重复/提醒/备份 | IMPLEMENTED / WINDOWS-PASS | 当前完整Windows CTest 40/40包含仓库、事务、查询、时间、工作区和导入导出 |
+| 主窗/小窗/Mini/球及分类快查 | IMPLEMENTED / WINDOWS-PASS | 分类默认全部未完成/可选今天；快速添加/排序/菜单/穿透恢复及统一呈现已实现，相关真实QML/原生回归已通过 |
+| 账号/同步/完成面板筛选 | IMPLEMENTED / WINDOWS-PASS | 官方/自定义URL、8字符密码、本地优先、资料隔离、冲突及分类/标签交集；真实Qt→Go TLS同步CI成功 |
+| 全局日志与诊断 | IMPLEMENTED / WINDOWS-PASS | 本地有界脱敏日志、请求ID、Sxxx-Cxxx、Qt/TLS底层证据、复制详情/日志入口；不上传 |
+| Windows在线更新 | PUBLISHED / PUBLIC-GITHUB-PASS | 原生SDK/CLI/Win32薄UI、自动prepare、保存退出、受限启动/COMMIT/RUNNING/清理；真实2.0.1→2.0.2通过 |
+| 已实施性能优化 | IMPLEMENTED | 已交付索引/快照/增量模型/提醒判断等，现行测试通过；整应用/GPU/长期SLA未宣称已验收 |
 
-准备证据：普通GitHub API直连可用，旧本地Git代理不可达，未更改全局代理。已用官方资产API完成一次GitHub CLI下载并核对SHA256及GitHub, Inc.有效Authenticode；默认凭据查询因多账号未选中，明确downdone后认证和admin权限通过。windows-update-release已限制main/v*，四项Environment Secrets已加密配置，公钥变量/托管发行开关已启用。用户追加授权官方URL作为受保护CI Secret、临时文件构建后删除；源码仅示例。无私钥、密码或URL写入日志/源码。
+## UPD-06 完成队列
 
-本轮增量：MSVC标签包禁用windeployqt的编译器运行库隐式复制，改从VS2022正式Redist目录校验微软签名、14.3x/14.4x版本、PE x64与复制后散列，BUILD-INFO明确bundled及文件证据。源码目录/版本选择、Release布局与校验文件测试PASS；本机仅有VS18/VC145，未把该不同工具链当作VS2022实包验证，完整MSVC包保持UNVERIFIED。Release增量构建PASS；4项更新CTest PASS（21.73秒，`build/github-enable/update-tests.log/xml`）、14项发行元数据与4项更新发布测试PASS。设备登录等待数分钟仍未返回授权码，已结束仅本任务创建的登录进程；未产生API授权，不重复连接或绕过签名门禁。该早期登录缺口现已解除，自签名与远端配置进展以下续记录为准。
-
-UPD-06远端首轮959e678：源码/隐私守卫与Go服务及真实Qt→Go TLS同步整条CI成功（run42155203595）；Windows完整构建run42155203610因Engine.cpp遗漏cwctype而MSVC C2039失败，未创建tag。补显式algorithm/cctype/cwctype/limits头；本机独立原生MSVC构建另查出manifest资源重复，改保留手写asInvoker/DPI资源、关闭MSVC重复生成；子项目独立UTF8编译固定。本机VS18/MSVC19.52（不冒充CI VS2022）三宿主编译及SDK/真实CNG两项CTest通过0.72秒，导入表OS-only、实际嵌入asInvoker/PerMonitorV2/CommonControls manifest均通过；日志msvc-native-manifest-final.log，原失败保留。修复提交9e5ead1及annotated v2.0.1已推送；main完整CI和同步CI成功。tag候选run42157174276完整构建/CTest/lint通过，但Package被CRT未知文件白名单拒绝，零资产上传。正式发行仍依赖候选打包、签名与独立部署。
-
-UPD-06工具链恢复：合成地址复现了配置后立即删除URL文件会触发CMake自动重配并将官方地址置空；已改为保留至测试/打包后always清理，二进制必须含经规范化的Secret地址且元数据显式true。新增仅主分支调度的固定tag重建，源码SHA与工具SHA分别记录/验收；新候选仍完整测试，旧tag/资产不覆盖。CRT预检前置，可只运行轻量审计以取得真实未知文件名，不为该问题盲目重复20分钟完整构建。新增10项来源/发布策略与8项恢复守卫通过；重建的工具修复提交仅跳过重复普通push CI，受控重建仍执行完整正式门禁。
-
-2.0.2准备：本地全部源文件已编译，最终链接因本轮早先带--version的开发版进程占用daymark.exe而Permission denied；没有强杀或覆盖，已请用户保存后退出，CI工作继续。更新组件4/4通过22.21秒，15项发行/10项发布策略/8项恢复/2项PE守卫通过，Markdown198份链接通过。恢复run42160035601的CRT十文件真实签名/架构/版本预检成功，当前完整测试中。下一版源代码保持同schema/ABI，仅合并发行工具修复、版本号及夹具真实运行库标注；其全量测试仍由新tag流水线完成。
-
-发行进展：恢复候选run42160035601全通过，受保护run42161946172的来源/四程序自签名/独立Windows部署/最终发布均成功，v2.0.1现有ZIP、两个校验文件、JSON与签名五资产；发布前实际校验官方地址。v2.0.2/0bdaca9已推送，候选42161583632、桌面42161582762、同步42161582820全部成功。用户保存退出后本地链接补完，显式隔离--version进程退出0并输出Daymark 2.0.2；原文件占用失败保留。
-
-公网验收准备：新增QTemporaryDir公共验收分支，默认本机夹具预算不变；显式模式仅下载公开真实资产，以源控pin和生产公钥验签，隔离PATH/Qt/CI凭据，审计实际旧/新Qt/SQL/CRT模块来自对应签名payload，保存公开ZIP/报告而不保存合成DB。普通fixture回归通过18.92秒，增加根README后19.94秒。首次本机实际下载asset715891402遇到90秒读超时，未启动Qt；一次有界curl范围测量HTTP206/65536字节/7.207秒（含连接），不是签名错误，不修改TLS/代理、不盲目重跑完整链。独立Windows验收工作流无签名Environment/Secrets；远端若成功只证明该Windows实际链，不冒充本机CDN恢复。
-
-说明修正：v2.0.1内部README保留原候选未签名文案，已公开资产不可覆盖；后续2.0.2最终验证阶段更新payload说明，并在受签名索引覆盖的根目录加入托管启动/自签名说明。此为发行工具文档变化，不重编译或改写生产源码SHA。
-
-## 当前功能清单
-
-CRT轻量预检run42159792181实际列出VS2022 CRT 14.44.35211.0十个文件，唯一未审查文件为`vcruntime140_threads.dll`，故此前白名单拒绝。已明确加入该Microsoft.VC143.CRT成员，继续要求每个文件有效微软签名、14.3x/14.4x、PE x64和复制后散列；没有放宽成任意DLL/跳过签名。接下来用同一v2.0.1/9e5ead1固定源码、更新主分支工具执行完整重建；前置CRT审计成功才开始编译。
-
-UPD-06自签名切片：自有P-256公钥`daymark-d3fe49dbd972`已编入生产宿主，独立RSA3072证书仅CurrentUser/My，私钥/PFX/密码以CurrentUser DPAPI和owner/SYSTEM-only ACL封存。四个真实程序副本自签名与固定指纹验签PASS；改PE代码得到`TRUST_E_BAD_DIGEST 0x80096010`并拒绝，错pin/无签名拒绝，两处Root库前后不变，`self-signing-verification-final.log`。公共信任仍false，没有安装根证书。
-
-自有密钥签署221文件本地验证包：生产CLI凭内置公钥初始化PASS；改清单、错签名域、错key、改payload均拒绝且零current指针；完整Qt运行库/隔离环境的`--update-preflight`退出0，`build/github-enable/owned-key-package-check/report.json`。该包明确local-fixture、合成GitHub ID，不能上传为正式包，不冒充公网升级/干净机。Release可信公钥构建PASS，更新4/4 CTest PASS（21.05秒），7项发布策略与14项元数据PASS，Python→PowerShell真实四文件签名门禁PASS；脚本/YAML解析PASS。源码仅公钥/固定指纹，不含证书或私钥；正式完整测试与独立部署门禁继续要求true。
-
-保留的失败：探针最初误用CLI不支持的`--version`，改实际`capabilities`后补验；集合Add返回值混入记录，已抑制并断言每文件只产一条；Python跨进程数组参数被PowerShell拒绝，已改四个明确参数并补真实验签。失败在`self-signing-verification.log`、`python-signature-gate.log`，最终证据另存，未放宽校验。用户随后完成GitHub认证；API/Environment/Secrets配置成功。流水线已拆分签名、独立Windows runner的运行库/窗口/模块来源验证、报告绑定后发布三段，实际远端运行尚待源码提交。
-
-| 功能/原任务 | 现行实现 | 证据与边界 |
-|---|---|---|
-| 本地任务/分类/标签/重复/提醒/备份 | IMPLEMENTED | 当前完整Windows基线39/39包含仓库、事务、查询、时间、工作区和导入导出；历史设计SYNC-01～04等不再表示缺代码 |
-| 主列表/日历/草稿与多选 | IMPLEMENTED | qml_startup、contextual_workspace、continuous_calendar、calendar_interaction、task_list_interaction已通过；未丢身份/草稿/CAS与保存门 |
-| 小窗/Mini/球及分类快查（UX-62～77、UX-72） | IMPLEMENTED | 独立分类上下文、默认全部未完成/可选今天、常用/搜索、快速添加/排序/快捷菜单、穿透恢复及统一呈现已实现；旧UX-72“只设计”由UX-77交付覆盖 |
-| 账号与同步（SYNC-05～09、AUTH-08/09） | IMPLEMENTED | 官方/自定义URL、注册/登录、8字符密码、本地优先、跨端同步与冲突/资料隔离；真实Qt→Go TLS双工作区长链通过。另一台机器的具体超时原因仍需现场日志 |
-| 完成面板分类/标签检索（QUERY-01） | IMPLEMENTED | 目录通知、按ID选择、归档分类与标签/分类交集、direct_area_id归属已修复，服务/工作区及真实QML覆盖 |
-| 全局日志与诊断（OBS-01） | IMPLEMENTED | 请求ID、Sxxx-Cxxx、Qt/TLS底层证据与模块事件、本地有界/脱敏日志、详情/复制/日志入口；不上传，不猜Qt未提供的原生码 |
-| Windows在线更新（UPD-01～05、UF-01～16） | IMPLEMENTED / WINDOWS-CHAIN-PASS | SDK/原生CLI/Win32薄UI、启动自动prepare、旁路Ready、保存退出、受限启动/提交/RUNNING后清理及恢复已实现；最新Qt应用链42.651秒PASS，正式GitHub启用条件见下表 |
-| 更新功能收尾（CLOSE-01） | IMPLEMENTED | 发布说明固定项目链接、手动重试与自动24h退避分离、验证阶段取消/下载失败退避、坏状态/命令启动失败提示、每候选通知、窄窗自适应已补齐；新增真实组件及受影响UI回归已通过 |
-| Windows流水线 | CONFIG-IMPLEMENTED | 普通桌面、账号同步和发行候选默认Windows；Python3.13/Qt6.10.2固定，保留旧Unix资产恢复；YAML与发布守卫已验证，未远端运行/推送 |
-| 已实施性能优化（PERF-01 P1～7） | IMPLEMENTED | 日期范围/快照索引、模型增量与重排、提醒O(1)到期判断、刷新分工与查询中间结构已落地，当前性能测试通过；整应用/GPU/长期SLA未宣称通过 |
-
-## CLOSE-01 收尾队列
-
-| 顺序 | 当前事项 | 状态 |
-|---|---|---|
-| F0 | 历史与当前任务去重 | DONE：按后续交付追踪，保留原始失败与未验证范围 |
-| F1 | Windows现行功能总集成 | DONE：本轮开始时完整39项CTest一次通过，416.87秒 |
-| F2 | 补齐残余功能并验证 | DONE：更新SDK/Qt适配器4项、受影响UI4项、真实原生关于页、Qt/Go TLS和最新Qt应用升级链全部通过 |
-| F3 | 工程文档收敛 | DONE：350KB原始记录已归档，正文一致性验证通过；当前页仅保留现行功能与本轮证据 |
-| F4 | 本地开发构建与运行入口 | DONE：正常版本2.0.0已恢复并验证，四个程序散列已记录；本地入口更新、旧入口保留备份，旧便携包与远端资产未覆盖 |
-
-## 本轮实现和真实证据
-
-- 基线：Release构建通过；完整39/39 CTest PASS，416.87秒，`build/close01-full-tests.log/xml`。后续增量不冒充已由该基线覆盖，也不重复无关watchdog。
-- 更新组件：`update_windows_flow / update_qt_controller / update_windows_crypto / update_sdk` 4/4 PASS，23.25秒，`build/close01-update-tests.log/xml`。覆盖自动取消候选不重下、主动重试、缓存验证取消、坏JSON不显示Ready、初始及新候选通知、固定发布链接、失效CLI与子进程释放；未真的打开浏览器。
-- 设置/UI回归：`qml_startup / calendar_interaction / desktop_surfaces / brand_rendering` 4/4 PASS，126.17秒，`build/close01-ui-regression.log/xml`。新增控件与容器支持宽窄/200%，保留原断言和时间预算。
-- Windows原生关于页：退出0、4003ms、三窗、QML warnings=false，`build/close01-native-about-final.log`及同名截图目录；浅色/深色200%窄窗与实际焦点已检查。
-- 最新Qt升级链：`build/close01-real-qt-update.txt`，3 passed/0 failed/0 skipped，42651ms。实际旧Qt进程→启动自动发现/下载→旁路Ready→保存退出→新Qt受限启动→持久提交/RUNNING→旧exe清理；SQLite完整性与合成任务保留、未知/修改文件保留均通过。使用临时签名和本机发行夹具，不冒充真实GitHub或干净机。两个payload均从最新源码构建；2.0.1只为测试主入口宏，结束已清空宏并恢复正常2.0.0，`build/close01-local-build-metadata.json`记录版本及四个程序散列。
-- 服务：本轮完整Go测试只有真实Qt用例因沙箱拒绝测试专用Windows凭据API失败（`build/close01-go-tests.log`）；其他服务用例通过。按同一隔离TLS夹具在正常用户条件仅补该失败项，PASS 55.57秒（`build/close01-qt-go-native.log`），覆盖原生凭据、注册/登录、来宾导入、快照/推拉、离线队列、冲突、1000任务原子导入、大批引用及资料隔离；`go vet ./...` PASS。不以本机TLS通过宣称另一台机器网络已修复。
-- 静态：两项QML lint、94 QML样式、四主题颜色、106 schema及诊断注册表、12依赖散列、7恢复+14发布元数据用例通过。工作流解析与Windows矩阵核对通过；没有执行远端工作流。
-- 保留的失败：新增设置探针最初在资料写入忙碌时申请打开被原保存门挡住，误抓隐藏窗口旧布局；诊断日志证明窗口内容860×680而QWindow已被探针改为640×500。已分开创建/打开、只打开一次并断言真实可见，再按实际窗口做缩放/焦点验证。早期图像只算绘制证据，不冒充窗口输入验收。另一次最终门禁因探针提前关设置只剩两窗失败，保留日志，改保留实际设置窗口满足原三窗门禁；没有放宽门禁或重跑至碰巧通过。全部失败在`build/close01-native-about*.log`，最终结果独立记录。
-
-## 单列的发布与现场验收
-
-| 项目 | 当前边界/解除条件 |
+| 事项 | 状态 |
 |---|---|
-| 正式GitHub自动更新启用 | 自有签名/信任公钥及受保护Environment/Secrets已配置；仍需独立Windows CI实际证据与两个新Release资源。保持不上传本地夹具、不移动旧tag。见[准备步骤](design/update/github-prerequisites.md) |
-| 另一台机器注册超时 | 诊断功能完成；现场根因尚未确认，需要该机使用新版复制诊断或本地日志 |
-| Windows独立干净机/物理DPI/多屏/读屏/睡眠与8h | 非本轮功能实现范围，保持未验收；单元/合成事件/当前Windows截图不能替代 |
-| Linux、macOS | 按用户2026-11-06指示跳过，本轮不实施或验收 |
-| 旧REL-181/1.8.0发布过程 | 属历史发行线，2.0已合入相关源码；不为了消除旧状态降级当前源码或覆盖不可变tag。公开发行状态以对应历史证据为准 |
+| G0 仓库/权限与不可变源码核对 | DONE：明确downdone账号，API确认admin；旧tag未改，源码身份分开记录 |
+| G1 自有签名/受保护环境/独立部署 | DONE：P-256公钥内置；四程序自签名与固定指纹验证；独立Windows实际Qt/CRT来源验证；不导入Root/TrustedPublisher |
+| G2 两版正式资源发布 | DONE：2.0.1与2.0.2各有ZIP、ZIP.sha256、SHA256SUMS、更新JSON及签名五项公开资源 |
+| G3 真实GitHub升级 | DONE：独立Windows从匿名公开资源升级，生产Qt保存重启、持久提交/RUNNING、删旧程序与保留任务全部通过 |
 
-## 历史追溯与操作
+## 发行身份与资源
 
-[原始实施日志](PROGRESS-HISTORY.md) · [Windows更新实现](design/update/implementation.md) · [日志与底层诊断](design/runtime-diagnostics.md) · [功能验收契约](design/update/functional-spec.md)。本地开发入口为`build/Launch-Daymark.cmd`，旧入口保留`build/close01-previous-launcher.cmd`；未自动启动或结束用户程序。请先退出旧托盘实例再运行新入口，避免单实例机制激活旧程序。该入口依赖本地开发Kit，不是可转发便携包；旧dist ZIP保持原样；本轮源码已推main并启用更新信任/受保护环境，新的tag/资产状态以上述UPD-06为准。
+| 版本 | 精确生产源码 | 构建/最终发布 |
+|---|---|---|
+| [2.0.1](https://github.com/downdone/daymark/releases/tag/v2.0.1) | `9e5ead18f7e4d2a990f0eccbe8096dec48dfd0e1` | 固定源码[重建42160035601](https://github.com/downdone/daymark/actions/runs/42160035601)；[签名/独立部署/发布42161946172](https://github.com/downdone/daymark/actions/runs/42161946172) |
+| [2.0.2](https://github.com/downdone/daymark/releases/tag/v2.0.2) | `0bdaca92b5a1158df035c830dd926307464125d6` | [标签构建42161583632](https://github.com/downdone/daymark/actions/runs/42161583632)；[签名/独立部署/发布42164523268](https://github.com/downdone/daymark/actions/runs/42164523268) |
+
+最新[Windows x64便携包](https://github.com/downdone/daymark/releases/download/v2.0.2/Daymark-2.0.2-windows-x64.zip)：44,041,439字节，assetId `715946759`，SHA256 `0b94cb2245b4070e164336570e05300aa269f5b45b866959100f9388aa06798b`。解压完整目录，运行根目录daymark.exe；versions内的payload不单独移动。无更新器的旧平铺包需先手动安装一次引导布局。
+
+首次tag候选的打包失败未上传资产；恢复使用同一2.0.1源码、独立记录的已审查main工具SHA和run身份，重新完整测试，没有移动tag或把工具SHA冒充源码。2.0.1内部README保留原候选文案的问题已在2.0.2最终说明中更正，旧包没有覆盖。
+
+## 真实验证
+
+- **2.0.2完整Windows CTest 40/40，0失败/0跳过，389.75秒**；[桌面CI](https://github.com/downdone/daymark/actions/runs/42161582762)和[服务/真实Qt同步CI](https://github.com/downdone/daymark/actions/runs/42161582820)成功。本地2.0.2 Release链接完成，显式隔离版本探针退出0；更新组件4/4与公共验收包装器的原本地夹具回归通过。
+- **实际公开GitHub 2.0.1→2.0.2 PASS**：[Windows验收42164528281](https://github.com/downdone/daymark/actions/runs/42164528281)、[脱敏结构化报告](evidence/windows-update-2.0.1-to-2.0.2.json)。源控证书pin、生产CLI内置公钥、匿名API/真实ZIP/真实Qt均使用正式资源；无fixture/API/信任覆盖。全部SQLite位于QTemporaryDir，未登录账号或上传任务。
+- 实际Qt升级阶段**22.44秒**；完整验收94.439秒（包含60.631秒等待新版资源公开、1.23秒引导包下载及验证）。旧/新各29个Qt/SQL/CRT模块均观察到来自对应签名payload，子进程清除SDK/Qt搜索路径和CI凭据；新进程COMMIT/RUNNING与清理完成，旧exe删除，未知/修改文件保留，合成任务/SQLite完整性保留。
+- 自签名验证：四个实际PE签名通过固定SHA256证书pin与独立CustomRootTrust校验；错pin、未签名、改PE、改清单/载荷、错key和错签名域均拒绝。改PE得到`TRUST_E_BAD_DIGEST 0x80096010`；系统/用户Root库不变。`signed`旧公共签名字段仍false，`authenticode.policy=self-signed-pinned/publicTrust=false`明确，不伪造Windows公共信任。
+- 工程修复：MSVC显式标准头、独立UTF8、原生manifest去重；CRT十成员（含vcruntime140_threads.dll）逐个微软签名/版本/x64/散列校验；官方URL输入保留至所有CMake构建/测试/打包结束再清理，实际EXE必须包含配置；签名/部署报告与源SHA、工具SHA、触发run、全部文件散列绑定。原始失败均保留于历史与忽略的build证据。
+- 收尾验证：发布元数据/隐私守卫15项通过，覆盖强制跟踪本地配置/密钥及大小写变体；198份Markdown相对链接和12项固定依赖来源散列通过。历史文件保留原字节前缀，再追加本轮原始过程。
+
+## 密钥与GitHub配置
+
+受保护Environment `windows-update-release`限制main/v*；更新私钥、代码PFX/密码、官方URL均为加密Secrets，公钥配置与托管开关已启用。源码仅含公钥、证书指纹与URL示例。自有私钥从临时build目录移入忽略的`config/signing.local`，owner/SYSTEM-only ACL和CurrentUser DPAPI验证通过，密钥身份未变，无明文私钥遗留；签名证书仅CurrentUser/My，不在信任根库。DPAPI绑定用户/机器，不能把普通文件复制当跨机恢复。
+
+清单/索引签名认证更新来源；项目自签名EXE**不是Windows公共发布者证书**，仍可能有SmartScreen/未知发布者提示。见[自签名契约](design/update/self-signing.md)、[受控重建与GitHub配置](design/update/github-prerequisites.md)。
+
+## 明确保留的外部边界
+
+| 项目 | 真实状态 |
+|---|---|
+| 本机GitHub CDN | 首次匿名下载发生90秒读超时，未启动Qt。一次64KB有界范围读取HTTP206/7.207秒；未改TLS/代理、未盲目重跑。本次公网全链PASS来自独立Windows，不能冒充本机CDN恢复 |
+| 另一台机器注册超时 | 诊断功能已实现；现场根因未确认，仍需该机新版详情/日志 |
+| 物理DPI/多屏/读屏/睡眠/8h及Windows10最低build | 本轮没有相应实机验收；托管windows-2022和当前Windows局部验证不能替代，不阻塞已获授权的Windows功能/CI范围发布 |
+| Linux/macOS | 按用户指示跳过，不实施、不构建、不宣称通过 |
+
+[CLOSE-01与UPD-06完整原始历史](PROGRESS-HISTORY.md) · [文档导航](README.md) · [更新实现](design/update/implementation.md) · [诊断契约](design/runtime-diagnostics.md)。本地开发入口仍为build/Launch-Daymark.cmd，依赖开发Kit；可转发发行包请使用上述正式完整ZIP，不复制build/bin单个EXE。

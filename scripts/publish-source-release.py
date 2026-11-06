@@ -87,8 +87,11 @@ def validate_source_tree(root):
                            r"gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}")
     for name in filter(None, names):
         path = Path(name)
+        local_name = path.name.casefold()
         if (path.parts[0] in {"build", "dist", ".idea", ".vscode"} or "__pycache__" in path.parts
                 or path.name.startswith(".env") and path.name != ".env.example"
+                or local_name == 'private.json' or '.local.' in local_name
+                or any(part.casefold().endswith('.local') for part in path.parts)
                 or any(name.lower().endswith(suffix) for suffix in blocked)):
             raise ValueError(f"Source release contains a forbidden tracked path: {name}")
         try:

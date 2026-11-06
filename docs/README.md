@@ -55,7 +55,7 @@
 
 [交付指南](delivery-guide.md) · [稳定性指南](stability-guide.md) · [平台矩阵](platform-test-matrix.md) · [验证记录](verification-report.md) · [版本与发行索引](releases.md)
 
-在线更新：[总体方案](design/windows-online-update.md) · [详细设计与GitHub准备](design/update/README.md)（Windows SDK、CLI、原生UI与Qt接线已实现；本地真实流程证据见PROGRESS，正式GitHub签名发布及其他平台未验证）。
+在线更新：[总体方案](design/windows-online-update.md) · [详细设计与GitHub准备](design/update/README.md)（Windows发行、真实公网验收及边界见PROGRESS；Linux/macOS本轮跳过）。
 
 ## 6. 历史设计（已完成切片）
 

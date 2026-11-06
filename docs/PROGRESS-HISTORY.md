@@ -1457,3 +1457,419 @@ Windows包：
 - SHA256：4111e1cefb9f2bf3ce1855120c9dcb1ba6647b9205bec41fe31437e22e703f24。
 - 1443个文件清单；去除SDK PATH/插件搜索环境后，包内加载Qt/MinGW模块，原生smoke退出0、2窗口、无QML警告。
 - 原始包、清单、截图与日志保留在忽略的dist/build；源码通过本地Git archive另打包，不含运行库。
+
+
+# UPD-06 GitHub 启用与 Windows 公网验收原始过程（2026-11-06）
+
+以下保留文档收尾前的原文，属于历史过程；当前事实只见PROGRESS。
+
+
+## 过程进度原文
+
+# Daymark 当前进度
+
+更新：2026-11-06。当前版本 **2.0.2源码候选 / schema10 / HTTP JSON v1 / Qt6.10.2**。本文件只维护现行状态；逐轮原始证据保留在[历史记录](PROGRESS-HISTORY.md)，旧过程标题不再充当未完成任务。
+
+## 本轮范围
+
+用户要求完成PROGRESS任务，随后明确：**Linux、macOS跳过，先完成Windows功能性事项**。本轮不降级当前2.0源码、不覆盖历史tag/资产、不把正式签名发布、干净机/物理设备/8h性能测量混成业务功能欠账；不读取真实任务库，不上传私有资料，保持单代理。
+
+用户随后明确授权“GitHub直接启用，全流程验证更新”。新增 **UPD-06**：配置真实仓库发布信任与Environment，以两个不可变递增版本验证公开GitHub下载、真实Qt重启、数据保留和旧版清理。授权覆盖必要的源码推送、仓库配置及新Release；不覆盖旧tag/资产，不上传本地私有资料。
+
+## UPD-06 启用队列
+
+| 顺序 | 事项 | 状态 |
+|---|---|---|
+| G0 | 核对远端、认证与正式发布缺口 | DONE：已明确选择downdone账号，API确认admin权限；远端main与四个旧tag已复核，v2.0.1固定9e5ead1，v2.0.2固定0bdaca9；旧标签均未改动 |
+| G1 | 信任密钥、受控环境与干净Windows候选验证 | IN_PROGRESS：自有P-256和自签名代码证书已生成并真实验证；2.0.1已完成真实签名/独立Windows部署并发布，2.0.2候选及桌面/同步全CI均通过，正在签名；未冒充公共信任 |
+| G2 | 两个递增版本构建与不可变发布 | IN_PROGRESS：2.0.1五资源已发布（run42161946172）；2.0.2候选run42161583632已通过，待最终签名/独立部署上传 |
+| G3 | 匿名资源验证与真实GitHub Qt升级链 | TODO：已启动本机匿名CDN下载验收但读超时，保留失败；独立Windows公网验收工作流待执行，绝不冒充本机网络恢复 |
+
+准备证据：普通GitHub API直连可用，旧本地Git代理不可达，未更改全局代理。已用官方资产API完成一次GitHub CLI下载并核对SHA256及GitHub, Inc.有效Authenticode；默认凭据查询因多账号未选中，明确downdone后认证和admin权限通过。windows-update-release已限制main/v*，四项Environment Secrets已加密配置，公钥变量/托管发行开关已启用。用户追加授权官方URL作为受保护CI Secret、临时文件构建后删除；源码仅示例。无私钥、密码或URL写入日志/源码。
+
+本轮增量：MSVC标签包禁用windeployqt的编译器运行库隐式复制，改从VS2022正式Redist目录校验微软签名、14.3x/14.4x版本、PE x64与复制后散列，BUILD-INFO明确bundled及文件证据。源码目录/版本选择、Release布局与校验文件测试PASS；本机仅有VS18/VC145，未把该不同工具链当作VS2022实包验证，完整MSVC包保持UNVERIFIED。Release增量构建PASS；4项更新CTest PASS（21.73秒，`build/github-enable/update-tests.log/xml`）、14项发行元数据与4项更新发布测试PASS。设备登录等待数分钟仍未返回授权码，已结束仅本任务创建的登录进程；未产生API授权，不重复连接或绕过签名门禁。该早期登录缺口现已解除，自签名与远端配置进展以下续记录为准。
+
+UPD-06远端首轮959e678：源码/隐私守卫与Go服务及真实Qt→Go TLS同步整条CI成功（run42155203595）；Windows完整构建run42155203610因Engine.cpp遗漏cwctype而MSVC C2039失败，未创建tag。补显式algorithm/cctype/cwctype/limits头；本机独立原生MSVC构建另查出manifest资源重复，改保留手写asInvoker/DPI资源、关闭MSVC重复生成；子项目独立UTF8编译固定。本机VS18/MSVC19.52（不冒充CI VS2022）三宿主编译及SDK/真实CNG两项CTest通过0.72秒，导入表OS-only、实际嵌入asInvoker/PerMonitorV2/CommonControls manifest均通过；日志msvc-native-manifest-final.log，原失败保留。修复提交9e5ead1及annotated v2.0.1已推送；main完整CI和同步CI成功。tag候选run42157174276完整构建/CTest/lint通过，但Package被CRT未知文件白名单拒绝，零资产上传。正式发行仍依赖候选打包、签名与独立部署。
+
+UPD-06工具链恢复：合成地址复现了配置后立即删除URL文件会触发CMake自动重配并将官方地址置空；已改为保留至测试/打包后always清理，二进制必须含经规范化的Secret地址且元数据显式true。新增仅主分支调度的固定tag重建，源码SHA与工具SHA分别记录/验收；新候选仍完整测试，旧tag/资产不覆盖。CRT预检前置，可只运行轻量审计以取得真实未知文件名，不为该问题盲目重复20分钟完整构建。新增10项来源/发布策略与8项恢复守卫通过；重建的工具修复提交仅跳过重复普通push CI，受控重建仍执行完整正式门禁。
+
+2.0.2准备：本地全部源文件已编译，最终链接因本轮早先带--version的开发版进程占用daymark.exe而Permission denied；没有强杀或覆盖，已请用户保存后退出，CI工作继续。更新组件4/4通过22.21秒，15项发行/10项发布策略/8项恢复/2项PE守卫通过，Markdown198份链接通过。恢复run42160035601的CRT十文件真实签名/架构/版本预检成功，当前完整测试中。下一版源代码保持同schema/ABI，仅合并发行工具修复、版本号及夹具真实运行库标注；其全量测试仍由新tag流水线完成。
+
+发行进展：恢复候选run42160035601全通过，受保护run42161946172的来源/四程序自签名/独立Windows部署/最终发布均成功，v2.0.1现有ZIP、两个校验文件、JSON与签名五资产；发布前实际校验官方地址。v2.0.2/0bdaca9已推送，候选42161583632、桌面42161582762、同步42161582820全部成功。用户保存退出后本地链接补完，显式隔离--version进程退出0并输出Daymark 2.0.2；原文件占用失败保留。
+
+公网验收准备：新增QTemporaryDir公共验收分支，默认本机夹具预算不变；显式模式仅下载公开真实资产，以源控pin和生产公钥验签，隔离PATH/Qt/CI凭据，审计实际旧/新Qt/SQL/CRT模块来自对应签名payload，保存公开ZIP/报告而不保存合成DB。普通fixture回归通过18.92秒，增加根README后19.94秒。首次本机实际下载asset715891402遇到90秒读超时，未启动Qt；一次有界curl范围测量HTTP206/65536字节/7.207秒（含连接），不是签名错误，不修改TLS/代理、不盲目重跑完整链。独立Windows验收工作流无签名Environment/Secrets；远端若成功只证明该Windows实际链，不冒充本机CDN恢复。
+
+说明修正：v2.0.1内部README保留原候选未签名文案，已公开资产不可覆盖；后续2.0.2最终验证阶段更新payload说明，并在受签名索引覆盖的根目录加入托管启动/自签名说明。此为发行工具文档变化，不重编译或改写生产源码SHA。
+
+## 当前功能清单
+
+CRT轻量预检run42159792181实际列出VS2022 CRT 14.44.35211.0十个文件，唯一未审查文件为`vcruntime140_threads.dll`，故此前白名单拒绝。已明确加入该Microsoft.VC143.CRT成员，继续要求每个文件有效微软签名、14.3x/14.4x、PE x64和复制后散列；没有放宽成任意DLL/跳过签名。接下来用同一v2.0.1/9e5ead1固定源码、更新主分支工具执行完整重建；前置CRT审计成功才开始编译。
+
+UPD-06自签名切片：自有P-256公钥`daymark-d3fe49dbd972`已编入生产宿主，独立RSA3072证书仅CurrentUser/My，私钥/PFX/密码以CurrentUser DPAPI和owner/SYSTEM-only ACL封存。四个真实程序副本自签名与固定指纹验签PASS；改PE代码得到`TRUST_E_BAD_DIGEST 0x80096010`并拒绝，错pin/无签名拒绝，两处Root库前后不变，`self-signing-verification-final.log`。公共信任仍false，没有安装根证书。
+
+自有密钥签署221文件本地验证包：生产CLI凭内置公钥初始化PASS；改清单、错签名域、错key、改payload均拒绝且零current指针；完整Qt运行库/隔离环境的`--update-preflight`退出0，`build/github-enable/owned-key-package-check/report.json`。该包明确local-fixture、合成GitHub ID，不能上传为正式包，不冒充公网升级/干净机。Release可信公钥构建PASS，更新4/4 CTest PASS（21.05秒），7项发布策略与14项元数据PASS，Python→PowerShell真实四文件签名门禁PASS；脚本/YAML解析PASS。源码仅公钥/固定指纹，不含证书或私钥；正式完整测试与独立部署门禁继续要求true。
+
+保留的失败：探针最初误用CLI不支持的`--version`，改实际`capabilities`后补验；集合Add返回值混入记录，已抑制并断言每文件只产一条；Python跨进程数组参数被PowerShell拒绝，已改四个明确参数并补真实验签。失败在`self-signing-verification.log`、`python-signature-gate.log`，最终证据另存，未放宽校验。用户随后完成GitHub认证；API/Environment/Secrets配置成功。流水线已拆分签名、独立Windows runner的运行库/窗口/模块来源验证、报告绑定后发布三段，实际远端运行尚待源码提交。
+
+| 功能/原任务 | 现行实现 | 证据与边界 |
+|---|---|---|
+| 本地任务/分类/标签/重复/提醒/备份 | IMPLEMENTED | 当前完整Windows基线39/39包含仓库、事务、查询、时间、工作区和导入导出；历史设计SYNC-01～04等不再表示缺代码 |
+| 主列表/日历/草稿与多选 | IMPLEMENTED | qml_startup、contextual_workspace、continuous_calendar、calendar_interaction、task_list_interaction已通过；未丢身份/草稿/CAS与保存门 |
+| 小窗/Mini/球及分类快查（UX-62～77、UX-72） | IMPLEMENTED | 独立分类上下文、默认全部未完成/可选今天、常用/搜索、快速添加/排序/快捷菜单、穿透恢复及统一呈现已实现；旧UX-72“只设计”由UX-77交付覆盖 |
+| 账号与同步（SYNC-05～09、AUTH-08/09） | IMPLEMENTED | 官方/自定义URL、注册/登录、8字符密码、本地优先、跨端同步与冲突/资料隔离；真实Qt→Go TLS双工作区长链通过。另一台机器的具体超时原因仍需现场日志 |
+| 完成面板分类/标签检索（QUERY-01） | IMPLEMENTED | 目录通知、按ID选择、归档分类与标签/分类交集、direct_area_id归属已修复，服务/工作区及真实QML覆盖 |
+| 全局日志与诊断（OBS-01） | IMPLEMENTED | 请求ID、Sxxx-Cxxx、Qt/TLS底层证据与模块事件、本地有界/脱敏日志、详情/复制/日志入口；不上传，不猜Qt未提供的原生码 |
+| Windows在线更新（UPD-01～05、UF-01～16） | IMPLEMENTED / WINDOWS-CHAIN-PASS | SDK/原生CLI/Win32薄UI、启动自动prepare、旁路Ready、保存退出、受限启动/提交/RUNNING后清理及恢复已实现；最新Qt应用链42.651秒PASS，正式GitHub启用条件见下表 |
+| 更新功能收尾（CLOSE-01） | IMPLEMENTED | 发布说明固定项目链接、手动重试与自动24h退避分离、验证阶段取消/下载失败退避、坏状态/命令启动失败提示、每候选通知、窄窗自适应已补齐；新增真实组件及受影响UI回归已通过 |
+| Windows流水线 | CONFIG-IMPLEMENTED | 普通桌面、账号同步和发行候选默认Windows；Python3.13/Qt6.10.2固定，保留旧Unix资产恢复；YAML与发布守卫已验证，未远端运行/推送 |
+| 已实施性能优化（PERF-01 P1～7） | IMPLEMENTED | 日期范围/快照索引、模型增量与重排、提醒O(1)到期判断、刷新分工与查询中间结构已落地，当前性能测试通过；整应用/GPU/长期SLA未宣称通过 |
+
+## CLOSE-01 收尾队列
+
+| 顺序 | 当前事项 | 状态 |
+|---|---|---|
+| F0 | 历史与当前任务去重 | DONE：按后续交付追踪，保留原始失败与未验证范围 |
+| F1 | Windows现行功能总集成 | DONE：本轮开始时完整39项CTest一次通过，416.87秒 |
+| F2 | 补齐残余功能并验证 | DONE：更新SDK/Qt适配器4项、受影响UI4项、真实原生关于页、Qt/Go TLS和最新Qt应用升级链全部通过 |
+| F3 | 工程文档收敛 | DONE：350KB原始记录已归档，正文一致性验证通过；当前页仅保留现行功能与本轮证据 |
+| F4 | 本地开发构建与运行入口 | DONE：正常版本2.0.0已恢复并验证，四个程序散列已记录；本地入口更新、旧入口保留备份，旧便携包与远端资产未覆盖 |
+
+## 本轮实现和真实证据
+
+- 基线：Release构建通过；完整39/39 CTest PASS，416.87秒，`build/close01-full-tests.log/xml`。后续增量不冒充已由该基线覆盖，也不重复无关watchdog。
+- 更新组件：`update_windows_flow / update_qt_controller / update_windows_crypto / update_sdk` 4/4 PASS，23.25秒，`build/close01-update-tests.log/xml`。覆盖自动取消候选不重下、主动重试、缓存验证取消、坏JSON不显示Ready、初始及新候选通知、固定发布链接、失效CLI与子进程释放；未真的打开浏览器。
+- 设置/UI回归：`qml_startup / calendar_interaction / desktop_surfaces / brand_rendering` 4/4 PASS，126.17秒，`build/close01-ui-regression.log/xml`。新增控件与容器支持宽窄/200%，保留原断言和时间预算。
+- Windows原生关于页：退出0、4003ms、三窗、QML warnings=false，`build/close01-native-about-final.log`及同名截图目录；浅色/深色200%窄窗与实际焦点已检查。
+- 最新Qt升级链：`build/close01-real-qt-update.txt`，3 passed/0 failed/0 skipped，42651ms。实际旧Qt进程→启动自动发现/下载→旁路Ready→保存退出→新Qt受限启动→持久提交/RUNNING→旧exe清理；SQLite完整性与合成任务保留、未知/修改文件保留均通过。使用临时签名和本机发行夹具，不冒充真实GitHub或干净机。两个payload均从最新源码构建；2.0.1只为测试主入口宏，结束已清空宏并恢复正常2.0.0，`build/close01-local-build-metadata.json`记录版本及四个程序散列。
+- 服务：本轮完整Go测试只有真实Qt用例因沙箱拒绝测试专用Windows凭据API失败（`build/close01-go-tests.log`）；其他服务用例通过。按同一隔离TLS夹具在正常用户条件仅补该失败项，PASS 55.57秒（`build/close01-qt-go-native.log`），覆盖原生凭据、注册/登录、来宾导入、快照/推拉、离线队列、冲突、1000任务原子导入、大批引用及资料隔离；`go vet ./...` PASS。不以本机TLS通过宣称另一台机器网络已修复。
+- 静态：两项QML lint、94 QML样式、四主题颜色、106 schema及诊断注册表、12依赖散列、7恢复+14发布元数据用例通过。工作流解析与Windows矩阵核对通过；没有执行远端工作流。
+- 保留的失败：新增设置探针最初在资料写入忙碌时申请打开被原保存门挡住，误抓隐藏窗口旧布局；诊断日志证明窗口内容860×680而QWindow已被探针改为640×500。已分开创建/打开、只打开一次并断言真实可见，再按实际窗口做缩放/焦点验证。早期图像只算绘制证据，不冒充窗口输入验收。另一次最终门禁因探针提前关设置只剩两窗失败，保留日志，改保留实际设置窗口满足原三窗门禁；没有放宽门禁或重跑至碰巧通过。全部失败在`build/close01-native-about*.log`，最终结果独立记录。
+
+## 单列的发布与现场验收
+
+| 项目 | 当前边界/解除条件 |
+|---|---|
+| 正式GitHub自动更新启用 | 自有签名/信任公钥及受保护Environment/Secrets已配置；仍需独立Windows CI实际证据与两个新Release资源。保持不上传本地夹具、不移动旧tag。见[准备步骤](design/update/github-prerequisites.md) |
+| 另一台机器注册超时 | 诊断功能完成；现场根因尚未确认，需要该机使用新版复制诊断或本地日志 |
+| Windows独立干净机/物理DPI/多屏/读屏/睡眠与8h | 非本轮功能实现范围，保持未验收；单元/合成事件/当前Windows截图不能替代 |
+| Linux、macOS | 按用户2026-11-06指示跳过，本轮不实施或验收 |
+| 旧REL-181/1.8.0发布过程 | 属历史发行线，2.0已合入相关源码；不为了消除旧状态降级当前源码或覆盖不可变tag。公开发行状态以对应历史证据为准 |
+
+## 历史追溯与操作
+
+[原始实施日志](PROGRESS-HISTORY.md) · [Windows更新实现](design/update/implementation.md) · [日志与底层诊断](design/runtime-diagnostics.md) · [功能验收契约](design/update/functional-spec.md)。本地开发入口为`build/Launch-Daymark.cmd`，旧入口保留`build/close01-previous-launcher.cmd`；未自动启动或结束用户程序。请先退出旧托盘实例再运行新入口，避免单实例机制激活旧程序。该入口依赖本地开发Kit，不是可转发便携包；旧dist ZIP保持原样；本轮源码已推main并启用更新信任/受保护环境，新的tag/资产状态以上述UPD-06为准。
+
+
+## 状态页原文
+
+# 当前状态
+
+本页是**唯一的状态摘要**，每次版本/门禁变化时更新。逐轮详细记录见[进度日志](PROGRESS.md)。
+
+2026-11-06现行Windows功能收尾完成：更新发布说明/主动重试/全阶段取消退避、坏状态/命令失败反馈与候选通知已补齐，普通构建/同步/发行候选矩阵收为Windows、Python3.13。当前基线39/39、增量组件4/4、受影响UI4/4、原生关于页、真实Qt/Go TLS及最新Qt升级链通过；实际范围见[当前进度](PROGRESS.md)。历史过程已移至[原始日志](PROGRESS-HISTORY.md)，旧“进行中/未实现”不作为现行待办。Linux/macOS按用户指示跳过；正式GitHub更新启用、他机网络现场及设备/长时验收单列。仍2.0.0，开发启动入口已更新，旧便携包/远端发行未覆盖。以下各日期为当时的交付记录，不覆盖当前页所链接的现行结论。
+
+UPD-06正在准备2.0.1源码候选：自签名/自有P-256生产验签已通过，GitHub管理授权、受保护Environment及加密Secrets已配置；正式Windows流水线、Release资产和公网升级仍在验证，以下2.0.0为前一轮记录。
+
+## 版本与数据
+
+2026-11-05 OBS-01新增全局本地有界日志、账号底层错误详情/复制与日志入口；真实断连/超时、日志并发/脱敏/轮换与原生更新器日志测试通过。Windows原生账号键盘与200%焦点/诊断布局通过，首次失败与修复证据见PROGRESS。UPD-04/05 Windows SDK、CLI/原生UI/Qt启动接线及GitHub发布工具已实现，本地真实Qt正常/提交前后中断/启动前异常四条链通过，正式GitHub签名/干净机发布尚未启用。QUERY-01已完成标签与分类交集修复；另一台机器注册超时仍需现场新版诊断。版本仍2.0.0，本轮未推送或更新便携包，下述包不包含本轮变更。
+
+2026-11-05 UX-79关于页已更新为“本地管理任务与时间安排，登录账号可跨设备同步”，默认本地/可选同步语义明确。最新标准非预览包Daymark-2.0.0-windows-x64-local-20261105-120123.zip（源码ea2abd5）已通过Release/lint、完整32/32 CTest（361.79秒）、SDK隔离完整原生smoke/DLL来源/清单/ZIP/SHA256及包内关于页原生截图检查，启动器已更新。首次门禁的菜单探针布局时序失败及就绪修复如实记录于PROGRESS；服务地址和8字符规则保持上一轮实现，用户数据不入包。本轮只推源码，包未签名、未上传，其他平台与物理体验边界沿PROGRESS。
+
+2026-11-05 AUTH-08已按用户要求在域名备案期间切换公网IP HTTPS，使用正式IP SAN证书、自动续期演练与热重载通过。服务一致性备份后升级8字符密码规则，原数据和域名入口保留；Windows真实Qt与包内运行库分别完成随机8字符注册、登录、双向同步及离线冲突验证。源码e98ebf7的完整32/32 CTest（382.59秒）、Go含真实Qt TLS长链、QML lint及标准便携包SDK隔离/清单/ZIP校验通过。最新包为Daymark-2.0.0-windows-x64-local-20261105-113547.zip，启动器已更新；实际地址仅留本地配置，公开源码仍只有示例，细节见PROGRESS。下述104450包为旧版本，不包含本轮8字符及IP修复。
+
+2026-11-05 2.0.0完成官方/自定义URL账号选择（UX-78）与小窗分类导航（UX-77），地址从本地独立文件编译读取，公开源码仅示例。干净合并源码5e5b6f6的Qt6.10.2 Release、完整32/32 CTest（372.22秒）、QML lint、Windows分类/账号原生窗口专项和标准非预览便携包全部通过；SDK隔离完整smoke/DLL来源/ZIP/SHA256通过，根dist及启动器已更新。此前测试CA、13份部署留存及7份临时合成文件已清理，保留本地URL配置与用户数据库，证据见PROGRESS。真实公网Qt合成资料认证同步已通过；GitHub源码按授权非强制推送，不自动打tag或上传包。macOS本轮界面、物理多屏/读屏、签名与独立干净机未验证；下述旧版本状态保留为历史。
+
+2026-11-04性能分支eb59dfb的干净Qt6.10.2 Release构建/lint及完整31/31 CTest通过，旧菜单阶段232失败本次未复现。已生成本地预览便携包Daymark-1.8.0-windows-x64-preview-20261104-205134.zip，预览原生SDK隔离/模块来源/ZIP/SHA256通过；标准原生完整smoke仍在Mini阶段76超时，已在包内说明，不能标正式发布READY。版本标识仍1.8.0，不是独立1.8.1发布树的包；细节见PROGRESS。未推送、不改默认启动器。
+
+2026-11-04 PERF-01已分层审查并实施快照索引、刷新分工、模型重排、日历范围、提醒/重复与查询中间数据优化；首轮定向测试和原生22秒短循环2轮通过。首轮开发目录曾有菜单阶段232失败，后续干净31项结果见上一条；整应用峰值/长期内存目标仍未验收，见[记录](performance-report-2026-11.md)和PROGRESS。真实Go TLS夹具跳过，1.8.1候选远端CI曾失败，仍在独立工作树且尚无新标签；未推送、不改默认启动器。
+2026-11-04准备发布1.8.1：包含UX-64～76及批准品牌母版，schema10不变；构建/完整门禁与GitHub实际状态见PROGRESS，不预先标记成功。旧1.8.0恢复请求不纳入本次改动。
+2026-11-04 UX-76修复任务跨行右键/空白后右键时序，以及原生菜单被透明宿主层级恢复盖住的问题；稳定Panel重复布局不再误淡出。Release/lint、5项相关CTest和Windows原生/自绘回退各12次菜单的目标/实际层级/实体像素验证通过，详见PROGRESS。启动器改为daymark-ux76.exe，需退出旧实例；ZIP未覆盖、未推送。物理输入/合成瞬态及macOS仍未验证。
+
+2026-11-04 UX-75重设计组件形态渲染：稳定原生画布、单进度动效、每帧合并区域和呈现确认，收球末帧不再缩窗/清mask。Release/lint、7项相关CTest及Windows D3D11/DirectComposition的12次切换/连续三帧/实际系统区域检查通过；物理合成瞬态、混合DPI、macOS等仍UNVERIFIED，见PROGRESS。启动器指向daymark-ux75.exe，旧ZIP未覆盖、未推送，分类功能尚未实现。
+
+2026-11-04 UX-74改用Windows系统原生组件/任务菜单，取消面板空白右键；其他后端保留自绘Window回退。Release/lint、相关CTest和系统菜单生命周期/接线检查通过，真实鼠标和黑条瞬态验收仍MANUAL-UNVERIFIED，详见PROGRESS。启动器已指向daymark-ux74.exe；旧ZIP未覆盖、未推送，分类功能尚未实现。此前UX-73通过不表示用户反馈的黑条已消除。
+
+2026-11-04 UX-73已修复共用菜单关闭时透明清底恢复及同次关闭手势重开，正文改透明输入屏障以保持视觉状态。Release/lint、相关3项CTest与Windows浅深8轮原生生命周期专项通过；详见PROGRESS。仅本地开发构建更新，旧便携ZIP未覆盖、未推送；分类快查仍为设计，暂无开关。
+
+2026-11-04 UX-71已修复滚轮亮度闪烁及组件菜单输入穿透：最终29/29 CTest、QML lint与Windows滚轮/菜单原生专项通过。本地预览Daymark-1.8.0-windows-x64-preview-20261104-094757.zip（源码a37753d）完成SDK隔离专项、清单/ZIP/SHA256校验；完整原生长链仍有后台焦点/提示框断言失败，未标正式发布通过。详细证据见PROGRESS，未推送。UX-72分类快查已确认默认全部未完成、设置可改今天，交付设计与预览，尚未实现。
+
+2026-11-04 UX-70 / BRAND-24已将批准A与原创字标统一接入应用图标、主窗、关于、账号、球及单色托盘，完整VI/16页PDF与4组模板已更新。最终原生专项3窗/无QML警告与实际保存帧通过；开源Qt6.10.2 Release、完整28/28 CTest（334.25秒）、QML lint及标准非预览便携包/SDK隔离/DLL来源/ZIP散列全部PASS。包名Daymark-1.8.0-windows-x64-local-20261104-085624.zip（源码938a9f3），SHA及完整证据见PROGRESS。版本/tag保持原基线；源码同步GitHub main，本机便携包未签名，macOS等平台专属项仍未验证。下列旧轮“未推送/阈值未验证”为历史状态。
+
+2026-11-03已生成包含UX-69的Windows本地便携预览ZIP，完整26项及包内短链/新功能原生验证通过。完整原生长链仍保留60秒超时记录；用户要求将外层阈值调到120秒并停止重跑，新阈值未验证。包路径、SHA与边界见PROGRESS；未上传、未签名、不标正式二进制READY。
+
+2026-11-03 UX-69已本地实现小窗原位连续添加、独立Today拖动排序/快捷菜单与软删撤销、独立到期提醒弹窗（查看/完成/关闭/延后10分钟）。完整26项回归通过，最后UI边界补充后7项UI再次通过，Windows原生专项及100/200%截图通过；详细源码边界和证据见PROGRESS。未推送或更新公开包，schema保持10，macOS/真实多屏/读屏未验证。
+
+2026-10-30用户授权将UX-64～68已验证源码提交到GitHub main；本次仅源码同步，不创建tag或更新公开安装包，发布恢复脚本的既有本地改动单独保留。下列“未推送”描述各轮本地验收时状态，远端CI验证独立于本机Windows证据。
+
+| 项 | 值 |
+|---|---|
+| 应用版本 | 2.0.0（`CMakeLists.txt` 与 `DAYMARK_VERSION`） |
+| 数据库 schema | 10（追加账号/同步元数据，历史1～9未覆盖） |
+| 平台目标 | Windows 10/11 x64、macOS 13+ |
+| 技术栈 | C++20、Qt 6.10.2（LGPLv3 动态链接）、SQLite（QSQLITE） |
+| 可选服务 | Go1.27.0单体 + SQLite3.54.1；HTTP/JSON v1，见[服务指南](../server/README.md) |
+
+## 侧栏底部工具与账号名（UX-68，2026-10-30）
+
+最近删除与账号收到底部单行，与设置同行；未登录/退出/登录失效显示“登录”，已认证显示账号名，长名在固定文字槽省略。折叠侧栏保留三个图标，修正200%字标边距撑宽；侧栏备份快捷按钮移除，设置→通用→备份与数据统一包含周期和管理入口。Qt6.10.2 Release、两项QML lint、最终完整26/26 CTest PASS（310.23秒），Windows默认GPU侧栏专项通过（3窗/无QML警告），样式与文档链接检查PASS，证据见PROGRESS。仅本地构建、未推送；macOS/物理多屏/读屏未验证。
+
+## 桌面菜单实体与层级（UX-67，2026-10-30）
+
+菜单移出动画/禁用内容层，以稳定根承载、保持来源锚点；打开菜单完成当前过渡。桌面Window菜单始终实体且置顶，宿主层级恢复后保持Popup在上方。Qt6.10.2 Release、QML lint、最终26/26 CTest PASS（296.36秒），Windows原生六组菜单场景及三层级裸窗口恢复测试通过，并检查不透明截图像素；实际证据见PROGRESS。旧运行实例保持不变，需退出后运行本地启动器；未推送。macOS/物理多屏/读屏/真实其他应用遮挡未验证。
+
+## 球与小窗动效（UX-66，2026-10-30）
+
+球↔小窗180/150ms角锚点揭示，内容固定大小并延后淡入/提前淡出；快速反向接续当前矩形/透明度、减少动态即时切换，缩球完成才提交原生小尺寸。最后窄Panel容纳Mini边界及合成离开事件修正后，Qt6.10.2本地Release、两项QML lint、最终完整26/26 CTest PASS（268.11秒），默认Windows GPU的停靠+动画组合原生专项通过（3窗/无QML警告）。样式与文档链接检查PASS；物理多屏/读屏/底层桌面点击和macOS仍UNVERIFIED，证据见PROGRESS。本轮仅本地构建，未推送，公开1.8.0包不包含这些改动。
+
+## 悬浮球停靠修正（UX-65，2026-10-30）
+
+球为常驻入口：点击临时展开任务小窗，离开且无交互后约1000ms回球；菜单/设置明确选择小窗才常驻。原球位置在hover成Mini后仍可点击。Qt6.10.2本地Release/lint及完整26/26 CTest PASS（281.90秒），Windows原生停靠专项连续通过，3窗/无QML警告，最终桌面链复验通过；物理多屏/读屏及macOS未验证，详见PROGRESS。本轮未推送，既有v1.8.0公开包不包含本地未提交改动。
+
+## 本地三形态统一（UX-64，2026-10-30）
+
+当前工作区已实现[用户确认方案](design/desktop-widget-modes-proposal.md)：三形态独立启用/直接切换、独立尺寸与固定逻辑锚点、三种拖动、自动收展及键盘/菜单保持。Windows Qt6.10.2 MinGW Release构建/lint及最终完整26/26 CTest PASS（261.10秒）；原生forms/compact专项退出0、无QML警告。原生全链另在历史样式画廊stage89失败，物理输入/多屏/读屏及macOS仍未验证，具体边界见PROGRESS。本轮仅本地开发构建，未推送；下列既有1.8.0包/tag/CI结果不包含本轮未提交变更。
+
+## 构建与测试
+
+| 项 | 1.8.0本轮状态 |
+|---|---|
+| Windows MinGW Release | c02f36e完整构建及26/26 CTest PASS，269.96秒 |
+| QML lint | daymark_qmllint、daymark_style_qmllint PASS |
+| 源码发布守卫 | 14/14、版本/隐私、文档/样式/颜色/同步契约 PASS |
+| Windows本地包 | 1.8.0常规包PASS：SDK隔离原生437阶段、清单/ZIP/SHA256通过，非预览模式 |
+| Windows MSVC / macOS / Linux CI | a7ae585三平台构建/完整测试/lint已通过；候选打包因SPDX格式假定失败，正在恢复 |
+| Windows MinGW Debug | 本版未复验 |
+
+之前三平台全绿[run40855720727](https://github.com/downdone/daymark/actions/runs/40855720727)属于8c9d41f；随后c9d6b71的Linux在desktop_surfaces stage117失败。本版保留真实点击及接线断言，先等设置分类/字号布局并reveal至视口后只点击一次；本机完整回归通过。新tag将触发三平台完整构建/CTest/QML lint及候选归档，尚不能预称通过。
+
+账号同步先前Go test/vet/race、Windows真实Qt双工作区↔Go TLS完整故障矩阵及Windows↔WSL普通HTTPS服务已PASS，具体范围见PROGRESS及[同步验证](sync-verification.md)。本次未改变服务生产代码/协议，不以本机联调代替生产部署或macOS原生验收。
+
+## 自助注册（SYNC-06，2026-10-29）
+
+提供POST /v1/auth/register及独立账号窗口中的“注册并同步”；旧服务器配置默认关闭，示例registration_enabled=true。用户名/密码注册不表示邮箱验证。Go全包test/vet、注册相关race、真实Qt注册后双端同步已通过；Windows Release曾25/25；后续完整探针在既有UX38 stage76失败。注册独立切片连续3轮、浅色/深色200%渲染检查通过，最终针对性回归及证据见PROGRESS。前述6cfc6d7远端基线不包含本轮注册，注册提交的CI另行核验；macOS原生和生产部署未验证。
+
+## 独立账号窗口（SYNC-07/UX-61，2026-10-29）
+
+主窗侧栏及折叠态提供独立账号入口，设置移除账号内容；[设计、实现前评审与实现后复核](design/account-window.md)已记录。Windows Release构建/lint、18段账号状态及接线、真实Qt/Go TLS联调PASS。完整回归曾24/25，修复样式预览裁剪定位后相关套件复验通过；最终desktop_surfaces/account_access 2/2 PASS，不将其称为单轮26/26。原生/平台边界见下方及PROGRESS，新提交CI需单独核验。
+
+## Mini悬停球与紧凑日历（UX-62，2026-10-29）
+
+设置→桌面组件选择Mini后可开启闲置收球；悬停恢复条形，菜单/拖动/键盘保持展开，尺寸持久化与平台失败回滚有临时设置单测。独立日历默认560×540、最小360×380，正文/辅助/标题12/11/15及月格、时间轴、年视图统一收紧；已有手动窗口尺寸保留。设计与复核见[UX-62](design/compact-desktop-surfaces.md)。完整26项、Windows合成输入与实际渲染、SDK隔离原生包验证PASS；物理平台边界仍见下方。
+
+本地新包Daymark-1.1.0-windows-x64-local-20261029-144244.zip（39,466,619字节），源码44661df，未签名；路径、校验和、原始失败与最终证据见PROGRESS，不代表正式远端二进制发布。
+
+## Mini 展开动效与漂移修正（UX-63，2026-10-29）
+
+按用户确认采用160ms OutCubic揭示，固定左上锚点和目标宽高；减少动态直接切换。C++统一正常宽度及Mini高度、先更新模式/约束再提交几何，QML不写Window高度；不再记忆过渡帧尺寸。共享菜单忽略同值原生尺寸回执，真实移动/缩放仍关闭。30轮污染帧往返、屏边、快速反转和实际交付exe的100/200%中间帧已有PASS，详细范围见[设计](design/compact-desktop-surfaces.md)与PROGRESS。
+
+修复包Daymark-1.1.0-windows-x64-local-20261029-153905.zip（39,479,871字节），源码180345f。完整26项及SDK隔离/清单/ZIP/SHA256全部PASS；未签名本地试用，未发布远端二进制。
+
+## 本机 WSL 同步服务（SYNC-WSL，2026-10-29）
+
+Ubuntu22.04/WSL2用户级Go+SQLite服务已运行，Windows本机地址`https://127.0.0.1:9443`、开放注册；私钥/数据在WSL专用ext4目录。经用户确认信任当前用户CA，Windows默认TLS、双Qt客户端注册/登录/双向同步/离线/冲突及服务重启保留数据PASS；原故障注入全矩阵另行PASS。来源与界面/引擎边界见PROGRESS，[普通服务验证说明](../server/README.md)与忽略build/wsl-local-sync运行记录。未开启公网访问或Windows开机启动；本机CA于2026-11-28到期。
+
+## 已知问题
+
+- 平台专属门禁仍未验收：macOS 物理输入、读屏、通知、穿透、多屏/睡眠、干净机部署与签名。CI 通过不等于这些门禁通过。
+- 同步专项尚需原生平台验收：macOS Keychain、账号表单/冲突的完整原生键盘/200%/读屏、真实异机备份与断电恢复；未对私人资料或生产账号做测试。
+
+## 报告规则
+
+- 「通过」只代表所列命令在该环境真实执行成功；不代表其他平台。
+- 未执行的平台与门禁标 UNVERIFIED，不用版本号或合成截图代替。
+- 逐轮证据（命令、日志名、SHA、耗时）保留在[进度日志](PROGRESS.md)与[验证记录](verification-report.md)。
+
+
+## 里程碑拆解原文
+
+# 里程碑与可执行任务队列
+
+2026-11-06当前范围为Windows功能收尾，Linux/macOS按用户指示跳过；现行完成状态和CLOSE-01队列统一见[PROGRESS](PROGRESS.md)。以下条目保留历次拆解顺序和需求追踪，旧“下一步/尚未实现”须结合后续交付解读，不独立作为当前待办；原始执行证据见[历史日志](PROGRESS-HISTORY.md)。
+
+OBS-01按[全局日志契约](design/runtime-diagnostics.md)增加Qt入口/生命周期、业务与底层网络证据、账号渐进详情/日志入口和原生更新日志；验证日志有界/隐私/并发/失败安全、真实网络失败与Windows键盘/200%焦点。实际结果见PROGRESS，不通过延长超时或重复整套长链替代根因修复。
+
+UPD-04/05按[在线更新设计包](design/update/README.md)推进Windows SDK/原生CLI/UI、自动prepare、受限启动与RUNNING清理，以及受保护GitHub发行工具；用户已授权完整实现，当前只投入Windows，macOS/Linux暂缓。追加AUTH-09连接诊断与QUERY-01历史筛选修复；实际证据与外部未验证边界只见PROGRESS，不自动推送/tag/上传。
+
+PERF-01按[性能与内存策略](design/performance-and-memory.md)先基线和分层审查，再逐切片实现/对比/回归；P1～P7已有实现和定向证据，QML/同步/Go层保留审查决定，详见[记录](performance-report-2026-11.md)。下一步是修复独立的菜单长流程失败、补整应用/长时/GPU及真实同步负载测量，不混入待发布1.8.1；状态只见PROGRESS。
+
+UX-76：跨行/空白后右键实际输入回归→释放后派发/稳定正文/原生菜单层级→QML实体与命令目标、Windows实际系统菜单和键盘恢复→本地构建及证据。契约见[桌面菜单](design/desktop-menu-anchoring.md)，状态只见PROGRESS。
+
+UX-75：组件稳定画布/单进度动效/呈现确认→逻辑尺寸与故障回滚→临时资料Qt输入、末帧连续性与Windows原生区域验证→文档及本地构建。契约见[组件绘制事务](design/widget-rendering-transaction.md)，实际状态只见PROGRESS；不自动推送或更新便携ZIP。
+
+UX-72 / FR-044：分类默认全部未完成、设置可选今天已获用户确认；快捷栏/选择器/三形态上下文设计评审，尚未实现。先纯查询及资料隔离，再原子命令与界面，见分类快查设计。
+
+UX-71：滚轮反馈/组件菜单输入隔离→独立临时资料回归→Qt6.10.2增量构建、原生专项与相关门禁→更新本地便携包；状态和证据仅见PROGRESS。
+
+UX-70 / BRAND-24：用户确认A比例母版→全VI及原生资源接入→Windows Release与完整CTest/lint→原生截图→干净源码便携包→GitHub。版本保持1.8.0，旧tag不移动；不合并独立CI恢复改动。
+
+UX-69按用户新增FR-043及[设计与评审](design/widget-task-actions-and-reminder-popup.md)推进小窗直接录入→独立Today排序/快捷菜单→本机到期弹窗及持久展示状态→临时库/真实QML/Windows原生与完整回归。保留原构建脚本与超时预算，不自动发布；状态与真实证据仅见PROGRESS。
+
+SYNC-07/UX-61按用户要求先完成[独立账号窗口设计/评审](design/account-window.md)，再迁移入口与完整账号状态；原设置账号块移除。实际实现/验证状态见PROGRESS，不以设计评审代替渲染与测试。
+
+SYNC-05按用户后续“完整实现→测试→文档/CI→推送源码”指令推进；运行代码及命令见[server](../server/README.md)、桌面适配见[实现契约](design/sync-client-implementation.md)。SYNC-02～04下列条目记录原设计顺序，不能继续解释为禁止已获授权的实现；当前完成度及平台边界仍只见PROGRESS。
+
+SYNC-04在[强类型契约](design/sync-contracts/README.md)给出OpenAPI、Go/Qt声明、字段/默认值/三态/摘要映射及客户端同步DDL；开发前依[ADR-028](ADR/028-sync-api-contract-and-rpc.md)评审RPC与兼容门禁，DEV各批沿用相同用例/事务接口，不将传输格式耦合进领域。实际状态仅见PROGRESS。
+
+SYNC-03已将SYNC-02细化为[DEV-01～08模块开发顺序](design/sync-modules/README.md)：先逐模块UT，再真实SQLite/文件/HTTP组件CT，按[INT-01～22](design/sync-modules/testing-integration.md)逐层组合至双端/灾备/平台；DDL仅设计稿，实施按批次追加migration，不将设计校验当服务已通过。状态及真实证据只见PROGRESS。
+
+SYNC-02按[账号同步工程架构](design/server-architecture.md)第15节ARCH-1～6顺序推进：契约基线→真实SQLite事务→账号资料→普通任务双端纵片→完整业务/快照冲突→恢复与平台交付；首期Go单体+SQLite遵循ADR-026，网络契约见[v1协议](api/sync-v1.md)。不自动部署/真实上传；状态和门禁证据只见PROGRESS。
+
+UX-60按[全局字体与比例留白](design/typography-and-proportional-spacing.md)统一中西文字体管线、角色字级和字号对应的页面/行内空间，复用实际几何、原生截图与完整CTest；状态只见PROGRESS。
+
+UX-59按[提示与标题/工具栏契约](design/tooltip-and-layout-rhythm.md)落实P-18/19、单目标视图切换、低频显示选项收纳与垂直节奏；本地包按[ADR-025](ADR/025-minimal-portable-payload.md)精简，状态和交付证据仅见PROGRESS。
+
+UX-58按[稳定空间契约](design/stable-layout-and-scroll.md)定义P-15～17，再迁移详情/同类滚动表面、循环控件、日历工具栏和组件几何，验证坐标关系、浅深/大字及真实构建。当前状态只维护于PROGRESS。
+
+UX-57按[详情尺寸控制](design/inspector-size-control.md)先修复强制展开、收紧内容关系，再验证同会话/键盘/缩放及打本地便携包；平台状态和测试证据只维护于PROGRESS。
+
+UX-56按[两栏设置](design/settings-split-navigation.md)实施侧栏/正文与键盘/滚动，再验证截图、完整测试、本地便携和源码推送；[ADR-024](ADR/024-local-preview-package.md)仅界定本地预览边界，正式门禁不变。当前状态只维护于PROGRESS。
+
+UX-55全菜单按[语义清单](design/menu-system-review.md)实施共享分隔、入口分组和托盘恢复/设置；实际完成状态与平台限制见PROGRESS。
+
+UX-52～54：按设计契约收束任务行留白/首次呈现、重复预设/结束重复和桌面实体菜单锚点；沿既有切片验证与预算执行，状态和限制只维护于PROGRESS。
+
+UX-49～51按[定位与集合恢复](design/inspector-position-and-trash-selection.md)→[列表轴线](design/list-layout-and-editing-rhythm.md)→[双击原行草稿](design/list-double-click-draft.md)执行；延续同一编辑器/事务，列表和上下文探针各守本身预算，不增加重复套件。真实状态只见PROGRESS。
+
+UX-48先按[全局规则](design/global-visual-system.md)更新共享视觉源，再迁移专用页面/组件、补全矢量与文字样式样板，执行构建/lint/完整CTest尝试及跨表面截图QA；实际状态只维护PROGRESS。
+
+UX-47按[设置与页签契约](design/settings-navigation-and-inspector-tabs.md)整理设置目录/子页和任务内容页签，沿用原持久化及草稿门；完成证据见PROGRESS。
+
+UX-46按[就近面板精修](design/contextual-popover-polish.md)先外壳/属性行规则→新增样板→共享详情/时段小窗→构建/lint/既有UI入口与截图矩阵；保持紧凑高度、可访问命中和草稿链。状态仅见PROGRESS。
+
+UX-45按[直接时段与批量整理](design/direct-time-range-picker.md)推进今天入口/只读时间映射→就近范围小窗与日期任务拖选→旗标/集合删除事务→临时库、真实QML操作与浅深200%验收；不改变schema或放宽旧watchdog，状态仅见PROGRESS。
+
+UX-44按[年定位、标签菜单与尺寸](design/year-tags-and-calendar-sizing.md)推进布局后定位及月份语境→共享就近标签菜单→独立日历缩放/键盘→复用现有测试入口验证；不新增重复CTest套件，状态仅见PROGRESS。
+
+UX-41按[主框架与字标](design/sidebar-and-wordmark.md)依次移除应用内菜单/设置入口补齐→原创字标→侧栏样板与大字→临时库回归、像素绘制及原生截图；不新增重复CTest入口，平台门禁仍独立。状态仅见PROGRESS。
+
+
+UX-40先按[提示与菜单字级](design/help-tags-and-menu-type.md)定义准入/视觉，再迁移共享样式和各表面；日历恢复连续拖选、年日号唯一表达及草稿拖动/离开保存，复用现有临时库探针验证，不另加重复CTest入口。状态只见PROGRESS。
+
+
+UX-39按[macOS日历操作](design/macos-calendar-interaction.md)实施：选择与双击/日期钻取→日历内新建/快捷键/焦点→视觉/拖动反馈→独立临时fixture与既有拖动/草稿回归；FR-038覆盖UX-35单击新建约定。
+
+UX-38按[全窗口精修](design/desktop-surfaces-polish.md)顺序实施：小窗/迷你扫读与完成闭环→共享工具/滚动边缘→窄日历与实色→独立fixture及全回归；沿用UX-37C性能与平台门禁，不以外观精修覆盖未验证项。
+
+任务列表下一轮拟按[UX-37复审](design/task-list-interaction-review.md)拆为选择闭环→父子关系及行骨架→详情直接呈现与首帧测量。本轮已授权落实选择、关系、密度及直接呈现；UX-37C会话重构/30次性能矩阵单列后续，不扩大数据库或任务树语义。Windows现有UI/watchdog失败继续作为发布门禁，状态只见PROGRESS。
+
+用户追加的[UX-37D全局密度](design/desktop-density-review.md)作为上述三片共同约束：先标准件/列表详情样板，再同屏导航统一，随后日历与其余表面分片迁移，最后密度/响应/平台矩阵；保持字号、可访问命中和单一草稿。
+
+UX-35/36按[连续月历](design/continuous-month-calendar.md)和[完整新增与桌面密度](design/calendar-creation-and-density.md)追加：只读有限周模型→真实时刻/范围新建→共享字段草稿/事务创建→密度收敛→历史/共享面板/连续月历独立fixture验证。对应FR-036/037；不得通过写占位任务或扩大原watchdog预算简化实现。状态与真实证据仅在PROGRESS。
+
+UX-34按[系统评估](design/system-ux-review-2026-10.md)第6节安排R0可信基线→R1范围/返回→R2统一表达→R3就近编辑→R4月历→R5日周小时轴→R6设置/数据/组件分片→R7年导航和平台验收。FR-034/035已接受实施，代码/验证映射见[实现索引](design/ux34-implementation.md)，设计见[日历v2](design/calendar-workspace-v2.md)、[任务面板](design/contextual-task-inspector.md)及ADR-020；未实施不放占位按钮，不以设计完成替代功能交付。当前状态仅在PROGRESS。
+
+UI-33按[统一起止与动作设计](design/shared-task-time-and-actions.md)及ADR-019实施：C++时间/旧资料与提醒 → 共享日期编辑 → 普通列表拖动/任务菜单 → 分类标签重命名 → 双构建、原生输入与缩放。当前状态仅见PROGRESS。
+
+UI-32按[两层子任务与导航设计](design/compact-navigation-and-subtasks.md)及ADR-018实施；新建/改父校验、可见详情/草稿返回、紧凑来源导航及旧深层兼容为本片门禁，状态见PROGRESS。
+
+UI-31全窗口统一按[桌面语言设计](design/macos-desktop-language.md)分片构建、截图与回归；收集箱上移至系统入口、自建分类区保留两级文件夹。当前状态和证据仅在PROGRESS。
+
+UI-29 / FR-024～030按[紧凑桌面设计](design/desktop-task-inspector.md)处理详情信息层级、导航密度、展开编辑对齐及分类实际上下排序；双构建、CTest、lint和Cocoa证据记录后结束本片。UI28交付范围和局限保留在PROGRESS。
+
+UI-27按[统一任务系统](design/unified-task-system.md)覆盖用户FR-024～029：分类迁移 → 真正子任务/重要/置顶 → 统一时间/循环/提醒 → 共享编辑及列表/日历导航 → 双构建、迁移/导入、合成及原生门禁。新定义替代历史项目领域/双事件/清单切片，保留数据与平台门槛；唯一状态见PROGRESS。
+
+本文件细化原始 Plan，不替代需求与原任务 ID。状态唯一记录于 PROGRESS；这里的任务编号用于逐轮开发和追踪。工期沿用 Plan 的63～121有效工程人日初估，完成真实 M0/M1 后重估，不据此承诺交付日期。
+
+UI实施在对应M3/M4/M5业务切片中采用 [UI-01～06迁移顺序及UX门禁](design/ui-acceptance.md)，先做Today完整样板再推广。它不改变原功能依赖，也不自动将项目优先级改为全面视觉重写。
+
+## 阶段依赖与门禁
+
+| 阶段 | 前置与交付结果 | 门禁证据 |
+|---|---|---|
+| F 工程基线（本轮） | Qt 6.10.2、构建/测试、双窗预览、开发方法和设计 | Debug/Release build、2项 CTest、文档完整 |
+| M0 平台 POC | F；透明、置顶、迷你、穿透恢复、几何 | 真实 OS 操作矩阵；缺 macOS 可继续业务但不算双平台完成 |
+| M1 可用基础 | F，与 M0 逐切片交错；领域、迁移、单实例、错误 | 临时库迁移/失败回滚、双进程激活、空应用真实运行 |
+| M2 存储闭环 | M1；任务和组织数据可持久化 | 创建到重启/恢复完整链，软删和事务失败安全 |
+| M3 主窗闭环 | M2；无需日历也能日常使用 | PRD §1.3、详情、搜索、键盘、跨天回归 |
+| M4 日历闭环 | M3；月/周规划与拖动 | 开始/截止独立、冲突零修改、跨视图同步 |
+| M5 桌面 MVP | M0 已实现能力 + M3/M4；真实任务组件 | 连续完成20项、托盘恢复、多屏定位、两平台独立报告 |
+| M6 效率能力 | M5；重复与提醒 | 月底闰日、幂等、模板覆盖保护、通知失败回退 |
+| M7 V1 发布 | M6；数据保护、稳定性、原生安装包 | P0全验收、P1披露、10k/8h、干净机、Windows/macOS分别验证 |
+
+M0/M1 优先解决窗口和可靠性；不得跳到云、AI、移动端。Windows 单机环境不产生 macOS PASS。
+
+## 第一批执行队列
+
+每行是一个可独立审查的纵向切片，完成后构建测试并更新证据。序号不是预先排定的日历日期。
+
+| 顺序/ID | 任务与依赖 | 原计划/需求 | 可观察验收 |
+|---|---|---|---|
+| F-01 | 工具链、CMake、脚本、双窗启动 | M0-01/02、M1-01/07 | Debug/Release构建；QML加载和临时SQLite探针通过 |
+| F-02 | 方法、原则、设计、任务与证据导航 | 工程纪律 | 后续会话可由PROGRESS定位一个任务并复现命令 |
+| W-01 | 平台窗口适配与Floating/Mini/置顶/拖动；依赖F | M0-02/03、FR-012 | 两种布局切换可用，置顶与不置顶实际可观测，失败提示 |
+| W-02 | 托盘、主窗恢复入口、穿透；依赖W-01 | M0-04、FR-012/013、TC-027/029 | 真实穿透后托盘解除；无托盘禁止穿透；明确退出 |
+| W-03 | 设置、屏幕几何、锁定、重置；依赖W-02 | M0-05/06、TC-028/041 | 重启/拔屏仍可达，DPI与原生窗口矩阵有证据 |
+| B-01 | Result、IClock、领域值和日期验证；依赖F | M1-03/06 | FakeClock跨天；本地日期/UTC往返；安全错误码 |
+| B-02 | 数据目录注入、SqliteDb、初始迁移；依赖B-01 | M1-04 | 临时库重入迁移、FK/索引、版本过新拒绝；未触碰用户目录 |
+| B-03 | 一致备份与迁移失败路径；依赖B-02 | M1-04、FR-017 | 既有库迁移前快照；备份失败阻止迁移；失败回滚原数据 |
+| B-04 | 单实例与退出队列；依赖W-02/B-03 | M1-02/05、TC-030 | 第二进程激活且不写DB，服务竞态/陈旧锁覆盖 |
+
+默认 W-01→W-02→W-03→B-01～04；若平台验证受外部环境限制，可继续独立 B 子项，保留平台未验证状态，不伪造门禁完成。
+
+## 后续详细分解
+
+| ID | 切片与依赖 | 对应原计划 | 验收/测试 |
+|---|---|---|---|
+| D-01 | TaskRepository、TaskPatch、最小创建/列表调试UI；B完成 | M2-01/02/06 | 创建中文任务→重启读取；三态和日期拒绝；TC-001/002/040 |
+| D-02 | 完成/取消/重开/软删撤销；D-01 | M2-01/06 | 同一ID生命周期、终态时间和版本冲突；失败无半状态 |
+| D-03 | Area/Project/Heading及安全删除；D-02 | M2-03 | TC-014～016，完成项目不改任务，删除迁出事务失败回滚 |
+| D-04 | Checklist/Tag/唯一键/稳定排序；D-03 | M2-04/05 | TC-017～019，关联重启保持，重排失败保留顺序 |
+| D-05 | JSON格式契约与导出基础；D-04 | M2-07 | 冻结版本字段、UUID/日期格式、合成样本，无机器路径 |
+| U-01 | QueryService及导航/Inbox/Today/Evening；D完成 | M3-01/02/03/09 | TC-003～013，快速录入20项，880DIP主路径可用 |
+| U-02 | Upcoming/Anytime/Someday/Logbook；U-01 | M3-04/09 | 日期/项目优先级，恢复任务无重复，Today移出有实际效果 |
+| U-03 | 项目页面、详情、日期/标签/清单编辑；U-02 | M3-05/06 | 400ms防抖、关闭保留草稿、日期冲突不写库 |
+| U-04 | 搜索、主题、错误空态、跨天刷新；U-03 | M3-07/08/09 | TC-020/043/044，中英文大小写、午夜/唤醒、键盘焦点 |
+| C-01 | CalendarService+MonthCalendarModel与月历；U完成 | M4-01/02/03 | TC-021/025，双日期标记、同日合并、跨年闰月 |
+| C-02 | 日期新建与Start/Deadline拖动；C-01 | M4-04/05/07 | TC-022/023，非法移动保留DB；合并项先选择字段 |
+| C-03 | 周历与视图联动；C-02 | M4-06/07 | TC-024，周首日/跨月/Today联动，无小时轴 |
+| G-01 | WidgetTodayModel与真实任务显示/完成；C完成、W完成 | M5-01/02/03 | TC-026，连续完成20项，各视图同源同步 |
+| G-02 | Mini、透明度、锁定、定位/托盘回归；G-01 | M5-04/05/06/07 | TC-027～029/041，窗口重建后恢复通路有效 |
+| G-03 | Windows/macOS组件独立验收；G-02 | M5-08 | 平台矩阵、Spaces局限、闲置CPU基线；MVP试用门禁 |
+| R-01 | 重复模板和FIXED实例化；G完成 | M6-01/02/03 | TC-031～033，31日/2月29跳过、重复执行不重复 |
+| R-02 | 完成后N天与模板编辑保护；R-01 | M6-04/05 | TC-034/035，最多一个OPEN后继，历史/覆盖实例保留 |
+| R-03 | ReminderService、OS适配与应用内回退；R-02 | M6-06/07 | TC-036/037，过去时间拒绝，睡眠重排，失败不冒充送达 |
+| V-01 | 完整JSON导入导出和备份恢复；R完成 | M7-01/02 | TC-038/039，WAL往返、无效数据零修改、替换先备份 |
+| V-02 | 10k基准与8h/睡眠/多屏回归；V-01 | M7-03/04/05 | TC-040～045，硬件/构建类型/样本/实测数字齐全 |
+| V-03 | 原生打包及许可/用户说明；V-02 | M7-06/07/08 | 部署工具、干净系统运行、签名状态披露 |
+| V-04 | 全量验收与发布清单；V-03 | M7-09 | P0、V1基础P1、未关问题及平台证据审查；授权后发布 |
+
+## 共通验收约束
+
+每个任务覆盖适用的失败分支；UI自动探针不能替代人工窗口验证。未满足项保持TODO/BLOCKED，不“完成后补测试”。新需求先映射FR/TC并评估依赖；没有规格对应的扩展放候选清单，不插入当前切片。
+
+任务状态见 [PROGRESS](PROGRESS.md)，执行记录用 [模板](templates/task.md)，结果见 [验证报告](verification-report.md)。
+
+## Windows候选后的执行切片
+
+V-02W按[稳定性设计](design/windows-stability.md)补系统恢复回归和同进程隔离长跑/资源报告工具。先运行短时工具验证，再执行8h与真实睡眠/物理多屏；这些是不同验收项，当前结果仅在PROGRESS维护。V-03/V-04仍保留干净机、签名许可和macOS门槛。
+
+V-03W按[交付验收设计](design/windows-delivery.md)先实现只读完整性与篡改检查、无SDK独立验收和完整生命周期DLL来源检查；可独立工程验证不解除V-02依赖，也不替代独立干净机、许可或macOS验收。
+
+UI-14按[Apple HIG全界面设计](design/hig-redesign.md)分三片：共享组件与主导航/空态 → 分类设置与全部编辑/数据页 → 日历、提醒、组件及完整回归/严格部署。覆盖FR-001～019、UX-01～14；每片构建测试后再集成。所有入口、旧选项、草稿保护和恢复路径必须保留；Windows自动/截图、物理输入/辅助技术与macOS验收分别记录，不因全界面实现就解除平台门禁。
+
+CAL-03按[独立日历设计](design/desktop-calendar.md)扩展FR-020：参数化共享查询、独立窗口与透明/几何持久化、共享日历精修，再验证三窗并存/独立翻页/数据同步/草稿/200%与严格Windows部署；平台人工门禁保持独立。
+
+CAL-04按[事件系列设计](design/event-series.md)扩展FR-021：领域规则与004迁移/旧JSON兼容 → 表单/色条/提醒中心 → 月末闰日/DST/提醒去重及失败分支 → Windows构建、原生截图和严格部署。编辑删除整个系列，真实系统通知送达与macOS保留独立验收。
+
+CAL-05按[评估路线](review-rc2.md)及[浏览定位设计](design/calendar-browsing.md)依次交付查询排序/定位键、只读预览、直接日期跳转和本地验证。其后CAL-06、REL-01、CAL-07、ENG-01、REL-02分别解决查找密度、真实平台验收、循环例外、维护性及正式发布；不混淆设备依赖和可本地实现项。
+
+UI-15按[动作与配色审计](design/actions-and-color.md)交付：共享图文组件/角色token → 全页面按动作风险与可识别度迁移 → 浅深/200%/可访问名称、对比度与原生/部署验证。范围不替代CAL-06功能计划，也不解除平台人工门禁。
+
+UI-16按[任务详情布局](design/task-detail-layout.md)先定义信息架构/行关系/条件显示，再实施Main与TaskDetailsFields纵切；验收互斥归属/分组、移动后的今晚/提醒、宽窄/200%与草稿原子性，不扩大CAL-06范围。
+
+UI-17按[iOS分组设计](design/ios-grouped-details.md)统一圆角/图标/开关/画布和内容组，移除拖放伪按钮，按202阶段与本地部署验收。
+
+UI-18按[就近编辑设计](design/direct-editing.md)推进共享日期/时间、快速编辑与全页直接选择，保留原子草稿和平台门禁。
+
+UI-19按[原行编辑及即时反馈](design/inline-task-experience.md)修订快速卡形式、整理与创建、详情动作、列表/完成反馈和菜单响应。
+
+UI-20 / CAL-06A按[连续日程与视觉修订](design/calendar-visual-refresh.md)推进跨日色条、长按排序、循环日程、全局颜色/行关系及提醒单层提交。
+
+UI-21按[产品哲学](product-philosophy.md)与[导航页面契约](design/navigation-and-pages.md)先复审责任/结果/场景和主操作链，再交付主内容管理页、领域项目层级/标签独立入口及完整草稿与平台验证；当前状态只记录于PROGRESS。
+
+UI-22～26按[全产品复审与简约方案](design/product-experience-review.md)单切片推进：先清理重复常驻元素/入口及状态措辞，再做今日与澄清、项目领域工作页、时间查找、设置恢复。遵守P-14“简约而不简单”；保留FR-001～022、草稿与安全语义，CAL-06/07、ENG-01和真实平台门禁不因重设计取消或宣称完成。
+
+UI-23A按用户截图及[直接操作设计](design/direct-task-actions.md)先实现详情/安排/导航移动闭环并构建，再增加FR-023任务日期范围投影与共享月周日历，最后真实QML指针、临时数据、双构建与原生合成验收。状态仅见PROGRESS；不扩大为小时排程。
+
+UI-30按[提醒事项式视图与任务树](design/task-list-context.md)和ADR-017推进FR-031：先树事务/schema9及旧JSON，再五视图/最近删除/局部编辑，最后完整构建与原生合成；替代旧父子独立语义的部分，状态仅见PROGRESS。
