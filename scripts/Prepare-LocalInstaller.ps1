@@ -26,7 +26,7 @@ $summary=Read-DaymarkPreviewTests $CTestReport @($inventory.tests.name)
 if(!$summary.fullGatePassed){throw 'Complete passing local CTest report required.'}
 $out=[IO.Path]::GetFullPath($OutputDirectory)
 if(Test-Path -LiteralPath $out){throw 'Choose a new output directory; nothing will be overwritten.'}
-$candidate=Join-Path $out 'candidate';$payload=Join-Path $candidate 'payload';$native=Join-Path $candidate 'native'
+$candidate=Join-Path $out 'candidate';$payload=Join-Path $candidate ("Daymark-$version-windows-x64-local-"+(Get-Date -Format 'yyyyMMdd-HHmmss'));$native=Join-Path $candidate 'native'
 New-Item -ItemType Directory -Path $payload,$native | Out-Null
 Copy-Item -LiteralPath (Join-Path $build 'bin/daymark.exe') -Destination $payload
 & (Join-Path $MingwRoot 'bin/strip.exe') --strip-unneeded (Join-Path $payload 'daymark.exe')
@@ -38,6 +38,9 @@ try{
  if($LASTEXITCODE -ne 0){throw 'Qt deployment failed.'}
 }finally{$env:PATH=$originalPath}
 $removed=@(Remove-DaymarkDeploymentExtras $payload)
+if(![IO.Path]::GetFullPath($payload).StartsWith($out+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Deployment staging path escaped output directory.'}
+Rename-Item -LiteralPath $payload -NewName 'payload'
+$payload=Join-Path $candidate 'payload'
 foreach($name in @('daymark-launcher.exe','daymark-update-cli.exe','daymark-updater.exe','daymark-setup-helper.exe')){Copy-Item -LiteralPath (Join-Path $build "bin/$name") -Destination $native}
 foreach($name in @('LICENSE','packaging/THIRD-PARTY-NOTICES.md','packaging/licenses/GPL-3.0.txt')){Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $payload}
 Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination (Join-Path $payload 'LGPL-3.0.txt')
