@@ -17,7 +17,7 @@ def build(a):
     if owned.get('daymark-setup-helper.exe')!=sha(helper):raise ValueError('setup helper is not part of signed bundle')
     if not (bundle/seed['payload_dir']/'licenses/NSIS-COPYING.txt').is_file():raise ValueError('NSIS license notice missing from signed payload')
     repo=Path(__file__).resolve().parents[1];a.output.parent.mkdir(parents=True,exist_ok=True)
-    command=[str(compiler),'/V2',f'/DAPP_VERSION={version}',f'/DOUTPUT_FILE={a.output.resolve()}',f'/DBUNDLE_DIR={bundle}',f'/DHELPER_FILE={helper}',f'/DLICENSE_FILE={repo / "LICENSE"}',f'/DAPP_ICON={repo / "assets/icons/daymark.ico"}',f'/DSIGN_TOOL={a.signtool.resolve()}',f'/DCERT_THUMBPRINT={a.certificate_thumbprint}',str(repo/'packaging/windows/Daymark.nsi')]
+    command=[str(compiler),'/V2','/INPUTCHARSET','UTF8',f'/DAPP_VERSION={version}',f'/DOUTPUT_FILE={a.output.resolve()}',f'/DBUNDLE_DIR={bundle}',f'/DHELPER_FILE={helper}',f'/DLICENSE_FILE={repo / "LICENSE"}',f'/DAPP_ICON={repo / "assets/icons/daymark.ico"}',f'/DSIGN_TOOL={a.signtool.resolve()}',f'/DCERT_THUMBPRINT={a.certificate_thumbprint}',str(repo/'packaging/windows/Daymark.nsi')]
     subprocess.run(command,check=True,timeout=300)
     subprocess.run([str(a.signtool),'sign','/fd','SHA256','/s','My','/sha1',a.certificate_thumbprint,'/d','Daymark',str(a.output)],check=True,timeout=60)
     verify='Import-Module $args[0]; Assert-DaymarkSelfSignedExecutable $args[1] $args[2] | ConvertTo-Json -Depth 4'
