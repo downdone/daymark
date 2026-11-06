@@ -63,3 +63,9 @@ MSVC候选的`runtime_min: bundled`按app-local部署实现：`windeployqt --no-
 ## 5. 维护与失效处理
 
 限流/网络不通显示可操作状态而非“已最新”。签名私钥不长期驻留普通runner，使用后清除临时密钥文件；日志仅记录公钥ID、源SHA、资产名/散列和门禁结果。签名轮换先让旧客户端获得经旧信任授权的新公钥，再切换发布者；引导协议过旧或密钥失陷走明确手动信任恢复。
+
+## 固定源码的受控重建
+
+2026-11-06发行工具恢复契约：`release-build.yml`允许在main上workflow_dispatch指定既有annotated稳定tag，源码继续checkout该tag的精确SHA，工具链/工作流来自已审查main。两个SHA分别写入payload/BUILD-PROVENANCE.json，连同runId、event、触发ref、仓库、tag及官方入口配置证据。发布者从GitHub API独立确认成功run、固定workflow/仓库、主分支工具SHA可达性及其包含源码提交，再校对artifact中的全部身份；不能把main工具SHA冒充源码SHA。旧的任意跨run恢复资产仍不能自动提升；新入口是显式完整重建，全部CTest/lint/签名/独立部署继续必需。预检-only不会生成候选artifact。该方式修复配置生命周期/打包工具，不移动公开tag，不覆盖已上传资产。
+
+官方配置输入被CMAKE_CONFIGURE_DEPENDS追踪，必须保留至所有可能触发CMake重配的构建、lint和打包结束，再always清理。收集候选及受保护签名阶段都验证实际EXE含有规范化官方地址，不在日志输出地址；正式包缺失官方配置会被拒绝。

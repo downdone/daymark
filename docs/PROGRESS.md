@@ -21,7 +21,9 @@
 
 本轮增量：MSVC标签包禁用windeployqt的编译器运行库隐式复制，改从VS2022正式Redist目录校验微软签名、14.3x/14.4x版本、PE x64与复制后散列，BUILD-INFO明确bundled及文件证据。源码目录/版本选择、Release布局与校验文件测试PASS；本机仅有VS18/VC145，未把该不同工具链当作VS2022实包验证，完整MSVC包保持UNVERIFIED。Release增量构建PASS；4项更新CTest PASS（21.73秒，`build/github-enable/update-tests.log/xml`）、14项发行元数据与4项更新发布测试PASS。设备登录等待数分钟仍未返回授权码，已结束仅本任务创建的登录进程；未产生API授权，不重复连接或绕过签名门禁。该早期登录缺口现已解除，自签名与远端配置进展以下续记录为准。
 
-UPD-06远端首轮959e678：源码/隐私守卫与Go服务及真实Qt→Go TLS同步整条CI成功（run42155203595）；Windows完整构建run42155203610因Engine.cpp遗漏cwctype而MSVC C2039失败，未创建tag。补显式algorithm/cctype/cwctype/limits头；本机独立原生MSVC构建另查出manifest资源重复，改保留手写asInvoker/DPI资源、关闭MSVC重复生成；子项目独立UTF8编译固定。本机VS18/MSVC19.52（不冒充CI VS2022）三宿主编译及SDK/真实CNG两项CTest通过0.72秒，导入表OS-only、实际嵌入asInvoker/PerMonitorV2/CommonControls manifest均通过；日志msvc-native-manifest-final.log，原失败保留。当前准备修复提交及首个2.0.1不可变标签，最终发行仍依赖tag完整CI与独立部署。
+UPD-06远端首轮959e678：源码/隐私守卫与Go服务及真实Qt→Go TLS同步整条CI成功（run42155203595）；Windows完整构建run42155203610因Engine.cpp遗漏cwctype而MSVC C2039失败，未创建tag。补显式algorithm/cctype/cwctype/limits头；本机独立原生MSVC构建另查出manifest资源重复，改保留手写asInvoker/DPI资源、关闭MSVC重复生成；子项目独立UTF8编译固定。本机VS18/MSVC19.52（不冒充CI VS2022）三宿主编译及SDK/真实CNG两项CTest通过0.72秒，导入表OS-only、实际嵌入asInvoker/PerMonitorV2/CommonControls manifest均通过；日志msvc-native-manifest-final.log，原失败保留。修复提交9e5ead1及annotated v2.0.1已推送；main完整CI和同步CI成功。tag候选run42157174276完整构建/CTest/lint通过，但Package被CRT未知文件白名单拒绝，零资产上传。正式发行仍依赖候选打包、签名与独立部署。
+
+UPD-06工具链恢复：合成地址复现了配置后立即删除URL文件会触发CMake自动重配并将官方地址置空；已改为保留至测试/打包后always清理，二进制必须含经规范化的Secret地址且元数据显式true。新增仅主分支调度的固定tag重建，源码SHA与工具SHA分别记录/验收；新候选仍完整测试，旧tag/资产不覆盖。CRT预检前置，可只运行轻量审计以取得真实未知文件名，不为该问题盲目重复20分钟完整构建。新增10项来源/发布策略与8项恢复守卫通过；重建的工具修复提交仅跳过重复普通push CI，受控重建仍执行完整正式门禁。
 
 ## 当前功能清单
 

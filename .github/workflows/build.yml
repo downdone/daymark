@@ -28,6 +28,7 @@ jobs:
           python3 scripts/generate-diagnostics.py --check
           python3 scripts/generate-sync-contract.py --check
   desktop:
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +75,10 @@ jobs:
       - name: Configure
         run: cmake -S . -B build/ci -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
-        run: cmake --build build/ci --config Release --parallel 4
+        run: |
+          cmake --build build/ci --config Release --target daymark-update-cli daymark-bootstrap daymark-updater --parallel 4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build/ci --config Release --parallel 4
       - name: Test
         shell: bash
         run: |

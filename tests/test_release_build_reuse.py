@@ -44,6 +44,11 @@ class BuildReuseTests(unittest.TestCase):
             env = {"GITHUB_REF": "refs/heads/main", "GITHUB_REF_NAME": "main",
                    "GITHUB_OUTPUT": str(output), "GITHUB_REPOSITORY": REPO,
                    "GH_TOKEN": "synthetic-unused-token"}
+            if hasattr(self, 'manual_tag'):
+                event_path = root/'event.json'
+                event_path.write_text(json.dumps({'inputs': {'tag':self.manual_tag}}))
+                env.update(GITHUB_EVENT_NAME='workflow_dispatch',GITHUB_EVENT_PATH=str(event_path),
+                           GITHUB_REF=getattr(self,'manual_ref','refs/heads/main'))
             def git(arguments, **kwargs):
                 if arguments[1] == "fetch": return ""
                 if arguments[1] == "cat-file": return "tag\n"
@@ -76,6 +81,19 @@ class BuildReuseTests(unittest.TestCase):
         self.assertEqual(output["commit"], SOURCE)
         self.assertEqual(output["reuse_run"], "42")
         self.assertEqual([x["label"] for x in json.loads(output["matrix"])["include"]], ["windows-x64"])
+
+    def test_manual_rebuild_uses_immutable_tag_and_ignores_old_recovery_request(self):
+        self.manual_tag = 'v1.8.0'
+        self.request['tag'] = 'broken legacy request that must not be read'
+        output = self.execute(True)
+        self.assertEqual(output['commit'],SOURCE)
+        self.assertEqual(output['tag'],'v1.8.0')
+        self.assertEqual(output['reuse_run'],'')
+        self.manual_ref = 'refs/heads/unreviewed'
+        self.execute(False)
+        self.manual_ref = 'refs/heads/main'
+        self.manual_tag = 'v01.8.0'
+        self.execute(False)
 
     def test_normal_request_builds_windows_only(self):
         self.request = {"tag": "v1.8.0", "commit": SOURCE}

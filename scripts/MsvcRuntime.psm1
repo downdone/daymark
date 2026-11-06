@@ -45,7 +45,7 @@ function Copy-DaymarkMsvcRuntime([string]$Destination) {
     # Validate the complete set before copying any file.
     foreach ($file in $files) {
         if ($file.PSIsContainer -or $file.Attributes -band [IO.FileAttributes]::ReparsePoint -or $file.Name -cnotin $allowed) {
-            throw 'Unreviewed file in CRT redistributable directory.'
+            throw "Unreviewed file in CRT redistributable directory: $($file.Name)"
         }
         if (Test-Path -LiteralPath (Join-Path $target $file.Name)) { throw 'Runtime destination already exists; no overwrite is allowed.' }
         $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName

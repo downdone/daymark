@@ -44,6 +44,14 @@ E2E-04：被杀毒/其他进程占用旧DLL、旧目录含用户文件/修改的
 
 E2E-05：匿名真实GitHub API/ZIP/CDN重定向，清单分时上传、实际限流/代理；一次有界验证保留失败。无SDK环境验证引导器/CLI无Qt依赖，GUI系统控件正常，payload DLL均来自当前版本或允许系统目录。正式最低Windows/VC运行库缺失/具备分别用干净机证明。
 
+真实公开发行的显式验收入口（Windows，两个版本均已完成发布后运行）：
+
+```powershell
+python tests/update/github_flow.py --work <新的隔离证据目录> --old-version 2.0.1 --new-version 2.0.2
+```
+
+它不读GitHub凭据、不注入测试信任/API/测试payload，匿名下载既有正式引导资产并核对GitHub散列及已审查的自签名证书指纹，再由生产CLI内置P-256公钥验证引导。真实Qt实例仅使用该新证据目录下的合成SQLite，启动自动prepare实际公网新版，公开CLI请求Qt保存退出/重启，断言COMMIT/RUNNING、旧exe删除、未知/修改文件保留及合成任务完整性；report绑定实际releaseId/assetId/sourceRevision。测试结束仅结束该隔离安装根中的自有进程，保留报告与失败状态，不重试至通过。该脚本不加入普通CTest/PR，防止常规测试主动联网或启动公开版本；未执行不得写PASS。本地夹具与此入口分别记录。
+
 UI验收包括浅深/100～200%/窄窗/键盘/辅助名称、主窗隐藏与原生窗口、物理DPI/读屏；GTK X11与Wayland、AppKit各后续单列，不能把Windows截图当三端通过。
 
 ## 4. 实施顺序

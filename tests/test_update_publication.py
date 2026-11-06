@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-from update_release_gates import check_gates, verify_deployment_report
+from update_release_gates import check_candidate_provenance, check_gates, verify_deployment_report
 spec = importlib.util.spec_from_file_location('finalize_update', ROOT / 'scripts/finalize-update.py')
 finalizer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(finalizer)
@@ -79,18 +79,18 @@ class UpdatePublicationTest(unittest.TestCase):
 class UpdateReleasePolicyTest(unittest.TestCase):
     def setUp(self):
         self.pin = 'a' * 64
-        self.info = {'signed': False, 'fullTestGatePassed': True, 'cleanMachine': True,
+        self.info = {'signed': False, 'fullTestGatePassed': True, 'cleanMachine': True, 'officialServiceConfigured':True,
                      'authenticode': {'policy': 'self-signed-pinned', 'publicTrust': False,
                                       'certificateSha256': self.pin}}
 
     def test_self_signed_policy_is_explicit_and_not_public_trust(self):
         check_gates(self.info, self.pin)
         with self.assertRaises(ValueError): check_gates(self.info)
-        check_gates({'signed': True, 'fullTestGatePassed': True, 'cleanMachine': True})
+        check_gates({'signed': True, 'fullTestGatePassed': True, 'cleanMachine': True, 'officialServiceConfigured':True})
         with self.assertRaises(ValueError): check_gates(dict(self.info, signed=True))
 
     def test_self_signing_never_bypasses_tests_or_deployment_validation(self):
-        for gate in ('fullTestGatePassed', 'cleanMachine'):
+        for gate in ('fullTestGatePassed', 'cleanMachine', 'officialServiceConfigured'):
             for bad in (False, 1, 'true', None):
                 with self.subTest(gate=gate, bad=bad):
                     with self.assertRaises(ValueError): check_gates(dict(self.info, **{gate: bad}), self.pin)
@@ -121,6 +121,30 @@ class UpdateReleasePolicyTest(unittest.TestCase):
             exe.write_bytes(b'synthetic validated image')
             extra = root/'native/deployment-report.json'; extra.write_text('{}')
             with self.assertRaises(ValueError): verify_deployment_report(root,info)
+
+
+class ImmutableRebuildProvenanceTest(unittest.TestCase):
+    def setUp(self):
+        self.source,self.tooling = 'a'*40,'b'*40
+        self.run = dict(id=123,event='workflow_dispatch',head_sha=self.tooling,head_branch='main')
+        self.record = dict(format=1,repository='downdone/daymark',source_revision=self.source,tag='v2.0.1',
+                           tooling_revision=self.tooling,run_id='123',event='workflow_dispatch',
+                           trigger_ref='refs/heads/main',official_service_configured=True)
+
+    def test_reviewed_main_rebuild_binds_source_tooling_run_and_configuration(self):
+        check_candidate_provenance(self.record,self.run,self.source,'v2.0.1')
+        for field,bad in [('source_revision','c'*40),('tooling_revision','c'*40),('run_id','999'),
+                          ('repository','other/repository'),('tag','v2.0.2'),('format',True),
+                          ('official_service_configured',False),('event','push'),('trigger_ref','refs/heads/other')]:
+            with self.subTest(field=field),self.assertRaises(ValueError):
+                check_candidate_provenance(dict(self.record,**{field:bad}),self.run,self.source,'v2.0.1')
+        with self.assertRaises(ValueError):check_candidate_provenance(None,self.run,self.source,'v2.0.1')
+
+    def test_only_exact_tag_push_or_explicit_main_dispatch_are_eligible(self):
+        check_candidate_provenance(None,dict(id=123,event='push',head_sha=self.source,head_branch='v2.0.1'),self.source,'v2.0.1')
+        for run in (dict(self.run,event='push'),dict(self.run,head_branch='other'),
+                    dict(self.run,event='pull_request'),dict(id=123,event='push',head_sha=self.source,head_branch='main')):
+            with self.assertRaises(ValueError):check_candidate_provenance(self.record,run,self.source,'v2.0.1')
 
 
 if __name__ == '__main__': unittest.main()

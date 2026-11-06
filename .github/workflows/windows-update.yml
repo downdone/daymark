@@ -51,7 +51,18 @@ jobs:
           & git merge-base --is-ancestor $source origin/main
           if ($LASTEXITCODE -ne 0) { throw 'Source must be reviewed on main' }
           $run = (& gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:CANDIDATE_RUN") | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0 -or $run.head_sha -ne $source -or $run.event -ne 'push' -or $run.path -ne '.github/workflows/release-build.yml' -or $run.conclusion -ne 'success' -or $run.repository.full_name -ne $env:GITHUB_REPOSITORY) { throw 'Candidate run provenance mismatch' }
+          if ($LASTEXITCODE -ne 0 -or $run.path -ne '.github/workflows/release-build.yml' -or $run.conclusion -ne 'success' -or $run.repository.full_name -ne $env:GITHUB_REPOSITORY) { throw 'Candidate run provenance mismatch' }
+          $tagBuild = $run.event -eq 'push' -and $run.head_sha -eq $source -and $run.head_branch -eq $env:UPDATE_TAG
+          $manualBuild = $run.event -eq 'workflow_dispatch' -and $run.head_branch -eq 'main'
+          if (!$tagBuild -and !$manualBuild) { throw 'Only exact tag pushes or reviewed main immutable rebuilds are accepted' }
+          if ($manualBuild) {
+            & git merge-base --is-ancestor $run.head_sha origin/main
+            if ($LASTEXITCODE -ne 0) { throw 'Rebuild tooling must be reviewed on main' }
+            & git merge-base --is-ancestor $source $run.head_sha
+            if ($LASTEXITCODE -ne 0) { throw 'Rebuild tooling must descend from the immutable source' }
+          }
+          [ordered]@{id=$run.id;head_sha=$run.head_sha;head_branch=$run.head_branch;event=$run.event;source=$source;tag=$env:UPDATE_TAG} |
+            ConvertTo-Json | Set-Content -LiteralPath "$env:RUNNER_TEMP/candidate-run.json" -Encoding utf8
           "source=$source" >> $env:GITHUB_OUTPUT
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -64,7 +75,14 @@ jobs:
         env:
           CODE_SIGNING_PFX: ${{ secrets.DAYMARK_AUTHENTICODE_PFX_BASE64 }}
           CODE_SIGNING_PASSWORD: ${{ secrets.DAYMARK_AUTHENTICODE_PASSWORD }}
+          OFFICIAL_SERVICE_URL: ${{ secrets.DAYMARK_OFFICIAL_SERVICE_URL }}
         run: |
+          $run = Get-Content "$env:RUNNER_TEMP/candidate-run.json" -Raw | ConvertFrom-Json
+          python scripts/update_release_gates.py --run "$env:RUNNER_TEMP/candidate-run.json" --record build/candidate/payload/BUILD-PROVENANCE.json
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable rebuild artifact provenance mismatch' }
+          $origin = $env:OFFICIAL_SERVICE_URL.Trim().TrimEnd('/')
+          $binaryText = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes("$PWD/build/candidate/payload/daymark.exe"))
+          if (!$origin -or !$binaryText.Contains($origin)) { throw 'Built official account configuration is missing; no release was uploaded' }
           $policy = Get-Content config/authenticode-policy.json -Raw | ConvertFrom-Json
           if ($policy.format -ne 1 -or $policy.policy -ne 'self-signed-pinned' -or $policy.public_trust -ne $false -or $policy.certificate_sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Unsupported signing policy' }
           if (!$env:CODE_SIGNING_PFX -or !$env:CODE_SIGNING_PASSWORD) { throw 'Protected signing secrets missing' }
