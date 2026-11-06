@@ -9,6 +9,29 @@ ApplicationWindow {
     required property WidgetViewModel widgetController
     required property TaskWorkspace taskWorkspace
     required property StartupController startupController
+    property var updateController: null
+    property bool updateNoticeVisible: false
+    property bool updateCloseIntent: false
+    Connections {
+        target: mainWindow.updateController
+        function onUpdateReady() { mainWindow.updateNoticeVisible = true }
+    }
+    Pane {
+        z: 1000
+        x: Math.max(16, mainWindow.width-width-16)
+        y: 16
+        width: Math.min(400, mainWindow.width-32)
+        visible: mainWindow.updateNoticeVisible && mainWindow.updateController && mainWindow.updateController.ready
+        padding: 16
+        contentItem: ColumnLayout {
+            spacing: 12
+            Label {text: qsTr("更新已安装，重启后生效。");wrapMode: Text.Wrap;Layout.fillWidth: true}
+            RowLayout {
+                Button {text: qsTr("立即重启");enabled: mainWindow.updateController && !mainWindow.updateController.busy;onClicked: {mainWindow.updateNoticeVisible=false;mainWindow.updateController.restart()}}
+                Button {text: qsTr("稍后");onClicked: mainWindow.updateNoticeVisible=false}
+            }
+        }
+    }
     objectName: "mainWindow"
     width: 1120
     height: 720
@@ -472,7 +495,7 @@ ApplicationWindow {
             if(taskContentVisible)viewportState.capture(taskWorkspace.scope)
             expandCategoryParent(view.substring(view.indexOf(":")+1))
             editor.close();toolPage="";clearTaskSelection()
-            if(["day","week","month","year"].indexOf(view)<0 && view!==taskWorkspace.scope){search.clear();selectedTag="";selectedProject="";taskWorkspace.setTagFilter("");taskWorkspace.setProjectFilter("");tagFilter.currentIndex=0;projectFilter.currentIndex=0}
+            if(["day","week","month","year"].indexOf(view)<0 && view!==taskWorkspace.scope){search.clear();selectedTag="";selectedProject="";taskWorkspace.setTagFilter("");taskWorkspace.setProjectFilter("")}
             if(preservePresentation)taskWorkspace.setScope(view);else taskWorkspace.setView(view)
             if(view==="inbox" || viewCodes.indexOf(view)>=0){const nav=navigationScroll.contentItem as Flickable;if(nav)nav.contentY=nav.originY}
             Qt.callLater(function(){viewportState.restore(mainWindow.taskWorkspace.scope)})
@@ -577,7 +600,8 @@ ApplicationWindow {
     function applicationCommand(action) {
         if(action==="settings"){openTool("settings");return}
         if(action==="data"){openTool("data");return}
-        if(action==="quit"){forceQuit=true;close();return}
+        if(action==="quitForUpdate"){updateCloseIntent=true;forceQuit=true;close();return}
+        if(action==="quit"){updateCloseIntent=false;forceQuit=true;close();return}
         if(calendarVisible && ["day","week","month","year","calendarToday","calendarNext","calendarPrevious","calendarGoTo","calendarEdit"].indexOf(action)>=0){calendarPanel.command(action);return}
         if(action==="new"){newTask("");return}
         if(action==="save"){if(editingActive && draftDirty){const id=editId;pendingAction=function(){loadEditor(id)};if(!saveEditor())pendingAction=null}return}
@@ -874,7 +898,7 @@ ApplicationWindow {
                 Button {visible:mainWindow.taskContentVisible && ["completed","cancelled"].indexOf(mainWindow.taskWorkspace.view)>=0;flat:true;text:mainWindow.taskWorkspace.view==="completed" ? qsTr("查看已取消") : qsTr("查看已完成");onClicked:mainWindow.changeView(mainWindow.taskWorkspace.view==="completed" ? "cancelled" : "completed")}
                 BusyIndicator { running: mainWindow.taskWorkspace.busy && !mainWindow.taskWorkspace.backgroundBusy; visible: running; Layout.preferredWidth: 28; Layout.preferredHeight: 28 }
                 WidgetAction {visible: mainWindow.taskContentVisible;symbol: "search";description: mainWindow.searchExpanded ? qsTr("关闭搜索") : qsTr("搜索任务");checked: mainWindow.searchExpanded || search.text.length>0;onClicked: {if(mainWindow.searchExpanded || search.text.length>0){search.clear();mainWindow.searchExpanded=false;taskList.forceActiveFocus()}else{mainWindow.searchExpanded=true;search.forceActiveFocus()}}}
-                WidgetAction {visible: mainWindow.taskContentVisible;symbol: "filter";description: (mainWindow.selectedTag || mainWindow.selectedProject) ? qsTr("清除筛选") : mainWindow.filtersExpanded ? qsTr("收起筛选") : qsTr("筛选任务");checked: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {if(mainWindow.selectedTag || mainWindow.selectedProject){tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("");mainWindow.filtersExpanded=false}else mainWindow.filtersExpanded=!mainWindow.filtersExpanded}}
+                WidgetAction {visible: mainWindow.taskContentVisible;symbol: "filter";description: (mainWindow.selectedTag || mainWindow.selectedProject) ? qsTr("清除筛选") : mainWindow.filtersExpanded ? qsTr("收起筛选") : qsTr("筛选任务");checked: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {if(mainWindow.selectedTag || mainWindow.selectedProject){mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("");mainWindow.filtersExpanded=false}else mainWindow.filtersExpanded=!mainWindow.filtersExpanded}}
                 RowLayout {
                     id: contentViewSwitch;objectName:"contentViewSwitch";visible:!mainWindow.toolPageVisible
                     Layout.minimumWidth:Theme.controlHeight;Layout.maximumWidth:Theme.controlHeight;spacing:0
@@ -934,9 +958,25 @@ ApplicationWindow {
                 RowLayout {
                 Layout.fillWidth: true
                 visible: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject
-                ComboBox {id: tagFilter;property var tags: mainWindow.taskWorkspace.catalogOf("tag"); Layout.fillWidth: true; model: [qsTr("全部标签")].concat(tags.map(function(t){return t.title})); onActivated: {mainWindow.selectedTag=currentIndex===0 ? "" : tags[currentIndex-1].id;mainWindow.taskWorkspace.setTagFilter(mainWindow.selectedTag)} }
-                ComboBox {id: projectFilter;property var projects: mainWindow.taskWorkspace.categoryTree.filter(item=>!item.hidden);Layout.fillWidth: true;model: [qsTr("全部分类")].concat(projects.map(item=>item.path));onActivated: {mainWindow.selectedProject=currentIndex===0 ? "" : projects[currentIndex-1].id;mainWindow.taskWorkspace.setProjectFilter(mainWindow.selectedProject)}}
-                WidgetAction {symbol: "filterClear";description: qsTr("清除标签和分类筛选");enabled: !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("")}}
+                ComboBox {
+                    id: tagFilter
+                    objectName: "taskTagFilter"
+                    property var tags: mainWindow.taskWorkspace.catalog.filter(item=>item.kind==="tag")
+                    Layout.fillWidth: true
+                    model: [qsTr("全部标签")].concat(tags.map(item=>item.title))
+                    currentIndex: Math.max(0,tags.findIndex(item=>item.id===mainWindow.selectedTag)+1)
+                    onActivated: function(index) {mainWindow.selectedTag=index===0 ? "" : tags[index-1].id;mainWindow.taskWorkspace.setTagFilter(mainWindow.selectedTag)}
+                }
+                ComboBox {
+                    id: projectFilter
+                    objectName: "taskCategoryFilter"
+                    property var projects: mainWindow.taskWorkspace.categoryTree.filter(item=>!item.hidden || ["completed","cancelled","logbook","trash"].indexOf(mainWindow.taskWorkspace.view)>=0)
+                    Layout.fillWidth: true
+                    model: [qsTr("全部分类")].concat(projects.map(item=>item.path))
+                    currentIndex: Math.max(0,projects.findIndex(item=>item.id===mainWindow.selectedProject)+1)
+                    onActivated: function(index) {mainWindow.selectedProject=index===0 ? "" : projects[index-1].id;mainWindow.taskWorkspace.setProjectFilter(mainWindow.selectedProject)}
+                }
+                WidgetAction {symbol: "filterClear";description: qsTr("清除标签和分类筛选");enabled: !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("")}}
                 }
             }
             RowLayout {
@@ -1143,7 +1183,7 @@ ApplicationWindow {
                     heading: mainWindow.taskWorkspace.view==="trash" ? qsTr("没有最近删除的任务") : mainWindow.taskWorkspace.view==="cancelled" ? qsTr("没有已取消的任务") : mainWindow.taskWorkspace.view==="completed" ? qsTr("还没有已完成的任务") : !mainWindow.taskWorkspace.ready ? qsTr("正在准备任务") : search.text.length>0 ? qsTr("没有匹配的任务") : mainWindow.taskWorkspace.view==="today" ? qsTr("今天暂无待办") : mainWindow.taskWorkspace.view==="inbox" ? qsTr("收集箱已清空") : qsTr("这里暂时没有任务")
                     detail: mainWindow.taskWorkspace.view==="trash" ? qsTr("删除的任务可在这里恢复。") : mainWindow.taskWorkspace.view==="completed" ? qsTr("完成的任务按完成时间保留在这里。") : mainWindow.taskWorkspace.view==="cancelled" ? qsTr("已取消任务保留在这里，可重新打开。") : mainWindow.taskWorkspace.view==="logbook" ? qsTr("已结束的任务会保留在这里，方便回顾。") : search.text.length>0 ? qsTr("换一个关键词，或清除筛选再试。") : qsTr("在上方记下任务，再安排时间和归属。")
                     actionText: !mainWindow.taskWorkspace.ready || mainWindow.taskWorkspace.view==="completed" || mainWindow.taskWorkspace.view==="trash" || mainWindow.taskWorkspace.view==="cancelled" || mainWindow.taskWorkspace.view==="logbook" ? "" : search.text.length>0 ? qsTr("清除搜索") : mainWindow.selectedTag || mainWindow.selectedProject ? qsTr("清除筛选") : qsTr("新建任务")
-                    onTriggered: {if(search.text.length>0)search.clear();else if(mainWindow.selectedTag || mainWindow.selectedProject){tagFilter.currentIndex=0;projectFilter.currentIndex=0;mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("")}else mainWindow.newTask("")}
+                    onTriggered: {if(search.text.length>0)search.clear();else if(mainWindow.selectedTag || mainWindow.selectedProject){mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("")}else mainWindow.newTask("")}
                 }
             }
             RowLayout {
@@ -1619,6 +1659,7 @@ ApplicationWindow {
     }
 
     SettingsDialog {
+        updateController: mainWindow.updateController
         id: windowSettings
         transientParent: mainWindow
         onDataRequested: {windowSettings.close();mainWindow.openTool("data")}
@@ -1792,19 +1833,23 @@ ApplicationWindow {
         onAccepted: mainWindow.applyToday()
     }
     onClosing: function(close) {
+        const updating=updateCloseIntent
+        updateCloseIntent=false
+        if(updateController)updateController.cancelRestart()
+        const retryClose=function(){if(updating){mainWindow.updateCloseIntent=true;mainWindow.forceQuit=true}mainWindow.close()}
         if(inspectorPicker.active){close.accepted=false;inspectorPicker.close();return}
         if (taskWorkspace.busy) { close.accepted = false; return }
         if(newInlineDraft && inlineDraftFingerprint()===inlineTemplate)cancelInlineDraft()
         if(catalogEdit.visible && catalogEdit.dirty){close.accepted=false;catalogEdit.requestClose();return}
-        if(desktopCalendar.protectClose(function(){mainWindow.close()})){close.accepted=false;return}
-        if(calendarPanel.protectClose(function(){mainWindow.close()})){close.accepted=false;return}
-        if (organization.visible && organization.dirty) {close.accepted=false;organization.safely(function(){organization.close();mainWindow.close()});return}
+        if(desktopCalendar.protectClose(retryClose)){close.accepted=false;return}
+        if(calendarPanel.protectClose(retryClose)){close.accepted=false;return}
+        if (organization.visible && organization.dirty) {close.accepted=false;organization.safely(function(){organization.close();retryClose()});return}
         if (editingActive && draftDirty) {
             close.accepted = false
-            navigateSafely(function() { mainWindow.close() })
+            navigateSafely(retryClose)
         } else if (!forceQuit && widgetController.trayAvailable && widgetController.closeToTray) {
             close.accepted = false
             if(!taskWorkspace.preferences.closeNoticeSeen)firstClose.open();else mainWindow.hide()
-        } else {shuttingDown=true;editor.close();Qt.quit()}
+        } else {if(updating && updateController)updateController.armRestart();shuttingDown=true;editor.close();Qt.quit()}
     }
 }

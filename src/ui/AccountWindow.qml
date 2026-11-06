@@ -19,6 +19,8 @@ ApplicationWindow {
     readonly property string activeOrigin:serviceMode===0?workspace.officialSyncOrigin:syncOrigin.text
     property bool serverExpanded: true
     property bool showPassword: false
+    property bool diagnosticExpanded:false
+    property string diagnosticActionError:""
     property bool prefilled: false
     property string prefillProfileId: ""
     readonly property bool connected: !!workspace.syncState.authenticated
@@ -43,6 +45,7 @@ ApplicationWindow {
     palette.buttonText: Theme.text
     palette.highlight: Theme.accent
     function viewport() { return body.contentItem as Flickable }
+    function revealFocusedItem() { if (visible) reveal(activeFocusItem) }
     function clearSecrets() { syncPassword.clear(); syncConfirmPassword.clear(); showPassword = false }
     function open() {
         if (visible) { requestActivate(); return }
@@ -62,7 +65,7 @@ ApplicationWindow {
         show(); requestActivate()
         Qt.callLater(function() { if (root.visible && !root.connected) { if (root.serviceMode===1 && root.serverExpanded) syncOrigin.forceActiveFocus(); else if (!syncLogin.text) syncLogin.forceActiveFocus(); else syncPassword.forceActiveFocus() } })
     }
-    function close() { hide(); clearSecrets(); syncRegisterMode = false; dismissed(); if (transientParent) transientParent.requestActivate() }
+    function close() { hide(); clearSecrets(); syncRegisterMode = false;diagnosticExpanded=false;diagnosticActionError=""; dismissed(); if (transientParent) transientParent.requestActivate() }
     function reveal(item) {
         if (!item || !item.visible) return
         let owner = item
@@ -92,6 +95,11 @@ ApplicationWindow {
     onClosing: function(event) { event.accepted = false; close() }
     onActiveFocusItemChanged: Qt.callLater(function() { root.reveal(root.activeFocusItem) })
     Shortcut { sequence: "Escape"; enabled: root.visible; onActivated: root.close() }
+    Connections {
+        target: body.contentItem
+        function onContentHeightChanged() { Qt.callLater(root.revealFocusedItem) }
+        function onHeightChanged() { Qt.callLater(root.revealFocusedItem) }
+    }
     Connections {
         target: root.workspace
         function onSyncStateChanged() {
@@ -175,6 +183,18 @@ ApplicationWindow {
                             Label { objectName: "accountPasswordHint"; Layout.fillWidth: true; wrapMode: Text.Wrap; text: syncConfirmPassword.text.length > 0 && syncConfirmPassword.text !== syncPassword.text ? qsTr("两次密码不一致，请重新确认。") : qsTr("密码至少8个字符。请妥善保存，当前不提供邮件找回。"); color: syncConfirmPassword.text.length > 0 && syncConfirmPassword.text !== syncPassword.text ? Theme.danger : Theme.secondary; font.pixelSize: Theme.captionSize }
                         }
                         Label { objectName: "accountError"; visible: !root.connecting && !!root.workspace.syncState.safe_error_code; Layout.fillWidth: true; wrapMode: Text.Wrap; text: root.workspace.syncState.status || ""; color: Theme.danger; font.pixelSize: Theme.bodySize; Accessible.role: Accessible.AlertMessage }
+                        GridLayout {
+                            visible:!root.connecting && !!root.workspace.syncState.safe_error_code
+                            Layout.fillWidth:true
+                            columns:width<360*Theme.scale ? 1 : 2
+                            Button {objectName:"accountTestConnection";text:qsTr("测试连接");enabled:root.activeOrigin.trim().length>0;onClicked:root.workspace.syncProbe(root.activeOrigin)}
+                            Button {objectName:"accountCopyDiagnostic";text:qsTr("复制诊断信息");onClicked:root.workspace.copySyncDiagnostic()}
+                            Button {objectName:"accountOpenLogs";text:qsTr("打开日志目录");onClicked:root.diagnosticActionError=root.workspace.openDiagnosticLogs()?"":qsTr("无法打开日志目录，请检查本地目录权限。")}
+                            Button {objectName:"accountDiagnosticDetails";text:root.diagnosticExpanded?qsTr("收起错误详情"):qsTr("查看错误详情");flat:true;onClicked:root.diagnosticExpanded=!root.diagnosticExpanded}
+                        }
+                        Label {visible:root.diagnosticActionError.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.diagnosticActionError;color:Theme.danger}
+                        Label {objectName:"accountDiagnosticText";visible:root.diagnosticExpanded && !root.connecting && !!root.workspace.syncState.safe_error_code;Layout.fillWidth:true;wrapMode:Text.WrapAnywhere;textFormat:Text.PlainText;text:JSON.stringify(root.workspace.syncState.diagnostic || {},null,2);font.pixelSize:Theme.captionSize;color:Theme.secondary}
+                        Label {visible:!root.connecting && !root.workspace.syncState.safe_error_code && !!root.workspace.syncState.diagnostic && root.workspace.syncState.diagnostic.operation==="capabilities";Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.workspace.syncState.status || "";color:Theme.secondary}
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: Theme.fieldGap
                             Button { id: syncSubmit; objectName: "syncSubmit"; Layout.fillWidth: true; Layout.minimumHeight: Math.max(40, Theme.controlHeight + 8); highlighted: true; text: root.connecting ? qsTr("正在连接…") : root.syncRegisterMode ? qsTr("注册并同步") : qsTr("登录并同步"); enabled: root.canSubmit; onClicked: root.submit(); BusyIndicator { anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 24; running: root.connecting; visible: running } }

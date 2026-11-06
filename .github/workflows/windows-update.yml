@@ -1,0 +1,160 @@
+name: Publish validated Windows update
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing annotated stable tag (vX.Y.Z)
+        required: true
+        type: string
+      candidate_run:
+        description: Successful trusted tag build run containing windows-update-candidate
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: windows-update-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  sign:
+    if: github.ref == 'refs/heads/main' && github.repository == 'downdone/daymark' && vars.DAYMARK_MANAGED_WINDOWS_RELEASE == 'true'
+    environment: windows-update-release
+    runs-on: windows-2022
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      source: ${{ steps.provenance.outputs.source }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - name: Verify immutable candidate provenance
+        id: provenance
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPDATE_TAG: ${{ inputs.tag }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run }}
+        run: |
+          if ($env:UPDATE_TAG -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' -or $env:CANDIDATE_RUN -notmatch '^[1-9][0-9]*$') { throw 'Invalid immutable identities' }
+          & git fetch --no-tags origin main:refs/remotes/origin/main
+          & git fetch --no-tags --force origin "refs/tags/$env:UPDATE_TAG`:refs/tags/$env:UPDATE_TAG"
+          if ($LASTEXITCODE -ne 0 -or (& git cat-file -t "refs/tags/$env:UPDATE_TAG") -ne 'tag') { throw 'Annotated source tag required' }
+          $source = (& git rev-parse "refs/tags/$env:UPDATE_TAG^{}").Trim()
+          & git merge-base --is-ancestor $source origin/main
+          if ($LASTEXITCODE -ne 0) { throw 'Source must be reviewed on main' }
+          $run = (& gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:CANDIDATE_RUN") | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $run.head_sha -ne $source -or $run.event -ne 'push' -or $run.path -ne '.github/workflows/release-build.yml' -or $run.conclusion -ne 'success' -or $run.repository.full_name -ne $env:GITHUB_REPOSITORY) { throw 'Candidate run provenance mismatch' }
+          "source=$source" >> $env:GITHUB_OUTPUT
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate_run }}
+          name: windows-update-candidate
+          path: build/candidate
+      - name: Sign the four executables with the pinned self-signed certificate
+        shell: pwsh
+        env:
+          CODE_SIGNING_PFX: ${{ secrets.DAYMARK_AUTHENTICODE_PFX_BASE64 }}
+          CODE_SIGNING_PASSWORD: ${{ secrets.DAYMARK_AUTHENTICODE_PASSWORD }}
+        run: |
+          $policy = Get-Content config/authenticode-policy.json -Raw | ConvertFrom-Json
+          if ($policy.format -ne 1 -or $policy.policy -ne 'self-signed-pinned' -or $policy.public_trust -ne $false -or $policy.certificate_sha256 -cnotmatch '^[0-9a-f]{64}$') { throw 'Unsupported signing policy' }
+          if (!$env:CODE_SIGNING_PFX -or !$env:CODE_SIGNING_PASSWORD) { throw 'Protected signing secrets missing' }
+          $pfx = Join-Path $env:RUNNER_TEMP 'daymark-signing.pfx'
+          $certificate = $null
+          try {
+            [IO.File]::WriteAllBytes($pfx,[Convert]::FromBase64String($env:CODE_SIGNING_PFX))
+            $certificate = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $env:CODE_SIGNING_PASSWORD -AsPlainText -Force)
+            $pin = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($certificate.RawData)).ToLowerInvariant()
+            if ($pin -cne $policy.certificate_sha256) { throw 'Signing certificate does not match reviewed pin' }
+            $tools = @(Get-ChildItem 'C:/Program Files (x86)/Windows Kits/10/bin' -Directory | Where-Object { $_.Name -match '^10\.0\.\d+\.0$' } | Sort-Object { [version]$_.Name } -Descending)
+            $tool = @($tools | ForEach-Object { Join-Path $_.FullName 'x64/signtool.exe' } | Where-Object { Test-Path -LiteralPath $_ }) | Select-Object -First 1
+            if (!$tool) { throw 'Windows SDK signing tool unavailable' }
+            ./scripts/Sign-WindowsCandidate.ps1 -Directory build/candidate -CertificateThumbprint $certificate.Thumbprint -CertificateSha256 $pin -SignTool $tool
+          } finally {
+            if (Test-Path -LiteralPath $pfx) { Remove-Item -LiteralPath $pfx }
+            if ($null -ne $certificate) { Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($certificate.Thumbprint)" }
+          }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-update-signed
+          path: build/candidate/
+          if-no-files-found: error
+  validate:
+    needs: sign
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.13'
+          architecture: x64
+      # Independent runner: no Qt install, no private keys or Environment secrets.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: windows-update-signed
+          path: build/candidate
+      - name: Validate deployed runtime and bind evidence
+        shell: pwsh
+        env:
+          UPDATE_SOURCE: ${{ needs.sign.outputs.source }}
+          UPDATE_TAG: ${{ inputs.tag }}
+        run: ./scripts/Test-WindowsUpdateCandidate.ps1 -Directory build/candidate -SourceRevision "$env:UPDATE_SOURCE" -Version ($env:UPDATE_TAG.Substring(1))
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-update-validated
+          path: build/candidate/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: windows-update-deployment-evidence
+          path: build/deployment-evidence/
+          if-no-files-found: ignore
+  publish:
+    needs: [sign, validate]
+    environment: windows-update-release
+    runs-on: windows-2022
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: windows-update-validated
+          path: build/candidate
+      - name: Verify signatures again before signing the manifest
+        shell: pwsh
+        run: |
+          $policy = Get-Content config/authenticode-policy.json -Raw | ConvertFrom-Json
+          Import-Module ./scripts/Authenticode.psm1 -Force
+          foreach ($file in @('payload/daymark.exe','native/daymark-launcher.exe','native/daymark-update-cli.exe','native/daymark-updater.exe')) {
+            $null = Assert-DaymarkSelfSignedExecutable "build/candidate/$file" $policy.certificate_sha256
+          }
+          "DAYMARK_AUTHENTICODE_CERT_SHA256=$($policy.certificate_sha256)" >> $env:GITHUB_ENV
+      - name: Sign and publish ready files last
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPDATE_SIGNING_KEY: ${{ secrets.DAYMARK_UPDATE_SIGNING_KEY }}
+          UPDATE_TAG: ${{ inputs.tag }}
+          UPDATE_SOURCE: ${{ needs.sign.outputs.source }}
+        run: python scripts/publish-windows-update.py --directory build/candidate --tag "$env:UPDATE_TAG" --source "$env:UPDATE_SOURCE"

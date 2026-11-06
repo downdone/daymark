@@ -38,6 +38,7 @@ private:
     QPointF m_dockPoint;
     double m_settingsScroll=0;
     bool m_settingsHomeSent=false,m_miniSettingClicked=false;
+    bool m_brandSettingsRequested=false;
     QRect m_widgetModeGeometry;
     QRect m_miniMotionGeometry;
     int m_miniMotionCycle=0;

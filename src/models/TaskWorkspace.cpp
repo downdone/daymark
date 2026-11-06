@@ -21,6 +21,9 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QCryptographicHash>
+#include <QClipboard>
+#include <QDesktopServices>
+#include "diagnostics/RuntimeLog.h"
 #include <QPointer>
 #include <QSet>
 #include <QTimeZone>
@@ -28,6 +31,20 @@
 #include <memory>
 
 namespace daymark {
+
+void TaskWorkspace::copySyncDiagnostic() const
+{
+    // Explicit allowlist: profile bindings, URLs and user data never reach the clipboard.
+    const auto state=m_syncState.value("diagnostic").toMap();QVariantMap safe;
+    for(const auto& key:QStringList{"request_id","stage","elapsed_ms","http_status","error_key","operation","app_version","qt_version","tls_backend","qt_network_error","qt_network_error_name","network_error_detail","tls_errors","inactivity_timeout_ms","native_error_available","native_error_source","endpoint_fingerprint"})if(state.contains(key))safe.insert(key,state.value(key));
+    safe.insert("diagnostic_code",m_syncState.value("diagnostic_code"));
+    if(auto* clipboard=QGuiApplication::clipboard())clipboard->setText(QString::fromUtf8(QJsonDocument::fromVariant(safe).toJson(QJsonDocument::Indented)));
+}
+bool TaskWorkspace::openDiagnosticLogs() const
+{
+    const auto path=diagnostics::directory();
+    return !path.isEmpty() && QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
 
 QHash<int,QByteArray> TaskListModel::roleNames() const
 { return {{Id,"taskId"},{Title,"title"},{Notes,"notes"},{Done,"isDone"},{Status,"taskStatus"},{StartOn,"startOn"},

@@ -46,14 +46,16 @@ Copy-Item -LiteralPath $binary -Destination $stage
 $originalPath = $env:PATH
 try {
     $env:PATH = "$env:DAYMARK_QT/bin;$originalPath"
-    & "$env:DAYMARK_QT/bin/windeployqt.exe" --release --qmldir (Join-Path $SourceDirectory 'src/ui') `
+    & "$env:DAYMARK_QT/bin/windeployqt.exe" --release --no-compiler-runtime --qmldir (Join-Path $SourceDirectory 'src/ui') `
         --dir $stage --no-translations --skip-plugin-types 'qmltooling,generic' `
         --exclude-plugins 'qsqlibase,qsqlmimer,qsqloci,qsqlodbc,qsqlpsql' (Join-Path $stage 'daymark.exe')
     if ($LASTEXITCODE -ne 0) { throw 'windeployqt failed; the archive would be incomplete.' }
 } finally { $env:PATH = $originalPath }
 
-# MSVC runtime ships with the vc_redist; do not assume it is present on the
-# target machine, so state it rather than copying DLLs we cannot verify.
+# Self-contained updates cannot depend on installing vc_redist on the target.
+# Use the licensed VS redistributable tree, never developer bin/System32 DLLs.
+Import-Module (Join-Path $PSScriptRoot 'MsvcRuntime.psm1') -Force
+$runtime = @(Copy-DaymarkMsvcRuntime $stage)
 Copy-Item -LiteralPath (Join-Path $SourceDirectory 'LICENSE') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $SourceDirectory 'packaging/THIRD-PARTY-NOTICES.md') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $SourceDirectory 'LICENSE') -Destination (Join-Path $stage 'LGPL-3.0.txt')
@@ -64,7 +66,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Qt module SBOM validation failed; archive was 
 @'
 Daymark - tagged build artifact
 
-Requires the Microsoft Visual C++ Redistributable 2015-2022 (x64).
+Includes the Microsoft Visual C++ x64 release runtime for app-local use.
+Microsoft runtime files remain subject to the Visual Studio distribution terms.
 Qt is licensed under LGPLv3 and linked dynamically; you may replace the Qt
 DLLs with a compatible build. See THIRD-PARTY-NOTICES.md.
 
@@ -77,11 +80,14 @@ $files = Get-ChildItem -LiteralPath $stage -Recurse -File
     platform       = 'windows-x64'
     qt             = '6.10.2'
     compiler       = 'MSVC 2022'
+    runtime        = 'msvc143'
+    runtimeMinimum = 'bundled'
+    runtimeFiles   = $runtime
     signed         = $false
     cleanMachine   = $false
     sourceRevision = (& git -C $SourceDirectory rev-parse HEAD).Trim()
     fileCount      = $files.Count
-} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'BUILD-INFO.json') -Encoding utf8
+} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $stage 'BUILD-INFO.json') -Encoding utf8
 
 $archive = "$stage.zip"
 Compress-Archive -LiteralPath $stage -DestinationPath $archive -CompressionLevel Optimal

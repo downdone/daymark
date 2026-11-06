@@ -8,7 +8,11 @@
 #include "Ux75SmokeProbe.h"
 #include "Ux76SmokeProbe.h"
 #include "SoakRunner.h"
+#include "update/qt/StartupUpdateGate.h"
+#include "update/qt/UpdateController.h"
+#include "persistence/SqliteDatabase.h"
 #include "sync/Coordinator.h"
+#include "diagnostics/RuntimeLog.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -49,27 +53,47 @@ void activateSmokeWindow(QQuickWindow* window)
 }
 }
 
-bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QString& screenshotPath,int soakSeconds,const QString& soakReport,const QString& smokeProfile)
+bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QString& screenshotPath,int soakSeconds,const QString& soakReport,const QString& smokeProfile,StartupUpdateGate* updateGate)
 {
+    const bool restricted=updateGate && updateGate->restricted();
     QString directory=dataDirectory;
     if(smokeTest) {
         m_temporaryData=std::make_unique<QTemporaryDir>();
         if(!m_temporaryData->isValid())return false;
         directory=m_temporaryData->path();
     } else if(directory.isEmpty()) directory=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    if(directory.isEmpty())return false;
+    if(directory.isEmpty()){diagnostics::event("startup","directory.unavailable",{},"error");return false;}
     const auto outcome=m_instance.acquire(directory);
-    if(outcome==SingleInstance::Outcome::ActivatedExisting) {m_startupExitCode=0;return false;}
+    if(outcome==SingleInstance::Outcome::ActivatedExisting) {diagnostics::event("startup","instance.activated_existing");m_startupExitCode=0;return false;}
     if(outcome==SingleInstance::Outcome::Failed) {
+        diagnostics::event("startup","instance.acquire_failed",{},"error");
         if(!smokeTest)QMessageBox::critical(nullptr,QObject::tr("Daymark 无法启动"),QObject::tr("无法锁定数据目录或激活现有实例。请检查目录权限，并确认已有Daymark能响应。未打开数据库。"));
         return false;
     }
+    if(restricted){
+        const auto active=sync::ProfileIndex(directory).activePath();
+        const auto checked=SqliteDatabase::probeForUpdate(active);
+        if(!checked.ok()){diagnostics::event("update","database.probe_failed",{{"error_key",checked.error.key}},"error");m_startupExitCode=40;return false;}
+        const QDir profiles(QDir(directory).filePath(QStringLiteral("profiles")));
+        for(const auto& info:profiles.entryInfoList(QDir::Dirs|QDir::NoDotAndDotDot)){
+            if(info.isSymLink() || !SqliteDatabase::probeForUpdate(QDir(info.absoluteFilePath()).filePath(QStringLiteral("daymark.sqlite"))).ok()){m_startupExitCode=40;return false;}
+        }
+    }
     QObject::connect(&m_engine, &QQmlEngine::warnings, &m_engine,
                      [this](const QList<QQmlError>&) { m_qmlWarnings = true; });
+    auto lastFailure=std::make_shared<QString>();
+    auto wasReady=std::make_shared<bool>(false);
+    QObject::connect(&m_workspace,&TaskWorkspace::stateChanged,&m_engine,[this,lastFailure,wasReady]{
+        const auto key=m_workspace.errorKey();if(key!=*lastFailure){*lastFailure=key;if(!key.isEmpty())diagnostics::event("workspace","operation.failed",{{"error_key",key}},"warning");}
+        if(m_workspace.ready()!=*wasReady){*wasReady=m_workspace.ready();diagnostics::event("workspace","readiness.changed",{{"ready",*wasReady}});}
+    });
+    QObject::connect(&m_widget,&WidgetViewModel::errorChanged,&m_engine,[this]{if(!m_widget.errorText().isEmpty())diagnostics::event("window","operation.failed",{{"message",m_widget.errorText()}},"warning");});
     m_startup=std::make_unique<StartupController>(smokeTest?QDir(directory).filePath(QStringLiteral("startup-test.ini")):QString());
+    m_updates=std::make_unique<UpdateController>(directory,smokeTest);
     m_engine.setInitialProperties({{QStringLiteral("startupController"),QVariant::fromValue(m_startup.get())},{QStringLiteral("widgetController"), QVariant::fromValue(&m_widget)},
-                                   {QStringLiteral("taskWorkspace"),QVariant::fromValue(&m_workspace)}});
+                                   {QStringLiteral("taskWorkspace"),QVariant::fromValue(&m_workspace)},{QStringLiteral("updateController"),QVariant::fromValue(m_updates.get())}});
     m_engine.loadFromModule(QStringLiteral("Daymark"), QStringLiteral("Main"));
+    diagnostics::event("startup","qml.loaded",{{"root_available",!m_engine.rootObjects().isEmpty()},{"restricted_update",restricted}});
     if (m_engine.rootObjects().isEmpty()) {
         if (!smokeTest) {
             QMessageBox::critical(nullptr, QObject::tr("Daymark 启动失败"),
@@ -83,49 +107,96 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         for(const auto* name:{"widgetMenu","widgetTaskMenu"})
             if(auto* menu=widgetWindow->findChild<QObject*>(QString::fromLatin1(name)))
                 QMetaObject::invokeMethod(menu,"useWindowFallbackForVerification");
-    m_widget.configureSettings(QDir(directory).filePath(QStringLiteral("ui.ini")));
-    if (!m_widget.attachWindow(widgetWindow)) {
+    if(!restricted)m_widget.configureSettings(QDir(directory).filePath(QStringLiteral("ui.ini")));
+    if (!restricted && !m_widget.attachWindow(widgetWindow)) {
         if (!smokeTest)
             QMessageBox::critical(nullptr, QObject::tr("Daymark 组件启动失败"), m_widget.errorText());
         return false;
     }
 
     auto* mainWindow=qobject_cast<QQuickWindow*>(m_engine.rootObjects().first());
-    if(!smokeTest)m_mainState=std::make_unique<WindowStateStore>(mainWindow,QDir(directory).filePath(QStringLiteral("ui.ini")));
+    if(!restricted && !smokeTest && updateGate){
+        auto recorded=std::make_shared<bool>(false);
+        QObject::connect(mainWindow,&QQuickWindow::frameSwapped,&m_engine,[this,updateGate,recorded]{if(!*recorded && m_workspace.ready() && !m_workspace.busy())*recorded=updateGate->running();},Qt::QueuedConnection);
+        QObject::connect(&m_workspace,&TaskWorkspace::stateChanged,mainWindow,&QQuickWindow::update);
+    }
+    QObject::connect(m_updates.get(),&UpdateController::restartRequested,&m_engine,[mainWindow]{QMetaObject::invokeMethod(mainWindow,"applicationCommand",Q_ARG(QVariant,QVariant(QStringLiteral("quitForUpdate"))));});
+    QObject::connect(m_updates.get(),&UpdateController::updateReady,&m_engine,[this,mainWindow]{if(!mainWindow->isVisible()&&m_tray)m_tray->notify(QObject::tr("Daymark 更新已安装"),QObject::tr("重启后生效，可在关于页选择立即重启。"));});
+    QObject::connect(&m_workspace,&TaskWorkspace::stateChanged,&m_engine,[this]{if(m_workspace.ready())m_updates->runtimeReady();});
+    if(!smokeTest && !restricted)m_mainState=std::make_unique<WindowStateStore>(mainWindow,QDir(directory).filePath(QStringLiteral("ui.ini")));
     if(m_mainState)QObject::connect(m_mainState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);
     auto* desktopCalendar=mainWindow->findChild<QWindow*>(QStringLiteral("desktopCalendarWindow"));
-    m_calendarState=std::make_unique<WindowStateStore>(desktopCalendar,QDir(directory).filePath(QStringLiteral("ui.ini")),nullptr,QStringLiteral("desktopCalendar"),desktopCalendar->minimumSize());
-    QObject::connect(m_calendarState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);
+    if(!restricted){m_calendarState=std::make_unique<WindowStateStore>(desktopCalendar,QDir(directory).filePath(QStringLiteral("ui.ini")),nullptr,QStringLiteral("desktopCalendar"),desktopCalendar->minimumSize());
+    QObject::connect(m_calendarState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);}
     m_menus=std::make_unique<ApplicationMenus>([window=QPointer<QQuickWindow>(mainWindow)](const QString& action){
         auto* focused=QGuiApplication::focusWindow();
         const QStringList calendarActions={"new","day","week","month","year","calendarToday","calendarNext","calendarPrevious","calendarGoTo","calendarEdit"};
         if(focused && focused->objectName()==QStringLiteral("desktopCalendarWindow") && calendarActions.contains(action)){QMetaObject::invokeMethod(focused,"calendarCommand",Q_ARG(QVariant,QVariant(action)));return;}
         if(window)QMetaObject::invokeMethod(window,"applicationCommand",Q_ARG(QVariant,QVariant(action)));
     });
-    if(!smokeTest)m_tray=std::make_unique<DesktopTray>(m_widget,mainWindow);
+    if(!smokeTest && !restricted)m_tray=std::make_unique<DesktopTray>(m_widget,mainWindow);
     QObject::connect(&m_workspace,&TaskWorkspace::reminderReady,&m_engine,[this](const QString& title,const QString& message){
         if(m_tray)m_tray->notify(title,message);
     });
-    QObject::connect(qApp,&QCoreApplication::aboutToQuit,&m_engine,[this]{m_widget.saveSettings();});
+    auto settingsWritable=std::make_shared<bool>(!restricted);
+    QObject::connect(qApp,&QCoreApplication::aboutToQuit,&m_engine,[this,settingsWritable]{if(*settingsWritable)m_widget.saveSettings();});
     QObject::connect(&m_instance,&SingleInstance::activationRequested,&m_engine,[mainWindow]{
         if(mainWindow) {mainWindow->showNormal();mainWindow->requestActivate();}
     });
-    m_workspace.start(sync::ProfileIndex(directory).activePath());
-    m_syncCredentials=std::make_unique<SystemSyncCredentials>();
-    m_sync=std::make_unique<sync::Coordinator>(m_workspace,directory,*m_syncCredentials);
+    auto startWorkspace=[this,directory,smokeProfile]{
+        diagnostics::event("workspace","startup.requested");
+        m_workspace.start(sync::ProfileIndex(directory).activePath());
+        if(smokeProfile!=QStringLiteral("update-preflight")){
+            m_syncCredentials=std::make_unique<SystemSyncCredentials>();
+            m_sync=std::make_unique<sync::Coordinator>(m_workspace,directory,*m_syncCredentials);
+        }
+    };
+    if(!restricted)startWorkspace();
+    else {
+        mainWindow->contentItem()->setEnabled(false);
+        auto firstFrame=std::make_shared<bool>(false);
+        auto committed=std::make_shared<bool>(false);
+        auto running=std::make_shared<bool>(false);
+        QObject::connect(mainWindow,&QQuickWindow::frameSwapped,&m_engine,[this,firstFrame,committed,running,settingsWritable,updateGate,startWorkspace,directory,widgetWindow,mainWindow,desktopCalendar]{
+            if(!*firstFrame){
+                *firstFrame=true;
+                if(!updateGate->commitReady()){QCoreApplication::exit(40);return;}
+                *committed=true;*settingsWritable=true;
+                m_widget.configureSettings(QDir(directory).filePath(QStringLiteral("ui.ini")));
+                if(!m_widget.attachWindow(widgetWindow)){QCoreApplication::exit(40);return;}
+                m_mainState=std::make_unique<WindowStateStore>(mainWindow,QDir(directory).filePath(QStringLiteral("ui.ini")));
+                m_calendarState=std::make_unique<WindowStateStore>(desktopCalendar,QDir(directory).filePath(QStringLiteral("ui.ini")),nullptr,QStringLiteral("desktopCalendar"),desktopCalendar->minimumSize());
+                m_tray=std::make_unique<DesktopTray>(m_widget,mainWindow);
+                startWorkspace();mainWindow->update();return;
+            }
+            if(*committed && !*running && m_workspace.ready() && !m_workspace.busy()){
+                *running=true;mainWindow->contentItem()->setEnabled(true);m_widget.setVisible(m_widget.initialVisible());
+                if(!updateGate->running())qWarning()<<"Update running receipt unavailable";
+            }
+        },Qt::QueuedConnection);
+        QObject::connect(&m_workspace,&TaskWorkspace::operationFinished,&m_engine,[mainWindow](const QString&,bool){mainWindow->update();});
+    }
     // Restore geometry and load appearance before exposing either window. The
     // QML root stays hidden while the composition root prepares its first scene.
-    QTimer::singleShot(0,&m_engine,[this,mainWindow,smokeTest,activate=!smokeProfile.isEmpty()]{
-        if(!m_widget.setVisible(m_widget.initialVisible())){
+    QTimer::singleShot(0,&m_engine,[this,mainWindow,smokeTest,restricted,preflight=smokeProfile==QStringLiteral("update-preflight"),activate=!smokeProfile.isEmpty()]{
+        if(!restricted && !preflight && !m_widget.setVisible(m_widget.initialVisible())){
             if(!smokeTest)QMessageBox::critical(nullptr,QObject::tr("Daymark 组件启动失败"),m_widget.errorText());
             QCoreApplication::exit(1);return;
         }
-        mainWindow->setVisible(true);
-        if(activate)activateSmokeWindow(mainWindow);
+        mainWindow->setVisible(!preflight);
+        if(activate&&!preflight)activateSmokeWindow(mainWindow);
     });
     m_systemEvents=std::make_unique<SystemEventFilter>([this]{m_workspace.refreshClock();m_widget.normalizeGeometry();if(m_mainState)m_mainState->normalize();});
     QObject::connect(qGuiApp,&QGuiApplication::applicationStateChanged,&m_workspace,[this](Qt::ApplicationState state){if(state==Qt::ApplicationActive)m_systemEvents->requestRefresh();});
 
+    if(smokeTest && smokeProfile==QStringLiteral("update-preflight")){
+        // A hidden Win32 preflight is intentionally not exposed to the desktop.
+        // It verifies QML/plugin/SQL resources; actual frame readiness is required
+        // by RestrictedUpdate before commit, not inferred from this headless probe.
+        auto* ready=new QTimer(&m_engine);ready->setInterval(50);
+        QObject::connect(ready,&QTimer::timeout,&m_engine,[this]{if(m_workspace.ready() && !m_workspace.busy()){m_verificationCompleted=true;QCoreApplication::exit(m_qmlWarnings?3:0);}});ready->start();
+        QTimer::singleShot(25000,&m_engine,[]{QCoreApplication::exit(3);});return true;
+    }
     if (smokeTest) {
         auto* probe=new QTimer(&m_engine);
         auto ux34=std::make_shared<Ux34SmokeProbe>(m_workspace,mainWindow,screenshotPath);

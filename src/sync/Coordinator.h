@@ -3,6 +3,9 @@
 #include "platform/common/SyncCredentials.h"
 #include "Schema.h"
 #include "ProfileIndex.h"
+#include "Diagnostics.h"
+#include "NetworkDiagnostics.h"
+#include <QCryptographicHash>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -13,6 +16,7 @@
 #include <QSslConfiguration>
 #include <QSslSocket>
 #include <QElapsedTimer>
+#include <QCoreApplication>
 
 namespace daymark::sync {
 struct Response {
@@ -20,6 +24,7 @@ struct Response {
     QByteArray bytes;
     QJsonObject object;
     QString code;
+    QString requestId;
     bool ok() const {
         return status >= 200 && status < 300 && code.isEmpty();
     }
@@ -48,6 +53,8 @@ class Coordinator final : public QObject {
                         login(values);
                     else if (action == "register")
                         login(values, true);
+                    else if (action == "probe")
+                        probe(values.value("origin").toString());
                     else if (action == "logout")
                         logout();
                     else if (action == "rebuild")
@@ -132,6 +139,7 @@ class Coordinator final : public QObject {
     QSslConfiguration tls = QSslConfiguration::defaultConfiguration();
     QJsonObject profile, tokens, capabilities;
     QString server, installation, message, safeCode;
+    QJsonObject diagnostic;
     bool started = false, busy = false, authenticated = false;
     quint64 serial = 0;
     int failures = 0;
@@ -159,6 +167,10 @@ class Coordinator final : public QObject {
         auto state = profile.toVariantMap();
         state.insert("busy", busy);
         state.insert("safe_error_code", safeCode);
+        const auto reportedKey=diagnostic.value("error_key").toString();
+        const auto support=safeCode.isEmpty()?QString():diagnosticCode(safeCode=="syncRegistrationUncertain" && !reportedKey.isEmpty()?reportedKey:safeCode);
+        state.insert("diagnostic_code",support);
+        state.insert("diagnostic",diagnostic.toVariantMap());
         state.insert("authenticated", authenticated);
         state.insert("profiles", index.entries().toVariantList());
         state.insert("status", message.isEmpty() ? (authenticated ? tr("已连接，修改将自动同步")
@@ -166,6 +178,14 @@ class Coordinator final : public QObject {
                                                         ? tr("已退出，修改保留在此设备")
                                                         : tr("仅存储在此设备"))
                                                  : message);
+        if(!support.isEmpty()){
+            auto text=state.value("status").toString()+tr("\n诊断码：%1").arg(support);
+            const auto requestId=diagnostic.value("request_id").toString();
+            if(!requestId.isEmpty())text+=tr(" · 请求：%1").arg(requestId);
+            if(diagnostic.contains("qt_network_error") && diagnostic.value("qt_network_error").toInt()!=0)
+                text+=tr("\nQt 网络：%1（%2）").arg(diagnostic.value("qt_network_error").toInt()).arg(diagnostic.value("qt_network_error_name").toString());
+            state.insert("status",text);
+        }
         workspace.setSyncState(state);
     }
     void db(const QString &op, QJsonObject input, std::function<void(Result<QJsonObject>)> done) {
@@ -257,6 +277,8 @@ class Coordinator final : public QObject {
         req.setTransferTimeout(path == "/v1/auth/logout" ? 1000 : 15000);
         req.setRawHeader("X-Daymark-DTO-Version", "1");
         req.setRawHeader("Accept", "application/json");
+        const auto clientRequestId=uuid();
+        req.setRawHeader("X-Daymark-Request-ID",clientRequestId.toLatin1());
         if (authorized)
             req.setRawHeader("Authorization",
                              "Bearer " + (accessOverride.isEmpty()
@@ -268,6 +290,16 @@ class Coordinator final : public QObject {
         if (!chunkHash.isEmpty())
             req.setRawHeader("X-Chunk-SHA256", chunkHash);
         auto *reply = network.sendCustomRequest(req, method, data);
+        diagnostics::event("network","request.started",{{"request_id",clientRequestId},
+            {"operation",path=="/v1/capabilities"?"capabilities":path=="/v1/auth/register"?"register":path=="/v1/auth/login"?"login":"sync"},
+            {"inactivity_timeout_ms",path=="/v1/auth/logout"?1000:15000}});
+        auto elapsed=std::make_shared<QElapsedTimer>();elapsed->start();
+        auto stage=std::make_shared<QString>(QStringLiteral("resolving_or_proxy"));
+        auto tlsErrors=std::make_shared<QList<QSslError>>();
+        connect(reply,&QNetworkReply::sslErrors,this,[tlsErrors](const QList<QSslError>& errors){*tlsErrors=errors.mid(0,32);});
+        connect(reply,&QNetworkReply::socketStartedConnecting,this,[stage]{*stage=QStringLiteral("connecting");});
+        connect(reply,&QNetworkReply::encrypted,this,[stage]{*stage=QStringLiteral("tls_established");});
+        connect(reply,&QNetworkReply::requestSent,this,[stage]{*stage=QStringLiteral("waiting_response");});
         active = reply;
         const auto fence = serial;
         auto bytes = std::make_shared<QByteArray>();
@@ -282,15 +314,23 @@ class Coordinator final : public QObject {
         });
         connect(reply, &QNetworkReply::finished, this,
                 [this, reply, bytes, tooLarge, fence, method, path, data, schema,
-                 done = std::move(done), authorized, retried, chunkHash]() mutable {
+                 done = std::move(done), authorized, retried, chunkHash, elapsed, stage, clientRequestId,tlsErrors]() mutable {
                     *bytes += reply->readAll();
                     Response result;
                     result.status =
                         reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
                     result.bytes = *bytes;
+                    const auto responseId=QString::fromLatin1(reply->rawHeader("X-Request-ID"));
+                    result.requestId=identifier(responseId)?responseId:clientRequestId;
                     if (active == reply)
                         active = nullptr;
                     const auto networkError = reply->error();
+                    QStringList secrets;
+                    if(path.startsWith("/v1/auth/")){
+                        const auto body=QJsonDocument::fromJson(data).object();
+                        for(const auto& field:QStringList{"login","password","old_password","new_password","access_token","refresh_token"})if(body.value(field).isString())secrets.append(body.value(field).toString());
+                    }
+                    const auto lowLevel=networkEvidence(networkError,reply->errorString(),*tlsErrors,server,result.status,path=="/v1/auth/logout"?1000:15000,secrets);
                     reply->deleteLater();
                     if (fence != serial)
                         return;
@@ -307,14 +347,13 @@ class Coordinator final : public QObject {
                         case QNetworkReply::OperationCanceledError: result.code = "syncNetworkTimeout"; break;
                         case QNetworkReply::ConnectionRefusedError: result.code = "syncNetworkConnectionRefused"; break;
                         case QNetworkReply::RemoteHostClosedError: result.code = "syncNetworkConnectionClosed"; break;
+                        case QNetworkReply::ProxyConnectionRefusedError:
+                        case QNetworkReply::ProxyConnectionClosedError:
+                        case QNetworkReply::ProxyNotFoundError:
+                        case QNetworkReply::ProxyTimeoutError:
+                        case QNetworkReply::ProxyAuthenticationRequiredError: result.code = "syncNetworkProxyFailed"; break;
                         default: result.code = "syncNetworkError"; break;
                         }
-                    }
-                    if (result.status == 401 && authorized && !retried && !tokens.isEmpty()) {
-                        refresh([this, method, path, data, schema, done, chunkHash] {
-                            request(method, path, data, schema, done, true, true, chunkHash);
-                        });
-                        return;
                     }
                     if (result.status >= 400) {
                         auto problem = Schema::decode("Problem", result.bytes, 1024 * 1024);
@@ -326,6 +365,20 @@ class Coordinator final : public QObject {
                             result.code = decoded.error.key;
                         else
                             result.object = decoded.value;
+                    }
+                    diagnostic={{"request_id",result.requestId},{"stage",*stage},{"elapsed_ms",elapsed->elapsed()},
+                                {"http_status",result.status},{"error_key",result.code},
+                                {"app_version",QCoreApplication::applicationVersion()},{"qt_version",QString::fromLatin1(qVersion())},{"tls_backend",QSslSocket::activeBackend()},
+                                {"operation",path=="/v1/capabilities"?"capabilities":path=="/v1/auth/register"?"register":path=="/v1/auth/login"?"login":"sync"}};
+                    for(auto it=lowLevel.begin();it!=lowLevel.end();++it)diagnostic.insert(it.key(),it.value());
+                    diagnostic.insert("endpoint_fingerprint",QString::fromLatin1(QCryptographicHash::hash(server.toUtf8(),QCryptographicHash::Sha256).toHex().left(16)));
+                    diagnostic.insert("diagnostic_code",result.code.isEmpty()?QString():diagnosticCode(result.code));
+                    diagnostics::event("network","request.finished",diagnostic,result.ok()?QStringLiteral("info"):QStringLiteral("warning"));
+                    if (result.status == 401 && authorized && !retried && !tokens.isEmpty()) {
+                        refresh([this, method, path, data, schema, done, chunkHash] {
+                            request(method, path, data, schema, done, true, true, chunkHash);
+                        });
+                        return;
                     }
                     done(result);
                 });
@@ -368,6 +421,16 @@ class Coordinator final : public QObject {
         tokens = pair;
         return true;
     }
+    void probe(const QString& value) {
+        if(busy || authenticated)return;
+        const auto normalized=origin(value);if(!normalized.ok()){fail(normalized.error.key);return;}
+        ++serial;timer.stop();server=normalized.value;busy=true;safeCode.clear();diagnostic={};
+        message=tr("正在检查服务连接…");cycleTime.restart();publish();
+        request("GET","/v1/capabilities",{},"Capabilities",[this](Response result){
+            if(!result.ok()){fail(result.code);return;}
+            busy=false;message=tr("服务连接正常，可以登录或注册。");publish();
+        },false);
+    }
     void login(const QVariantMap &values, bool registering = false) {
         if (busy)
             return;
@@ -384,6 +447,7 @@ class Coordinator final : public QObject {
         busy = true;
         authenticated = false;
         tokens = {};
+        safeCode.clear();diagnostic={};
         server = normalized.value;
         message = registering ? tr("正在注册…") : tr("正在登录…");
         cycleTime.restart();
@@ -768,6 +832,8 @@ class Coordinator final : public QObject {
             message = tr("无法解析服务器域名，请检查网络或自定义服务器地址。");
         else if (code == "syncNetworkTimeout")
             message = tr("连接服务器超时，请检查网络和服务器状态后重试。");
+        else if (code == "syncNetworkProxyFailed")
+            message = tr("无法通过网络代理连接服务器，请检查系统代理及代理认证。");
         else if (code == "syncNetworkConnectionRefused")
             message = tr("服务器拒绝连接，请检查服务是否启动及端口是否开放。");
         else if (code == "syncNetworkConnectionClosed")

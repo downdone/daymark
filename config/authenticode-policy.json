@@ -1,0 +1,6 @@
+{
+  "format": 1,
+  "policy": "self-signed-pinned",
+  "certificate_sha256": "1ad9354c645562f1d82964e5a7844a49e71aca29b33f67a5276064c71554fe6e",
+  "public_trust": false
+}

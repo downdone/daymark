@@ -14,6 +14,7 @@ public:
     SqliteDatabase();
     ~SqliteDatabase();
     Result<void> open(const QString& path);
+    static Result<void> probeForUpdate(const QString& path);
     Result<QString> createSnapshot(const QString& directory);
     Result<void> ensureDailySnapshot();
     Result<void> checkIntegrity() const;

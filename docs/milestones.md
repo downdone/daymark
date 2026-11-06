@@ -1,5 +1,11 @@
 # 里程碑与可执行任务队列
 
+2026-11-06当前范围为Windows功能收尾，Linux/macOS按用户指示跳过；现行完成状态和CLOSE-01队列统一见[PROGRESS](PROGRESS.md)。以下条目保留历次拆解顺序和需求追踪，旧“下一步/尚未实现”须结合后续交付解读，不独立作为当前待办；原始执行证据见[历史日志](PROGRESS-HISTORY.md)。
+
+OBS-01按[全局日志契约](design/runtime-diagnostics.md)增加Qt入口/生命周期、业务与底层网络证据、账号渐进详情/日志入口和原生更新日志；验证日志有界/隐私/并发/失败安全、真实网络失败与Windows键盘/200%焦点。实际结果见PROGRESS，不通过延长超时或重复整套长链替代根因修复。
+
+UPD-04/05按[在线更新设计包](design/update/README.md)推进Windows SDK/原生CLI/UI、自动prepare、受限启动与RUNNING清理，以及受保护GitHub发行工具；用户已授权完整实现，当前只投入Windows，macOS/Linux暂缓。追加AUTH-09连接诊断与QUERY-01历史筛选修复；实际证据与外部未验证边界只见PROGRESS，不自动推送/tag/上传。
+
 PERF-01按[性能与内存策略](design/performance-and-memory.md)先基线和分层审查，再逐切片实现/对比/回归；P1～P7已有实现和定向证据，QML/同步/Go层保留审查决定，详见[记录](performance-report-2026-11.md)。下一步是修复独立的菜单长流程失败、补整应用/长时/GPU及真实同步负载测量，不混入待发布1.8.1；状态只见PROGRESS。
 
 UX-76：跨行/空白后右键实际输入回归→释放后派发/稳定正文/原生菜单层级→QML实体与命令目标、Windows实际系统菜单和键盘恢复→本地构建及证据。契约见[桌面菜单](design/desktop-menu-anchoring.md)，状态只见PROGRESS。

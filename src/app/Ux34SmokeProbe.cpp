@@ -198,7 +198,30 @@ QString Ux34SmokeProbe::advance()
     else if(m_stage==73){auto* popup=find("taskRepeatOptions");const auto x=popup->property("x").toReal(),y=popup->property("y").toReal();if(!popup->property("visible").toBool() || x<0 || y<0 || x+popup->property("width").toReal()>m_window->width()+1 || y+popup->property("height").toReal()>m_window->height()+1 || !capture("repeat-custom-dark-200"))return fail("custom repeat fits large text viewport");shortcut(Qt::Key_Escape);invoke(m_window,"returnFromDetails");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1280,800);invoke(m_window,"openEditor",m_first);}
     else if(m_stage==74){auto* choice=qobject_cast<QQuickItem*>(find("taskRepeatChoice"));choice->forceActiveFocus();shortcut(Qt::Key_Space);shortcut(Qt::Key_Home);shortcut(Qt::Key_Down);shortcut(Qt::Key_Down);shortcut(Qt::Key_Return);}
     else if(m_stage==75){if(find("taskRepeatChoice")->property("currentIndex").toInt()!=2 || find("taskRepeatParameters")->property("visible").toBool())return fail("weekly preset remains preset for anchor weekday");invoke(m_window,"saveEditor");}
-    else if(m_stage==76){const auto task=m_workspace.task(m_first),rule=task.value("repeat").toMap();if(!m_workspace.errorText().isEmpty() || rule.value("frequency")!="WEEKLY" || rule.value("interval").toInt()!=1 || rule.value("weekdays").toInt()!=m_workspace.recurrenceWeekdayMask(task.value("startOn").toString()))return fail("existing repeat changes to usable weekly preset");return QStringLiteral("DONE");}
+    else if(m_stage==76){const auto task=m_workspace.task(m_first),rule=task.value("repeat").toMap();if(!m_workspace.errorText().isEmpty() || rule.value("frequency")!="WEEKLY" || rule.value("interval").toInt()!=1 || rule.value("weekdays").toInt()!=m_workspace.recurrenceWeekdayMask(task.value("startOn").toString()))return fail("existing repeat changes to usable weekly preset");invoke(m_window,"returnFromDetails");if(!m_workspace.saveCatalog({{"kind","tag"},{"title","completed-filter-regression"}}))return fail("filter tag create");}
+    else if(m_stage==77){
+        auto* tags=find("taskTagFilter");if(!tags || tags->property("count").toInt()!=m_workspace.catalogOf("tag").size()+1)return fail("tag choices refresh after catalog notification");
+        for(const auto& value:m_workspace.catalogOf("tag"))if(value.toMap().value("title")=="completed-filter-regression")m_before=value.toMap();
+        if(m_before.value("id").toString().isEmpty())return fail("filter tag identity");m_workspace.setView(m_scope);if(!m_workspace.createTask("completed-filter-fixture"))return fail("completed filter fixture");
+    }else if(m_stage==78){
+        for(const auto& task:m_workspace.tasks()->items())if(task.title=="completed-filter-fixture")m_second=task.id;
+        if(m_second.isEmpty() || !m_workspace.saveDetails(m_second,m_workspace.task(m_second).value("rowVersion").toLongLong(),{{"tagIds",QStringList{m_before.value("id").toString()}}}))return fail("filter fixture tag association");
+    }else if(m_stage==79){if(!m_workspace.changeState(m_second,m_workspace.task(m_second).value("rowVersion").toLongLong(),"complete"))return fail("filter fixture completion");}
+    else if(m_stage==80){
+        invoke(m_window,"changeView","completed");m_window->setProperty("filtersExpanded",true);
+        int index=1;for(const auto& value:m_workspace.catalogOf("tag")){if(value.toMap().value("id")==m_before.value("id"))break;++index;}
+        if(!QMetaObject::invokeMethod(find("taskTagFilter"),"activated",Q_ARG(int,index)))return fail("activate completed tag filter");
+    }else if(m_stage==81){
+        if(m_workspace.tasks()->rowCount()!=1 || m_workspace.tasks()->taskIdAt(0)!=m_second)return fail("completed tag filter returns exact identity");
+        int index=1;for(const auto& value:m_workspace.categoryTree()){if(value.toMap().value("id").toString()==m_scope.mid(8))break;++index;}
+        if(!QMetaObject::invokeMethod(find("taskCategoryFilter"),"activated",Q_ARG(int,index)))return fail("activate completed category filter");
+        m_before["title"]="renamed-completed-filter";if(!m_workspace.saveCatalog(m_before))return fail("rename selected tag");
+    }else if(m_stage==82){
+        if(m_workspace.tasks()->rowCount()!=1 || m_workspace.tasks()->taskIdAt(0)!=m_second || find("taskTagFilter")->property("currentText").toString()!="renamed-completed-filter" || find("taskCategoryFilter")->property("currentIndex").toInt()<=0)return fail("catalog refresh retains both filter identities");
+        QVariantMap category;for(const auto& value:m_workspace.catalogOf("project"))if(value.toMap().value("id").toString()==m_scope.mid(8))category=value.toMap();
+        category["archived"]=true;if(category.isEmpty() || !m_workspace.saveCatalog(category))return fail("archive historical category");
+        m_workspace.setTextScale(2);m_window->resize(880,580);
+    }else if(m_stage==83){if(!settle())return {};if(m_workspace.tasks()->rowCount()!=1 || find("taskCategoryFilter")->property("currentIndex").toInt()<=0 || !capture("completed-filters-200"))return fail("historical filters stay usable after category archive");return QStringLiteral("DONE");}
     qInfo()<<"UX34 scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};
 }
 }

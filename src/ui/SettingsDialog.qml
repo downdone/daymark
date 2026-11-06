@@ -10,6 +10,7 @@ ApplicationWindow {
     signal helpRequested()
     signal calendarVisibilityRequested(bool visible)
     required property TaskWorkspace workspace
+    property var updateController: null
     required property WidgetViewModel widgetController
     required property StartupController startupController
     property int categoryIndex: 0
@@ -107,14 +108,14 @@ ApplicationWindow {
             }
         }
         ColumnLayout {
-            id:contentPane;objectName:"settingsContentPane";Layout.fillWidth:true;Layout.fillHeight:true;Layout.margins:16;spacing:12
+            id:contentPane;objectName:"settingsContentPane";Layout.fillWidth:true;Layout.minimumWidth:0;Layout.fillHeight:true;Layout.margins:16;spacing:12
             ColumnLayout {
                 id:settingsHeader;Layout.fillWidth:true;spacing:4
                 Label {objectName:"settingsCategoryTitle";text:root.categoryTitles[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;wrapMode:Text.Wrap}
                 Label {text:root.categoryDetails[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.captionSize;color:Theme.secondary;wrapMode:Text.Wrap}
             }
             ScrollView {
-                id:body;objectName:"settingsScroll";Layout.fillWidth:true;Layout.fillHeight:true;contentWidth:availableWidth;clip:true
+                id:body;objectName:"settingsScroll";Layout.fillWidth:true;Layout.minimumWidth:0;Layout.fillHeight:true;contentWidth:availableWidth;clip:true
                 ColumnLayout {
                     id:pages;width:body.availableWidth;spacing:Theme.blockGap
                 ColumnLayout {
@@ -245,7 +246,7 @@ ApplicationWindow {
                         SettingsLink {separator:false;destructive:true;symbol:"close";text:qsTr("退出 Daymark");onClicked:root.quitRequested()}
                     }
                 }
-                SettingsAboutPage {id:about;visible:root.categoryIndex===3;Layout.fillWidth:true}
+                SettingsAboutPage {id:about;updateController:root.updateController;visible:root.categoryIndex===3;Layout.fillWidth:true;onOpenLogsRequested:about.diagnosticError=root.workspace.openDiagnosticLogs()?"":qsTr("无法打开日志目录，请检查本地目录权限。")}
                 }
             }
             Label {visible:root.widgetController.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.widgetController.errorText}

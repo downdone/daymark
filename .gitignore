@@ -12,6 +12,8 @@
 *.db-shm
 *.sqlite*
 *.log
+*.jsonl
+/logs/
 .DS_Store
 .env
 .env.*
@@ -19,6 +21,7 @@
 *.pem
 *.pfx
 *.p12
+*.dpapi
 *.bundle
 Thumbs.db
 

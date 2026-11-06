@@ -7,7 +7,8 @@
 | 文档 | 内容 |
 |---|---|
 | [当前状态](STATUS.md) | 版本、schema、CI 与已知问题摘要 |
-| [进度日志](PROGRESS.md) | 逐轮实施与验证的完整记录（归档式追加） |
+| [当前进度](PROGRESS.md) | 现行功能状态、收尾队列、真实验证与外部边界 |
+| [历史实施日志](PROGRESS-HISTORY.md) | 各轮原始过程/失败/证据，旧“进行中”不重复进入当前队列 |
 | [产品哲学](product-philosophy.md) | 统一任务、两级分类、标签与两种视图的概念关系 |
 | [产品规格](01_PRODUCT_SPEC.md) | 需求 ID（FR-xxx）定义基线 |
 | [技术基线](02_TECHNICAL_DESIGN.md) | 原始 TDD，含 ADR-001～006 原文与历史 schema |
@@ -22,6 +23,7 @@
 | [工程方法](engineering.md) | 人机协作流程、任务状态、验证层级 |
 | [工程原则](principles.md) | P-01～P-21，含 Apple HIG 约束（P-13） |
 | [测试方法](testing-method.md) | 测试分层、标签、fast/ui/full、链路责任 |
+| [全局日志与底层诊断](design/runtime-diagnostics.md) | 本地日志入口、轮换、脱敏、Qt/TLS错误与请求关联 |
 | [性能与内存策略](design/performance-and-memory.md) | 基线、分层分析、逐项优化与内存证据 |
 | [性能优化记录](performance-report-2026-11.md) | PERF-01同配置对比、真实Release测量、回归及剩余边界 |
 | [里程碑](milestones.md) | 执行队列与阶段门禁 |
@@ -43,15 +45,17 @@
 [小窗分类快查（设计评审）](design/widget-category-quick-find.md) · [小窗任务操作与提醒弹窗](design/widget-task-actions-and-reminder-popup.md) · [三形态统一与球/小窗动效](design/desktop-widget-modes-proposal.md) · [组件统一绘制事务](design/widget-rendering-transaction.md) · [悬停Mini球与紧凑日历](design/compact-desktop-surfaces.md) · [桌面表面精修](design/desktop-surfaces-polish.md) · [桌面层与年焦点](design/desktop-layer-and-year-focus.md) · [桌面菜单锚点](design/desktop-menu-anchoring.md) · [架构](design/architecture.md) · [模块契约](design/contracts.md)
 
 ### 3.5 可选账号与同步
-[官方账号与自定义服务](design/account-service-choice.md) · [独立账号窗口与设计评审](design/account-window.md) · [服务运行与恢复](../server/README.md) · [账号与同步](design/account-and-sync-service.md) · [工程架构](design/server-architecture.md) · [协议 v1](api/sync-v1.md) · [模块入口](design/sync-modules/README.md) · [强类型契约](design/sync-contracts/README.md) · [桌面实现契约](design/sync-client-implementation.md)
+[错误码与连接诊断](design/diagnostic-codes.md) · [官方账号与自定义服务](design/account-service-choice.md) · [独立账号窗口与设计评审](design/account-window.md) · [服务运行与恢复](../server/README.md) · [账号与同步](design/account-and-sync-service.md) · [工程架构](design/server-architecture.md) · [协议 v1](api/sync-v1.md) · [模块入口](design/sync-modules/README.md) · [强类型契约](design/sync-contracts/README.md) · [桌面实现契约](design/sync-client-implementation.md)
 
 ## 4. 决策记录
 
-[ADR 索引](ADR/README.md)：007～032，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
+[ADR 索引](ADR/README.md)：007～033，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
 
 ## 5. 交付与运维
 
 [交付指南](delivery-guide.md) · [稳定性指南](stability-guide.md) · [平台矩阵](platform-test-matrix.md) · [验证记录](verification-report.md) · [版本与发行索引](releases.md)
+
+在线更新：[总体方案](design/windows-online-update.md) · [详细设计与GitHub准备](design/update/README.md)（Windows SDK、CLI、原生UI与Qt接线已实现；本地真实流程证据见PROGRESS，正式GitHub签名发布及其他平台未验证）。
 
 ## 6. 历史设计（已完成切片）
 

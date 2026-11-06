@@ -21,6 +21,31 @@ class TaskServiceTest : public QObject {
         return repo.update(task.value,task.value.rowVersion);
     }
 private slots:
+    void completedFiltersIntersectTagsAndEveryCategoryOwnership()
+    {
+        const QDate today(2026,11,5);QList<Task> tasks;
+        for(const auto& id:QStringList{"direct","child","other","untagged","open","cancelled","deleted"}){
+            Task task;task.id=id;task.title="review";task.status="COMPLETED";task.completedAtUtc="2026-11-05T00:00:00.000Z";
+            task.tagIds={"tag-a"};task.projectId="root";
+            if(id=="direct"){task.projectId.clear();task.areaId="root";}
+            if(id=="child"){task.projectId="sub";task.projectAreaId="root";task.areaArchived=true;}
+            if(id=="other")task.projectId="elsewhere";
+            if(id=="untagged")task.tagIds={"tag-b"};
+            if(id=="open")task.status="OPEN";
+            if(id=="cancelled")task.status="CANCELLED";
+            if(id=="deleted")task.deletedAtUtc="2026-11-05T01:00:00.000Z";
+            tasks.append(task);
+        }
+        auto select=[&](QString tag,QString category,QString search={}){return QueryService::select(tasks,"completed",today,search,false,tag,0,0,category,{},true,false);};
+        QCOMPARE(select({},{}).size(),4);
+        QCOMPARE(select("tag-a",{}).size(),3);
+        QCOMPARE(select({},"root").size(),3);
+        const auto intersection=select("tag-a","root","review");QSet<QString> ids;for(const auto& task:intersection)ids.insert(task.id);
+        QCOMPARE(ids,(QSet<QString>{"direct","child"}));
+        QCOMPARE(select("tag-a","sub").first().id,QString("child"));
+        QVERIFY(select("tag-b","elsewhere").isEmpty());
+        QVERIFY(select("tag-a","root","missing").isEmpty());
+    }
     void widgetCategoryRangeUsesCanonicalOwnershipAndToday()
     {
         const QDate today(2026,11,5);QList<Task> tasks;

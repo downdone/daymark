@@ -130,6 +130,10 @@ public:
     Q_INVOKABLE void syncOpenProfile(const QString& id){emit syncActionRequested(QStringLiteral("open_profile"),{{"id",id}});}
     Q_INVOKABLE void syncLogin(const QString& origin,const QString& login,const QString& password){emit syncActionRequested(QStringLiteral("login"),{{"origin",origin},{"login",login},{"password",password}});}
     Q_INVOKABLE void syncRegister(const QString& origin,const QString& login,const QString& password){emit syncActionRequested(QStringLiteral("register"),{{"origin",origin},{"login",login},{"password",password}});}
+    Q_INVOKABLE void syncProbe(const QString& origin){emit syncActionRequested(QStringLiteral("probe"),{{"origin",origin}});}
+    Q_INVOKABLE void copySyncDiagnostic() const;
+    Q_INVOKABLE bool openDiagnosticLogs() const;
+    QString errorKey() const {return m_error.key;}
     Q_INVOKABLE void syncLogout(){emit syncActionRequested(QStringLiteral("logout"),{});}
     Q_INVOKABLE void syncNow(){emit syncActionRequested(QStringLiteral("now"),{});}
     Q_INVOKABLE void syncRebuild(){emit syncActionRequested(QStringLiteral("rebuild"),{});}

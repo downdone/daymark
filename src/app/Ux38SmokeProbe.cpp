@@ -33,6 +33,7 @@ Ux38SmokeProbe::Ux38SmokeProbe(TaskWorkspace& workspace,WidgetViewModel& control
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="sidebar-footer")m_stage=200;
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="widget-actions")m_stage=220;
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="brand")m_stage=250;
+        if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="update-settings")m_stage=250;
         if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="categories")m_stage=260;
         m_wait.start();
     }
@@ -140,6 +141,17 @@ QString Ux38SmokeProbe::advance() {
     auto* list=find(m_widget,"widgetTasks");
     auto* calendar=qobject_cast<QQuickWindow*>(find(m_main,"desktopCalendarWindow"));
     if(!list || !calendar)return fail("desktop surfaces missing");
+    if(m_stage==1005){
+        m_workspace.setSyncState(m_accountDisplayState);
+        auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));window->grabWindow();
+        auto* button=qobject_cast<QQuickItem*>(find(window,"accountOpenLogs"));auto* view=qobject_cast<QQuickItem*>(find(window,"accountScroll"));
+        QMetaObject::invokeMethod(window,"reveal",Q_ARG(QVariant,QVariant::fromValue(button)));
+        const auto at=button->mapToItem(view,QPointF());
+        if(at.x()<0 || at.x()+button->width()>view->width()+1 || at.y()<0 || at.y()+button->height()>view->height()+1 || !capture(window,"account-diagnostic-200-narrow"))return fail("account log action reachable in narrow 200 percent diagnostic state");
+        m_workspace.setTextScale(1);window->setProperty("diagnosticExpanded",false);
+        auto state=m_workspace.syncState();state.insert("busy",true);state.insert("safe_error_code",QString());state.insert("status",QStringLiteral("正在登录…"));m_accountDisplayState=state;m_workspace.setSyncState(state);
+        m_stage=106;m_wait.restart();return {};
+    }
     if(m_stage>=260)return advanceCategories();
     if(m_stage>=250){
         if(m_wait.elapsed()<400)return {};
@@ -164,16 +176,27 @@ QString Ux38SmokeProbe::advance() {
             m_workspace.setPreference("desktopCalendarVisible",true);
             m_workspace.setPreference("highContrast",false);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);
             m_workspace.setView("today");m_workspace.createTask(QStringLiteral("整理本周计划"));m_main->show();m_controller.setVisible(false);
-            QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("settings")));
             if(!settings)return fail("brand settings missing");
             settings->setProperty("categoryIndex",3);
         }
         if(m_stage==251){
+            if(!m_brandSettingsRequested){
+                m_brandSettingsRequested=true;
+                QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("settings")));
+                settings->setProperty("categoryIndex",3);m_wait.restart();return {};
+            }
+            if(!settings->isVisible())return fail("about window must actually open after fixture creation completes");
             if(!checkSidebar())return fail("brand sidebar first frame");
             if(!painted(settings,"aboutBrand"))return fail("brand about first frame");
             if(!painted(settings,"aboutBrand"))return fail("brand about repeated frame");
             if(!painted(m_main,"sidebarWordmark"))return fail("brand sidebar repeated frame");
             if(!capture(settings,"brand-about-light"))return fail("brand about saved frame");
+            if(qgetenv("DAYMARK_SMOKE_UI_SLICE")=="update-settings"){
+                auto* release=qobject_cast<QQuickItem*>(find(settings,"updateReleaseNotes"));
+                if(!release || !release->isVisible() || !release->isEnabled())return fail("release notes stay available without managed update support");
+                m_workspace.setTextScale(2);m_workspace.setThemeMode(2);settings->resize(640,500);
+                m_stage=258;m_wait.restart();return {};
+            }
             settings->close();if(!capture(m_main,"brand-main-light"))return fail("brand main capture");
             m_workspace.setThemeMode(2);m_workspace.setTextScale(2);
         }
@@ -197,6 +220,27 @@ QString Ux38SmokeProbe::advance() {
         if(m_stage==256){
             auto* brand=find(m_widget,"widgetBrandMark");
             if(!brand || !brand->property("singleColor").toBool() || !painted(m_widget,"widgetBrandMark") || !capture(m_widget,"brand-ball-high-contrast"))return fail("brand high contrast silhouette");
+        }
+        if(m_stage==258){
+            auto* release=qobject_cast<QQuickItem*>(find(settings,"updateReleaseNotes"));
+            if(!release)return fail("release notes missing");
+            settings->resize(640,500);settings->requestActivate();release->forceActiveFocus();
+            QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(release)));
+            m_stage=259;m_wait.restart();return {};
+        }
+        if(m_stage==259){
+            auto* release=qobject_cast<QQuickItem*>(find(settings,"updateReleaseNotes"));
+            auto* check=qobject_cast<QQuickItem*>(find(settings,"checkUpdates"));
+            if(!release || !check)return fail("update actions missing");
+            settings->grabWindow();
+            const auto at=release->mapToScene(QPointF());
+            if(!release->hasActiveFocus() || at.x()<0 || at.y()<0 || at.x()+release->width()>settings->width()+1 || at.y()+release->height()>settings->height()+1 || qAbs(release->x()-check->x())>1 || release->y()<=check->y() || !capture(settings,"update-about-dark-200-narrow")){
+                qCritical()<<"Update action geometry"<<at<<release->size()<<settings->size()<<release->hasActiveFocus()<<release->position()<<check->position();capture(settings,"update-about-geometry-failure");
+                for(auto* owner=release;owner;owner=owner->parentItem())qCritical()<<"Update action ancestor"<<owner->metaObject()->className()<<owner->objectName()<<owner->size()<<owner->implicitWidth()<<owner->position();
+                qCritical()<<"Update scroll state"<<find(settings,"settingsScroll")->property("width")<<find(settings,"settingsScroll")->property("availableWidth")<<settings->property("restoringScroll")<<settings->activeFocusItem();
+                return fail("update actions adapt to narrow 200 percent window and retain keyboard focus");
+            }
+            m_stage=257;return "DONE"; // Main + calendar + the actually visible settings match the final native gate.
         }
         qInfo()<<"Brand native rendering stage"<<m_stage<<"PASS";++m_stage;m_wait.restart();
         return m_stage==257 ? "DONE" : QString();
@@ -398,6 +442,7 @@ QString Ux38SmokeProbe::advance() {
     }
     if(m_stage==101){
         auto* settings=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));
+        qobject_cast<QQuickItem*>(find(settings,"syncConfirmPassword"))->forceActiveFocus();
         if(!QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncConfirmPassword")))))return fail("large confirmation field scroll");
         settings->grabWindow();
     }
@@ -409,6 +454,7 @@ QString Ux38SmokeProbe::advance() {
             qCritical()<<"Account scroll"<<at<<field->size()<<view->size()<<find(settings,"accountScroll")->property("contentHeight");capture(settings,"registration-geometry-failure");
             return fail("registration confirmation remains reachable at 200 percent");
         }
+        qobject_cast<QQuickItem*>(find(settings,"syncSubmit"))->forceActiveFocus();
         if(!QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(settings,"syncSubmit")))))return fail("large registration action scroll");
     }
     if(m_stage==103){
@@ -424,6 +470,7 @@ QString Ux38SmokeProbe::advance() {
         // touch a server. Real auth/sync remains covered by the Qt/Go TLS test.
         m_originalSyncState=m_workspace.syncState();auto state=m_originalSyncState;
         state.insert("safe_error_code","invalid_credentials");state.insert("status",QStringLiteral("账号或密码不正确。"));
+        state.insert("diagnostic",QVariantMap{{"diagnostic_code","S203-C000"},{"http_status",401},{"qt_network_error_name","AuthenticationRequiredError"},{"stage","waiting_response"}});
         state.insert("authenticated",false);state.insert("busy",false);m_accountDisplayState=state;m_workspace.setSyncState(state);
         QMetaObject::invokeMethod(m_main,"openTool",Q_ARG(QVariant,QVariant("account")));
     }
@@ -433,7 +480,14 @@ QString Ux38SmokeProbe::advance() {
         if(!find(window,"accountError")->property("visible").toBool() || !find(window,"syncPassword")->property("text").toString().isEmpty())return fail("dedicated login error and empty password");
         if(find(window,"syncServerOrigin")->property("text")!="https://example.invalid" || find(window,"syncLogin")->property("text")!="synthetic-user")return fail("closing and reopening preserves server/account input, without retaining password");
         if(!capture(window,"account-login-error"))return fail("account error capture");
-        auto state=m_workspace.syncState();state.insert("busy",true);state.insert("safe_error_code",QString());state.insert("status",QStringLiteral("正在登录…"));m_accountDisplayState=state;m_workspace.setSyncState(state);
+        auto* details=qobject_cast<QQuickItem*>(find(window,"accountDiagnosticDetails"));
+        if(!details || !find(window,"accountOpenLogs"))return fail("account diagnostic actions exist");
+        details->forceActiveFocus();
+        for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Space,Qt::NoModifier);QCoreApplication::sendEvent(window,&event);}
+        if(!window->property("diagnosticExpanded").toBool() || !find(window,"accountDiagnosticText")->property("visible").toBool())return fail("keyboard opens plain text account diagnostics");
+        m_workspace.setTextScale(2);window->resize(420,440);
+        QMetaObject::invokeMethod(window,"reveal",Q_ARG(QVariant,QVariant::fromValue(find(window,"accountOpenLogs"))));
+        m_stage=1005;m_wait.restart();return {};
     }
     if(m_stage==106){
         m_workspace.setSyncState(m_accountDisplayState);

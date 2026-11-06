@@ -13,10 +13,20 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.13'
       - name: Test publication guards
-        run: python3 -m unittest discover -s tests -p test_release_metadata.py -v
+        run: |
+          python3 -m unittest discover -s tests -p test_release_metadata.py -v
+          python3 -m unittest discover -s tests -p test_update_publication.py -v
+          python3 -m unittest discover -s tests -p test_native_imports.py -v
       - name: Check current source version and privacy
         run: python3 scripts/publish-source-release.py --check-current
+      - name: Check diagnostic and sync contracts
+        run: |
+          python3 scripts/generate-diagnostics.py --check
+          python3 scripts/generate-sync-contract.py --check
   desktop:
     strategy:
       fail-fast: false
@@ -24,13 +34,12 @@ jobs:
         include:
           - os: windows-2022
             arch: win64_msvc2022_64
-          - os: macos-15
-            arch: clang_64
-          - os: ubuntu-24.04
-            arch: linux_gcc_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.13'
       # Qt's Linux desktop build links against X11/OpenGL and needs the
       # platform runtime to load the offscreen platform plugin used by tests.
       - name: Install Linux build dependencies

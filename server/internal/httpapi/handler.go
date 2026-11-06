@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime"
 	"net"
 	"net/http"
@@ -128,6 +129,9 @@ func (h *Handler) Router() http.Handler {
 		if e != nil {
 			h.problem(w, r, e)
 			return
+		}
+		if candidate := r.Header.Get("X-Daymark-Request-ID"); len(r.Header.Values("X-Daymark-Request-ID")) == 1 && domain.ValidID(candidate, false) {
+			id = domain.ID(candidate)
 		}
 		r = r.WithContext(context.WithValue(r.Context(), requestKey{}, string(id)))
 		w.Header().Set("X-Request-ID", string(id))
@@ -490,6 +494,8 @@ func (h *Handler) problem(w http.ResponseWriter, r *http.Request, e error) {
 		out["retry_after_ms"] = 1000
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("X-Daymark-Error-Code", serverDiagnostic(code))
+	slog.Warn("request_failed", "request_id", id, "diagnostic_code", serverDiagnostic(code)+"-C000", "error_key", code, "status", status, "route", r.Pattern)
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(out)
 }

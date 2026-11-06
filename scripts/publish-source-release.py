@@ -43,7 +43,8 @@ def source_release_payload(tag, version, notes):
 RELEASE_ASSET_PATTERN = re.compile(
     r"^Daymark-(?:\d+\.\d+\.\d+)-(?:windows-x64|macos-arm64|linux-x64)\.tar\.gz(?:\.sha256)?$"
     r"|^Daymark-(?:\d+\.\d+\.\d+)-windows-x64\.zip(?:\.sha256)?$"
-    r"|^SHA256SUMS\.txt$")
+    r"|^SHA256SUMS\.txt$"
+    r"|^update-windows-x64\.json(?:\.sig)?$")
 
 
 def validate_release_record(record, tag, version, notes):
@@ -68,8 +69,9 @@ def release_input(root, tag):
     if not notes_path.exists():
         notes_path = root / f"docs/release-notes-v{minor}.md"  # Legacy 1.0.0 notes remain immutable.
     notes = notes_path.read_text(encoding="utf-8")
-    if not notes.splitlines() or notes.splitlines()[0] != f"# Daymark {version}" or "仅发布源码" not in notes:
-        raise ValueError("Matching source-only release notes are required")
+    if (not notes.splitlines() or notes.splitlines()[0] != f"# Daymark {version}"
+            or not any(marker in notes for marker in ("仅发布源码", "Windows托管更新包由受保护流水线发布"))):
+        raise ValueError("Matching release notes with an explicit source/managed-binary scope are required")
     return version, notes
 
 
@@ -78,7 +80,7 @@ def validate_source_tree(root):
     """Reject tracked machine data, distributable runtimes and common secrets."""
     names = subprocess.check_output(["git", "ls-files", "-z"], cwd=root).decode("utf-8").split("\0")
     blocked = {".exe", ".dll", ".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm",
-               ".sqlite-wal", ".sqlite-shm", ".log", ".pem", ".pfx", ".p12", ".key",
+               ".sqlite-wal", ".sqlite-shm", ".log", ".pem", ".pfx", ".p12", ".key", ".dpapi",
                ".bundle", ".zip", ".7z", ".obj", ".o", ".a", ".pdb", ".user", ".pyc"}
     sensitive = re.compile(r"[A-Za-z]:[/\\](?:Users|Code|Qt[0-9]*)[/\\]|"
                            r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"

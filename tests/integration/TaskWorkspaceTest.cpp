@@ -31,9 +31,36 @@ class TaskWorkspaceTest : public QObject {
         return {};
     }
 private slots:
+    void stalledConnectionReportsModuleAndRequestWithoutRegistering()
+    {
+        QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("timeout.sqlite"));
+        QVERIFY(daymark::test::awaitIdle(workspace));daymark::test::sync_account::MemoryCredentials credentials;
+        daymark::sync::Coordinator coordinator(workspace,directory.path(),credentials);QTRY_VERIFY(!workspace.syncState().isEmpty());
+        QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost));int requests=0;QByteArray request;
+        connect(&server,&QTcpServer::newConnection,&server,[&]{auto* socket=server.nextPendingConnection();connect(socket,&QTcpSocket::disconnected,socket,&QObject::deleteLater);connect(socket,&QTcpSocket::readyRead,socket,[&,socket]{request+=socket->readAll();++requests;});});
+        const auto previous=qgetenv("DAYMARK_SYNC_ALLOW_LOOPBACK_HTTP");qputenv("DAYMARK_SYNC_ALLOW_LOOPBACK_HTTP","1");
+        const auto restore=qScopeGuard([&]{if(previous.isNull())qunsetenv("DAYMARK_SYNC_ALLOW_LOOPBACK_HTTP");else qputenv("DAYMARK_SYNC_ALLOW_LOOPBACK_HTTP",previous);});
+        workspace.syncProbe(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort()));
+        QTRY_VERIFY_WITH_TIMEOUT(!workspace.syncState().value("busy").toBool(),20000);
+        QCOMPARE(workspace.syncState().value("safe_error_code").toString(),QStringLiteral("syncNetworkTimeout"));
+        QCOMPARE(workspace.syncState().value("diagnostic_code").toString(),QStringLiteral("S000-C103"));
+        const auto diagnostic=workspace.syncState().value("diagnostic").toMap();
+        QVERIFY(diagnostic.value("elapsed_ms").toLongLong()>=14000);QVERIFY(diagnostic.value("elapsed_ms").toLongLong()<20000);
+        QCOMPARE(diagnostic.value("stage").toString(),QStringLiteral("waiting_response"));
+        QVERIFY(diagnostic.value("qt_network_error").toInt()!=0);
+        QVERIFY(!diagnostic.value("qt_network_error_name").toString().isEmpty());
+        QVERIFY(!diagnostic.value("network_error_detail").toString().isEmpty());
+        QCOMPARE(diagnostic.value("inactivity_timeout_ms").toInt(),15000);
+        QVERIFY(!diagnostic.value("native_error_available").toBool());
+        QVERIFY(request.startsWith("GET /v1/capabilities "));QVERIFY(!request.contains("/auth/register"));
+        QVERIFY(!request.toLower().contains("authorization:"));QVERIFY(request.toLower().contains("x-daymark-request-id:"));
+        QCOMPARE(requests,1);QVERIFY(credentials.values.isEmpty());
+    }
     void authenticationDisconnectIsActionableAndPreservesLocalData()
     {
         QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("disconnect.sqlite"));
+        QVERIFY(diagnostics::start(directory.filePath("logs")));
+        const auto stopLogs=qScopeGuard([]{diagnostics::stop();});
         QVERIFY(daymark::test::awaitIdle(workspace));QVERIFY(workspace.createTask("local-only"));QVERIFY(daymark::test::awaitIdle(workspace));
         const auto identity=workspace.tasks()->taskIdAt(0);const auto originalPath=workspace.databasePath();
         daymark::test::sync_account::MemoryCredentials credentials;
@@ -52,11 +79,30 @@ private slots:
         workspace.syncLogin(url,"synthetic-user","12345678");
         QTRY_VERIFY(!workspace.syncState().value("safe_error_code").toString().isEmpty());
         QCOMPARE(workspace.syncState().value("safe_error_code").toString(),QStringLiteral("syncNetworkConnectionClosed"));
+        QCOMPARE(workspace.syncState().value("diagnostic_code").toString(),QStringLiteral("S000-C106"));
+        const auto diagnostic=workspace.syncState().value("diagnostic").toMap();
+        QCOMPARE(diagnostic.value("operation").toString(),QStringLiteral("capabilities"));
+        QCOMPARE(diagnostic.value("qt_network_error").toInt(),int(QNetworkReply::RemoteHostClosedError));
+        QCOMPARE(diagnostic.value("qt_network_error_name").toString(),QStringLiteral("RemoteHostClosedError"));
+        QVERIFY(!diagnostic.value("request_id").toString().isEmpty());
+        QVERIFY(diagnostic.value("elapsed_ms").toLongLong()>=0);
+        QVERIFY(!QJsonDocument::fromVariant(diagnostic).toJson().contains("12345678"));
         QVERIFY(workspace.syncState().value("status").toString().contains(QStringLiteral("连接已中断")));
         QVERIFY(!workspace.syncState().value("busy").toBool());QVERIFY(!workspace.syncState().value("authenticated").toBool());
         QVERIFY(!workspace.syncState().value("status").toString().contains("12345678"));
         QCOMPARE(workspace.databasePath(),originalPath);QVERIFY(!workspace.task(identity).isEmpty());QVERIFY(credentials.values.isEmpty());
         QVERIFY(requests>=1); // Qt may retry an idempotent GET internally; no login POST succeeds.
+        const auto previousRequests=requests;
+        workspace.syncProbe(url);
+        QTRY_VERIFY(!workspace.syncState().value("busy").toBool());
+        QCOMPARE(workspace.syncState().value("diagnostic_code").toString(),QStringLiteral("S000-C106"));
+        QVERIFY(requests>previousRequests);QCOMPARE(workspace.databasePath(),originalPath);
+        QVERIFY(!workspace.task(identity).isEmpty());QVERIFY(credentials.values.isEmpty());
+        diagnostics::stop();QByteArray logBytes;
+        const auto logPath=directory.filePath("logs");
+        for(const auto& name:QDir(logPath).entryList({"*.jsonl"},QDir::Files)){QFile log(QDir(logPath).filePath(name));QVERIFY(log.open(QIODevice::ReadOnly));logBytes+=log.readAll();}
+        QVERIFY(logBytes.contains("request.finished"));QVERIFY(logBytes.contains("RemoteHostClosedError"));QVERIFY(logBytes.contains("S000-C106"));
+        QVERIFY(!logBytes.contains("synthetic-user"));QVERIFY(!logBytes.contains("12345678"));QVERIFY(!logBytes.contains("local-only"));QVERIFY(!logBytes.contains(url.toUtf8()));
     }
     void widgetBrowseIsIndependentAndCreationKeepsOwnershipAtomic()
     {

@@ -1,5 +1,7 @@
 #include "app/AppRuntime.h"
+#include "update/qt/StartupUpdateGate.h"
 #include "platform/common/BrandIcons.h"
+#include "diagnostics/RuntimeLog.h"
 
 #include <QApplication>
 #include <QDebug>
@@ -7,12 +9,49 @@
 #include <QQuickStyle>
 #include <cstdio>
 #include <QFileInfo>
+#include <QFile>
 #include <QDir>
 #include <QIcon>
 #include <QFontDatabase>
+#include <QTemporaryDir>
+#include <QStandardPaths>
+#include <QCryptographicHash>
+#include <QSysInfo>
+
+namespace {
+struct LogSession {
+    std::unique_ptr<QTemporaryDir> temporary;
+    LogSession(int argc,char** argv) {
+        QStringList arguments;for(int i=1;i<argc;++i)arguments.append(QString::fromLocal8Bit(argv[i]));
+        if(arguments.contains("--version") || arguments.contains("--help") || arguments.contains("-h"))return;
+        bool isolated=false;QString data,explicitLogs;
+        for(int i=0;i<arguments.size();++i){const auto& argument=arguments[i];
+            if(argument.endsWith("-smoke") || argument=="--smoke-test" || argument=="--update-preflight" || argument=="--soak-seconds")isolated=true;
+            if(argument=="--data-dir" && i+1<arguments.size())data=arguments[i+1];
+            if(argument=="--log-dir" && i+1<arguments.size())explicitLogs=arguments[i+1];
+            if(argument.startsWith("--data-dir="))data=argument.mid(11);
+            if(argument.startsWith("--log-dir="))explicitLogs=argument.mid(10);
+            if(argument.startsWith("--soak-seconds="))isolated=true;
+        }
+        QString logs;
+        if(isolated)qInstallMessageHandler([](QtMsgType,const QMessageLogContext&,const QString& message){
+            const auto bytes=message.toUtf8();std::fprintf(stderr,"%s\n",bytes.constData());std::fflush(stderr);
+        }); // Preserve the probes' existing stderr sink beneath the global file handler.
+        if(isolated){temporary=std::make_unique<QTemporaryDir>(QDir::tempPath()+"/daymark-log-XXXXXX");if(temporary->isValid())logs=temporary->filePath("logs");}
+        else if(!explicitLogs.isEmpty())logs=explicitLogs;
+        else logs=QDir(data.isEmpty()?QStandardPaths::writableLocation(QStandardPaths::AppDataLocation):data).filePath("logs");
+        if(!daymark::diagnostics::start(logs))std::fprintf(stderr,"Daymark local logging unavailable; application startup continues.\n");
+        daymark::diagnostics::event("startup","process.started",{{"phase","before_qapplication"}});
+    }
+    ~LogSession(){daymark::diagnostics::event("startup","process.stopped");daymark::diagnostics::stop();}
+};
+}
 
 int main(int argc, char* argv[])
 {
+    QCoreApplication::setApplicationName(QStringLiteral("Daymark"));
+    QCoreApplication::setOrganizationName(QStringLiteral("Daymark"));
+    LogSession logs(argc,argv);
     QApplication app(argc, argv);
     auto interfaceFont=QFontDatabase::systemFont(QFontDatabase::GeneralFont);
 #ifdef Q_OS_WIN
@@ -30,7 +69,16 @@ int main(int argc, char* argv[])
     app.setFont(interfaceFont);
     QCoreApplication::setApplicationName(QStringLiteral("Daymark"));
     QCoreApplication::setOrganizationName(QStringLiteral("Daymark"));
+#ifdef DAYMARK_UPDATE_FIXTURE_APP_VERSION
+    QCoreApplication::setApplicationVersion(QStringLiteral(DAYMARK_UPDATE_FIXTURE_APP_VERSION));
+#else
     QCoreApplication::setApplicationVersion(QStringLiteral(DAYMARK_VERSION));
+#endif
+    QCryptographicHash binaryHash(QCryptographicHash::Sha256);QFile binary(QCoreApplication::applicationFilePath());
+    if(binary.open(QIODevice::ReadOnly)){binaryHash.addData(&binary);binary.close();}
+    daymark::diagnostics::event("startup","application.ready",{{"app_version",QCoreApplication::applicationVersion()},
+        {"qt_version",QString::fromLatin1(qVersion())},{"platform",QGuiApplication::platformName()},
+        {"os",QSysInfo::prettyProductName()},{"binary_sha256",QString::fromLatin1(binaryHash.result().toHex())}});
     QApplication::setWindowIcon(daymark::BrandIcons::application());
     QQuickStyle::setStyle(QStringLiteral("DaymarkStyle"));
     QQuickStyle::setFallbackStyle(QStringLiteral("Basic"));
@@ -39,6 +87,8 @@ int main(int argc, char* argv[])
     parser.setApplicationDescription(QStringLiteral("Daymark %1 — offline tasks and calendar").arg(QCoreApplication::applicationVersion()));
     parser.addHelpOption();
     parser.addVersionOption();
+    parser.addOption({QStringLiteral("update-preflight"),QStringLiteral("Validate a downloaded payload using only temporary synthetic data.")});
+    parser.addOption({QStringLiteral("update-handoff"),QStringLiteral("Authenticated local update startup capability."),QStringLiteral("handle")});
     parser.addOption({QStringLiteral("smoke-test"), QStringLiteral("Check QML startup and exit without user data access.")});
     parser.addOption({QStringLiteral("contextual-workspace-smoke"),QStringLiteral("Check the shared task inspector with an isolated synthetic fixture.")});
     parser.addOption({QStringLiteral("continuous-calendar-smoke"),QStringLiteral("Check continuous calendar with an isolated synthetic fixture.")});
@@ -46,6 +96,7 @@ int main(int argc, char* argv[])
     parser.addOption({QStringLiteral("desktop-surfaces-smoke"),QStringLiteral("Check floating, mini and desktop calendar with an isolated synthetic fixture.")});
     parser.addOption({QStringLiteral("task-list-smoke"),QStringLiteral("Check desktop selection and task menus with an isolated synthetic fixture.")});
     parser.addOption({QStringLiteral("data-dir"), QStringLiteral("Use an explicit local data directory."), QStringLiteral("directory")});
+    parser.addOption({QStringLiteral("log-dir"),QStringLiteral("Write bounded local diagnostic logs to this directory."),QStringLiteral("directory")});
     parser.addOption({QStringLiteral("screenshot"),QStringLiteral("Save the synthetic smoke-test window image."),QStringLiteral("path")});
     parser.addOption({QStringLiteral("soak-seconds"),QStringLiteral("After isolated smoke, run a continuous synthetic stability test (10..43200 seconds)."),QStringLiteral("seconds")});
     parser.addOption({QStringLiteral("soak-report"),QStringLiteral("Write a new JSON stability report; requires --soak-seconds."),QStringLiteral("path")});
@@ -59,22 +110,20 @@ int main(int argc, char* argv[])
             std::fprintf(stderr,"Invalid stability options: use 10..43200 seconds, a new report path in an existing directory, and no --data-dir.\n");return 2;
         }
     } else if(parser.isSet(QStringLiteral("soak-report"))) {std::fprintf(stderr,"--soak-report requires --soak-seconds.\n");return 2;}
-    const bool verification=parser.isSet(QStringLiteral("calendar-interaction-smoke")) || parser.isSet(QStringLiteral("desktop-surfaces-smoke")) || parser.isSet(QStringLiteral("task-list-smoke")) || parser.isSet(QStringLiteral("smoke-test")) || parser.isSet(QStringLiteral("continuous-calendar-smoke")) || parser.isSet(QStringLiteral("contextual-workspace-smoke")) || soakSeconds>0;
+    const bool verification=parser.isSet(QStringLiteral("update-preflight")) || parser.isSet(QStringLiteral("calendar-interaction-smoke")) || parser.isSet(QStringLiteral("desktop-surfaces-smoke")) || parser.isSet(QStringLiteral("task-list-smoke")) || parser.isSet(QStringLiteral("smoke-test")) || parser.isSet(QStringLiteral("continuous-calendar-smoke")) || parser.isSet(QStringLiteral("contextual-workspace-smoke")) || soakSeconds>0;
     // The legacy full probe inspects QML menu geometry across timer phases.
     // Native menu loops are covered by the separate desktop menu fixtures.
     if(verification && (parser.isSet(QStringLiteral("smoke-test")) || qEnvironmentVariableIsSet("DAYMARK_SMOKE_MENU_FALLBACK")))
         QCoreApplication::setAttribute(Qt::AA_DontUseNativeMenuWindows);
-    if(verification) {
-        qInstallMessageHandler([](QtMsgType,const QMessageLogContext&,const QString& message){
-            const auto utf8=message.toUtf8();
-            std::fprintf(stderr,"%s\n",utf8.constData());std::fflush(stderr);
-        });
-    }
 
+    if(parser.isSet(QStringLiteral("update-handoff")) && verification)return 2;
+    daymark::StartupUpdateGate updateGate;
+    if(!verification && !updateGate.acquire(parser.value(QStringLiteral("update-handoff")),QCoreApplication::applicationVersion())){qCritical()<<updateGate.error();return 40;}
     daymark::AppRuntime runtime;
-    if (!runtime.start(verification,parser.value(QStringLiteral("data-dir")),parser.value(QStringLiteral("screenshot")),soakSeconds,parser.value(QStringLiteral("soak-report")),parser.isSet(QStringLiteral("calendar-interaction-smoke"))?QStringLiteral("calendar"):parser.isSet(QStringLiteral("desktop-surfaces-smoke"))?QStringLiteral("desktop"):parser.isSet(QStringLiteral("task-list-smoke"))?QStringLiteral("selection"):parser.isSet(QStringLiteral("continuous-calendar-smoke"))?QStringLiteral("continuous"):parser.isSet(QStringLiteral("contextual-workspace-smoke"))?QStringLiteral("contextual"):QString()))
+    if (!runtime.start(verification,parser.value(QStringLiteral("data-dir")),parser.value(QStringLiteral("screenshot")),soakSeconds,parser.value(QStringLiteral("soak-report")),parser.isSet(QStringLiteral("update-preflight"))?QStringLiteral("update-preflight"):parser.isSet(QStringLiteral("calendar-interaction-smoke"))?QStringLiteral("calendar"):parser.isSet(QStringLiteral("desktop-surfaces-smoke"))?QStringLiteral("desktop"):parser.isSet(QStringLiteral("task-list-smoke"))?QStringLiteral("selection"):parser.isSet(QStringLiteral("continuous-calendar-smoke"))?QStringLiteral("continuous"):parser.isSet(QStringLiteral("contextual-workspace-smoke"))?QStringLiteral("contextual"):QString(),&updateGate))
         return runtime.startupExitCode();
     const auto code=app.exec();
+    daymark::diagnostics::event("startup","event_loop.exited",{{"exit_code",code}});
     if(verification && !runtime.verificationCompleted()){qCritical()<<"Verification exited before all scenarios completed, phase"<<runtime.verificationPhase();return code==0?3:code;}
     return code;
 }

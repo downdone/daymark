@@ -12,6 +12,25 @@
 static void initializeSchemaResource() { Q_INIT_RESOURCE(daymark_schema); }
 
 namespace daymark {
+Result<void> SqliteDatabase::probeForUpdate(const QString& path)
+{
+    if(!QFileInfo::exists(path))return {};
+    const auto name=QStringLiteral("update-readonly-")+QUuid::createUuid().toString(QUuid::WithoutBraces);
+    Result<void> result;
+    {
+        auto db=QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),name);
+        db.setConnectOptions(QStringLiteral("QSQLITE_OPEN_READONLY"));db.setDatabaseName(path);
+        if(!db.open())result=Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("update.database_read"));
+        else {
+            QSqlQuery query(db);
+            if(!query.exec(QStringLiteral("PRAGMA user_version"))||!query.next()||query.value(0).toInt()!=10)result=Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("update.data_compatibility"));
+            if(result.ok()&&(!query.exec(QStringLiteral("PRAGMA quick_check"))||!query.next()||query.value(0).toString()!=QStringLiteral("ok")))result=Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("update.database_read"));
+            if(result.ok()&&!query.exec(QStringLiteral("SELECT id FROM tasks LIMIT 1")))result=Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("update.database_read"));
+        }
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(name);return result;
+}
 Result<void> SqliteDatabase::checkIntegrity() const
 {
     QSqlQuery check(m_db);

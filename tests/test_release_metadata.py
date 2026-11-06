@@ -25,6 +25,7 @@ class ReleaseGuards(unittest.TestCase):
                                      {"name":"Daymark-1.1.0-windows-x64.zip"},
                                      {"name":"SHA256SUMS.txt"}])
         release.validate_release_record(shipped, "v1.1.0", "1.1.0", "only source")
+        release.validate_release_record(dict(record, assets=[{"name":"update-windows-x64.json"},{"name":"update-windows-x64.json.sig"}]), "v1.1.0", "1.1.0", "only source")
         for changed in ({"tag_name":"v1.0.1"},{"body":"different notes"},{"draft":True},
                         {"prerelease":True},{"assets":[{"name":"runtime.dll"}]}):
             with self.subTest(changed=changed), self.assertRaises(ValueError):
@@ -88,7 +89,7 @@ class ReleaseGuards(unittest.TestCase):
                 release.release_input(self.root, "v1.0.1")
 
     def test_tracked_runtime_or_database_is_rejected(self):
-        for name in ("runtime.dll", "sample.db", ".env", "build/cache.txt", "__pycache__/cache.pyc"):
+        for name in ("runtime.dll", "sample.db", "secret.dpapi", ".env", "build/cache.txt", "__pycache__/cache.pyc"):
             with self.subTest(name=name):
                 self.write(name, "synthetic")
                 self.git("add", "-f", name)

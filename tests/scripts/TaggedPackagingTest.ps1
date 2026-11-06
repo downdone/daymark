@@ -1,5 +1,6 @@
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+Import-Module (Join-Path $root 'scripts/MsvcRuntime.psm1') -Force
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'scripts/package-tagged-windows.ps1'),[ref]$tokens,[ref]$errors)
 if($errors.Count){throw 'Packager parse failed'}
@@ -13,6 +14,20 @@ if(!$checksum){throw 'Archive checksum writer missing'}
 $fixture=Join-Path ([IO.Path]::GetTempPath()) ('daymark-tagged-layout-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
 try {
+    $redist = Join-Path $fixture 'VS/VC/Redist/MSVC'
+    foreach ($version in @('14.9.1','14.39.33519','14.44.35211','14.52.37025')) {
+        $family = if ($version -eq '14.52.37025') {'Microsoft.VC145.CRT'} else {'Microsoft.VC143.CRT'}
+        New-Item -ItemType Directory -Path (Join-Path $redist "$version/x64/$family") -Force | Out-Null
+    }
+    $expected = Join-Path $redist '14.44.35211/x64/Microsoft.VC143.CRT'
+    if ((Get-DaymarkMsvcRedistDirectory $redist) -cne $expected) { throw 'Wrong CRT family/version selected.' }
+    foreach ($invalid in @($fixture, (Join-Path $redist '14.44.35211/x64'), (Join-Path $fixture 'empty/VC/Redist/MSVC'))) {
+        New-Item -ItemType Directory -Path $invalid -Force | Out-Null
+        $rejected = $false
+        try { $null = Get-DaymarkMsvcRedistDirectory $invalid } catch { $rejected = $true }
+        if (!$rejected) { throw 'Invalid or empty redistributable source was admitted.' }
+    }
+    'PASS: app-local CRT source selection rejects non-redist sources and unsupported compiler families'
     foreach($layout in @('bin/Release/daymark.exe','bin/daymark.exe')) {
         $build=Join-Path $fixture ([guid]::NewGuid().ToString('N'))
         $exe=Join-Path $build $layout

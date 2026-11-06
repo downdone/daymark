@@ -75,7 +75,7 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
             if(!task.deletedAtUtc.isEmpty() || (task.projectId!=view.mid(8) && task.projectAreaId!=view.mid(8)))continue;
         } else if(!inView(task,view,d)) continue;
         if(!tagFilter.isEmpty() && !task.tagIds.contains(tagFilter))continue;
-        if(!projectFilter.isEmpty() && task.projectId!=projectFilter && task.projectAreaId!=projectFilter)continue;
+        if(!projectFilter.isEmpty() && task.projectId!=projectFilter && task.projectAreaId!=projectFilter && task.areaId!=projectFilter)continue;
         if(search.isEmpty() && upcomingDays>0 && ((view==QStringLiteral("upcoming") && task.startOn && *task.startOn>d.addDays(upcomingDays))
             || (view==QStringLiteral("deadlines") && task.deadlineOn && *task.deadlineOn>d.addDays(upcomingDays))))continue;
         if((view==QStringLiteral("logbook") || view==QStringLiteral("cancelled")) && historyDays>0) {

@@ -1,0 +1,86 @@
+{
+  "format": 1,
+  "packages": [
+    {
+      "name": "nlohmann/json",
+      "version": "3.12.0",
+      "commit": "55f93686c01528224f448c19128836e7df245f72",
+      "license": "MIT",
+      "origin": "https://github.com/nlohmann/json",
+      "files": [
+        {
+          "path": "json/json.hpp",
+          "bytes": 953436,
+          "sha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63"
+        },
+        {
+          "path": "json/LICENSE",
+          "bytes": 1076,
+          "sha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603"
+        }
+      ]
+    },
+    {
+      "name": "richgel999/miniz",
+      "version": "3.1.2",
+      "commit": "77d0dce8627735138c51770d1799a1ef48f2117d",
+      "license": "MIT",
+      "origin": "https://github.com/richgel999/miniz",
+      "files": [
+        {
+          "path": "miniz/LICENSE",
+          "bytes": 1184,
+          "sha256": "0115478d567121238cf6cc1c0c361926cf07a49d9e4c9e66da97fac6a01646b3"
+        },
+        {
+          "path": "miniz/miniz.c",
+          "bytes": 25991,
+          "sha256": "f23204efee2bfaffb72a974d2e28c64c3c1d9787144b5c5890f129c465e467bd"
+        },
+        {
+          "path": "miniz/miniz.h",
+          "bytes": 28290,
+          "sha256": "f0b67217bdd8e45b74eb9b7c2c7ae20ed6760a1d76f3276b93617039ebd082df"
+        },
+        {
+          "path": "miniz/miniz_common.h",
+          "bytes": 2529,
+          "sha256": "f1ba29821c8caef83585b328196aa346c5da7c82890a70a3d10d77c6cec0ed39"
+        },
+        {
+          "path": "miniz/miniz_tdef.c",
+          "bytes": 75526,
+          "sha256": "85b93205232d51d092f24041934d951f11f9edc02df1f475e8ceb7b281a1e7f6"
+        },
+        {
+          "path": "miniz/miniz_tdef.h",
+          "bytes": 10733,
+          "sha256": "d62da02953c3834dfcbde4db026c6d9345013ef9b0e53185131016a3a4e48c33"
+        },
+        {
+          "path": "miniz/miniz_tinfl.c",
+          "bytes": 40637,
+          "sha256": "2296ebd21ef9af5ebbefd5b454d4bb67d8fb4af2d24945e7fb32114374f75a76"
+        },
+        {
+          "path": "miniz/miniz_tinfl.h",
+          "bytes": 8695,
+          "sha256": "da4850920fdf09f8877d9affabe1ebba1852ce4b1ebbd121f2ba7a7ea8e57e5d"
+        },
+        {
+          "path": "miniz/miniz_zip.c",
+          "bytes": 208249,
+          "sha256": "b70e502c425e2a31146178c1466dccaf1874390009950774be2be9bd4ec908a9"
+        },
+        {
+          "path": "miniz/miniz_zip.h",
+          "bytes": 26742,
+          "sha256": "b062a5def545445c73fd1d664e35a89165dfb0d996ab848f507244e819cfcf04"
+        }
+      ]
+    }
+  ],
+  "local_generated": [
+    "miniz/miniz_export.h"
+  ]
+}

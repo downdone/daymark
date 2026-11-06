@@ -13,6 +13,8 @@
 #include "platform/common/ApplicationMenus.h"
 
 namespace daymark {
+class StartupUpdateGate;
+class UpdateController;
 class SyncCredentialStore;
 namespace sync {class Coordinator;}
 
@@ -21,7 +23,7 @@ class AppRuntime final {
 public:
     AppRuntime();
     ~AppRuntime();
-    bool start(bool smokeTest, const QString& dataDirectory = {}, const QString& screenshotPath = {},int soakSeconds=0,const QString& soakReport={},const QString& smokeProfile={});
+    bool start(bool smokeTest, const QString& dataDirectory = {}, const QString& screenshotPath = {},int soakSeconds=0,const QString& soakReport={},const QString& smokeProfile={},StartupUpdateGate* updateGate=nullptr);
     int verificationPhase() const {return m_verificationPhase;}
     bool verificationCompleted() const {return m_verificationCompleted;}
     int startupExitCode() const { return m_startupExitCode; }
@@ -35,6 +37,7 @@ private:
     std::unique_ptr<SyncCredentialStore> m_syncCredentials;
     std::unique_ptr<sync::Coordinator> m_sync;
     std::unique_ptr<StartupController> m_startup;
+    std::unique_ptr<UpdateController> m_updates;
     QQmlApplicationEngine m_engine;
     std::unique_ptr<DesktopTray> m_tray;
     std::unique_ptr<ApplicationMenus> m_menus;

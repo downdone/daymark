@@ -6,3 +6,5 @@
 *.md whitespace=-blank-at-eol
 # Preserve upstream notice bytes (their checksums are recorded in modules.json).
 server/licenses/** whitespace=-blank-at-eof
+# Vendored update sources/notices are hash-pinned upstream bytes, including whitespace.
+third_party/update/** -text -whitespace

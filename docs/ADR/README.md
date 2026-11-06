@@ -31,3 +31,4 @@ ADR-001～006 的原文在[原始 TDD](../02_TECHNICAL_DESIGN.md) §1。后续�
 | 029 | [同步服务实现依赖](029-server-runtime-dependencies.md) | 现行，版本及许可证锁定 |
 | 030～031 | 未采用的本地品牌探索编号（未进入客户端） | 保留编号，不作为现行规范 |
 | 032 | [批准A母版与跨平台品牌资源](032-approved-a-brand-assets.md) | 现行 |
+| 033 | [GitHub 资源与 Windows 便携在线更新](033-github-windows-update.md) | Windows已实现；自签名策略及公开发行验证见当前进度 |

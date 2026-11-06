@@ -9,13 +9,14 @@ ColumnLayout {
     property string detail: ""
     default property alias rows: stack.data
     Layout.fillWidth:true
+    Layout.minimumWidth:0
     spacing:Theme.fieldGap
     Label {
         visible:root.heading.length>0;Layout.fillWidth:true;Layout.leftMargin:12;Layout.rightMargin:12
         text:root.heading;color:Theme.secondary;font.pixelSize:Theme.sectionSize;wrapMode:Text.Wrap
     }
     Control {
-        Layout.fillWidth:true;padding:0
+        Layout.fillWidth:true;Layout.minimumWidth:0;padding:0
         implicitHeight:implicitContentHeight
         background:Rectangle {radius:Theme.groupRadius;color:Theme.content;border.width:Theme.highContrast ? 1 : 0;border.color:Theme.separator}
         contentItem:ColumnLayout {id:stack;spacing:0}
