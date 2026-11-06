@@ -34,7 +34,7 @@ def main():
     if integration:assert Path(read_registry())==root
     # Check installed uninstaller Authenticode against the project's pin, without trusting a root.
     pin=json.loads((a.repo/'config/authenticode-policy.json').read_text())['certificate_sha256']
-    subprocess.run(['pwsh','-NoProfile','-Command','Import-Module $args[0]; Assert-DaymarkSelfSignedExecutable $args[1] $args[2] | Out-Null',str(a.repo/'scripts/Authenticode.psm1'),str(root/'Uninstall.exe'),pin],check=True,timeout=30)
+    subprocess.run(['pwsh','-NoProfile','-File',str(a.repo/'scripts/Verify-WindowsExecutable.ps1'),'-Executable',str(root/'Uninstall.exe'),'-CertificateSha256',pin],check=True,timeout=30)
     pid=launch()
     try:install(1)
     finally:stop_owned(root,pid)

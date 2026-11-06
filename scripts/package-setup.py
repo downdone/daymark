@@ -20,8 +20,7 @@ def build(a):
     command=[str(compiler),'/V2','/INPUTCHARSET','UTF8',f'/DAPP_VERSION={version}',f'/DOUTPUT_FILE={a.output.resolve()}',f'/DBUNDLE_DIR={bundle}',f'/DHELPER_FILE={helper}',f'/DLICENSE_FILE={repo / "LICENSE"}',f'/DAPP_ICON={repo / "assets/icons/daymark.ico"}',f'/DSIGN_TOOL={a.signtool.resolve()}',f'/DCERT_THUMBPRINT={a.certificate_thumbprint}',str(repo/'packaging/windows/Daymark.nsi')]
     subprocess.run(command,check=True,timeout=300)
     subprocess.run([str(a.signtool),'sign','/fd','SHA256','/s','My','/sha1',a.certificate_thumbprint,'/d','Daymark',str(a.output)],check=True,timeout=60)
-    verify='Import-Module $args[0]; Assert-DaymarkSelfSignedExecutable $args[1] $args[2] | ConvertTo-Json -Depth 4'
-    subprocess.run(['pwsh','-NoProfile','-Command',verify,str(repo/'scripts/Authenticode.psm1'),str(a.output.resolve()),a.certificate_sha256],check=True,timeout=60)
+    subprocess.run(['pwsh','-NoProfile','-File',str(repo/'scripts/Verify-WindowsExecutable.ps1'),'-Executable',str(a.output.resolve()),'-CertificateSha256',a.certificate_sha256],check=True,timeout=60)
     digest=sha(a.output);a.output.with_suffix('.exe.sha256').write_text(digest+'  '+a.output.name+'\n',encoding='ascii')
     a.output.with_suffix('.exe.json').write_text(json.dumps({'format':1,'version':version,'source_revision':seed['source_revision'],'sha256':digest,'compiler':'NSIS 3.13','compiler_sha256':COMPILER_SHA256,'signature_policy':'self-signed-pinned','public_trust':False,'layout':'portable-managed-v1','local_candidate':'-local' in a.output.name},indent=2),encoding='utf-8')
     print('PASS: signed native installer and signed embedded uninstaller; '+str(a.output))
