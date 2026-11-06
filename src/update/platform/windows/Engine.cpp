@@ -1,8 +1,12 @@
 #include "Engine.h"
+#include <cctype>
+#include <cwctype>
 #include "Ipc.h"
 #include "UpdateTrust.h"
+#include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <limits>
 #include <miniz.h>
 #include <sddl.h>
 #include <set>

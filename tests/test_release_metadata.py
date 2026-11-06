@@ -88,6 +88,11 @@ class ReleaseGuards(unittest.TestCase):
                 self.write("docs/release-notes-v1.0.1.md", notes)
                 release.release_input(self.root, "v1.0.1")
 
+    def test_managed_windows_notes_keep_source_and_binary_publication_separate(self):
+        notes = '# Daymark 1.0.1\nWindows托管更新包由受保护流水线发布。\n未获Windows公共信任。\n'
+        self.write('docs/release-notes-v1.0.1.md', notes)
+        self.assertEqual(release.release_input(self.root, 'v1.0.1'), ('1.0.1',notes))
+
     def test_tracked_runtime_or_database_is_rejected(self):
         for name in ("runtime.dll", "sample.db", "secret.dpapi", ".env", "build/cache.txt", "__pycache__/cache.pyc"):
             with self.subTest(name=name):

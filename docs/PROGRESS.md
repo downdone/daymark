@@ -21,6 +21,8 @@
 
 本轮增量：MSVC标签包禁用windeployqt的编译器运行库隐式复制，改从VS2022正式Redist目录校验微软签名、14.3x/14.4x版本、PE x64与复制后散列，BUILD-INFO明确bundled及文件证据。源码目录/版本选择、Release布局与校验文件测试PASS；本机仅有VS18/VC145，未把该不同工具链当作VS2022实包验证，完整MSVC包保持UNVERIFIED。Release增量构建PASS；4项更新CTest PASS（21.73秒，`build/github-enable/update-tests.log/xml`）、14项发行元数据与4项更新发布测试PASS。设备登录等待数分钟仍未返回授权码，已结束仅本任务创建的登录进程；未产生API授权，不重复连接或绕过签名门禁。该早期登录缺口现已解除，自签名与远端配置进展以下续记录为准。
 
+UPD-06远端首轮959e678：源码/隐私守卫与Go服务及真实Qt→Go TLS同步整条CI成功（run42155203595）；Windows完整构建run42155203610因Engine.cpp遗漏cwctype而MSVC C2039失败，未创建tag。补显式algorithm/cctype/cwctype/limits头；本机独立原生MSVC构建另查出manifest资源重复，改保留手写asInvoker/DPI资源、关闭MSVC重复生成；子项目独立UTF8编译固定。本机VS18/MSVC19.52（不冒充CI VS2022）三宿主编译及SDK/真实CNG两项CTest通过0.72秒，导入表OS-only、实际嵌入asInvoker/PerMonitorV2/CommonControls manifest均通过；日志msvc-native-manifest-final.log，原失败保留。当前准备修复提交及首个2.0.1不可变标签，最终发行仍依赖tag完整CI与独立部署。
+
 ## 当前功能清单
 
 UPD-06自签名切片：自有P-256公钥`daymark-d3fe49dbd972`已编入生产宿主，独立RSA3072证书仅CurrentUser/My，私钥/PFX/密码以CurrentUser DPAPI和owner/SYSTEM-only ACL封存。四个真实程序副本自签名与固定指纹验签PASS；改PE代码得到`TRUST_E_BAD_DIGEST 0x80096010`并拒绝，错pin/无签名拒绝，两处Root库前后不变，`self-signing-verification-final.log`。公共信任仍false，没有安装根证书。
@@ -75,4 +77,4 @@ UPD-06自签名切片：自有P-256公钥`daymark-d3fe49dbd972`已编入生产�
 
 ## 历史追溯与操作
 
-[原始实施日志](PROGRESS-HISTORY.md) · [Windows更新实现](design/update/implementation.md) · [日志与底层诊断](design/runtime-diagnostics.md) · [功能验收契约](design/update/functional-spec.md)。本地开发入口为`build/Launch-Daymark.cmd`，旧入口保留`build/close01-previous-launcher.cmd`；未自动启动或结束用户程序。请先退出旧托盘实例再运行新入口，避免单实例机制激活旧程序。该入口依赖本地开发Kit，不是可转发便携包；旧dist ZIP保持原样，本轮未推送/tag/上传或启用正式更新信任。
+[原始实施日志](PROGRESS-HISTORY.md) · [Windows更新实现](design/update/implementation.md) · [日志与底层诊断](design/runtime-diagnostics.md) · [功能验收契约](design/update/functional-spec.md)。本地开发入口为`build/Launch-Daymark.cmd`，旧入口保留`build/close01-previous-launcher.cmd`；未自动启动或结束用户程序。请先退出旧托盘实例再运行新入口，避免单实例机制激活旧程序。该入口依赖本地开发Kit，不是可转发便携包；旧dist ZIP保持原样；本轮源码已推main并启用更新信任/受保护环境，新的tag/资产状态以上述UPD-06为准。

@@ -1,3 +1,7 @@
+# Native hosts are also built independently from the Qt project.
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
 add_library(daymark_update_sdk STATIC sdk/Update.cpp)
 target_include_directories(daymark_update_sdk PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/.." "${PROJECT_SOURCE_DIR}/third_party/update/json")
 target_compile_features(daymark_update_sdk PUBLIC cxx_std_20)
@@ -42,6 +46,11 @@ if(WIN32)
     target_link_libraries(daymark-updater PRIVATE daymark_update_windows comctl32)
     foreach(update_host daymark-update-cli daymark-bootstrap daymark-updater)
         target_sources(${update_host} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/update-manifest.rc")
+        if(MSVC)
+            # The reviewed asInvoker/DPI manifest is already embedded as resource 1.
+            # MSVC's generated manifest would otherwise duplicate the same resource.
+            target_link_options(${update_host} PRIVATE /MANIFEST:NO)
+        endif()
     endforeach()
     set_target_properties(daymark-bootstrap PROPERTIES OUTPUT_NAME daymark-launcher)
     if(BUILD_TESTING)

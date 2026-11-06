@@ -1,6 +1,7 @@
 #include "Update.h"
 #include <algorithm>
 #include <charconv>
+#include <cctype>
 #include <limits>
 #include <set>
 
