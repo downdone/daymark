@@ -160,7 +160,7 @@ public:
     Q_INVOKABLE bool setWidgetShortcut(const QString& key,bool enabled);
     Q_INVOKABLE bool moveWidgetShortcut(const QString& key,int direction);
     Q_INVOKABLE bool retryWidgetBrowsePreferences();
-    Q_INVOKABLE bool createWidgetTask(const QString& title,const QString& context,bool todayOnly,const QString& profileToken);
+    Q_INVOKABLE bool createWidgetTask(const QString& title,const QString& context,bool todayOnly,const QString& profileToken,bool ignoreTime=false,const QVariantMap& timing={});
     Q_INVOKABLE int widgetTaskIndex(const QString& id) const {return int(m_widgetRows.value(id,-1));}
     Q_INVOKABLE bool canDropWidgetTask(const QString& source,const QString& target) const;
     Q_INVOKABLE bool dropWidgetTask(const QString& source,const QString& target);
@@ -282,7 +282,8 @@ public:
     Q_INVOKABLE QVariantList parentTaskChoices(const QString& taskId,const QString& search) const;
     Q_INVOKABLE bool requestCalendarRange(const QString& anchor);
     Q_INVOKABLE bool requestCalendarSpan(const QString& from,const QString& through);
-    Q_INVOKABLE bool createTask(const QString& title);
+    Q_INVOKABLE bool createTask(const QString& title,bool ignoreTime=false,const QVariantMap& timing={});
+    Q_INVOKABLE QVariantMap previewTaskInput(const QString& title) const;
     Q_INVOKABLE bool createTodayTask(const QString& title);
     Q_INVOKABLE bool canDropTodayTask(const QString& source,const QString& target) const;
     Q_INVOKABLE bool dropTodayTask(const QString& source,const QString& target);
@@ -411,7 +412,7 @@ private:
     QVariantMap m_reminderPresentation;
     QTimer m_reminderTimer;
     QVariantMap m_viewCounts;
-    QVariantMap m_preferences{{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"reminderPopups",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarPinned",false},{"desktopCalendarOpacity",90}};
+    QVariantMap m_preferences{{"recognizeTaskTime",true},{"recognitionDateReminder",false},{"recognitionReminderTime","09:00"},{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"reminderPopups",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarPinned",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
     bool applyCalendarLayer(bool desktop,bool topmost);
     QPointer<QWindow> m_calendarWindow;

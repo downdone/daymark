@@ -21,6 +21,27 @@ class TaskServiceTest : public QObject {
         return repo.update(task.value,task.value.rowVersion);
     }
 private slots:
+    void recognizedInputIsAtomicAndKeepsLiteralCreation() {
+        QTemporaryDir directory;SqliteDatabase database;QVERIFY(database.open(directory.filePath("input.sqlite")).ok());
+        TaskRepository repository(database.connection());FixedClock clock;TaskService service(repository,clock);
+        const auto literal=service.create("明天15点联系客户");QVERIFY(literal.ok());QVERIFY(!literal.value.startOn);QVERIFY(literal.value.remindAtUtc.isEmpty());
+        const auto recognized=service.createFromInput("明天15点联系客户","today");QVERIFY2(recognized.ok(),qPrintable(recognized.error.key));
+        QCOMPARE(recognized.value.startOn.value(),clock.localToday().addDays(1));QVERIFY(!recognized.value.remindAtUtc.isEmpty());QVERIFY(!recognized.value.schedule);QCOMPARE(recognized.value.title,QStringLiteral("明天15点联系客户"));
+        const auto unclear=service.createFromInput("明天或后天联系客户","today");QVERIFY(!unclear.ok());QCOMPARE(unclear.error.key,QStringLiteral("timeInputNeedsChoice"));
+        const auto ignored=service.createFromInput("明天15点联系客户","today",{},true);QVERIFY(ignored.ok());QCOMPARE(ignored.value.startOn.value(),clock.localToday());QVERIFY(ignored.value.remindAtUtc.isEmpty());
+        const auto deadline=service.createFromInput("2026-10-22前提交","upcoming");QVERIFY(deadline.ok());QVERIFY(!deadline.value.startOn);QCOMPARE(deadline.value.deadlineOn.value(),clock.localToday());
+        TaskTimeOverride manual{clock.localToday().addDays(2),QTime(9,30),"planned",true};
+        const auto changed=service.createFromInput("明天15点联系客户","today",{},false,{},manual);QVERIFY(changed.ok());QCOMPARE(changed.value.startOn.value(),manual.date);
+        const auto soon=service.createFromInput("1分钟后取快递","inbox");QVERIFY(soon.ok());
+        const auto early=repository.claimDueReminders(clock.nowUtc().toString(Qt::ISODateWithMs));QVERIFY(early.ok());QVERIFY(early.value.isEmpty());
+        const auto dueAt=clock.nowUtc().addSecs(61).toString(Qt::ISODateWithMs);
+        const auto due=repository.claimDueReminders(dueAt);QVERIFY(due.ok());QCOMPARE(due.value.size(),1);QCOMPARE(due.value.first().id,soon.value.id);
+        const auto again=repository.claimDueReminders(dueAt);QVERIFY(again.ok());QVERIFY(again.value.isEmpty());
+        QSqlQuery query(database.connection());QVERIFY(query.exec("SELECT count(*) FROM tasks"));QVERIFY(query.next());const auto before=query.value(0).toInt();query.finish();
+        QVERIFY(query.exec("CREATE TRIGGER fail_input_reminder BEFORE UPDATE ON tasks WHEN NEW.remind_at_utc IS NOT NULL AND NEW.remind_at_utc <> '' BEGIN SELECT RAISE(ABORT, 'synthetic'); END"));
+        const auto failed=service.createFromInput("明天15点失败","today");QVERIFY(!failed.ok());
+        QVERIFY(query.exec("SELECT count(*) FROM tasks"));QVERIFY(query.next());QCOMPARE(query.value(0).toInt(),before);
+    }
     void completedFiltersIntersectTagsAndEveryCategoryOwnership()
     {
         const QDate today(2026,11,5);QList<Task> tasks;

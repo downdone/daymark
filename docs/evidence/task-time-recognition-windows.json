@@ -1,0 +1,79 @@
+{
+  "format": 1,
+  "date": "2026-11-06",
+  "scope": "Windows local verification; Qt6.10.2/MinGW13.1; not a release",
+  "initialFullRun": {
+    "total": 42,
+    "passed": 41,
+    "failed": [
+      "update_windows_flow"
+    ],
+    "seconds": 407.83
+  },
+  "focusedAfterFinalChanges": {
+    "update_windows_flow": {
+      "passed": true,
+      "seconds": 22.1051
+    },
+    "time_recognition": {
+      "passed": true,
+      "seconds": 0.0832502
+    },
+    "task_service": {
+      "passed": true,
+      "seconds": 1.51517
+    },
+    "task_workspace": {
+      "passed": true,
+      "seconds": 23.0583
+    }
+  },
+  "finalUi": {
+    "time_input_ui": {
+      "passed": true,
+      "seconds": 3.12434
+    }
+  },
+  "uniqueTestsWithPassingEvidenceAfterTargetedRechecks": 42,
+  "freshFinalFullRunAllPassed": false,
+  "qmlLint": {
+    "passed": true,
+    "newWarnings": 0
+  },
+  "nativeTimeInput": {
+    "passed": true,
+    "syntheticData": true,
+    "physicalImeVerified": false,
+    "screenReaderVerified": false,
+    "macosLinuxVerified": false,
+    "keyboardEventsVerified": [
+      "Tab",
+      "Return",
+      "Escape"
+    ]
+  },
+  "databaseSchemaChanged": false,
+  "syncProtocolChanged": false,
+  "newServerRpc": false,
+  "applicationSha256": "9ce825b5490d35a10fb5975659fe70579d4cfcce9132a28c8e0f0768d6de2cf8",
+  "screenshots": {
+    "time01-final-native.time-dark-200.png": "5c0f7867eb4aac5dff6ee3c5fdc323063bb51a386bc0e5f5adf288fc250934a6",
+    "time01-final-native.time-light.png": "d3fca47650d10432e6ab3163b53a439bceefbc9ac7b9b108fb80585ef55465d4",
+    "time01-final-native.time-picker.png": "ca810094a6e3cd6c35fcbde638c8921a423ebfffa23b0e0cae25b447a7734c74",
+    "time01-final-native.time-widget.png": "fdb7a901c76198bb76d2583cabe1a5b8146c0db14a8a064fff5c08133172650c"
+  },
+  "finalBoundaryRecheck": {
+    "time_recognition": {
+      "passed": true,
+      "seconds": 0.186214
+    },
+    "task_service": {
+      "passed": true,
+      "seconds": 1.48474
+    },
+    "time_input_ui": {
+      "passed": true,
+      "seconds": 3.60862
+    }
+  }
+}

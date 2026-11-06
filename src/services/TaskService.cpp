@@ -208,6 +208,31 @@ Task TaskService::draftForScope(const QString& view,const QDate& today,const QDa
     return t;
 }
 
+Result<Task> TaskService::createFromInput(const QString& title,const QString& view,const TimeRecognitionOptions& options,bool ignore,const QDate& date,const std::optional<TaskTimeOverride>& manual)
+{
+    const auto zone=QTimeZone::systemTimeZone();
+    RecognizedTaskTime recognized;
+    if(!ignore && manual){const auto checked=TaskTimeRecognition::manual(*manual,m_clock.nowUtc(),zone);if(!checked.ok())return {{},checked.error};recognized=checked.value;}
+    else if(!ignore)recognized=TaskTimeRecognition::parse(title,m_clock.nowUtc(),zone,options);
+    if(recognized.state==RecognizedTaskTime::State::Choice)return Result<Task>::failure(ErrorCode::ValidationError,QStringLiteral("timeInputNeedsChoice"));
+    if(recognized.state!=RecognizedTaskTime::State::Ready)return create(title,view,date);
+    Result<Task> saved;
+    const auto transaction=m_repository.atomically([&]{
+        saved=create(title,view,date);if(!saved.ok())return Result<void>{saved.error};
+        TaskPatch patch;patch.planningState=FieldPatch<QString>::set(QStringLiteral("ACTIVE"));
+        patch.todayFocus=FieldPatch<bool>::set(false);
+        if(recognized.target==QStringLiteral("deadline")){
+            patch.startOn=FieldPatch<QDate>::clear();patch.deadlineOn=FieldPatch<QDate>::set(recognized.date);
+        }else patch.startOn=FieldPatch<QDate>::set(recognized.date);
+        if(recognized.reminderUtc.isValid()){
+            patch.remindAtUtc=FieldPatch<QString>::set(recognized.reminderUtc.toString(Qt::ISODateWithMs));
+            patch.reminderZone=FieldPatch<QString>::set(QString::fromUtf8(zone.id()));
+        }
+        saved=edit(saved.value.id,saved.value.rowVersion,patch);return Result<void>{saved.error};
+    });
+    if(!transaction.ok())return {{},transaction.error};return saved;
+}
+
 Result<Task> TaskService::createWithDetails(const QString& title,const TaskPatch& patch)
 {
     Result<Task> saved;

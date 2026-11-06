@@ -31,6 +31,22 @@ class TaskWorkspaceTest : public QObject {
         return {};
     }
 private slots:
+    void quickInputPreviewSettingsAndWidgetShareRules() {
+        QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("tasks.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));
+        const auto title=QStringLiteral("明天15点联系客户");const auto preview=workspace.previewTaskInput(title);
+        QCOMPARE(preview.value("state").toString(),QStringLiteral("ready"));QCOMPARE(preview.value("date").toString(),workspace.dateOffset(1));QVERIFY(preview.value("reminder").toBool());
+        QVERIFY(workspace.createTask(title));QVERIFY(daymark::test::awaitIdle(workspace));workspace.setView("all");
+        QString id;for(const auto& item:workspace.tasks()->items())if(item.title==title)id=item.id;
+        QVERIFY(!id.isEmpty());QCOMPARE(workspace.task(id).value("startOn").toString(),workspace.dateOffset(1));QVERIFY(!workspace.task(id).value("remindAtUtc").toString().isEmpty());
+        const auto category=addWidgetCategory(workspace,"Input category");QVERIFY(!category.isEmpty());
+        QVERIFY(workspace.createWidgetTask(title,category.value("key").toString(),true,workspace.widgetProfileToken()));QVERIFY(daymark::test::awaitIdle(workspace));
+        bool found=false;for(const auto& item:workspace.tasks()->items())if(item.title==title && (item.projectId==category.value("id").toString() || item.areaId==category.value("id").toString())){found=true;QCOMPARE(item.startOn.value(),QDate::fromString(workspace.dateOffset(1),Qt::ISODate));}QVERIFY(found);
+        QVERIFY(!workspace.createTask("bad",false,{{"date",workspace.dateOffset(1)},{"time","25:00"},{"target","planned"},{"reminder",true}}));
+        QVERIFY(workspace.createTask("忽略无效草稿时间",true,{{"untrusted",true}}));QVERIFY(daymark::test::awaitIdle(workspace));
+        QVERIFY(workspace.setPreference("recognizeTaskTime",false));QCOMPARE(workspace.previewTaskInput(title).value("state").toString(),QStringLiteral("none"));
+        QVERIFY(workspace.setPreference("recognitionReminderTime","08:30"));QVERIFY(!workspace.setPreference("recognitionReminderTime","99:00"));
+        TaskWorkspace reload;reload.start(directory.filePath("tasks.sqlite"));QVERIFY(daymark::test::awaitIdle(reload));QVERIFY(!reload.preferences().value("recognizeTaskTime").toBool());QCOMPARE(reload.preferences().value("recognitionReminderTime").toString(),QStringLiteral("08:30"));
+    }
     void stalledConnectionReportsModuleAndRequestWithoutRegistering()
     {
         QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("timeout.sqlite"));

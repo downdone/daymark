@@ -107,9 +107,9 @@ Window {
         else Qt.callLater(releaseCommandInput)
     }
     function submitTask() {
-        if(addingPending || !quickTitle.text.trim().length)return
+        if(addingPending || quickTitle.inputMethodComposing || !quickTitle.text.trim().length)return
         if(!draftContext)draftContext=captureDraftContext()
-        taskError="";addingPending=workspace.createWidgetTask(quickTitle.text,draftContext.key,draftContext.todayOnly,draftContext.profile)
+        taskError="";addingPending=workspace.createWidgetTask(quickTitle.text,draftContext.key,draftContext.todayOnly,draftContext.profile,widgetTimePreview.ignored,widgetTimePreview.overrides)
         if(!addingPending){pendingBrowse=null;categoryPickerOpen=false;taskError=workspace.widgetBrowseError || workspace.errorText || qsTr("暂时无法添加，请稍后重试。")}
     }
     function openTaskMenu(id,source,position) {
@@ -631,7 +631,13 @@ Window {
                     id:footer
                     Layout.fillWidth: true
                     spacing: 4
-                    Label {objectName:"widgetDraftDestination";Layout.fillWidth:true;visible:widget.addingTask;text:widget.draftWrongProfile?qsTr("原资料中的未保存输入"):widget.draftContext?qsTr("添加到 %1 · %2").arg(widget.draftContext.title).arg(widget.draftContext.key==="today" || widget.draftContext.todayOnly?qsTr("今天"):qsTr("不设日期")):qsTr("添加到 %1").arg(widget.workspace.widgetContextTitle);font.pixelSize:Theme.captionSize;color:Theme.secondary;elide:Text.ElideRight}
+                    Label {objectName:"widgetDraftDestination";Layout.fillWidth:true;visible:widget.addingTask;text:widget.draftWrongProfile?qsTr("原资料中的未保存输入"):widget.draftContext?(widget.draftContext.key==="today"?(widgetTimePreview.hasTime?qsTr("按所选日期安排"):qsTr("添加到今天")):(widgetTimePreview.hasTime?qsTr("添加到 %1").arg(widget.draftContext.title):qsTr("添加到 %1 · %2").arg(widget.draftContext.title).arg(widget.draftContext.todayOnly?qsTr("今天"):qsTr("不设日期")))):qsTr("添加到 %1").arg(widget.workspace.widgetContextTitle);font.pixelSize:Theme.captionSize;color:Theme.secondary;elide:Text.ElideRight}
+                  InputTimePreview {
+                    id:widgetTimePreview;objectName:"widgetInputTimePreview";objectPrefix:"widgetInput"
+                    workspace:widget.workspace;rawText:quickTitle.text;composing:quickTitle.inputMethodComposing
+                    enabled:!widget.addingPending && !widget.workspace.busy && !widget.draftWrongProfile
+                    visible:widget.addingTask && rawText.trim().length>0 && !composing && summary.length>0
+                  }
                   RowLayout {
                     Layout.fillWidth:true;spacing:4
                     ActionButton {id: addTask;objectName: "widgetAdd";Layout.fillWidth:true;Layout.minimumWidth:32;contentAlignment:Qt.AlignLeft;visible:!widget.addingTask;symbol: "plus";text: qsTr("添加任务");enabled: widget.workspace.ready && !widget.workspace.busy;onClicked:{widget.categoryPickerOpen=false;widget.addingTask=true;quickTitle.forceActiveFocus()}}

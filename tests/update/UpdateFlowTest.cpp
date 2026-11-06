@@ -107,7 +107,9 @@ class UpdateFlowTest final : public QObject {
             return search.window != nullptr;
         };
         QTRY_VERIFY_WITH_TIMEOUT(locate(), 5000);
-        QVERIFY(IsWindowVisible(search.window));
+        // EnumWindows can observe CreateWindow before the host's ShowWindow.
+        // Wait for this same window to be presented; never reopen the observer.
+        QTRY_VERIFY_WITH_TIMEOUT(IsWindowVisible(search.window), 5000);
         auto *primary = GetDlgItem(search.window, 1);
         auto *secondary = GetDlgItem(search.window, 2);
         QVERIFY(primary && secondary);

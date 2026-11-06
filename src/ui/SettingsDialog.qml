@@ -229,6 +229,17 @@ ApplicationWindow {
                         SettingsToggle {separator:false;id:systemReminders;objectName:"systemRemindersPreference";text:qsTr("系统通知");checked:root.workspace.preferences.systemReminders;onClicked:root.workspace.setPreference("systemReminders",checked)}
                     }
                     SettingsGroup {
+                        heading:qsTr("快速添加")
+                        detail:qsTr("识别标题中的明确日期和时刻，保存时添加安排或提醒；原始标题保留。")
+                        SettingsToggle {objectName:"recognizeTaskTimePreference";text:qsTr("识别日期和时间");checked:root.workspace.preferences.recognizeTaskTime;onClicked:root.workspace.setPreference("recognizeTaskTime",checked)}
+                        SettingsToggle {objectName:"recognitionDateReminderPreference";text:qsTr("只有日期时也提醒");enabled:root.workspace.preferences.recognizeTaskTime;checked:root.workspace.preferences.recognitionDateReminder;onClicked:root.workspace.setPreference("recognitionDateReminder",checked)}
+                        SettingsRow {
+                            label:qsTr("默认提醒时刻");separator:false
+                            enabled:root.workspace.preferences.recognizeTaskTime && root.workspace.preferences.recognitionDateReminder
+                            TimeField {objectName:"recognitionReminderTimePreference";Layout.fillWidth:true;text:root.workspace.preferences.recognitionReminderTime;timeLabel:qsTr("日期任务默认提醒时刻");onTimeChosen:root.workspace.setPreference("recognitionReminderTime",text);onEditingFinished:if(!root.workspace.setPreference("recognitionReminderTime",text))text=root.workspace.preferences.recognitionReminderTime}
+                        }
+                    }
+                    SettingsGroup {
                         heading:qsTr("备份与数据")
                         detail:qsTr("启动时检查，保留最近7份一致性快照。")
                         SettingsRow {

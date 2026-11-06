@@ -1000,10 +1000,16 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     placeholderText: mainWindow.taskWorkspace.view === "upcoming" || mainWindow.taskWorkspace.view === "scheduled" ? qsTr("新增任务（默认安排明天）") : qsTr("输入任务标题，Enter 添加")
                     selectByMouse: true
-                    onAccepted: mainWindow.taskWorkspace.createTask(text)
+                    onAccepted: if(!inputMethodComposing)mainWindow.taskWorkspace.createTask(text,mainTimePreview.ignored,mainTimePreview.overrides)
                     Keys.onEscapePressed: taskList.forceActiveFocus()
                 }
-                WidgetAction {objectName: "quickAddTask";symbol: "plus";description: qsTr("添加任务");enabled: !mainWindow.taskWorkspace.busy && newTitle.text.trim().length>0;onClicked: mainWindow.taskWorkspace.createTask(newTitle.text) }
+                WidgetAction {objectName: "quickAddTask";symbol: "plus";description: qsTr("添加任务");enabled: !mainWindow.taskWorkspace.busy && newTitle.text.trim().length>0;onClicked: if(!newTitle.inputMethodComposing)mainWindow.taskWorkspace.createTask(newTitle.text,mainTimePreview.ignored,mainTimePreview.overrides) }
+            }
+            InputTimePreview {
+                id:mainTimePreview;objectName:"mainInputTimePreview";objectPrefix:"mainInput"
+                workspace:mainWindow.taskWorkspace;rawText:newTitle.text;composing:newTitle.inputMethodComposing
+                enabled:!mainWindow.taskWorkspace.busy
+                visible:mainWindow.taskContentVisible && ["completed","trash","logbook","cancelled"].indexOf(mainWindow.taskWorkspace.view)<0 && rawText.trim().length>0 && !composing && summary.length>0
             }
             Label {
                 visible: mainWindow.taskContentVisible && mainWindow.taskWorkspace.view==="someday" && mainWindow.taskWorkspace.tasks.count>0

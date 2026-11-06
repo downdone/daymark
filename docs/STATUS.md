@@ -8,3 +8,5 @@
 - Linux/macOS按用户指示跳过；本机CDN超时、他机网络现场及物理/长时矩阵保持明确边界。
 
 当前事实、资产身份、证据与剩余边界统一见[PROGRESS](PROGRESS.md)；下载见[2.0.2 Release](https://github.com/downdone/daymark/releases/tag/v2.0.2)。旧状态页与逐轮原文已完整保留在[历史](PROGRESS-HISTORY.md)，不再作为当前待办。
+
+TIME-01智能时间输入及新增能力设计标准已本地完成，尚未发布；具体评审与验证边界见[PROGRESS](PROGRESS.md)。

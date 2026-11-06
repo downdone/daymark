@@ -93,6 +93,7 @@ int main(int argc, char* argv[])
     parser.addOption({QStringLiteral("contextual-workspace-smoke"),QStringLiteral("Check the shared task inspector with an isolated synthetic fixture.")});
     parser.addOption({QStringLiteral("continuous-calendar-smoke"),QStringLiteral("Check continuous calendar with an isolated synthetic fixture.")});
     parser.addOption({QStringLiteral("calendar-interaction-smoke"),QStringLiteral("Check desktop calendar pointer and keyboard interactions with an isolated fixture.")});
+    parser.addOption({QStringLiteral("time-input-smoke"),QStringLiteral("Verify smart time input using isolated synthetic data.")});
     parser.addOption({QStringLiteral("desktop-surfaces-smoke"),QStringLiteral("Check floating, mini and desktop calendar with an isolated synthetic fixture.")});
     parser.addOption({QStringLiteral("task-list-smoke"),QStringLiteral("Check desktop selection and task menus with an isolated synthetic fixture.")});
     parser.addOption({QStringLiteral("data-dir"), QStringLiteral("Use an explicit local data directory."), QStringLiteral("directory")});
@@ -110,7 +111,7 @@ int main(int argc, char* argv[])
             std::fprintf(stderr,"Invalid stability options: use 10..43200 seconds, a new report path in an existing directory, and no --data-dir.\n");return 2;
         }
     } else if(parser.isSet(QStringLiteral("soak-report"))) {std::fprintf(stderr,"--soak-report requires --soak-seconds.\n");return 2;}
-    const bool verification=parser.isSet(QStringLiteral("update-preflight")) || parser.isSet(QStringLiteral("calendar-interaction-smoke")) || parser.isSet(QStringLiteral("desktop-surfaces-smoke")) || parser.isSet(QStringLiteral("task-list-smoke")) || parser.isSet(QStringLiteral("smoke-test")) || parser.isSet(QStringLiteral("continuous-calendar-smoke")) || parser.isSet(QStringLiteral("contextual-workspace-smoke")) || soakSeconds>0;
+    const bool verification=parser.isSet(QStringLiteral("time-input-smoke")) || parser.isSet(QStringLiteral("update-preflight")) || parser.isSet(QStringLiteral("calendar-interaction-smoke")) || parser.isSet(QStringLiteral("desktop-surfaces-smoke")) || parser.isSet(QStringLiteral("task-list-smoke")) || parser.isSet(QStringLiteral("smoke-test")) || parser.isSet(QStringLiteral("continuous-calendar-smoke")) || parser.isSet(QStringLiteral("contextual-workspace-smoke")) || soakSeconds>0;
     // The legacy full probe inspects QML menu geometry across timer phases.
     // Native menu loops are covered by the separate desktop menu fixtures.
     if(verification && (parser.isSet(QStringLiteral("smoke-test")) || qEnvironmentVariableIsSet("DAYMARK_SMOKE_MENU_FALLBACK")))
@@ -120,7 +121,7 @@ int main(int argc, char* argv[])
     daymark::StartupUpdateGate updateGate;
     if(!verification && !updateGate.acquire(parser.value(QStringLiteral("update-handoff")),QCoreApplication::applicationVersion())){qCritical()<<updateGate.error();return 40;}
     daymark::AppRuntime runtime;
-    if (!runtime.start(verification,parser.value(QStringLiteral("data-dir")),parser.value(QStringLiteral("screenshot")),soakSeconds,parser.value(QStringLiteral("soak-report")),parser.isSet(QStringLiteral("update-preflight"))?QStringLiteral("update-preflight"):parser.isSet(QStringLiteral("calendar-interaction-smoke"))?QStringLiteral("calendar"):parser.isSet(QStringLiteral("desktop-surfaces-smoke"))?QStringLiteral("desktop"):parser.isSet(QStringLiteral("task-list-smoke"))?QStringLiteral("selection"):parser.isSet(QStringLiteral("continuous-calendar-smoke"))?QStringLiteral("continuous"):parser.isSet(QStringLiteral("contextual-workspace-smoke"))?QStringLiteral("contextual"):QString(),&updateGate))
+    if (!runtime.start(verification,parser.value(QStringLiteral("data-dir")),parser.value(QStringLiteral("screenshot")),soakSeconds,parser.value(QStringLiteral("soak-report")),parser.isSet(QStringLiteral("time-input-smoke"))?QStringLiteral("time-input"):parser.isSet(QStringLiteral("update-preflight"))?QStringLiteral("update-preflight"):parser.isSet(QStringLiteral("calendar-interaction-smoke"))?QStringLiteral("calendar"):parser.isSet(QStringLiteral("desktop-surfaces-smoke"))?QStringLiteral("desktop"):parser.isSet(QStringLiteral("task-list-smoke"))?QStringLiteral("selection"):parser.isSet(QStringLiteral("continuous-calendar-smoke"))?QStringLiteral("continuous"):parser.isSet(QStringLiteral("contextual-workspace-smoke"))?QStringLiteral("contextual"):QString(),&updateGate))
         return runtime.startupExitCode();
     const auto code=app.exec();
     daymark::diagnostics::event("startup","event_loop.exited",{{"exit_code",code}});

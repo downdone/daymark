@@ -18,6 +18,7 @@
 #include "sync/Journal.h"
 #include <QUrl>
 #include <QSettings>
+#include <QRegularExpression>
 #include <QDir>
 #include <QFileInfo>
 #include <QCryptographicHash>
@@ -250,6 +251,7 @@ void TaskWorkspace::start(const QString& path) {
     for(auto it=m_preferences.begin();it!=m_preferences.end();++it) {
         const auto stored=settings.value(QStringLiteral("preferences/")+it.key(),it.value());
         if(it.key()==QStringLiteral("backupDays")){const int days=stored.toInt();if(days==1 || days==7 || days==30)it.value()=days;}
+        else if(it.key()==QStringLiteral("recognitionReminderTime")){if(QRegularExpression(QStringLiteral("^([01][0-9]|2[0-3]):[0-5][0-9]$")).match(stored.toString()).hasMatch())it.value()=stored.toString();}
         else if(it.key()==QStringLiteral("desktopCalendarOpacity")){const int opacity=stored.toInt();if(opacity>=50 && opacity<=100)it.value()=opacity;}
         else if(it.key()==QStringLiteral("calendarScale") || it.key()==QStringLiteral("desktopCalendarScale")){if(QStringList{"day","week","month","year"}.contains(stored.toString()))it.value()=stored;}
         else if(stored.metaType().id()==QMetaType::Bool)it.value()=stored;
@@ -448,10 +450,43 @@ QVariantList TaskWorkspace::parentTaskChoices(const QString& taskId,const QStrin
     }
     return result;
 }
-bool TaskWorkspace::createTask(const QString& title)
+namespace {
+TimeRecognitionOptions recognitionOptions(const QVariantMap& preferences) {
+    return {preferences.value("recognizeTaskTime").toBool(),preferences.value("recognitionDateReminder").toBool(),QTime::fromString(preferences.value("recognitionReminderTime").toString(),QStringLiteral("HH:mm"))};
+}
+Result<std::optional<TaskTimeOverride>> inputOverride(const QVariantMap& timing) {
+    if(timing.isEmpty())return {};
+    const QSet<QString> keys{QStringLiteral("date"),QStringLiteral("time"),QStringLiteral("target"),QStringLiteral("reminder")};
+    for(auto it=timing.begin();it!=timing.end();++it)if(!keys.contains(it.key()))return Result<std::optional<TaskTimeOverride>>::failure(ErrorCode::ValidationError,QStringLiteral("timeOverrideInvalid"));
+    TaskTimeOverride result;result.date=QDate::fromString(timing.value("date").toString(),Qt::ISODate);
+    result.time=QTime::fromString(timing.value("time").toString(),QStringLiteral("HH:mm"));
+    result.target=timing.value("target").toString();result.reminder=timing.value("reminder").toBool();
+    if(!result.date.isValid() || (!timing.value("time").toString().isEmpty() && !result.time.isValid()) || timing.value("reminder").metaType().id()!=QMetaType::Bool || (result.target!="planned" && result.target!="deadline"))return Result<std::optional<TaskTimeOverride>>::failure(ErrorCode::ValidationError,QStringLiteral("timeOverrideInvalid"));
+    return {result,{}};
+}
+}
+QVariantMap TaskWorkspace::previewTaskInput(const QString& title) const
 {
-    const auto view=calendarMode()?m_scope:m_view;
-    return runTask(QStringLiteral("create"),[title,view](TaskWorker& w){return w.service->create(title,view);});
+    const auto result=TaskTimeRecognition::parse(title,m_clock.nowUtc(),QTimeZone::systemTimeZone(),recognitionOptions(m_preferences));
+    const auto state=result.state==RecognizedTaskTime::State::Ready?QStringLiteral("ready"):result.state==RecognizedTaskTime::State::Choice?QStringLiteral("choice"):QStringLiteral("none");
+    const auto date=result.date.toString(Qt::ISODate),time=result.time.toString(QStringLiteral("HH:mm"));
+    QString summary;
+    if(state=="ready")summary=(result.target=="deadline"?tr("截止 "):tr("计划 "))+date+(time.isEmpty()?QString():QStringLiteral(" ")+time)+(result.reminderUtc.isValid()?tr(" · 届时提醒"):tr(" · 不提醒"));
+    else if(state=="choice") {
+        if(result.reason==QStringLiteral("timePast"))summary=tr("时刻已过，请修改或忽略时间");
+        else if(result.reason==QStringLiteral("timeDateInvalid"))summary=tr("日期无效，请修改或忽略时间");
+        else if(result.reason==QStringLiteral("timeClockInvalid"))summary=tr("时刻无效，请修改或忽略时间");
+        else if(result.reason==QStringLiteral("timeZoneAmbiguous"))summary=tr("时刻存在时区歧义，请修改或忽略时间");
+        else summary=tr("时间不明确，请选择或忽略");
+    }
+    QVariantList spans;for(const auto& span:result.spans)spans.append(QVariantMap{{"start",span.first},{"length",span.second}});
+    return {{"format",1},{"state",state},{"reason",result.reason},{"date",date},{"time",time},{"target",result.target},{"reminder",result.reminderUtc.isValid()},{"summary",summary},{"spans",spans}};
+}
+bool TaskWorkspace::createTask(const QString& title,bool ignoreTime,const QVariantMap& timing)
+{
+    const auto selected=ignoreTime?Result<std::optional<TaskTimeOverride>>{}:inputOverride(timing);if(!selected.ok()){m_error=selected.error;emit stateChanged();return false;}
+    const auto view=calendarMode()?m_scope:m_view;const auto options=recognitionOptions(m_preferences);
+    return runTask(QStringLiteral("create"),[title,view,options,ignoreTime,manual=selected.value](TaskWorker& w){return w.service->createFromInput(title,view,options,ignoreTime,{},manual);});
 }
 void TaskWorkspace::loadWidgetBrowsePreferences()
 {
@@ -568,13 +603,15 @@ bool TaskWorkspace::moveWidgetShortcut(const QString& key,int direction)
     if((direction!=-1 && direction!=1) || row<0 || target<0 || target>=visible.size())return false;
     m_widgetShortcutKeys.move(m_widgetShortcutKeys.indexOf(key),m_widgetShortcutKeys.indexOf(visible[target].toMap().value("key").toString()));saveWidgetBrowsePreferences();emit widgetBrowseChanged();return true;
 }
-bool TaskWorkspace::createWidgetTask(const QString& title,const QString& context,bool todayOnly,const QString& profileToken)
+bool TaskWorkspace::createWidgetTask(const QString& title,const QString& context,bool todayOnly,const QString& profileToken,bool ignoreTime,const QVariantMap& timing)
 {
     if(profileToken!=m_widgetProfileToken){m_widgetNotice=tr("资料已切换，原输入未保存。请返回原资料，或复制内容后清空输入。");emit widgetBrowseChanged();return false;}
     if(context!=QStringLiteral("today") && std::none_of(m_widgetCatalog.cbegin(),m_widgetCatalog.cend(),[&](const QVariant& item){return item.toMap().value("key")==context;})){
         m_widgetNotice=tr("输入所属分类已不可用，内容尚未保存。请复制后重新选择分类。");emit widgetBrowseChanged();return false;
     }
-    return runTask(QStringLiteral("widgetCreate"),[title,context,todayOnly](TaskWorker& w){return w.service->create(title,context,todayOnly && context!=QStringLiteral("today")?w.clock.localToday():QDate());});
+    const auto selected=ignoreTime?Result<std::optional<TaskTimeOverride>>{}:inputOverride(timing);if(!selected.ok()){m_error=selected.error;emit stateChanged();return false;}
+    const auto options=recognitionOptions(m_preferences);
+    return runTask(QStringLiteral("widgetCreate"),[title,context,todayOnly,options,ignoreTime,manual=selected.value](TaskWorker& w){return w.service->createFromInput(title,context,options,ignoreTime,todayOnly && context!=QStringLiteral("today")?w.clock.localToday():QDate(),manual);});
 }
 bool TaskWorkspace::canDropWidgetTask(const QString& source,const QString& target) const
 {
@@ -721,11 +758,13 @@ void TaskWorkspace::setHistoryDays(int days)
 {if(days!=0 && days!=7 && days!=30)return;m_historyDays=days;refresh(false);emit stateChanged();}
 bool TaskWorkspace::setPreference(const QString& key,const QVariant& value)
 {
+    if(key==QStringLiteral("recognitionReminderTime") && !QRegularExpression(QStringLiteral("^([01][0-9]|2[0-3]):[0-5][0-9]$")).match(value.toString()).hasMatch())return false;
+    if((key==QStringLiteral("recognizeTaskTime") || key==QStringLiteral("recognitionDateReminder")) && value.metaType().id()!=QMetaType::Bool)return false;
     if(!m_preferences.contains(key))return false;
     if(key==QStringLiteral("backupDays")){const int days=value.toInt();if(days!=1 && days!=7 && days!=30)return false;}
     else if(key==QStringLiteral("desktopCalendarOpacity")){bool ok=false;const int opacity=value.toInt(&ok);if(!ok || opacity<50 || opacity>100)return false;}
     else if(key==QStringLiteral("calendarScale") || key==QStringLiteral("desktopCalendarScale")){if(!QStringList{"day","week","month","year"}.contains(value.toString()))return false;}
-    else if(value.metaType().id()!=QMetaType::Bool)return false;
+    else if(key!=QStringLiteral("recognitionReminderTime") && value.metaType().id()!=QMetaType::Bool)return false;
     const bool calendarLayer=key==QStringLiteral("desktopCalendarPinned") || key==QStringLiteral("desktopCalendarTopmost");
     auto next=m_preferences;next[key]=value;
     if(calendarLayer && value.toBool())next[key==QStringLiteral("desktopCalendarPinned")?QStringLiteral("desktopCalendarTopmost"):QStringLiteral("desktopCalendarPinned")]=false;
@@ -840,6 +879,9 @@ bool TaskWorkspace::verifyStorage()
 void TaskWorkspace::clearError(){m_error={};m_info.clear();emit stateChanged();}
 QString TaskWorkspace::errorText() const
 {
+    if(m_error.key==QStringLiteral("timeInputNeedsChoice"))return tr("时间未能确定，输入已保留。请修改时间，或点“忽略”后保存原文。");
+    if(m_error.key==QStringLiteral("timeOverrideInvalid"))return tr("时间选择无效，请重新选择日期和时间。");
+    if(m_error.key==QStringLiteral("timeReminderInvalid"))return tr("提醒时间已过或在该时区不存在，请重新选择。");
     if(m_error.code==ErrorCode::None)return {};
     const auto& key=m_error.key;
     if(key==QStringLiteral("syncReplaceSeparateProfile"))return tr("账号资料支持合并导入。替换恢复请使用独立本地资料，避免覆盖服务器及其他设备的数据。");

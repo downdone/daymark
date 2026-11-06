@@ -21,7 +21,7 @@
 |---|---|
 | [环境与构建](environment.md) | Qt Kit、环境变量、Windows/macOS 命令 |
 | [工程方法](engineering.md) | 人机协作流程、任务状态、验证层级 |
-| [工程原则](principles.md) | P-01～P-21，含 Apple HIG 约束（P-13） |
+| [工程原则](principles.md) | P-01～P-22，含 Apple HIG 约束（P-13） |
 | [测试方法](testing-method.md) | 测试分层、标签、fast/ui/full、链路责任 |
 | [全局日志与底层诊断](design/runtime-diagnostics.md) | 本地日志入口、轮换、脱敏、Qt/TLS错误与请求关联 |
 | [性能与内存策略](design/performance-and-memory.md) | 基线、分层分析、逐项优化与内存证据 |
@@ -30,13 +30,15 @@
 | [发布规则](release-policy.md) | 版本、标签、源码与二进制门禁 |
 | [第三方说明](third-party-notices.md) | Qt/SQLite/MinGW 许可与再分发义务 |
 
+新增能力先读[设计与评审标准](design/new-capability-standard.md)，使用[设计模板](templates/capability-design.md)。
+
 ## 3. 设计契约（现行）
 
 ### 3.1 界面与视觉
 [品牌接入契约](design/brand-identity-integration.md) · [现行母版](../assets/brand/current/README.md) · [完整VI与PDF](../resource/VI/README.md) · [UI/UX 设计基准](design/ui-baseline.md) · [验收与迁移](design/ui-acceptance.md) · [官方调研](design/ui-research.md) · [全局视觉系统](design/global-visual-system.md) · [排版与比例留白](design/typography-and-proportional-spacing.md) · [空间稳定与滚动槽](design/stable-layout-and-scroll.md) · [提示与垂直节奏](design/tooltip-and-layout-rhythm.md) · [全菜单](design/menu-system-review.md) · [侧栏与字标](design/sidebar-and-wordmark.md) · [两栏设置](design/settings-split-navigation.md) · [详情尺寸](design/inspector-size-control.md)
 
 ### 3.2 任务与列表
-[统一任务系统](design/unified-task-system.md) · [提醒事项式列表](design/reminders-list-refinement.md) · [列表布局与编辑节奏](design/list-layout-and-editing-rhythm.md) · [双击原行草稿](design/list-double-click-draft.md) · [就近任务面板](design/contextual-task-inspector.md) · [任务列表交互](design/task-list-interaction-review.md) · [桌面密度](design/desktop-density-review.md)
+[智能时间输入](design/task-time-recognition.md) · [统一任务系统](design/unified-task-system.md) · [提醒事项式列表](design/reminders-list-refinement.md) · [列表布局与编辑节奏](design/list-layout-and-editing-rhythm.md) · [双击原行草稿](design/list-double-click-draft.md) · [就近任务面板](design/contextual-task-inspector.md) · [任务列表交互](design/task-list-interaction-review.md) · [桌面密度](design/desktop-density-review.md)
 
 ### 3.3 日历与时间
 [日历工作区 v2](design/calendar-workspace-v2.md) · [连续月历](design/continuous-month-calendar.md) · [日历创建与密度](design/calendar-creation-and-density.md) · [直接时段选择](design/direct-time-range-picker.md) · [年定位与尺寸](design/year-tags-and-calendar-sizing.md) · [macOS 日历操作](design/macos-calendar-interaction.md) · [重复周期](design/repeat-choice-popover.md)
@@ -49,7 +51,7 @@
 
 ## 4. 决策记录
 
-[ADR 索引](ADR/README.md)：007～033，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
+[ADR 索引](ADR/README.md)：007～034，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
 
 ## 5. 交付与运维
 

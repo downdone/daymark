@@ -1,5 +1,6 @@
 #pragma once
 #include "domain/Task.h"
+#include "services/TaskTimeRecognition.h"
 #include <QSet>
 #include "persistence/TaskRepository.h"
 #include "services/CatalogService.h"
@@ -23,6 +24,7 @@ public:
     TaskService(TaskRepository& repository, const IClock& clock, CatalogService* catalog=nullptr) : m_repository(repository), m_clock(clock),m_catalog(catalog) {}
     Result<Task> create(const QString& title, const QString& view = QStringLiteral("inbox"),const QDate& date={},const std::optional<TaskSchedule>& schedule={});
     static Task draftForScope(const QString& view,const QDate& today,const QDate& date={},const std::optional<TaskSchedule>& schedule={});
+    Result<Task> createFromInput(const QString& title,const QString& view,const TimeRecognitionOptions& options={},bool ignore=false,const QDate& date={},const std::optional<TaskTimeOverride>& manual={});
     Result<Task> createWithDetails(const QString& title,const TaskPatch& patch);
     Result<Task> createSubtask(const QString& title,const QString& parentId);
     Result<Task> edit(const QString& id, qint64 version, const TaskPatch& patch);
