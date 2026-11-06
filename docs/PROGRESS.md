@@ -27,6 +27,8 @@ UPD-06工具链恢复：合成地址复现了配置后立即删除URL文件会�
 
 ## 当前功能清单
 
+CRT轻量预检run42159792181实际列出VS2022 CRT 14.44.35211.0十个文件，唯一未审查文件为`vcruntime140_threads.dll`，故此前白名单拒绝。已明确加入该Microsoft.VC143.CRT成员，继续要求每个文件有效微软签名、14.3x/14.4x、PE x64和复制后散列；没有放宽成任意DLL/跳过签名。接下来用同一v2.0.1/9e5ead1固定源码、更新主分支工具执行完整重建；前置CRT审计成功才开始编译。
+
 UPD-06自签名切片：自有P-256公钥`daymark-d3fe49dbd972`已编入生产宿主，独立RSA3072证书仅CurrentUser/My，私钥/PFX/密码以CurrentUser DPAPI和owner/SYSTEM-only ACL封存。四个真实程序副本自签名与固定指纹验签PASS；改PE代码得到`TRUST_E_BAD_DIGEST 0x80096010`并拒绝，错pin/无签名拒绝，两处Root库前后不变，`self-signing-verification-final.log`。公共信任仍false，没有安装根证书。
 
 自有密钥签署221文件本地验证包：生产CLI凭内置公钥初始化PASS；改清单、错签名域、错key、改payload均拒绝且零current指针；完整Qt运行库/隔离环境的`--update-preflight`退出0，`build/github-enable/owned-key-package-check/report.json`。该包明确local-fixture、合成GitHub ID，不能上传为正式包，不冒充公网升级/干净机。Release可信公钥构建PASS，更新4/4 CTest PASS（21.05秒），7项发布策略与14项元数据PASS，Python→PowerShell真实四文件签名门禁PASS；脚本/YAML解析PASS。源码仅公钥/固定指纹，不含证书或私钥；正式完整测试与独立部署门禁继续要求true。

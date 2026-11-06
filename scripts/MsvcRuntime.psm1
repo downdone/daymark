@@ -36,7 +36,7 @@ function Copy-DaymarkMsvcRuntime([string]$Destination) {
     $target = (Get-Item -LiteralPath $Destination -Force).FullName
     $allowed = @('concrt140.dll','msvcp140.dll','msvcp140_1.dll','msvcp140_2.dll',
         'msvcp140_atomic_wait.dll','msvcp140_codecvt_ids.dll','vccorlib140.dll',
-        'vcruntime140.dll','vcruntime140_1.dll')
+        'vcruntime140.dll','vcruntime140_1.dll','vcruntime140_threads.dll')
     $files = @(Get-ChildItem -LiteralPath $source -Force)
     foreach ($required in @('msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll')) {
         if ($required -notin $files.Name) { throw "Required release runtime missing: $required" }
