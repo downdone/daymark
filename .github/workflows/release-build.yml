@@ -214,8 +214,10 @@ jobs:
       - name: Build
         shell: pwsh
         run: |
-          cmake --build build/release --config Release --target daymark-update-cli daymark-bootstrap daymark-updater --parallel 4
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (Test-Path src/update/CMakeLists.txt) {
+            cmake --build build/release --config Release --target daymark-update-cli daymark-bootstrap daymark-updater --parallel 4
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
           cmake --build build/release --config Release --parallel 4
       - name: Test
         shell: bash

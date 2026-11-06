@@ -93,6 +93,9 @@ jobs:
             $certificate = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $env:CODE_SIGNING_PASSWORD -AsPlainText -Force)
             $pin = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($certificate.RawData)).ToLowerInvariant()
             if ($pin -cne $policy.certificate_sha256) { throw 'Signing certificate does not match reviewed pin' }
+            foreach ($store in @('Cert:\CurrentUser\Root','Cert:\CurrentUser\TrustedPublisher','Cert:\LocalMachine\Root')) {
+              if (Test-Path -LiteralPath "$store\$($certificate.Thumbprint)") { throw 'Self-signed publisher must not be installed in a system trust store' }
+            }
             $tools = @(Get-ChildItem 'C:/Program Files (x86)/Windows Kits/10/bin' -Directory | Where-Object { $_.Name -match '^10\.0\.\d+\.0$' } | Sort-Object { [version]$_.Name } -Descending)
             $tool = @($tools | ForEach-Object { Join-Path $_.FullName 'x64/signtool.exe' } | Where-Object { Test-Path -LiteralPath $_ }) | Select-Object -First 1
             if (!$tool) { throw 'Windows SDK signing tool unavailable' }

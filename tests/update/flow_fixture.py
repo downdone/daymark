@@ -78,6 +78,7 @@ def main():
     args=parser.parse_args();args.work.mkdir(parents=True,exist_ok=True)
     real=bool(args.old_payload)
     cli=args.bin/'daymark-update-cli.exe'
+    runtime=json.loads(run([cli,'capabilities']))['runtime']
     fixture_cli=args.bin/'test_update_cli.exe'
     key=args.work/'signing'
     run([cli,'keygen',key])
@@ -131,7 +132,7 @@ def main():
             else:
                 payload.mkdir();shutil.copy2(args.bin/('test_update_payload_old.exe' if version=='2.0.0' else 'test_update_payload_new.exe'),payload/'daymark.exe')
             (payload/'preserve-indexed.txt').write_text('original signed file',encoding='utf-8')
-            command=[sys.executable,args.repo/'scripts/package-update.py','--payload',payload,'--launcher',args.bin/'test_update_bootstrap.exe','--updater',args.bin/'daymark-updater.exe','--cli',fixture_cli,'--key',key/'private.json','--output',args.work/('release-'+version),'--version',version,'--source',source,'--runtime','mingw131','--runtime-min','bundled','--min-windows-build','19045','--release-id','123','--asset-id','1003','--local-fixture']
+            command=[sys.executable,args.repo/'scripts/package-update.py','--payload',payload,'--launcher',args.bin/'test_update_bootstrap.exe','--updater',args.bin/'daymark-updater.exe','--cli',fixture_cli,'--key',key/'private.json','--output',args.work/('release-'+version),'--version',version,'--source',source,'--runtime',runtime,'--runtime-min','bundled','--min-windows-build','19045','--release-id','123','--asset-id','1003','--local-fixture']
             if version=='2.0.0':
                 command+=['--extract',root]
             run(command,timeout=90)

@@ -1,6 +1,6 @@
 # Daymark 当前进度
 
-更新：2026-11-06。当前版本 **2.0.1源码候选 / schema10 / HTTP JSON v1 / Qt6.10.2**。本文件只维护现行状态；逐轮原始证据保留在[历史记录](PROGRESS-HISTORY.md)，旧过程标题不再充当未完成任务。
+更新：2026-11-06。当前版本 **2.0.2源码候选 / schema10 / HTTP JSON v1 / Qt6.10.2**。本文件只维护现行状态；逐轮原始证据保留在[历史记录](PROGRESS-HISTORY.md)，旧过程标题不再充当未完成任务。
 
 ## 本轮范围
 
@@ -12,7 +12,7 @@
 
 | 顺序 | 事项 | 状态 |
 |---|---|---|
-| G0 | 核对远端、认证与正式发布缺口 | DONE：已明确选择downdone账号，API确认admin权限；远端main与四个旧tag已复核，2.0.1/2.0.2未占用 |
+| G0 | 核对远端、认证与正式发布缺口 | DONE：已明确选择downdone账号，API确认admin权限；远端main与四个旧tag已复核，v2.0.1已固定9e5ead1，v2.0.2尚未创建 |
 | G1 | 信任密钥、受控环境与干净Windows候选验证 | IN_PROGRESS：自有P-256和自签名代码证书已生成并真实验证；独立Windows CI候选与受保护Secrets配置待继续，未冒充干净机/公共信任 |
 | G2 | 两个递增版本构建与不可变发布 | TODO：依次2.0.1引导包、2.0.2升级包；main编译通过后创建各自不可变标签 |
 | G3 | 匿名资源验证与真实GitHub Qt升级链 | TODO：本地夹具证据不替代公开资源端到端 |
@@ -24,6 +24,8 @@
 UPD-06远端首轮959e678：源码/隐私守卫与Go服务及真实Qt→Go TLS同步整条CI成功（run42155203595）；Windows完整构建run42155203610因Engine.cpp遗漏cwctype而MSVC C2039失败，未创建tag。补显式algorithm/cctype/cwctype/limits头；本机独立原生MSVC构建另查出manifest资源重复，改保留手写asInvoker/DPI资源、关闭MSVC重复生成；子项目独立UTF8编译固定。本机VS18/MSVC19.52（不冒充CI VS2022）三宿主编译及SDK/真实CNG两项CTest通过0.72秒，导入表OS-only、实际嵌入asInvoker/PerMonitorV2/CommonControls manifest均通过；日志msvc-native-manifest-final.log，原失败保留。修复提交9e5ead1及annotated v2.0.1已推送；main完整CI和同步CI成功。tag候选run42157174276完整构建/CTest/lint通过，但Package被CRT未知文件白名单拒绝，零资产上传。正式发行仍依赖候选打包、签名与独立部署。
 
 UPD-06工具链恢复：合成地址复现了配置后立即删除URL文件会触发CMake自动重配并将官方地址置空；已改为保留至测试/打包后always清理，二进制必须含经规范化的Secret地址且元数据显式true。新增仅主分支调度的固定tag重建，源码SHA与工具SHA分别记录/验收；新候选仍完整测试，旧tag/资产不覆盖。CRT预检前置，可只运行轻量审计以取得真实未知文件名，不为该问题盲目重复20分钟完整构建。新增10项来源/发布策略与8项恢复守卫通过；重建的工具修复提交仅跳过重复普通push CI，受控重建仍执行完整正式门禁。
+
+2.0.2准备：本地全部源文件已编译，最终链接因本轮早先带--version的开发版进程占用daymark.exe而Permission denied；没有强杀或覆盖，已请用户保存后退出，CI工作继续。更新组件4/4通过22.21秒，15项发行/10项发布策略/8项恢复/2项PE守卫通过，Markdown198份链接通过。恢复run42160035601的CRT十文件真实签名/架构/版本预检成功，当前完整测试中。下一版源代码保持同schema/ABI，仅合并发行工具修复、版本号及夹具真实运行库标注；其全量测试仍由新tag流水线完成。
 
 ## 当前功能清单
 
