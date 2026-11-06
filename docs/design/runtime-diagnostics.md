@@ -10,6 +10,8 @@ OBS-01，2026-11-05。用户要求错误码不足时可直接定位到底层，�
 
 更新器日志在安装根目录`update-state/logs`，单进程最多约2MiB及一条有界记录，保留最近20份并跳过仍运行的进程；应用日志阈值同样允许最后一条有界记录越过阈值，下一条轮换。受限候选启动在COMMIT前只允许写诊断文件，不因此开放业务资料写入。DLL缺失等进入main之前的系统加载失败无法由应用日志捕获；Qt致命消息同步落盘，但不声称捕获任意崩溃或系统断电。
 
+启动锁故障使用实际Win32结果分类：`update.instance_busy`仅表示字节锁冲突（33）；`update.lock_access_denied`表示拒绝访问/写保护（5/19）；`update.lock_file_in_use`表示打开锁文件时共享模式冲突（32）；其他分别为`update.lock_open_failed`/`update.lock_failed`。SDK结果保留`platform_error`，原生弹窗显示数值。`lock.failed`日志记录open/acquire阶段和launch/runtime/state/prepare/job固定资源名，不记录安装绝对路径；根启动器追加`bootstrap.failed`。整个目录无写权限时日志可能无法落盘，弹窗仍须给出错误码。正常launch门最多等待10秒，权限/共享错误不重试，不建议删除资料或锁文件。
+
 ## 网络证据
 
 每次完成的请求记录：组合码、原业务key、HTTP状态、Qt NetworkError整数/枚举名、脱敏errorString、TLS错误整数/枚举名、已观察阶段、耗时、配置预算、请求ID、Qt/TLS后端/系统/应用版本和服务地址指纹。服务地址指纹只用于比较两台客户端是否连接同一构建配置，不包含明文URL。

@@ -2,6 +2,7 @@
 #include <cctype>
 #include <cwctype>
 #include "Ipc.h"
+#include "FileLease.h"
 #include "UpdateTrust.h"
 #include <algorithm>
 #include <chrono>
@@ -96,18 +97,38 @@ struct Archive {
     ~Archive() { mz_zip_reader_end(&zip); }
 };
 } // namespace
-FileLock::FileLock(const fs::path &p, bool exclusive, bool wait) {
+FileLock::FileLock(const fs::path &p, bool exclusive, DWORD timeoutMs) {
     noLinks(p);
-    fs::create_directories(p.parent_path());
+    auto reject = [&](DWORD error, bool opening) {
+        const auto key = lockErrorKey(error, opening);
+        if (p.parent_path().filename() == "locks" &&
+            p.parent_path().parent_path().filename() == "update-state") {
+            // Only fixed resource names are logged, never the installation path.
+            const auto resource = utf8(p.filename().native());
+            if (resource == "launch" || resource == "runtime" || resource == "state" ||
+                resource == "prepare" || resource == "job")
+                logEvent(p.parent_path().parent_path().parent_path(),
+                         {{"event", "lock.failed"}, {"error", key},
+                          {"platform_error", error}, {"stage", opening ? "open" : "acquire"},
+                          {"resource", resource}});
+        }
+        Failure failure(key, error == ERROR_LOCK_VIOLATION && !opening ? 30 : 31);
+        failure.platformError = error;
+        throw failure;
+    };
+    std::error_code directoryError;
+    fs::create_directories(p.parent_path(), directoryError);
+    if (directoryError)
+        reject(static_cast<DWORD>(directoryError.value()), true);
     noLinks(p.parent_path());
     handle = Handle(CreateFileW(p.c_str(), GENERIC_READ | GENERIC_WRITE,
                                 FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
                                 FILE_ATTRIBUTE_NORMAL, nullptr));
-    if (!handle || !LockFileEx(handle.value,
-                               (exclusive ? LOCKFILE_EXCLUSIVE_LOCK : 0) |
-                                   (wait ? 0 : LOCKFILE_FAIL_IMMEDIATELY),
-                               0, 1, 0, &overlapped))
-        fail("update.instance_busy", 30);
+    if (!handle)
+        reject(GetLastError(), true);
+    const auto error = acquireByteLock(handle.value, exclusive, overlapped, timeoutMs);
+    if (error != ERROR_SUCCESS)
+        reject(error, false);
 }
 FileLock::~FileLock() { release(); }
 void FileLock::release() {
@@ -264,7 +285,7 @@ Json Engine::current() {
         descriptor(field(j, "current"), false);
         return j;
     }
-    FileLock gate(settings.root / "update-state/locks/launch", true);
+    FileLock gate(settings.root / "update-state/locks/launch", true, 10000);
     if (fs::exists(file))
         return parseJson(read(file));
     auto seed = verifySignature(read(settings.root / "bootstrap-release.json"),
@@ -1234,7 +1255,7 @@ void Engine::launch(const std::vector<std::wstring> &arguments) {
             return;
         }
     }
-    FileLock gate(settings.root / "update-state/locks/launch", true);
+    FileLock gate(settings.root / "update-state/locks/launch", true, 10000);
     auto active = current();
     spawn(inside(settings.root, field(active, "current") + "/daymark.exe"), arguments, false);
 }

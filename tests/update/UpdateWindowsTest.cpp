@@ -14,6 +14,66 @@ int main() {
                 fs::remove_all(root, ignored);
             }
         } cleanup{root};
+        const auto lockPath = root / "update-state/locks/launch";
+        {
+            win::FileLock first(lockPath, true);
+            try {
+                win::FileLock second(lockPath, true, 40);
+                return 11;
+            } catch (const Failure &error) {
+                if (error.key != "update.instance_busy" || error.exitCode != 30 ||
+                    error.platformError != ERROR_LOCK_VIOLATION)
+                    return 12;
+            }
+        }
+        {
+            std::promise<void> locked;
+            auto ready = locked.get_future();
+            std::jthread shortOwner([&] {
+                win::FileLock first(lockPath, true);
+                locked.set_value();
+                Sleep(60);
+            });
+            ready.wait();
+            win::FileLock afterRelease(lockPath, true, 1000);
+        }
+        {
+            win::FileLock first(lockPath, false);
+            win::FileLock shared(lockPath, false);
+            try {
+                win::FileLock exclusive(lockPath, true);
+                return 13;
+            } catch (const Failure &error) {
+                if (error.platformError != ERROR_LOCK_VIOLATION)
+                    return 14;
+            }
+        }
+        if (!SetFileAttributesW(lockPath.c_str(), FILE_ATTRIBUTE_READONLY))
+            return 15;
+        bool readOnlyRejected = false;
+        try {
+            win::FileLock denied(lockPath, true);
+        } catch (const Failure &error) {
+            readOnlyRejected = error.key == "update.lock_access_denied" && error.exitCode == 31 &&
+                               error.platformError == ERROR_ACCESS_DENIED;
+        }
+        SetFileAttributesW(lockPath.c_str(), FILE_ATTRIBUTE_NORMAL);
+        if (!readOnlyRejected)
+            return 16;
+        {
+            win::Handle other(CreateFileW(lockPath.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                                          nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+            if (!other)
+                return 17;
+            try {
+                win::FileLock denied(lockPath, true, 1000);
+                return 18;
+            } catch (const Failure &error) {
+                if (error.key != "update.lock_file_in_use" || error.exitCode != 31 ||
+                    error.platformError != ERROR_SHARING_VIOLATION)
+                    return 19;
+            }
+        }
         const auto state = root / "state.json";
         win::writeAtomic(state, "old");
         std::promise<void> opened;
@@ -44,12 +104,14 @@ int main() {
         if (!blocked || win::read(state) != "new")
             return 7;
         longReader = win::Handle();
-        if (std::distance(fs::directory_iterator(root), fs::directory_iterator{}) != 1)
+        if (std::distance(fs::directory_iterator(root), fs::directory_iterator{}) != 2)
             return 8;
         win::logEvent(root,{{"event","synthetic.failure"},{"platform_error",ERROR_ACCESS_DENIED}});
         const auto logs=root/"update-state/logs";
         const auto entry=*fs::directory_iterator(logs);
-        const auto evidence=Json::parse(win::read(entry.path()));
+        const auto records=win::read(entry.path());
+        const auto previousLine=records.find_last_of('\n',records.size()-2);
+        const auto evidence=Json::parse(records.substr(previousLine==std::string::npos?0:previousLine+1));
         if(evidence["platform_error"]!=ERROR_ACCESS_DENIED || evidence["event"]!="synthetic.failure" || !evidence.contains("at_utc"))return 9;
         win::writeAtomic(logs/"keep.txt","user-owned");
         win::logEvent(root,{{"event","synthetic.complete"}});
@@ -81,7 +143,7 @@ int main() {
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
             return 4;
         std::cout
-            << "PASS: actual Windows CNG keygen/sign/verify/tamper/domain and SHA256 vectors\n";
+            << "PASS: actual Windows locks/timeout/release/read-only/sharing diagnostics, CNG and SHA256\n";
         return 0;
     } catch (const Failure &e) {
         std::cerr << e.key << " platform_error=" << e.platformError << '\n';

@@ -1,4 +1,5 @@
 #include "StartupUpdateGate.h"
+#include "diagnostics/RuntimeLog.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
@@ -9,6 +10,7 @@
 #include <QSaveFile>
 #ifdef Q_OS_WIN
 #include "update/platform/windows/Ipc.h"
+#include "update/platform/windows/FileLease.h"
 #endif
 
 namespace daymark {
@@ -132,7 +134,16 @@ bool StartupUpdateGate::acquire(const QString &handoff, const QString &version) 
                 throw std::runtime_error("update.process_identity");
         }
         auto lockPath = QDir(d->root).filePath("update-state/locks");
-        QDir().mkpath(lockPath);
+        if (!QDir().mkpath(lockPath))
+            throw std::runtime_error("update.directory_read_only");
+        auto rejectLock = [](DWORD error, bool opening, const char *resource) {
+            const auto key = update::win::lockErrorKey(error, opening);
+            diagnostics::event("update", "lock.failed",
+                               {{"error", key}, {"platform_error", qint64(error)},
+                                {"resource", resource}, {"stage", opening ? "open" : "acquire"}},
+                               "error");
+            throw std::runtime_error(std::string(key) + " (Win32 " + std::to_string(error) + ")");
+        };
         HANDLE gate = INVALID_HANDLE_VALUE;
         OVERLAPPED gateLock{};
         if (!restricted()) {
@@ -140,12 +151,12 @@ bool StartupUpdateGate::acquire(const QString &handoff, const QString &version) 
             gate = CreateFileW(reinterpret_cast<const wchar_t *>(path.utf16()),
                                GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
                                nullptr, OPEN_ALWAYS, 0, nullptr);
-            if (gate == INVALID_HANDLE_VALUE ||
-                !LockFileEx(gate, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0,
-                            &gateLock)) {
-                if (gate != INVALID_HANDLE_VALUE)
-                    CloseHandle(gate);
-                throw std::runtime_error("update.instance_busy");
+            if (gate == INVALID_HANDLE_VALUE)
+                rejectLock(GetLastError(), true, "launch");
+            const auto gateError = update::win::acquireByteLock(gate, true, gateLock, 10000);
+            if (gateError != ERROR_SUCCESS) {
+                CloseHandle(gate);
+                rejectLock(gateError, false, "launch");
             }
             QFile file(QDir(d->root).filePath("current.json"));
             if (!file.open(QIODevice::ReadOnly)) {
@@ -165,14 +176,15 @@ bool StartupUpdateGate::acquire(const QString &handoff, const QString &version) 
         d->lease = CreateFileW(reinterpret_cast<const wchar_t *>(lease.utf16()),
                                GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
                                nullptr, OPEN_ALWAYS, 0, nullptr);
-        bool leased = d->lease != INVALID_HANDLE_VALUE &&
-                      LockFileEx(d->lease, LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &d->lock);
+        const bool openingLeaseFailed = d->lease == INVALID_HANDLE_VALUE;
+        const auto leaseError = openingLeaseFailed ? GetLastError() :
+            update::win::acquireByteLock(d->lease, false, d->lock);
         if (gate != INVALID_HANDLE_VALUE) {
             UnlockFileEx(gate, 0, 1, 0, &gateLock);
             CloseHandle(gate);
         }
-        if (!leased)
-            throw std::runtime_error("update.instance_busy");
+        if (leaseError != ERROR_SUCCESS)
+            rejectLock(leaseError, openingLeaseFailed, "runtime");
         const auto instances = QDir(d->root).filePath("update-state/instances");
         QDir().mkpath(instances);
         d->instanceFile =

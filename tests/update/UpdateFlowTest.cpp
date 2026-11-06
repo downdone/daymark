@@ -1,4 +1,5 @@
 #include <QFile>
+#include <QDir>
 #include <QJsonDocument>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -11,6 +12,69 @@
 class UpdateFlowTest final : public QObject {
     Q_OBJECT
   private slots:
+    void firstLaunchReportsActualPermissionError() {
+        QTemporaryDir temporary;
+        QVERIFY(temporary.isValid());
+        const auto executable = temporary.filePath("daymark.exe");
+        QVERIFY(QFile::copy(QCoreApplication::applicationDirPath() + "/test_update_bootstrap.exe",
+                            executable));
+        QVERIFY(QDir().mkpath(temporary.filePath("update-state/locks")));
+        const auto lock = temporary.filePath("update-state/locks/launch");
+        QFile file(lock);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        QVERIFY(SetFileAttributesW(reinterpret_cast<const wchar_t *>(lock.utf16()),
+                                   FILE_ATTRIBUTE_READONLY));
+        struct Attributes {
+            QString path;
+            ~Attributes() { SetFileAttributesW(reinterpret_cast<const wchar_t *>(path.utf16()),
+                                               FILE_ATTRIBUTE_NORMAL); }
+        } restore{lock};
+        QProcess process;
+        process.start(executable, {});
+        QVERIFY(process.waitForStarted());
+        HWND dialog = nullptr;
+        struct Search { DWORD pid; HWND *window; } search{DWORD(process.processId()), &dialog};
+        auto locate = [&] {
+            EnumWindows([](HWND window, LPARAM value) -> BOOL {
+                auto &search = *reinterpret_cast<Search *>(value);
+                DWORD pid = 0;
+                GetWindowThreadProcessId(window, &pid);
+                wchar_t className[128]{};
+                GetClassNameW(window, className, 128);
+                if (pid == search.pid && std::wstring_view(className) == L"#32770") {
+                    *search.window = window;
+                    return FALSE;
+                }
+                return TRUE;
+            }, reinterpret_cast<LPARAM>(&search));
+            return dialog != nullptr;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(locate(), 5000);
+        QString message;
+        EnumChildWindows(dialog, [](HWND control, LPARAM value) -> BOOL {
+            wchar_t text[2048]{};
+            GetWindowTextW(control, text, 2048);
+            *reinterpret_cast<QString *>(value) += QString::fromWCharArray(text) + '\n';
+            return TRUE;
+        }, reinterpret_cast<LPARAM>(&message));
+        // Close our own native dialog before assertions so failures never leave it running.
+        PostMessageW(dialog, WM_CLOSE, 0, 0);
+        QVERIFY(process.waitForFinished(5000));
+        QCOMPARE(process.exitCode(), 31);
+        QVERIFY2(message.contains("update.lock_access_denied"), qPrintable(message));
+        QVERIFY2(message.contains(QStringLiteral("Windows 错误：5")), qPrintable(message));
+        QVERIFY(!message.contains("instance_busy"));
+        QVERIFY(!message.contains("reinstall"));
+        const auto logs = QDir(temporary.filePath("update-state/logs")).entryList({"*.jsonl"}, QDir::Files);
+        QVERIFY(!logs.isEmpty());
+        QFile log(temporary.filePath("update-state/logs/" + logs.first()));
+        QVERIFY(log.open(QIODevice::ReadOnly));
+        const auto records = log.readAll();
+        QVERIFY(records.contains("\"platform_error\":5"));
+        QVERIFY(records.contains("\"resource\":\"launch\""));
+        QVERIFY(!records.contains(temporary.path().toUtf8()));
+    }
     void nativeObserverWindowUsesSystemControlsAndCloses() {
         QTemporaryDir temporary;
         QVERIFY(temporary.isValid());

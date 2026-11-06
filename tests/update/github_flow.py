@@ -213,9 +213,10 @@ def main():
     if len(payloads) != 1:
         raise ValueError('A single signed bootstrap payload is required')
     verify_executables([payloads[0], root/'daymark.exe', root/'daymark-update-cli.exe', root/'daymark-updater.exe'],pin)
-    current = json.loads(run([root/'daymark-update-cli.exe','initialize','--root',root,'--json'],environment=runtime_environment))
-    if current['version'] != args.old_version:
-        raise ValueError('Signed bootstrap version mismatch')
+    if (root/'current.json').exists() or (root/'update-state').exists():
+        raise ValueError('Public bootstrap must be freshly extracted with no pre-initialized state')
+    if json.loads((root/'bootstrap-release.json').read_text())['version'] != args.old_version:
+        raise ValueError('Bootstrap version mismatch')
     target_wait_started = time.monotonic()
     required_assets = {f'Daymark-{args.new_version}-windows-x64.zip','update-windows-x64.json','update-windows-x64.json.sig'}
     while True:
@@ -240,6 +241,8 @@ def main():
                     return value
         old = wait_for(lambda:instance(args.old_version),40,'old Qt registration',root)
         processes.append(old['pid'])
+        current = json.loads((root/'current.json').read_text())
+        assert current['version'] == args.old_version and current['generation'] == 1
         def schema_ready():
             if not (data/'daymark.sqlite').exists(): return False
             with sqlite3.connect(data/'daymark.sqlite') as db:
@@ -294,6 +297,7 @@ def main():
                       targetSourceRevision=accepted_manifest['source_revision'],
                       oldQtModules=old_modules,newQtModules=new_modules,productionEnvironmentIsolated=True,
                       automaticPrepare=True,productionCompiledTrust=True,anonymousGitHub=True,fixtureOverrides=False,
+                      coldRootLaunch=True,
                       qtSaveQuitRestart=True,durableCommitAndRunning=True,oldExecutableDeleted=True,
                       unknownAndModifiedFilesPreserved=True,syntheticSqlitePreserved=True,seconds=round(time.monotonic()-started,3))
         result.update(bootstrapDownloadSeconds=round(download_seconds,3),

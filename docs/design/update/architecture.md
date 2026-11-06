@@ -87,6 +87,8 @@ Windows使用分离的文件范围锁，各有独立文件句柄：prepare独占
 
 ## 4. 受限启动与正常启动分离
 
+首次引导和正常启动的launch门允许最多10秒单调时钟等待，只重试实际`ERROR_LOCK_VIOLATION`；prepare/apply/runtime等安全互斥保持立即拒绝。共享模式/权限/路径/IO失败不重试，也不报为已有实例。锁错误保留Win32数值、open/acquire阶段与固定锁名，原生启动器写脱敏本地日志并按错误给出恢复建议；不输出用户目录，不建议删除数据库或锁文件。启动门超时只代表短时间内不能取得门，不足以证明后台应用仍活着。
+
 源码事实：`SqliteDatabase::open`包含目录创建、迁移快照、MigrationManager、WAL配置、检查和每日快照；`AppRuntime::start`会启动工作区/同步。因此不能先调用正常start再“临时关同步”。
 
 新增`StartupMode::Normal / RestrictedUpdate / SyntheticPreflight`，模式只能由验证过的本地handoff进入；生产不能靠环境变量跳过验证。构造阶段不启动任何副作用对象。

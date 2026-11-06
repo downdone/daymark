@@ -174,6 +174,22 @@ def main():
             # The real Qt application performs the automatic prepare after RuntimeReady.
             wait_for(lambda:(root/'update-state/prepared-update.json').exists(),90)
         else:
+            # Cold root launch must work without a CLI initialize/check first.
+            assert not (root/'current.json').exists()
+            # A console fixture may retain its parent's stdout pipe after the
+            # GUI launcher exits. Observe the launcher process, not EOF on that pipe.
+            subprocess.run([str(root/'daymark.exe')], stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, check=True, timeout=10)
+            def first_start():
+                for path in root.glob('fixture-running-*.json'):
+                    return json.loads(path.read_text())
+            first_identity=wait_for(first_start)
+            processes.append(first_identity['pid'])
+            initial=json.loads((root/'current.json').read_text())
+            assert initial['version']=='2.0.0' and initial['generation']==1
+            (root/f"fixture-exit-{first_identity['pid']}").touch()
+            wait_for(lambda:process_exited(first_identity['pid']))
+            print('PASS: fresh signed ZIP root launcher initializes and starts payload without CLI pre-initialize',flush=True)
             run([root/'daymark-update-cli.exe','check','--root',root,'--json'])
             current=json.loads((root/'current.json').read_text());old=root/current['current']/'daymark.exe'
             old_process=subprocess.Popen([str(old)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);processes.append(old_process.pid)
@@ -327,6 +343,11 @@ def main():
                 except (OSError,ValueError):
                     pass
             for path in (root/'update-state/instances').glob('*.json'):
+                try:
+                    processes.append(json.loads(path.read_text())['pid'])
+                except (OSError,ValueError,KeyError):
+                    pass
+            for path in root.glob('fixture-running-*.json'):
                 try:
                     processes.append(json.loads(path.read_text())['pid'])
                 except (OSError,ValueError,KeyError):

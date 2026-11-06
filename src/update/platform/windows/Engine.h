@@ -14,7 +14,7 @@ class FileLock {
     OVERLAPPED overlapped{};
 
   public:
-    FileLock(const fs::path &, bool exclusive, bool wait = false);
+    FileLock(const fs::path &, bool exclusive, DWORD timeoutMs = 0);
     FileLock(const FileLock &) = delete;
     FileLock &operator=(const FileLock &) = delete;
     ~FileLock();
