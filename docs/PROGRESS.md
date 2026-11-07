@@ -145,3 +145,5 @@ MEM-04最终评审补记（2026-11-07）：CurveRenderer实验被原生截图评
 2026-11-07 GitHub门禁：b79329b及不可变v2.1.0已推送；Source Release和Account/sync成功，但Build/source-policy的generate-diagnostics --check发现此前安装能力新增16个setup key后未同步src/sync/Diagnostics.h。主程序当时仍在编译，无程序资产/ready发布。已取消两个过期编译，将无程序资产的2.1.0 Release转可恢复草稿，保留原标签，不覆盖资产或移动标签。修复为重新生成唯一来源映射，并增加diagnostic_registry/generated_sync_contract两个CTest、desktop等待source-policy、tag编译前同样检查。正式版本顺延2.1.1；不是绕过门禁或把旧源码标为通过。2.1.1最终本地构建及QML lint PASS（无警告），完整CTest **48/48 PASS，453.41s**；完全按GitHub source-policy命令复现的27项Python保护测试、源码隐私/版本、两个生成契约检查全部PASS。准备推送修复，先核对GitHub快速源码门禁，再创建v2.1.1，不移动v2.1.0。新的正式MSVC/安装/公网更新仍待验证。
 
 2026-11-08发布工具修复：正式MSVC候选42389695899与main桌面/同步均成功；首次受保护发布42391537466签名通过，独立部署发现audit-native-imports.py固定nargs=3，拒绝新增安装helper的第四个参数，发布跳过且未上传程序资产。改为逐个审计所有提供的host，至少一个参数，CLI回归验证旧三项/新四项、第四项外部DLL拒绝及空参数拒绝；3项Python审计测试和实际本地四PE审计PASS，发布保护10项PASS。仅修main工具，保持v2.1.1源SHA/候选/标签不变，重新执行完整签名与独立部署，不重编已通过的产品。
+
+2026-11-08获取工具修复：42391984474五程序签名与独立真实Qt/CRT部署均PASS，发布阶段固定NSIS ZIP散列拒绝了下载响应，未上传资产。本机复现Invoke-WebRequest取得141862字节HTML而非ZIP；原2,363,925字节官方ZIP散列仍与ADR一致。修正为官方文件直链+Windows原生curl、HTTPS及有界超时，新增ZIP头检查，保留原双散列。
