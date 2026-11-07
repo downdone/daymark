@@ -76,10 +76,12 @@ def main():
         proof = source / 'build/installer-publication-proof'
         proof.mkdir(parents=True, exist_ok=True)
         environment = dict(os.environ, DAYMARK_INSTALLER_ARTIFACT=str(installer))
-        acceptance = subprocess.run([str(args.installer_test.resolve())], env=environment,
+        acceptance = subprocess.run([str(args.installer_test.resolve()), '-o', '-,txt'], env=environment,
                                     capture_output=True, timeout=270)
         (proof / 'installer-test.log').write_bytes(acceptance.stdout + acceptance.stderr)
         acceptance.check_returncode()
+        if b'PASS: real NSIS Unicode/space path' not in acceptance.stdout:
+            raise ValueError('installer acceptance did not produce its completion evidence')
         checksum = hashlib.sha256(installer.read_bytes()).hexdigest()
         (proof / 'report.json').write_text(json.dumps(dict(format=1, passed=True,
             source_revision=args.source, version=version, installer_sha256=checksum,

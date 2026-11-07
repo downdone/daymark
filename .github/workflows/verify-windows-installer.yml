@@ -1,0 +1,83 @@
+name: Verify public Windows installer
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable source tag
+        required: true
+        type: string
+      candidate_run:
+        description: Exact successful tag build containing the installer acceptance host
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main' && github.repository == 'downdone/daymark'
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - name: Verify exact tag build provenance
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_TAG: ${{ inputs.tag }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run }}
+        run: |
+          if ($env:SOURCE_TAG -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' -or $env:CANDIDATE_RUN -notmatch '^[1-9][0-9]*$') { throw 'Invalid immutable identities' }
+          & git fetch --no-tags origin "refs/tags/$env:SOURCE_TAG`:refs/tags/$env:SOURCE_TAG"
+          if ($LASTEXITCODE -ne 0 -or (& git cat-file -t "refs/tags/$env:SOURCE_TAG") -ne 'tag') { throw 'Annotated source tag required' }
+          $source=(& git rev-parse "refs/tags/$env:SOURCE_TAG^{}").Trim()
+          & git merge-base --is-ancestor $source HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Source must be reviewed on main' }
+          $run=(& gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:CANDIDATE_RUN") | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $run.path -ne '.github/workflows/release-build.yml' -or $run.conclusion -ne 'success' -or $run.event -ne 'push' -or $run.head_branch -cne $env:SOURCE_TAG -or $run.head_sha -cne $source) { throw 'Exact tag build required' }
+          "DAYMARK_INSTALLER_SOURCE=$source" >> $env:GITHUB_ENV
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate_run }}
+          name: windows-installer-test
+          path: build/installer-test
+      - name: Verify and exercise the anonymous public installer
+        shell: pwsh
+        env:
+          SOURCE_TAG: ${{ inputs.tag }}
+        run: |
+          $version=$env:SOURCE_TAG.Substring(1)
+          $name="Daymark-$version-windows-x64-setup.exe"
+          $proof=New-Item -ItemType Directory -Path build/public-installer-proof
+          $artifact=Join-Path $proof.FullName $name
+          & curl.exe --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 120 --output $artifact "https://github.com/downdone/daymark/releases/download/$env:SOURCE_TAG/$name"
+          if ($LASTEXITCODE -ne 0) { throw 'Anonymous public installer download failed' }
+          $policy=Get-Content config/authenticode-policy.json -Raw | ConvertFrom-Json
+          $signature=./scripts/Verify-WindowsExecutable.ps1 -Executable $artifact -CertificateSha256 $policy.certificate_sha256 | ConvertFrom-Json
+          if ([Diagnostics.FileVersionInfo]::GetVersionInfo($artifact).ProductVersion -cne $version) { throw 'Installer version mismatch' }
+          $env:DAYMARK_INSTALLER_ARTIFACT=$artifact
+          & ./build/installer-test/test_installer_flow.exe -o -,txt *> build/public-installer-proof/installer-test.log
+          $result=$LASTEXITCODE
+          Get-Content build/public-installer-proof/installer-test.log
+          if ($result -ne 0) { throw 'Actual public installer acceptance failed' }
+          if ((Get-Content build/public-installer-proof/installer-test.log -Raw) -notmatch 'PASS: real NSIS Unicode/space path') { throw 'Missing actual installer completion evidence' }
+          [ordered]@{format=1;passed=$true;version=$version;source_revision=$env:DAYMARK_INSTALLER_SOURCE;
+            installer_sha256=(Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash.ToLowerInvariant();
+            signature_policy='self-signed-pinned';public_trust=$false;anonymous_download=$true;
+            acceptance='QTemporaryDir native install, Qt startup/module audit, busy refusal, two repairs, old-program cleanup, uninstall/data preservation'} |
+            ConvertTo-Json | Set-Content build/public-installer-proof/report.json -Encoding utf8
+          Remove-Item -LiteralPath $artifact
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: public-windows-installer-proof
+          path: build/public-installer-proof/
+          if-no-files-found: ignore
