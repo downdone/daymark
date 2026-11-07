@@ -31,6 +31,24 @@ class TaskWorkspaceTest : public QObject {
         return {};
     }
 private slots:
+    void importPreviewCancellationAndProfileLifetime() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto json=directory.filePath("synthetic.json");
+        {SqliteDatabase db;QVERIFY(db.open(directory.filePath("source.sqlite")).ok());TaskRepository repo(db.connection());SystemClock clock;TaskService service(repo,clock);QVERIFY(service.create("Synthetic import","inbox").ok());QVERIFY(DataTransfer(db).exportJson(json).ok());}
+        TaskWorkspace workspace;workspace.start(directory.filePath("a.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));
+        QVERIFY(workspace.previewImport(json));workspace.discardImport();QVERIFY(daymark::test::awaitIdle(workspace));
+        QVERIFY(workspace.importSummary().isEmpty());QCOMPARE(workspace.tasks()->rowCount(),0);
+        QSignalSpy operations(&workspace,&TaskWorkspace::operationFinished);
+        QVERIFY(workspace.applyImport(false));QVERIFY(daymark::test::awaitIdle(workspace));
+        QVERIFY(!operations.last().at(1).toBool());QCOMPARE(workspace.tasks()->rowCount(),0);
+        QVERIFY(workspace.previewImport(json));QVERIFY(daymark::test::awaitIdle(workspace));QVERIFY(!workspace.importSummary().isEmpty());
+        bool switched=false;workspace.switchSyncDatabase(directory.filePath("b.sqlite"),[&](Result<void> result){switched=result.ok();});QVERIFY(daymark::test::awaitIdle(workspace));QVERIFY(switched);QVERIFY(workspace.importSummary().isEmpty());
+        QVERIFY(workspace.applyImport(false));QVERIFY(daymark::test::awaitIdle(workspace));QVERIFY(!operations.last().at(1).toBool());QCOMPARE(workspace.tasks()->rowCount(),0);
+        QVERIFY(workspace.previewImport(json));QVERIFY(daymark::test::awaitIdle(workspace));QVERIFY(workspace.applyImport(false));QVERIFY(daymark::test::awaitIdle(workspace));QVERIFY(operations.last().at(1).toBool());QCOMPARE(workspace.tasks()->rowCount(),1);
+        TaskWorkspace reload;reload.start(directory.filePath("a.sqlite"));QVERIFY(daymark::test::awaitIdle(reload));QCOMPARE(reload.tasks()->rowCount(),0);
+    }
+
     void quickInputPreviewSettingsAndWidgetShareRules() {
         QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("tasks.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));
         const auto title=QStringLiteral("明天15点联系客户");const auto preview=workspace.previewTaskInput(title);

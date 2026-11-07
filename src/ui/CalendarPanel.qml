@@ -124,7 +124,7 @@ ColumnLayout {
     property var independentDays: []
     readonly property bool isWeek: calendarScale === "week"
     function refreshIndependent() {
-        if (independent)
+        if (visible && independent)
             independentDays = workspace.calendarDaysFor(anchorDate, weekMode);
     }
     onAnchorDateChanged: {
@@ -197,7 +197,7 @@ ColumnLayout {
     property string dragEdge: "move"
     property var unscheduledItems: []
     function refreshUnscheduled() {
-        unscheduledItems = workspace.unscheduledFor(!independent);
+        if(visible)unscheduledItems = workspace.unscheduledFor(!independent);
     }
     function beginDrag(entry, item, point, from, edge) {
         draggedEntry = entry;
@@ -342,6 +342,7 @@ ColumnLayout {
             unscheduled.close();
             endDrag(false);
         } else {
+            refreshIndependent();refreshUnscheduled();
             refreshTimeline();
             rangeRequest.restart();
         }

@@ -60,6 +60,8 @@ Copy-Item -LiteralPath (Join-Path $SourceDirectory 'LICENSE') -Destination $stag
 Copy-Item -LiteralPath (Join-Path $SourceDirectory 'packaging/THIRD-PARTY-NOTICES.md') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $SourceDirectory 'LICENSE') -Destination (Join-Path $stage 'LGPL-3.0.txt')
 Copy-Item -LiteralPath (Join-Path $SourceDirectory 'packaging/licenses/GPL-3.0.txt') -Destination $stage
+New-Item -ItemType Directory -Path (Join-Path $stage 'licenses') -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $SourceDirectory 'packaging/licenses/NSIS-COPYING.txt') -Destination (Join-Path $stage 'licenses/NSIS-COPYING.txt')
 $bomDirectory = Join-Path $stage 'qt-sbom'
 & python (Join-Path $PSScriptRoot 'copy-qt-sbom.py') --qt-root $env:DAYMARK_QT --destination $bomDirectory --version 6.10.2
 if ($LASTEXITCODE -ne 0) { throw 'Qt module SBOM validation failed; archive was not created.' }

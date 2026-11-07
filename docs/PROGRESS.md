@@ -1,6 +1,45 @@
 # Daymark 当前进度
 
-更新：2026-11-06。**2.0.2 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-07。**2.0.2 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+
+## MEM-04 优化实现与2.1.0发行（进行中，用户授权发布）
+
+目标：完成对象生命周期方案评审、逐片实现与真实内存对照，相关回归/安装/更新通过后提交并推送GitHub，发布新版本。单代理使用autonomous-project-loop。发布版本2.1.0（已核对GitHub最新仍为2.0.2），保持既有不可变tag/签名/独立部署门禁；不将本地MinGW包作为线上MSVC更新包。
+
+OBJ-01已实施：DateField/TimeField的fallback内容仅打开时创建、onClosed卸载，inline路径不创建fallback。新增picker_lifecycle隔离验收覆盖选择/取消/重开/inline/200%缩放，连同time_input_ui **2/2 PASS，9.75s**。首次Loader误设只读implicitHeight导致加载失败，已移除并以最终构建复验；不把失败计为通过。
+
+OBJ-02/03已实施：主列表共用TaskContextMenu，捕获身份/版本并在过期时关闭；设置仅创建可见分类，保留分类与滚动，日历保留轻根与窗口状态、关闭后卸载内容。隐藏工具窗允许释放场景图。修复新生命周期暴露的延迟回调、ListView异步cache孵化、动态布局焦点揭示，以及测试无条件访问隐藏内容；真实图形层级临时隐藏不卸载日历。picker/qml启动2/2 PASS（55.00s）、contextual_workspace PASS（16.81s）、desktop_surfaces PASS（52.89s），最终cache修正后qml_startup PASS（39.15s）。一次在旧测试占用exe时链接失败，待该进程自然完成后链接通过，未强杀用户实例。
+
+OBJ-04已实施：关闭导入页排队discard、取消预览代次拒绝晚到结果、切资料worker重载清除计划并绑定代次；增加取消零写、切资料失效和重新预览后成功导入的真实临时SQLite测试。隐藏日历不做独立/未安排投影。task_workspace/continuous_calendar 2项PASS；日历测试发现旧夹具读取已卸载设置页导致崩溃，改为实际打开对应分类后验证，最终task_workspace/calendar_interaction **2/2 PASS，36.51s**。
+
+当前OBJ-05：主窗隐藏资源与组件彻底隐藏资源释放、图标渲染A/B。初次OBJ03原生试验主窗visible但未exposed/未初始化场景图，已排除其启动内存比较；后续采样前强制校验主窗与组件实际呈现。有效原生A/B：DPR1.5/D3D11/20任务双窗已exposed且图形初始化，A(逐图标layer)启动提交246.16MiB、B(CurveRenderer)230.61MiB；B十次设置重开后247.58MiB，全部隐藏115.04MiB。以上是同机单轮阶段样本，不是统计SLA。原生动画曾出现终态等待帧确认，已加入同步/交换/提交计数和exposure前置检查；诊断版本在独立、无并行编译的运行中通过两组6条转换，未改变生产fence语义或放宽超时，早期失败不掩盖。最终版本原生复验仍待执行。
+
+
+OBJ-06进行中：完整本地构建PASS，第一轮CTest **46/46 PASS，445.35s**；随后将Loader接口改为具名inline component和显式类型转换，消除新引入的QML lint警告，正在复验受影响UI。发布元数据/保护测试25项PASS，历史构建来源8项PASS。正式CI已接入第五个setup helper、安装验收宿主、固定散列NSIS和安装/修复/卸载门禁，再上传ready文件；公网验收改为明确2.0.2→2.1.0。GitHub远端main未超前、本地已有6个未推送功能提交，保护环境四个Secret和发布开关均已核对存在；尚未推送/tag/发布。上轮一次执行因自动审批额度耗尽未执行，当前授权操作已恢复。
+
+评审：保持单QML引擎和稳定小窗画布；关闭选择器在退出动画完成后卸载内容，inline模式不建fallback；菜单按taskId/version捕获目标；低频窗口保留可恢复入口及会话状态，资源释放只针对已隐藏窗，不破坏动效/菜单/IME/草稿；导入计划须绑定资料生命周期。先选择器、再共享菜单、窗口/隐藏投影、临时数据与图形路径，单切片构建测试/测量，不提前宣布内存达标。评审主体为单代理自审，不冒充独立评审。
+
+## MEM-03 对象管理全面审计（分析与诊断实现完成）
+
+用户要求重新审视200MB级占用，已暂停MEM-02初稿预算，不作为合格线。完整[对象审计](design/object-management-audit.md)覆盖QML/窗口/选择器/编辑/菜单/图标/数据模型/线程/同步/导入预览/更新/日志持有链、销毁时机和风险；[脱敏证据](evidence/object-management-audit.json)含实际快照，不能把可达QObject清点等同全堆字节归因。
+
+新增显式`--object-audit-report <新路径>`隔离诊断：QTemporaryDir、TaskService预建20条任务、34检查点，已有报告拒绝覆盖，禁用用户data-dir；正常启动不采样。新参数已接入日志隔离。原生D3D11/DPR1.5：启动可达QObject30,029/QuickItem13,455，当前可见链候选647；未打开独立日历仍有6,581对象，设置1,413、账号343。39个CalendarPicker（3159子树对象）、32个DateField、3套TaskTimingFields，主任务行11个/单行最多495对象，小窗行5个/单行78。子树统计重叠，不能相加；1169离屏源对象不代表1169已分配纹理。Task固定结构1296字节，少量任务的约四套固定结构约101KiB，不含字符串/JS堆。
+
+同Qt的空QQuickWindow独立短测：单窗58.32MiB私有提交，双窗89.20MiB（无QML/Controls/字体/业务，不是同功能对照）。完整客户端初始297.84MiB，首次设置/账号/独立日历后依次约367/434/496MiB，隐藏后不明显回落且sceneGraph仍初始化；十次设置重开对象数稳定。最后仅球/全部隐藏仍29595对象、500.52MiB；单次诊断GC不显著下降。结论是过度创建＋首次使用后图形资源长驻，未证明持续泄漏或逐字节驱动归因，不宣称优化完成。
+
+已实现/构建诊断和真实集成测试：初轮object_lifecycle_audit、widget_pointer_ui、performance **3/3 PASS，77.34s**。日志隔离修正后的最终诊断定向复验 **1/1 PASS，70.59s**；真实Windows完整34阶段PASS，日志/资料均临时；runtime_diagnostics另1/1 PASS（0.83s），QML lint、证据结构/隐私及diff检查PASS。原型热插入/混合DPI及私有ItemLayer枚举不足的记录保留在build，不替代最终证据。堆分配栈、GPU字节、2h/物理多屏等仍UNVERIFIED。暂未改生产UI/业务/schema/协议，不自动推送/发布。
+
+下一优先级OBJ-01闲置日期/编辑内容按需创建，OBJ-02主列表共享菜单，OBJ-03低频窗口生命周期；同时定义临时ImportPlan的显式discard/profile代次。不要先重做SQL，也不通过trim/定时全GC伪装低内存。
+
+## MEM-02 内存专项（设计与初步取证完成，优化未实施）
+
+用户确认主窗口＋小窗/少量任务出现300多MB。已完成[专项设计](design/client-memory-specialist.md)，按十二项标准覆盖目标、选型、架构、生命周期/接口、协议/数据库、UX/可靠性、分层验证与单代理自审。先测量/归因，再图标离屏层对照、低频UI惰性创建、隐藏资源、投影/同步峰值，逐片实施；未改生产代码，不宣称已优化或已定位唯一根因。
+
+同一个2.1.0本地Release平铺payload，QTemporaryDir合成20条今天任务，真实Windows、清SDK环境，各场景独立20秒，后10秒采样中位数：仅主窗私有提交244.71MiB/全工作集262.85MiB；主窗＋小窗私有提交297.05MiB/私有工作集241.52MiB/全工作集305.88MiB，采样提交峰值305.36MiB。可见顶层窗分别1/2。每场景仅1次、无DPR/实际图形API/GPU/长期测量，不是最终SLA或前后优化证据，不能把约52.34MiB开窗路径增量全部归GPU/图标。脱敏摘要及样本见[证据](evidence/memory-specialist-baseline.json)。
+
+代码确认Glyph逐项layer＋4x采样，品牌8x；设置四类内容同时创建，主窗/独立日历及多个工具直接实例化。它们是优先候选，收益尚未测；日/周年Loader和连续月历复用已有，不重复认领。方案保留稳定画布、菜单层级、输入草稿/IME、提醒及同步，不采用工作集trim或定时全清缓存。拟定主场景提交≤220MiB/私有工作集≤190MiB等目标，正式成本阶梯/5次原生基线后冻结，不作跨机器硬保证。
+
+临时诊断程序构建PASS，两场有效短测PASS；初次夹具列名不匹配已修正，失败不记样本。当前performance CTest 1/1 PASS（3.26s）；未重跑无关整套测试，前一任务44项不充作本专项实现验收。下一切片MEM-02-A正式可重复夹具/Qt最小成本阶梯，随后B共享图标渲染对照；本轮方案供用户评审，不自动推送/发布。
 
 ## WID-08 / SETUP-01（实现通过，实际安装包验收中）
 
@@ -96,3 +135,6 @@ SETUP-01：每用户原生NSIS向导，签名managed布局、根宿主/Qt完整�
 | Linux/macOS | 按用户指示跳过，不实施、不构建、不宣称通过 |
 
 [CLOSE-01与UPD-06完整原始历史](PROGRESS-HISTORY.md) · [文档导航](README.md) · [更新实现](design/update/implementation.md) · [诊断契约](design/runtime-diagnostics.md)。本地开发入口仍为build/Launch-Daymark.cmd，依赖开发Kit；可转发发行包请使用上述正式完整ZIP，不复制build/bin单个EXE。
+
+
+MEM-04最终评审补记（2026-11-07）：CurveRenderer实验被原生截图评审拒绝，发行保留Geometry/MSAA。新增恢复后设置/最近删除/日历入口的声明ink与实际像素断言；该断言先捕获Geometry旧色，随后Glyph仅在颜色/路径改变时重建Shape后真实Windows通过，两组6条转换无尺寸事件/QML警告，截图已检查。不是通过提高阈值或忽略失败放行。最终选定版本原生34阶段PASS，启动可达17,157对象（之前30,029），提交254.62MiB/私有工作集202.00MiB；十次设置后312.95MiB，全部隐藏204.01MiB。未采用实验低值冒充发行数据，尚无逐字节堆/GPU归因或跨机器内存保证；完整脱敏数据见object-management-after.json。最终选定代码完整CTest **46/46 PASS，434.46s**，QML lint无警告；6项类型化复验PASS（165.62s），最终原生恢复图标/动画像素PASS。单代理源码/所有权/隐私/CI门禁自审通过，49项明确文件已暂存且源码隐私检查PASS；进入提交/推送/tag及正式MSVC流水线验收。

@@ -26,7 +26,7 @@ struct LogSession {
         if(arguments.contains("--version") || arguments.contains("--help") || arguments.contains("-h"))return;
         bool isolated=false;QString data,explicitLogs;
         for(int i=0;i<arguments.size();++i){const auto& argument=arguments[i];
-            if(argument.endsWith("-smoke") || argument=="--smoke-test" || argument=="--update-preflight" || argument=="--soak-seconds")isolated=true;
+            if(argument=="--object-audit-report" || argument.startsWith("--object-audit-report=") || argument.endsWith("-smoke") || argument=="--smoke-test" || argument=="--update-preflight" || argument=="--soak-seconds")isolated=true;
             if(argument=="--data-dir" && i+1<arguments.size())data=arguments[i+1];
             if(argument=="--log-dir" && i+1<arguments.size())explicitLogs=arguments[i+1];
             if(argument.startsWith("--data-dir="))data=argument.mid(11);
@@ -93,6 +93,8 @@ int main(int argc, char* argv[])
     parser.addOption({QStringLiteral("contextual-workspace-smoke"),QStringLiteral("Check the shared task inspector with an isolated synthetic fixture.")});
     parser.addOption({QStringLiteral("continuous-calendar-smoke"),QStringLiteral("Check continuous calendar with an isolated synthetic fixture.")});
     parser.addOption({QStringLiteral("calendar-interaction-smoke"),QStringLiteral("Check desktop calendar pointer and keyboard interactions with an isolated fixture.")});
+    parser.addOption({QStringLiteral("object-audit-report"),QStringLiteral("Audit object ownership using isolated synthetic data; new report path required."),QStringLiteral("path")});
+    parser.addOption({QStringLiteral("picker-lifecycle-smoke"),QStringLiteral("Verify lazy date/time picker ownership with isolated data.")});
     parser.addOption({QStringLiteral("widget-pointer-smoke"),QStringLiteral("Verify widget button and pointer routing with isolated synthetic data.")});
     parser.addOption({QStringLiteral("time-input-smoke"),QStringLiteral("Verify smart time input using isolated synthetic data.")});
     parser.addOption({QStringLiteral("desktop-surfaces-smoke"),QStringLiteral("Check floating, mini and desktop calendar with an isolated synthetic fixture.")});
@@ -112,7 +114,11 @@ int main(int argc, char* argv[])
             std::fprintf(stderr,"Invalid stability options: use 10..43200 seconds, a new report path in an existing directory, and no --data-dir.\n");return 2;
         }
     } else if(parser.isSet(QStringLiteral("soak-report"))) {std::fprintf(stderr,"--soak-report requires --soak-seconds.\n");return 2;}
-    const bool verification=parser.isSet(QStringLiteral("widget-pointer-smoke")) || parser.isSet(QStringLiteral("time-input-smoke")) || parser.isSet(QStringLiteral("update-preflight")) || parser.isSet(QStringLiteral("calendar-interaction-smoke")) || parser.isSet(QStringLiteral("desktop-surfaces-smoke")) || parser.isSet(QStringLiteral("task-list-smoke")) || parser.isSet(QStringLiteral("smoke-test")) || parser.isSet(QStringLiteral("continuous-calendar-smoke")) || parser.isSet(QStringLiteral("contextual-workspace-smoke")) || soakSeconds>0;
+    if(parser.isSet(QStringLiteral("object-audit-report"))){
+        const QFileInfo report(parser.value(QStringLiteral("object-audit-report")));
+        if(report.fileName().isEmpty() || report.exists() || !report.dir().exists() || parser.isSet(QStringLiteral("data-dir")) || parser.isSet(QStringLiteral("update-handoff")) || parser.isSet(QStringLiteral("screenshot")) || soakSeconds>0)return 2;
+    }
+    const bool verification=parser.isSet(QStringLiteral("picker-lifecycle-smoke")) || parser.isSet(QStringLiteral("object-audit-report")) || parser.isSet(QStringLiteral("widget-pointer-smoke")) || parser.isSet(QStringLiteral("time-input-smoke")) || parser.isSet(QStringLiteral("update-preflight")) || parser.isSet(QStringLiteral("calendar-interaction-smoke")) || parser.isSet(QStringLiteral("desktop-surfaces-smoke")) || parser.isSet(QStringLiteral("task-list-smoke")) || parser.isSet(QStringLiteral("smoke-test")) || parser.isSet(QStringLiteral("continuous-calendar-smoke")) || parser.isSet(QStringLiteral("contextual-workspace-smoke")) || soakSeconds>0;
     // The legacy full probe inspects QML menu geometry across timer phases.
     // Native menu loops are covered by the separate desktop menu fixtures.
     if(verification && (parser.isSet(QStringLiteral("smoke-test")) || qEnvironmentVariableIsSet("DAYMARK_SMOKE_MENU_FALLBACK")))
@@ -122,7 +128,7 @@ int main(int argc, char* argv[])
     daymark::StartupUpdateGate updateGate;
     if(!verification && !updateGate.acquire(parser.value(QStringLiteral("update-handoff")),QCoreApplication::applicationVersion())){qCritical()<<updateGate.error();return 40;}
     daymark::AppRuntime runtime;
-    if (!runtime.start(verification,parser.value(QStringLiteral("data-dir")),parser.value(QStringLiteral("screenshot")),soakSeconds,parser.value(QStringLiteral("soak-report")),parser.isSet(QStringLiteral("widget-pointer-smoke"))?QStringLiteral("widget-pointer"):parser.isSet(QStringLiteral("time-input-smoke"))?QStringLiteral("time-input"):parser.isSet(QStringLiteral("update-preflight"))?QStringLiteral("update-preflight"):parser.isSet(QStringLiteral("calendar-interaction-smoke"))?QStringLiteral("calendar"):parser.isSet(QStringLiteral("desktop-surfaces-smoke"))?QStringLiteral("desktop"):parser.isSet(QStringLiteral("task-list-smoke"))?QStringLiteral("selection"):parser.isSet(QStringLiteral("continuous-calendar-smoke"))?QStringLiteral("continuous"):parser.isSet(QStringLiteral("contextual-workspace-smoke"))?QStringLiteral("contextual"):QString(),&updateGate))
+    if (!runtime.start(verification,parser.value(QStringLiteral("data-dir")),parser.isSet(QStringLiteral("object-audit-report"))?QFileInfo(parser.value(QStringLiteral("object-audit-report"))).absoluteFilePath():parser.value(QStringLiteral("screenshot")),soakSeconds,parser.value(QStringLiteral("soak-report")),parser.isSet(QStringLiteral("object-audit-report"))?QStringLiteral("object-audit"):parser.isSet(QStringLiteral("picker-lifecycle-smoke"))?QStringLiteral("picker-lifecycle"):parser.isSet(QStringLiteral("widget-pointer-smoke"))?QStringLiteral("widget-pointer"):parser.isSet(QStringLiteral("time-input-smoke"))?QStringLiteral("time-input"):parser.isSet(QStringLiteral("update-preflight"))?QStringLiteral("update-preflight"):parser.isSet(QStringLiteral("calendar-interaction-smoke"))?QStringLiteral("calendar"):parser.isSet(QStringLiteral("desktop-surfaces-smoke"))?QStringLiteral("desktop"):parser.isSet(QStringLiteral("task-list-smoke"))?QStringLiteral("selection"):parser.isSet(QStringLiteral("continuous-calendar-smoke"))?QStringLiteral("continuous"):parser.isSet(QStringLiteral("contextual-workspace-smoke"))?QStringLiteral("contextual"):QString(),&updateGate))
         return runtime.startupExitCode();
     const auto code=app.exec();
     daymark::diagnostics::event("startup","event_loop.exited",{{"exit_code",code}});

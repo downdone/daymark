@@ -26,6 +26,8 @@
 | [Windows 安装器设计](design/windows-installer.md) | 完整安装向导、SDK事务、修复/卸载与数据保护 |
 | [桌面组件指针移动](design/widget-pointer-move.md) | Mini 按钮职责、统一拖动与置顶/锁定状态 |
 | [全局日志与底层诊断](design/runtime-diagnostics.md) | 本地日志入口、轮换、脱敏、Qt/TLS错误与请求关联 |
+| [对象管理全面审计](design/object-management-audit.md) | MEM-03/04对象所有权、按需呈现实现与原生内存对照 |
+| [客户端内存专项](design/client-memory-specialist.md) | MEM-02少量任务/主窗＋小窗的真实短测、资源生命周期与分片优化设计 |
 | [性能与内存策略](design/performance-and-memory.md) | 基线、分层分析、逐项优化与内存证据 |
 | [性能优化记录](performance-report-2026-11.md) | PERF-01同配置对比、真实Release测量、回归及剩余边界 |
 | [里程碑](milestones.md) | 执行队列与阶段门禁 |

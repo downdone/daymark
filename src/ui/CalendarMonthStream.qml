@@ -57,7 +57,7 @@ Item {
     }
     function refresh(reset) {
         resetPending = resetPending || reset;
-        projectionRefresh.restart();
+        if(visible)projectionRefresh.restart();
     }
     Timer {
         id: projectionRefresh
@@ -90,7 +90,7 @@ Item {
         }
         if (changed)
             weeks = next;
-        Qt.callLater(function () {
+        layoutCompletion.action=function () {
             if (generation !== root.refreshGeneration)
                 return;
             if (capturedScale !== root.textScale || capturedHeight !== list.height) {
@@ -125,8 +125,10 @@ Item {
             root.updateVisible();
             if (root.pendingFocusDate)
                 root.applyFocus();
-        });
+        };
+        layoutCompletion.restart();
     }
+    Timer {id:layoutCompletion;interval:0;property var action:null;onTriggered:{const next=action;action=null;if(next)next()}}
     function positionAnchor() {
         const target = focusAnchor || (textScale >= 1.5 || list.height < 280 ? anchorDate : anchorDate.slice(0, 8) + "01");
         const index = indexForDate(target);
@@ -331,7 +333,9 @@ Item {
         clip: true
         model: root.weeks
         delegate: WeekRow {}
-        cacheBuffer: root.weekHeight
+        // A disposable desktop calendar must not leave asynchronous cache
+        // incubators referencing its destroyed Loader context.
+        cacheBuffer: root.smallSurface ? 0 : root.weekHeight
         reuseItems: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {

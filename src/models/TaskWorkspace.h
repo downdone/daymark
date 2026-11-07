@@ -239,6 +239,7 @@ public:
     Q_INVOKABLE bool exportData(const QString& path,bool csv=false);
     Q_INVOKABLE bool previewImport(const QString& path,bool snapshot=false);
     Q_INVOKABLE bool applyImport(bool replace);
+    Q_INVOKABLE void discardImport();
     Q_INVOKABLE bool moveTask(const QString& id,int direction);
     Q_INVOKABLE bool moveTaskToView(const QString& id,qint64 version,const QString& view,const QString& start);
     bool taskReorderingAllowed() const;
@@ -389,6 +390,7 @@ private:
     QString m_scope=QStringLiteral("inbox"),m_calendarScale=QStringLiteral("month");
     QString m_path,m_view=QStringLiteral("inbox"),m_search,m_lastDeleted,m_info,m_pendingInfo;
     QString m_importSummary;
+    quint64 m_importGeneration=0;
     QString m_tagFilter;
     QString m_projectFilter;
     Error m_error;

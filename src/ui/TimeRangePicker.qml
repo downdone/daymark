@@ -79,7 +79,8 @@ Popup {
     Shortcut {sequence: "Escape";enabled:root.visible && !startDate.pickerVisible && !endDate.pickerVisible && !timeline.dragging;onActivated:root.close()}
     Shortcut {sequence: "Return";enabled:root.visible && !startDate.pickerVisible && !endDate.pickerVisible && !timeline.dragging;onActivated:root.apply()}
     Connections {target:root.workspace;function onStateChanged(){if(root.visible)root.refreshBackground(true)}}
-    Connections {target:root.hostWindow;function onActiveFocusItemChanged(){Qt.callLater(function(){if(root.hostWindow)root.revealField(root.hostWindow.activeFocusItem)})}}
+    Timer {id:focusReveal;interval:0;onTriggered:if(root.visible && root.hostWindow)root.revealField(root.hostWindow.activeFocusItem)}
+    Connections {target:root.hostWindow;function onActiveFocusItemChanged(){if(root.visible)focusReveal.restart()}}
     contentItem: ColumnLayout {
         objectName:"popoverFieldGroup"
         spacing: Theme.fieldGap

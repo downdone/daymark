@@ -5,6 +5,8 @@
 #include "Ux38SmokeProbe.h"
 #include "TimeInputSmokeProbe.h"
 #include "WidgetPointerSmokeProbe.h"
+#include "ObjectAuditProbe.h"
+#include "PickerLifecycleProbe.h"
 #include "Ux39SmokeProbe.h"
 #include "Ux71SmokeProbe.h"
 #include "Ux75SmokeProbe.h"
@@ -92,6 +94,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     QObject::connect(&m_widget,&WidgetViewModel::errorChanged,&m_engine,[this]{if(!m_widget.errorText().isEmpty())diagnostics::event("window","operation.failed",{{"message",m_widget.errorText()}},"warning");});
     m_startup=std::make_unique<StartupController>(smokeTest?QDir(directory).filePath(QStringLiteral("startup-test.ini")):QString());
     m_updates=std::make_unique<UpdateController>(directory,smokeTest);
+    if(smokeTest && smokeProfile==QStringLiteral("object-audit") && !ObjectAuditProbe::seedFixture(QDir(directory).filePath("daymark.sqlite")))return false;
     m_engine.setInitialProperties({{QStringLiteral("startupController"),QVariant::fromValue(m_startup.get())},{QStringLiteral("widgetController"), QVariant::fromValue(&m_widget)},
                                    {QStringLiteral("taskWorkspace"),QVariant::fromValue(&m_workspace)},{QStringLiteral("updateController"),QVariant::fromValue(m_updates.get())}});
     m_engine.loadFromModule(QStringLiteral("Daymark"), QStringLiteral("Main"));
@@ -127,6 +130,27 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     QObject::connect(&m_workspace,&TaskWorkspace::stateChanged,&m_engine,[this]{if(m_workspace.ready())m_updates->runtimeReady();});
     if(!smokeTest && !restricted)m_mainState=std::make_unique<WindowStateStore>(mainWindow,QDir(directory).filePath(QStringLiteral("ui.ini")));
     if(m_mainState)QObject::connect(m_mainState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);
+    // Native roots retain geometry and drafts; only hidden scene graphs are
+    // disposable. The widget keeps its canvas throughout all visible forms.
+    auto releaseHidden=[](QQuickWindow* surface){
+        surface->setPersistentGraphics(false);
+        surface->setPersistentSceneGraph(false);
+        QObject::connect(surface,&QWindow::visibleChanged,surface,[surface](bool visible){
+            if(!visible)QTimer::singleShot(0,surface,[surface]{if(!surface->isVisible())surface->releaseResources();});
+        });
+    };
+    releaseHidden(mainWindow);
+    for(auto* tool:mainWindow->findChildren<QQuickWindow*>())if(tool!=widgetWindow)releaseHidden(tool);
+    QObject::connect(widgetWindow,&QWindow::visibleChanged,widgetWindow,[this,widgetWindow](bool visible){
+        if(visible){widgetWindow->setPersistentGraphics(true);widgetWindow->setPersistentSceneGraph(true);}
+        else QTimer::singleShot(0,widgetWindow,[this,widgetWindow]{
+            // A native flag/layer change can briefly hide a logically visible
+            // widget. Wait for the controller transaction before releasing.
+            if(!widgetWindow->isVisible() && !m_widget.initialVisible()){
+                widgetWindow->setPersistentGraphics(false);widgetWindow->setPersistentSceneGraph(false);widgetWindow->releaseResources();
+            }
+        });
+    });
     auto* desktopCalendar=mainWindow->findChild<QWindow*>(QStringLiteral("desktopCalendarWindow"));
     if(!restricted){m_calendarState=std::make_unique<WindowStateStore>(desktopCalendar,QDir(directory).filePath(QStringLiteral("ui.ini")),nullptr,QStringLiteral("desktopCalendar"),desktopCalendar->minimumSize());
     QObject::connect(m_calendarState.get(),&WindowStateStore::saveFailed,&m_workspace,&TaskWorkspace::settingsFailed);}
@@ -198,6 +222,18 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto* ready=new QTimer(&m_engine);ready->setInterval(50);
         QObject::connect(ready,&QTimer::timeout,&m_engine,[this]{if(m_workspace.ready() && !m_workspace.busy()){m_verificationCompleted=true;QCoreApplication::exit(m_qmlWarnings?3:0);}});ready->start();
         QTimer::singleShot(25000,&m_engine,[]{QCoreApplication::exit(3);});return true;
+    }
+    if(smokeTest && smokeProfile==QStringLiteral("picker-lifecycle")) {
+        auto test=std::make_shared<PickerLifecycleProbe>(m_engine,m_workspace,mainWindow);
+        auto* timer=new QTimer(&m_engine);timer->setInterval(400);
+        QObject::connect(timer,&QTimer::timeout,&m_engine,[this,test,timer]{const auto result=test->advance();if(result.isEmpty())return;timer->stop();if(result=="DONE"){m_verificationCompleted=true;qInfo()<<"PASS: OBJ01 lazy picker lifecycle";QCoreApplication::exit(m_qmlWarnings?3:0);}else{qCritical()<<result;QCoreApplication::exit(3);}});
+        timer->start();QTimer::singleShot(15000,&m_engine,[]{QCoreApplication::exit(3);});return true;
+    }
+    if(smokeTest && smokeProfile==QStringLiteral("object-audit")) {
+        auto test=std::make_shared<ObjectAuditProbe>(m_engine,m_workspace,m_widget,mainWindow,screenshotPath);
+        auto* timer=new QTimer(&m_engine);timer->setInterval(150);
+        QObject::connect(timer,&QTimer::timeout,&m_engine,[this,test,timer]{const auto result=test->advance();if(result.isEmpty())return;timer->stop();if(result=="DONE"){m_verificationCompleted=true;qInfo()<<"PASS: MEM03 isolated object lifecycle audit";QCoreApplication::exit(m_qmlWarnings?3:0);}else{qCritical()<<result;QCoreApplication::exit(3);}});
+        timer->start();QTimer::singleShot(75000,&m_engine,[]{QCoreApplication::exit(3);});return true;
     }
     if(smokeTest && smokeProfile==QStringLiteral("widget-pointer")) {
         auto test=std::make_shared<WidgetPointerSmokeProbe>(m_widget,widgetWindow);
@@ -876,14 +912,14 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                         std::function<QQuickItem*(QQuickItem*,const QString&)> visual=[&](QQuickItem* item,const QString& name)->QQuickItem*{if(item->objectName()==name && item->isVisible())return item;for(auto* child:item->childItems())if(auto* found=visual(child,name))return found;return nullptr;};
                         auto mouse=[&](QEvent::Type type,const QPointF& at,Qt::MouseButton button,Qt::MouseButtons buttons){QMouseEvent event(type,at,mainWindow->mapToGlobal(at),button,buttons,Qt::NoModifier);event.setTimestamp(inputClock->elapsed());QCoreApplication::sendEvent(mainWindow,&event);};
                         auto right=[&](QQuickItem* item){if(!item || !item->isVisible())return false;if(item->objectName().startsWith(QStringLiteral("categoryNav-")) || item->objectName().startsWith(QStringLiteral("tagNav-"))){auto* scroll=qvariant_cast<QObject*>(find("navigationScroll")->property("contentItem"));auto* flick=qobject_cast<QQuickItem*>(scroll);if(!flick)return false;const auto y=item->mapToItem(qvariant_cast<QQuickItem*>(scroll->property("contentItem")),QPointF()).y();scroll->setProperty("contentY",qBound(0.0,y-flick->height()/2,qMax(0.0,scroll->property("contentHeight").toDouble()-flick->height())));mainWindow->grabWindow();}const auto at=item->mapToScene(QPointF(item->width()*0.45,item->height()/2));mouse(QEvent::MouseButtonPress,at,Qt::RightButton,Qt::RightButton);mouse(QEvent::MouseButtonRelease,at,Qt::RightButton,Qt::NoButton);return true;};
-                        auto taskAction=[&](const QString& id,const char* prefix){auto* row=findRow(id);auto* menu=row?row->findChild<QObject*>(QStringLiteral("taskContext-")+id):nullptr;auto* action=row?row->findChild<QObject*>(QString::fromLatin1(prefix)+id):nullptr;if(!menu || !menu->property("visible").toBool() || !action || !action->property("enabled").toBool())return false;const auto invoked=QMetaObject::invokeMethod(action,"triggered");QMetaObject::invokeMethod(menu,"close");return invoked;};
+                        auto taskAction=[&](const QString& id,const char* prefix){auto* row=findRow(id);auto* menu=row?mainWindow->findChild<QObject*>(QStringLiteral("taskContext-")+id):nullptr;auto* action=row?mainWindow->findChild<QObject*>(QString::fromLatin1(prefix)+id):nullptr;if(!menu || !menu->property("visible").toBool() || !action || !action->property("enabled").toBool())return false;const auto invoked=QMetaObject::invokeMethod(action,"triggered");QMetaObject::invokeMethod(menu,"close");return invoked;};
                         auto reopen=[&]{auto* row=findRow(scheduleId);auto* list=qobject_cast<QQuickItem*>(find("taskList"));if(!row || !list || row->mapToScene(QPointF()).y()<list->mapToScene(QPointF()).y() || row->mapToScene(QPointF(0,row->height())).y()>list->mapToScene(QPointF(0,list->height())).y()){QMetaObject::invokeMethod(mainWindow,"revealTaskForVerification",Q_ARG(QVariant,QVariant(scheduleId)));return false;}return right(row);};
                         auto reveal=[&](const QString& id){QMetaObject::invokeMethod(mainWindow,"revealTaskForVerification",Q_ARG(QVariant,QVariant(id)));};
                         if(phase==413){probe->setInterval(60);QMetaObject::invokeMethod(mainWindow,"changeView",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));m_workspace.createTask(QStringLiteral("统一时间与操作验收"));}
                         else if(phase==414){scheduleId.clear();for(const auto& task:m_workspace.tasks()->items())if(task.title==QStringLiteral("统一时间与操作验收"))scheduleId=task.id;if(scheduleId.isEmpty()){fail("shared time fixture identity");return;}QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(scheduleId)));startDate->setProperty("text",m_workspace.dateOffset(2));find("editDeadlineDate")->setProperty("text",m_workspace.dateOffset(2));find("taskAllDay")->setProperty("checked",true);QMetaObject::invokeMethod(find("taskAllDay"),"clicked");find("taskTimeStart")->setProperty("text",QStringLiteral("09:00"));find("taskTimeEnd")->setProperty("text",QStringLiteral("10:00"));reminder->setProperty("text",m_workspace.dateOffset(2)+QStringLiteral(" 08:30"));click("saveTaskEditor");}
                         else if(phase==415){const auto task=m_workspace.task(scheduleId);const auto timing=task.value("schedule").toMap();if(editor->property("visible").toBool() || task.value("startOn")!=timing.value("startDate") || task.value("deadlineOn")!=timing.value("endDate") || timing.value("allDay").toBool() || task.value("remindAtUtc").toString().isEmpty()){fail("one visible date pair saves the same calendar interval");return;}reveal(scheduleId);}
                         else if(phase==416){mainWindow->grabWindow();if(!reopen()){static QElapsedTimer wait;if(!wait.isValid())wait.start();if(wait.elapsed()<1000)return;fail("actual task right pointer");return;}}
-                        else if(phase==417){auto* row=findRow(scheduleId);auto* menu=row?row->findChild<QObject*>(QStringLiteral("taskContext-")+scheduleId):nullptr;if(!menu || !menu->property("visible").toBool() || quick->property("editing").toBool() || !capture(QStringLiteral("task-direct-context"))){fail("right click opens nearby menu without editing");return;}QMetaObject::invokeMethod(menu,"close");row->forceActiveFocus();QKeyEvent key(QEvent::KeyPress,Qt::Key_F10,Qt::ShiftModifier);QCoreApplication::sendEvent(mainWindow,&key);QKeyEvent keyRelease(QEvent::KeyRelease,Qt::Key_F10,Qt::ShiftModifier);QCoreApplication::sendEvent(mainWindow,&keyRelease);if(!menu->property("visible").toBool() || !taskAction(scheduleId,"taskMenuPin-")){fail("Shift-F10 opens the same task menu and pins");return;}}
+                        else if(phase==417){auto* row=findRow(scheduleId);auto* menu=row?mainWindow->findChild<QObject*>(QStringLiteral("taskContext-")+scheduleId):nullptr;if(!menu || !menu->property("visible").toBool() || quick->property("editing").toBool() || !capture(QStringLiteral("task-direct-context"))){fail("right click opens nearby menu without editing");return;}QMetaObject::invokeMethod(menu,"close");row->forceActiveFocus();QKeyEvent key(QEvent::KeyPress,Qt::Key_F10,Qt::ShiftModifier);QCoreApplication::sendEvent(mainWindow,&key);QKeyEvent keyRelease(QEvent::KeyRelease,Qt::Key_F10,Qt::ShiftModifier);QCoreApplication::sendEvent(mainWindow,&keyRelease);if(!menu->property("visible").toBool() || !taskAction(scheduleId,"taskMenuPin-")){fail("Shift-F10 opens the same task menu and pins");return;}}
                         else if(phase==418){if(!m_workspace.task(scheduleId).value("pinned").toBool()){fail("context pin persists");return;}if(!reopen())return;if(!taskAction(scheduleId,"taskMenuImportant-")){fail("context important command");return;}}
                         else if(phase==419){if(!m_workspace.task(scheduleId).value("important").toBool()){fail("context importance persists");return;}if(!reopen())return;if(!taskAction(scheduleId,"taskMenuCancelReminder-")){fail("context cancel reminder command");return;}}
                         else if(phase==420){const auto task=m_workspace.task(scheduleId);if(!task.value("remindAtUtc").toString().isEmpty() || task.value("reminderRepeat").toString()!=QStringLiteral("NONE") || task.value("schedule").toMap().value("alertMinutes").toInt()!=-1 ){fail("cancel reminder clears repeating and relative reminder");return;}if(!reopen())return;if(!taskAction(scheduleId,"taskMenuPin-")){fail("context unpin command");return;}}
@@ -959,7 +995,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 auto* gallery=mainWindow->findChild<QObject*>(QStringLiteral("styleGallery"));
                 auto* settings=mainWindow->findChild<QObject*>(QStringLiteral("settingsDialog"));
                 auto* contrast=mainWindow->findChild<QObject*>(QStringLiteral("highContrastPreference"));
-                if(!gallery || !settings || !contrast){fail("action and contrast objects");return;}
+                if(!gallery || !settings || (phase>=187 && phase<=189 && !contrast)){fail("action and contrast objects");return;}
                 if(phase==180) {
                     m_workspace.setView(QStringLiteral("today"));m_workspace.setThemeMode(1);mainWindow->resize(1120,720);
                     mainWindow->findChild<QObject*>(QStringLiteral("newTaskTitle"))->setProperty("text",QStringLiteral("图标添加验证"));

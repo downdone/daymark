@@ -31,17 +31,18 @@ ApplicationWindow {
     }
     onClosing: function(event) {
         event.accepted=false
-        if(!page.protectClose(function(){calendar.workspace.setPreference("desktopCalendarVisible",false)}))calendar.workspace.setPreference("desktopCalendarVisible",false)
+        if(!page || !page.protectClose(function(){calendar.workspace.setPreference("desktopCalendarVisible",false)}))calendar.workspace.setPreference("desktopCalendarVisible",false)
     }
-    readonly property bool dragging: page.timelineDragging
-    function calendarCommand(action){page.command(action)}
-    Shortcut {sequence:"Ctrl+Shift+F";enabled:calendar.active && !page.modalOpen && !calendar.workspace.busy && !!page.selectedTaskId;onActivated:calendar.taskAction(page.selectedTaskId,"important")}
+    readonly property bool dragging: page ? page.timelineDragging : false
+    function calendarCommand(action){if(page)page.command(action)}
+    Shortcut {sequence:"Ctrl+Shift+F";enabled:calendar.active && !!calendar.page && !calendar.page.modalOpen && !calendar.workspace.busy && !!calendar.page.selectedTaskId;onActivated:calendar.taskAction(calendar.page.selectedTaskId,"important")}
     function protectClose(action) {
-        if(!page.protectClose(action))return false
+        if(!page || !page.protectClose(action))return false
         workspace.setPreference("desktopCalendarVisible",true);requestActivate();return true
     }
     function resetPosition() {x=Screen.virtualX+Math.max(0,(Screen.width-width)/2);y=Screen.virtualY+Math.max(0,(Screen.height-height)/2)}
     function verifyIndependence() {
+        if(!page)return false
         const oldView=workspace.view
         const oldTitle=workspace.calendarTitle
         const original=page.anchorDate
@@ -51,12 +52,26 @@ ApplicationWindow {
         page.anchorDate=original;page.selectedDate=originalSelection
         return changed && workspace.view===oldView && workspace.calendarTitle===oldTitle
     }
-    ColumnLayout {
+    property string savedAnchor:""
+    property string savedSelection:""
+    readonly property CalendarPanel page:calendarContent.item ? (calendarContent.item as CalendarContent).page : null
+    onVisibleChanged:{
+        if(visible)calendarContent.active=true
+        else if(!workspace.preferences.desktopCalendarVisible && page && !page.modalOpen && !page.timelineDragging){savedAnchor=page.anchorDate;savedSelection=page.selectedDate;calendarContent.active=false}
+    }
+    Loader {
+        id:calendarContent;anchors.fill:parent;active:false
+        sourceComponent:CalendarContent {}
+    }
+    WindowResizeHandles {anchors.fill: parent;targetWindow: calendar}
+    component CalendarContent:ColumnLayout {
+        readonly property alias page:calendarPage
+        Component.onCompleted:{if(calendar.savedAnchor)calendarPage.anchorDate=calendar.savedAnchor;if(calendar.savedSelection)calendarPage.selectedDate=calendar.savedSelection}
         anchors.fill: parent;anchors.margins: calendar.metrics.padding
         spacing: Theme.fieldGap
         RowLayout {
             Layout.fillWidth: true
-            Label {objectName:"desktopCalendarTitle";text: page.displayTitle;font.pixelSize:calendar.metrics.headingSize;font.weight: Font.DemiBold;Layout.fillWidth: true;Layout.minimumWidth:0;elide:Text.ElideRight
+            Label {objectName:"desktopCalendarTitle";text: calendarPage.displayTitle;font.pixelSize:calendar.metrics.headingSize;font.weight: Font.DemiBold;Layout.fillWidth: true;Layout.minimumWidth:0;elide:Text.ElideRight
                 DragHandler {target: null;onActiveChanged: if(active)calendar.startSystemMove()}
             }
             WidgetAction {symbol: "pin";description: checked ? qsTr("取消日历置顶") : qsTr("日历置顶");checked: calendar.workspace.preferences.desktopCalendarTopmost;Accessible.checkable: true;Accessible.checked: checked;onClicked: calendar.workspace.setPreference("desktopCalendarTopmost",!checked)}
@@ -80,7 +95,7 @@ ApplicationWindow {
             WidgetAction {symbol: "close";description: qsTr("隐藏桌面日历");onClicked: calendar.close()}
         }
         CalendarPanel {
-            id: page
+            id: calendarPage
             objectName: "desktopCalendarPanel"
             Layout.fillWidth: true;Layout.fillHeight: true
             workspace: calendar.workspace
@@ -95,5 +110,4 @@ ApplicationWindow {
         }
         Label {visible: calendar.workspace.errorText.length>0;Layout.fillWidth: true;wrapMode: Text.Wrap;text: calendar.workspace.errorText;color: Theme.danger}
     }
-    WindowResizeHandles {anchors.fill: parent;targetWindow: calendar}
 }

@@ -13,10 +13,17 @@ Item {
     // multisampled edges and nested software-renderer scroll clips.
     layer.enabled:true
     layer.samples:4
-    Shape {
+    property bool drawingReady:false
+    Component.onCompleted:drawingReady=true
+    function refreshDrawing(){if(drawingReady){drawing.active=false;drawing.active=true}}
+    onInkChanged:refreshDrawing()
+    onPathDataChanged:refreshDrawing()
+    Loader {
+        id:drawing
+        x:(root.width-root.drawingSize)/2;y:(root.height-root.drawingSize)/2
+        sourceComponent:Shape {
         id:shape
         preferredRendererType:Shape.GeometryRenderer
-        x:(root.width-root.drawingSize)/2;y:(root.height-root.drawingSize)/2
         width:24;height:24;scale:root.drawingSize/24;transformOrigin:Item.TopLeft
         ShapePath {
             strokeColor:root.ink;fillColor:"transparent"
@@ -24,5 +31,6 @@ Item {
             capStyle:ShapePath.RoundCap;joinStyle:ShapePath.RoundJoin
             PathSvg {path:root.pathData}
         }
+    }
     }
 }

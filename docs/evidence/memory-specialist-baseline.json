@@ -1,0 +1,1145 @@
+{
+  "format": 1,
+  "scenarios": [
+    {
+      "durationMs": 20325,
+      "idleMedianPrivateBytes": 256598016,
+      "peakSampledPrivateBytes": 256602112,
+      "samples": [
+        {
+          "ms": 262,
+          "privateBytes": 23834624,
+          "privateWorkingSetBytes": 6279168,
+          "visibleWindows": 0,
+          "workingSetBytes": 32112640
+        },
+        {
+          "ms": 527,
+          "privateBytes": 32985088,
+          "privateWorkingSetBytes": 14561280,
+          "visibleWindows": 0,
+          "workingSetBytes": 49934336
+        },
+        {
+          "ms": 794,
+          "privateBytes": 81936384,
+          "privateWorkingSetBytes": 62566400,
+          "visibleWindows": 0,
+          "workingSetBytes": 106901504
+        },
+        {
+          "ms": 1056,
+          "privateBytes": 132550656,
+          "privateWorkingSetBytes": 91394048,
+          "visibleWindows": 0,
+          "workingSetBytes": 150458368
+        },
+        {
+          "ms": 1320,
+          "privateBytes": 120143872,
+          "privateWorkingSetBytes": 99471360,
+          "visibleWindows": 1,
+          "workingSetBytes": 153505792
+        },
+        {
+          "ms": 1586,
+          "privateBytes": 250703872,
+          "privateWorkingSetBytes": 204091392,
+          "visibleWindows": 1,
+          "workingSetBytes": 269467648
+        },
+        {
+          "ms": 1846,
+          "privateBytes": 256524288,
+          "privateWorkingSetBytes": 209686528,
+          "visibleWindows": 1,
+          "workingSetBytes": 275513344
+        },
+        {
+          "ms": 2111,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275603456
+        },
+        {
+          "ms": 2375,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275607552
+        },
+        {
+          "ms": 2641,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275607552
+        },
+        {
+          "ms": 2905,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275607552
+        },
+        {
+          "ms": 3164,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275607552
+        },
+        {
+          "ms": 3422,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275607552
+        },
+        {
+          "ms": 3685,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275607552
+        },
+        {
+          "ms": 3935,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275607552
+        },
+        {
+          "ms": 4187,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275607552
+        },
+        {
+          "ms": 4436,
+          "privateBytes": 256602112,
+          "privateWorkingSetBytes": 209760256,
+          "visibleWindows": 1,
+          "workingSetBytes": 275615744
+        },
+        {
+          "ms": 4700,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 4964,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 5226,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 5489,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 5739,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 5990,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 6241,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 6505,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 6769,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 7020,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 7271,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 7521,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 7786,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 8037,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 8287,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 8554,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 8816,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 9066,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 9331,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 9583,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 9846,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 10111,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 10374,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 10638,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275611648
+        },
+        {
+          "ms": 10904,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 11155,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 11419,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 11670,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 11935,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 12186,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 12437,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 12703,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 12969,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 13234,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 13484,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 13745,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 14006,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 14269,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 14520,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 14784,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 15035,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 15286,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 15552,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 15816,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 16081,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 16332,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 16596,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 16846,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 17097,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 17359,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 17610,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 17874,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 18139,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 18390,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 18654,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 18904,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 19167,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 19430,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 19693,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 19957,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        },
+        {
+          "ms": 20224,
+          "privateBytes": 256598016,
+          "privateWorkingSetBytes": 209756160,
+          "visibleWindows": 1,
+          "workingSetBytes": 275619840
+        }
+      ],
+      "taskCount": 20,
+      "visibleWindows": 1,
+      "widget": false,
+      "idleMedianWorkingSetBytes": 275619840,
+      "idleMedianPrivateWorkingSetBytes": 209756160
+    },
+    {
+      "durationMs": 20276,
+      "idleMedianPrivateBytes": 311484416,
+      "peakSampledPrivateBytes": 320192512,
+      "samples": [
+        {
+          "ms": 256,
+          "privateBytes": 32821248,
+          "privateWorkingSetBytes": 14405632,
+          "visibleWindows": 0,
+          "workingSetBytes": 49725440
+        },
+        {
+          "ms": 521,
+          "privateBytes": 92983296,
+          "privateWorkingSetBytes": 73584640,
+          "visibleWindows": 0,
+          "workingSetBytes": 118665216
+        },
+        {
+          "ms": 784,
+          "privateBytes": 108376064,
+          "privateWorkingSetBytes": 87638016,
+          "visibleWindows": 0,
+          "workingSetBytes": 137719808
+        },
+        {
+          "ms": 1037,
+          "privateBytes": 246104064,
+          "privateWorkingSetBytes": 175706112,
+          "visibleWindows": 2,
+          "workingSetBytes": 241627136
+        },
+        {
+          "ms": 1288,
+          "privateBytes": 317177856,
+          "privateWorkingSetBytes": 258789376,
+          "visibleWindows": 2,
+          "workingSetBytes": 326213632
+        },
+        {
+          "ms": 1539,
+          "privateBytes": 320184320,
+          "privateWorkingSetBytes": 261849088,
+          "visibleWindows": 2,
+          "workingSetBytes": 329289728
+        },
+        {
+          "ms": 1804,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329314304
+        },
+        {
+          "ms": 2055,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329314304
+        },
+        {
+          "ms": 2306,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329318400
+        },
+        {
+          "ms": 2567,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329318400
+        },
+        {
+          "ms": 2832,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329318400
+        },
+        {
+          "ms": 3083,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329318400
+        },
+        {
+          "ms": 3335,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329318400
+        },
+        {
+          "ms": 3600,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329318400
+        },
+        {
+          "ms": 3851,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329318400
+        },
+        {
+          "ms": 4101,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329318400
+        },
+        {
+          "ms": 4365,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 4626,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 4891,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 5142,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 5395,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 5660,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 5924,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 6175,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 6426,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 6691,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 6956,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 7206,
+          "privateBytes": 320192512,
+          "privateWorkingSetBytes": 261857280,
+          "visibleWindows": 2,
+          "workingSetBytes": 329326592
+        },
+        {
+          "ms": 7472,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 7722,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 7973,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 8239,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 8505,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 8768,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 9019,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 9283,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 9547,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 9799,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 10064,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 10338,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320724992
+        },
+        {
+          "ms": 10595,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 10859,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 11111,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 11376,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 11640,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 11893,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 12144,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 12406,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 12669,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 12935,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 13198,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 13448,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 13714,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 13966,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 14230,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 14494,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 14745,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 14996,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 15246,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 15513,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 15764,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 16029,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 16293,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 16560,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 16810,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 17076,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 17341,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 17602,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 17868,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 18119,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 18383,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 18647,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 18912,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 19163,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 19427,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 19678,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 19928,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        },
+        {
+          "ms": 20182,
+          "privateBytes": 311484416,
+          "privateWorkingSetBytes": 253255680,
+          "visibleWindows": 2,
+          "workingSetBytes": 320733184
+        }
+      ],
+      "taskCount": 20,
+      "visibleWindows": 2,
+      "widget": true,
+      "idleMedianWorkingSetBytes": 320733184,
+      "idleMedianPrivateWorkingSetBytes": 253255680
+    }
+  ],
+  "scope": "Initial native Windows baseline, 20 synthetic tasks, QTemporaryDir, flat deployed payload; one independent run per scenario, fixed order, no optimization applied",
+  "userDataAccessed": false,
+  "applicationVersion": "2.1.0",
+  "qtVersion": "6.10.2",
+  "compiler": "MinGW 13.1",
+  "configuration": "Release",
+  "applicationSha256": "23cf89e18b7d63ad238a999998f2ec268971f63df32d50242d20ae1d519e12ce",
+  "probeSourceSha256": "20f1edd02b9239bf89a965cd6bb61bf598908786724fda8872551d5236c09c1f",
+  "graphicsApi": null,
+  "displayDpr": null,
+  "gpuMemoryMeasured": false,
+  "longRunVerified": false,
+  "crossPlatformVerified": false,
+  "productionCodeModified": false,
+  "privateWorkingSetSource": "GetProcessMemoryInfo EX2",
+  "stableWindow": "10000..20000ms after process start",
+  "memoryUnit": "bytes",
+  "limitations": [
+    "One process per scene, fixed order, not a statistically qualified baseline",
+    "Actual DPR and graphics API not captured",
+    "Sampled peak is not the OS instantaneous peak",
+    "No managed updater in this flat payload",
+    "No user database or account accessed"
+  ]
+}

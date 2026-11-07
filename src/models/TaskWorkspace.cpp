@@ -173,6 +173,7 @@ public:
     std::unique_ptr<RecurrenceRepository> recurrence;
     std::unique_ptr<RecurrenceService> recurrenceService;
     std::optional<ImportPlan> pendingImport;
+    quint64 profileGeneration=0,pendingImportGeneration=0;
     SystemClock clock;
     template<class T,class F> Result<T> mutate(F command){
         sync::Journal journal(database.connection());const auto profile=journal.profile();if(!profile.ok())return Result<T>::failure(profile.error.code,profile.error.key);const bool capture=profile.value.value("mode")==QStringLiteral("ACCOUNT");
@@ -184,6 +185,7 @@ public:
     }
     Result<QList<Task>> load(const QString& path)
     {
+        ++profileGeneration;pendingImport.reset();
         recurrenceService.reset();recurrence.reset();service.reset();repository.reset();catalogService.reset();catalog.reset();
         const auto opened=database.open(path);
         if(!opened.ok()) return {{},opened.error};
@@ -243,6 +245,7 @@ TaskWorkspace::~TaskWorkspace()
     m_thread.quit();m_thread.wait();
 }
 void TaskWorkspace::start(const QString& path) {
+    ++m_importGeneration;m_importSummary.clear();
     m_path=path;loadReminderPresentation();loadWidgetBrowsePreferences();
     QSettings settings(QFileInfo(path).dir().filePath(QStringLiteral("ui.ini")),QSettings::IniFormat);
     m_sundayFirst=settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool();
@@ -353,6 +356,7 @@ void TaskWorkspace::refreshClock(){m_today=m_clock.localToday();refresh();emit s
 void TaskWorkspace::switchSyncDatabase(const QString& path,std::function<void(Result<void>)> completed)
 {
     if(!m_ready || !begin()){completed(Result<void>::failure(ErrorCode::Cancelled,QStringLiteral("syncWorkspaceBusy")));return;}
+    ++m_importGeneration;m_importSummary.clear();
     const auto previous=m_path;m_ready=false;refreshReminderAlerts();m_undoTimer.stop();m_lastDeleted.clear();m_lastBatchDeleted.clear();m_taskEditHistory.clear();m_historyTaskId.clear();m_collapsedTasks.clear();m_eventUndoId.clear();m_view=QStringLiteral("inbox");m_scope=m_view;m_search.clear();m_tagFilter.clear();m_projectFilter.clear();
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
     QMetaObject::invokeMethod(worker,[self,worker,path,previous,completed=std::move(completed)]{
@@ -1184,19 +1188,22 @@ void TaskWorkspace::maintain()
 bool TaskWorkspace::runTransfer(const QString& operation,std::function<Result<QString>(TaskWorker&)> command)
 {
     if(!m_ready || !begin())return false;
+    const auto importGeneration=m_importGeneration;
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
-    QMetaObject::invokeMethod(worker,[self,worker,operation,command=std::move(command)]{
+    QMetaObject::invokeMethod(worker,[self,worker,operation,importGeneration,command=std::move(command)]{
         const auto result=command(*worker);
         const auto tasks=worker->repository->all();const auto catalog=worker->catalog->all();const auto rules=worker->recurrence->all();
         const auto events=EventRepository(worker->database.connection()).all();
-        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,operation]{
+        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,operation,importGeneration]{
             if(!self)return;
-            self->m_busy=false;self->m_error=result.error;
+            self->m_busy=false;
+            if(operation==QStringLiteral("previewImport") && importGeneration!=self->m_importGeneration){emit self->stateChanged();emit self->operationFinished(operation,false);return;}
+            self->m_error=result.error;
             if(tasks.ok())self->m_cache=tasks.value;else self->m_error=tasks.error;
             if(catalog.ok())self->m_catalog=catalog.value;else self->m_error=catalog.error;
             if(rules.ok())self->m_rules=rules.value;else self->m_error=rules.error;
             if(events.ok())self->m_events=events.value;else self->m_error=events.error;
-            if(result.ok()) {
+            if(result.ok() && (operation!=QStringLiteral("previewImport") || importGeneration==self->m_importGeneration)) {
                 self->m_info=result.value;
                 if(operation==QStringLiteral("previewImport"))self->m_importSummary=result.value;
                 if(operation==QStringLiteral("applyImport")){
@@ -1223,13 +1230,21 @@ bool TaskWorkspace::previewImport(const QString& input,bool snapshot)
     m_importSummary.clear();
     return runTransfer(QStringLiteral("previewImport"),[path,snapshot](TaskWorker& w){
         w.pendingImport.reset();const auto plan=DataTransfer::preview(path,snapshot);if(!plan.ok())return Result<QString>{{},plan.error};
-        w.pendingImport=plan.value;return Result<QString>{tr("校验通过：%1 行数据。预览保留在内存，当前数据库尚未修改。").arg(plan.value.rows),{}};
+        w.pendingImport=plan.value;w.pendingImportGeneration=w.profileGeneration;return Result<QString>{tr("校验通过：%1 行数据。预览保留在内存，当前数据库尚未修改。").arg(plan.value.rows),{}};
     });
+}
+void TaskWorkspace::discardImport()
+{
+    ++m_importGeneration;
+    if(m_info==m_importSummary)m_info.clear();
+    m_importSummary.clear();
+    QMetaObject::invokeMethod(m_worker,[worker=m_worker]{worker->pendingImport.reset();},Qt::QueuedConnection);
+    emit stateChanged();
 }
 bool TaskWorkspace::applyImport(bool replace)
 {
     return runTransfer(QStringLiteral("applyImport"),[replace](TaskWorker& w){
-        if(!w.pendingImport)return Result<QString>::failure(ErrorCode::ValidationError,QStringLiteral("importInvalid"));
+        if(!w.pendingImport || w.pendingImportGeneration!=w.profileGeneration)return Result<QString>::failure(ErrorCode::ValidationError,QStringLiteral("importInvalid"));
         sync::Journal journal(w.database.connection());const auto profile=journal.profile();if(!profile.ok())return Result<QString>{{},profile.error};const bool account=profile.value.value("mode")==QStringLiteral("ACCOUNT");
         if(account && replace)return Result<QString>::failure(ErrorCode::ValidationError,QStringLiteral("syncReplaceSeparateProfile"));
         std::unique_ptr<ScopedTransaction> scope;if(account){scope=std::make_unique<ScopedTransaction>(w.database.connection());if(!scope->active())return Result<QString>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}

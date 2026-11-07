@@ -63,3 +63,11 @@ QTemporaryDir内实际Windows/CNG签名夹具：新装、同版修复、升级�
 依据：[NSIS用户权限](https://nsis.sourceforge.io/Reference/RequestExecutionLevel)、[脚本参考](https://nsis.sourceforge.io/Docs/Chapter4.html)、[许可](https://nsis.sourceforge.io/Docs/AppendixI.html)、[Windows安装上下文](https://learn.microsoft.com/en-us/windows/win32/msi/installation-context)。
 
 实现补充：反复重装但尚未启动时，通过有界 ancestors 列表保留全部前序备份引用，RUNNING 后统一清理程序；未知文件不删。安装器/内嵌卸载器均采用固定 pin 自签名。修复损坏程序只需可信元数据，不要求旧 EXE 散列正常。
+
+### 2.1正式流水线准入评审
+
+用户已授权测试后发布。沿现有Windows-only链扩展第五个原生setup helper，不另建服务：不可变tag完整CTest/QML lint→五宿主签名→无SDK/无私钥的独立runner部署验证→受保护发布job从同一签名bundle制作安装向导→QTemporaryDir实际新装、Qt运行来源审计、占用拒绝、修复和保留资料卸载→上传ZIP/Setup及校验和→最后上传ready manifest。Setup或其真实安装验证失败时不得先上传任何程序资产。
+
+构建额外留存测试宿主及QtCore/QtTest依赖，绑定已核验candidate_run下载，不能拿别的run测试替代。发布job临时导入同一固定pin的PFX，仅存My证书库，finally删除；不导入Root。NSIS完整ZIP及编译器均校验ADR-035固定散列。源码release仅扩展精确命名的setup.exe及其sha256白名单；无覆盖已有tag/资产、无测试门禁降级。完成须GitHub真实构建、独立部署、安装及公网2.0.2→2.1.0更新证据，局部本地PASS不视为正式链通过。
+
+单代理自审通过进入CI接线；保留正式更新包MSVC143与本地MinGW131隔离。安装与更新协议、schema10、HTTP JSON v1保持不变。

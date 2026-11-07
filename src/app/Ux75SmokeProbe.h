@@ -19,6 +19,7 @@ private:
     QPointer<QQuickWindow> m_main,m_widget;
     QString m_screenshot;QElapsedTimer m_wait;
     QRect m_canvas;QImage m_ballFrame;
+    int m_syncedFrames=0,m_swappedFrames=0,m_endedFrames=0;
     int m_stage=0,m_cycle=0,m_target=0,m_samples=0,m_geometryEvents=0,m_geometryBaseline=0,m_intermediateFrames=0;
     bool m_monitor=false,m_emptyMask=false,m_lostGraph=false;
 };

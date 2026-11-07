@@ -119,7 +119,7 @@ ApplicationWindow {
     Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property: "interactionActive";value: !!mainWindow.taskPointerRow || mainWindow.catalogDragActive || calendarPanel.timelineDragging || taskWidget.taskDragging}
     Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property:"syncApplyPaused";value:mainWindow.draftDirty || mainWindow.editorSaving || (organization.visible && organization.dirty) || mainWindow.taskWorkspace.interactionActive}
     readonly property bool editingActive: editor.visible || quickEditor.editing
-    readonly property bool transientMenuOpen: libraryMenu.visible || libraryCreateMenu.visible || categoryContextMenu.visible || catalogDeleteConfirm.visible || pageMenu.visible || categorySectionMenu.visible || tagSectionMenu.visible || batchContextMenu.visible || trashContextMenu.visible
+    readonly property bool transientMenuOpen: taskContextMenu.visible || libraryMenu.visible || libraryCreateMenu.visible || categoryContextMenu.visible || catalogDeleteConfirm.visible || pageMenu.visible || categorySectionMenu.visible || tagSectionMenu.visible || batchContextMenu.visible || trashContextMenu.visible
     readonly property bool toolModalOpen: inspectorPicker.active || transientMenuOpen || catalogEdit.visible || deleteParentConfirm.visible || catalogCreate.visible || quickEditor.editing || organization.modalOpen || windowSettings.visible || accountWindow.visible || dataTools.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen || timingFields.modalOpen || extraFields.parentPickerVisible || startDate.pickerVisible || deadline.pickerVisible || reminder.pickerVisible
     property string toolPage: ""
     readonly property bool toolPageVisible: toolPage.length>0
@@ -173,6 +173,23 @@ ApplicationWindow {
             else if(batchMode){const point=row.mapToItem(mainWindow.contentItem,x,y);batchContextMenu.popup(mainWindow.contentItem,point.x,point.y)}
             else row.showContextMenu(x,y)
         })
+    }
+    TaskContextMenu {
+        id:taskContextMenu
+        workspace:mainWindow.taskWorkspace
+        onCommandRequested:function(id,version,action,value){
+            // Bind commands to the captured identity/version, never the selection.
+            const task=mainWindow.taskWorkspace.task(id)
+            if(!task.taskId || task.rowVersion!==version){close();return}
+            if(action==="edit")mainWindow.openEditor(id)
+            else if(action==="complete"){const row=mainWindow.taskRowForVerification(id);if(row)mainWindow.completeRow(row);else mainWindow.taskWorkspace.changeState(id,version,task.taskStatus==="OPEN"?"complete":"reopen")}
+            else if(action==="delete")mainWindow.requestDeleteTask(id)
+            else if(action==="view")mainWindow.moveTaskToNavigation(id,version,value)
+            else if(action==="evening")mainWindow.setTaskEvening(id,value)
+            else if(action==="move")mainWindow.taskWorkspace.moveTask(id,value)
+            else if(action==="activate")mainWindow.taskWorkspace.saveTaskWithDetails(id,version,task.title,task.notes,"ACTIVE","","",false,{schedule:null})
+            else mainWindow.taskWorkspace.saveDetails(id,version,action==="pin"?{pinned:value}:action==="important"?{important:value}:{remindAtUtc:"",reminderRepeat:"NONE"})
+        }
     }
     readonly property bool calendarVisible: !toolPageVisible && taskWorkspace.calendarMode
     readonly property real sidebarWidth: taskWorkspace.preferences.sidebarCollapsed ? 44 : Math.min(288,200*Theme.scale)
@@ -1130,6 +1147,7 @@ ApplicationWindow {
                 ScrollBar.vertical: ScrollBar {objectName:"taskScrollBar";z:2}
                 delegate: TaskRow {
                     id: taskRow
+                    sharedContextMenu:taskContextMenu
                     workspace:mainWindow.taskWorkspace
                     required property int index
                     width: taskList.width-Theme.scrollGutter

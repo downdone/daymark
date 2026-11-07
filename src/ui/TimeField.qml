@@ -9,6 +9,7 @@ TextField {
     property bool inlineMode:false
     property bool inlineExpanded:false
     readonly property bool pickerVisible:picker.visible || inlineExpanded
+    readonly property bool pickerContentLoaded: pickerContent.item !== null
     signal inlinePickerRequested()
     readonly property var hostWindow: Window.window
     signal timeChosen()
@@ -18,9 +19,8 @@ TextField {
     rightPadding: clockButton.width+8
     function openPicker() {
         if(inlineMode){inlineExpanded=true;inlinePickerRequested();return}
-        const valid=/^([01]\d|2[0-3]):[0-5]\d$/.test(text)
-        hours.value=valid ? Number(text.slice(0,2)) : 9
-        minutes.value=valid ? Number(text.slice(3,5)) : 0
+        pickerContent.active=true
+        const content=pickerContent.item as PickerContent;if(content)content.setTime(text)
         picker.open();forceActiveFocus()
     }
     function chooseTime(hour,minute) {
@@ -51,7 +51,14 @@ TextField {
         padding: 12;margins: 8;focus: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle {radius: Theme.panelRadius;color: Theme.content;border.color: Theme.separator}
-        contentItem: ColumnLayout {
+        onClosed:pickerContent.active=false
+        contentItem: Loader {
+          id:pickerContent;active:false
+          sourceComponent:PickerContent {}
+        }
+    }
+    component PickerContent:ColumnLayout {
+            function setTime(text){const valid=/^([01]\d|2[0-3]):[0-5]\d$/.test(text);hours.value=valid?Number(text.slice(0,2)):9;minutes.value=valid?Number(text.slice(3,5)):0}
             spacing: 8
             Label {text: field.timeLabel;font.weight: Font.DemiBold}
             RowLayout {
@@ -66,5 +73,4 @@ TextField {
                 Button {objectName: "applyTime";text: qsTr("使用时间");highlighted: true;onClicked: field.chooseTime(hours.value,minutes.value)}
             }
         }
-    }
 }

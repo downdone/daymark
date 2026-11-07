@@ -26,6 +26,10 @@ def main():
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--tag', required=True)
     parser.add_argument('--source', required=True)
+    parser.add_argument('--makensis', type=Path, required=True)
+    parser.add_argument('--signtool', type=Path, required=True)
+    parser.add_argument('--certificate-thumbprint', required=True)
+    parser.add_argument('--installer-test', type=Path, required=True)
     args = parser.parse_args()
     source = Path(__file__).resolve().parents[1]
     token = os.environ['GH_TOKEN']
@@ -40,6 +44,7 @@ def main():
     verify_deployment_report(candidate, info)
     release = api('/releases/tags/' + args.tag, token)
     expected_names = {f'Daymark-{version}-windows-x64.zip', f'Daymark-{version}-windows-x64.zip.sha256',
+                      f'Daymark-{version}-windows-x64-setup.exe', f'Daymark-{version}-windows-x64-setup.exe.sha256',
                       'SHA256SUMS.txt', 'update-windows-x64.json', 'update-windows-x64.json.sig'}
     if release.get('draft') or release.get('prerelease') or release.get('tag_name') != args.tag:
         raise ValueError('a public stable source release must already exist')
@@ -54,16 +59,39 @@ def main():
         cli = candidate / 'native/daymark-update-cli.exe'
         package_command = ['python', str(source / 'scripts/package-update.py'), '--payload', str(candidate / 'payload'),
             '--launcher', str(candidate / 'native/daymark-launcher.exe'), '--updater', str(candidate / 'native/daymark-updater.exe'),
+            '--setup-helper', str(candidate / 'native/daymark-setup-helper.exe'),
             '--cli', str(cli), '--key', str(key), '--output', str(output), '--version', version,
             '--source', args.source, '--runtime', 'msvc143', '--runtime-min', 'bundled', '--min-windows-build', '19045',
             '--extract', str(Path(temporary) / 'probe'), '--deployment-report', str(candidate / 'deployment-report.json')]
         if pin:
             package_command += ['--self-signed-cert-sha256', pin]
         subprocess.run(package_command, check=True, timeout=180)
+        # Embed the pristine signed bundle before initialize creates mutable state.
+        installer = output / f'Daymark-{version}-windows-x64-setup.exe'
+        subprocess.run(['python', str(source / 'scripts/package-setup.py'),
+                        '--makensis', str(args.makensis), '--signtool', str(args.signtool),
+                        '--certificate-thumbprint', args.certificate_thumbprint,
+                        '--certificate-sha256', pin, '--bundle', str(Path(temporary) / 'probe'),
+                        '--output', str(installer)], check=True, timeout=360)
+        proof = source / 'build/installer-publication-proof'
+        proof.mkdir(parents=True, exist_ok=True)
+        environment = dict(os.environ, DAYMARK_INSTALLER_ARTIFACT=str(installer))
+        acceptance = subprocess.run([str(args.installer_test.resolve())], env=environment,
+                                    capture_output=True, timeout=270)
+        (proof / 'installer-test.log').write_bytes(acceptance.stdout + acceptance.stderr)
+        acceptance.check_returncode()
+        checksum = hashlib.sha256(installer.read_bytes()).hexdigest()
+        (proof / 'report.json').write_text(json.dumps(dict(format=1, passed=True,
+            source_revision=args.source, version=version, installer_sha256=checksum,
+            signature_policy='self-signed-pinned', public_trust=False,
+            acceptance='QTemporaryDir native install, Qt startup/module audit, busy refusal, repair, uninstall/data preservation'), indent=2), encoding='utf-8')
         # Compiled public trust must validate the freshly signed bootstrap before upload.
         subprocess.run([str(Path(temporary) / 'probe/daymark-update-cli.exe'), 'initialize', '--root', str(Path(temporary) / 'probe'), '--json'], check=True, timeout=30)
         archive = output / f'Daymark-{version}-windows-x64.zip'
-        upload = [archive, output / (archive.name + '.sha256'), output / 'SHA256SUMS.txt']
+        with (output / 'SHA256SUMS.txt').open('a', encoding='ascii') as index:
+            index.write(checksum + '  ' + installer.name + '\n')
+        upload = [archive, output / (archive.name + '.sha256'), installer,
+                  installer.with_suffix('.exe.sha256'), output / 'SHA256SUMS.txt']
         subprocess.run(['gh', 'release', 'upload', args.tag, *map(str, upload), '--repo', REPOSITORY], check=True, timeout=180)
         assets = api('/releases/' + str(release['id']) + '/assets?per_page=100', token)
         matching = [asset for asset in assets if asset.get('name') == archive.name]
@@ -80,7 +108,7 @@ def main():
         subprocess.run(['gh', 'release', 'upload', args.tag, str(manifest), str(manifest.with_suffix('.json.sig')),
                         '--repo', REPOSITORY], check=True, timeout=60)
         final = api('/releases/' + str(release['id']) + '/assets?per_page=100', token)
-        for path in (manifest, manifest.with_suffix('.json.sig')):
+        for path in (*upload, manifest, manifest.with_suffix('.json.sig')):
             entry = [item for item in final if item.get('name') == path.name]
             checksum = hashlib.sha256(path.read_bytes()).hexdigest()
             if len(entry) != 1 or entry[0].get('digest') != 'sha256:' + checksum:

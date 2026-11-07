@@ -215,7 +215,7 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path src/update/CMakeLists.txt) {
-            cmake --build build/release --config Release --target daymark-update-cli daymark-bootstrap daymark-updater --parallel 4
+            cmake --build build/release --config Release --target daymark-update-cli daymark-bootstrap daymark-updater daymark-setup-helper --parallel 4
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           cmake --build build/release --config Release --parallel 4
@@ -351,7 +351,7 @@ jobs:
           if (@($native).Count -ne 1) { throw 'Exactly one updater output directory required' }
           New-Item -ItemType Directory -Path build/update-input/native -Force | Out-Null
           Copy-Item "build/artifacts/Daymark-$version-windows-x64" build/update-input/payload -Recurse
-          foreach($name in @('daymark-launcher.exe','daymark-update-cli.exe','daymark-updater.exe')) { Copy-Item "$native/$name" build/update-input/native }
+          foreach($name in @('daymark-launcher.exe','daymark-update-cli.exe','daymark-updater.exe','daymark-setup-helper.exe')) { Copy-Item "$native/$name" build/update-input/native }
           Import-Module ./scripts/PackageValidation.psm1 -Force
           $inventory = (& ctest --test-dir build/release -C Release --show-only=json-v1) | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { throw 'CTest inventory unavailable' }
@@ -375,6 +375,24 @@ jobs:
         with:
           name: windows-update-candidate
           path: build/update-input/
+          if-no-files-found: error
+      - name: Collect installer acceptance host
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $native = @('build/release/bin/Release','build/release/bin') | Where-Object { Test-Path "$_/test_installer_flow.exe" }
+          if (@($native).Count -ne 1) { throw 'Exactly one installer test host required' }
+          New-Item -ItemType Directory -Path build/installer-test -Force | Out-Null
+          Copy-Item "$native/test_installer_flow.exe" build/installer-test
+          $kit=$env:QT_ROOT_DIR
+          if (!$kit) { $kit=$env:Qt6_DIR }
+          foreach($name in @('Qt6Core.dll','Qt6Test.dll')) { Copy-Item "$kit/bin/$name" build/installer-test }
+          Get-ChildItem build/update-input/payload -File | Where-Object { $_.Name -match '^(msvcp140|vcruntime140|concrt140|vccorlib140).*\.dll$' } | Copy-Item -Destination build/installer-test
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: runner.os == 'Windows'
+        with:
+          name: windows-installer-test
+          path: build/installer-test/
           if-no-files-found: error
       - name: Remove transient official service configuration
         if: always()

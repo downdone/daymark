@@ -1,6 +1,17 @@
 name: Verify public Windows update
 on:
   workflow_dispatch:
+    inputs:
+      old_version:
+        description: Existing public managed version to upgrade
+        default: '2.0.2'
+        required: true
+        type: string
+      new_version:
+        description: Published target version to verify
+        default: '2.1.0'
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -36,6 +47,8 @@ jobs:
         shell: pwsh
         env:
           DAYMARK_UPDATE_PUBLIC_GITHUB: '1'
+          DAYMARK_UPDATE_PUBLIC_OLD_VERSION: ${{ inputs.old_version }}
+          DAYMARK_UPDATE_PUBLIC_NEW_VERSION: ${{ inputs.new_version }}
         run: |
           $env:DAYMARK_UPDATE_PUBLIC_REPORT_DIR = "$PWD/build/public-update-proof"
           $hostExe = @('build/public-acceptance/bin/Release/test_update_flow.exe','build/public-acceptance/bin/test_update_flow.exe') | Where-Object { Test-Path -LiteralPath $_ }
@@ -45,6 +58,7 @@ jobs:
           Get-Content build/public-update-live.log
           if ($result -ne 0) { exit $result }
           $report = Get-Content build/public-update-proof/report.json -Raw | ConvertFrom-Json
+          if ($report.oldVersion -cne $env:DAYMARK_UPDATE_PUBLIC_OLD_VERSION -or $report.newVersion -cne $env:DAYMARK_UPDATE_PUBLIC_NEW_VERSION) { throw 'Public test version identities mismatch' }
           if (!$report.passed -or !$report.anonymousGitHub -or !$report.productionEnvironmentIsolated -or
               !$report.qtSaveQuitRestart -or !$report.durableCommitAndRunning -or !$report.oldExecutableDeleted -or
               !$report.syntheticSqlitePreserved -or $report.fixtureOverrides) { throw 'Actual public flow report incomplete' }

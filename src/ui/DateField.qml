@@ -12,6 +12,7 @@ TextField {
     property bool inlineMode: false
     property bool inlineExpanded: false
     readonly property bool pickerVisible: inlineMode ? inlineExpanded : picker.visible
+    readonly property bool pickerContentLoaded: pickerContent.item !== null
     property var month: ({title: "", days: []})
     readonly property var hostWindow: Window.window
     property point anchorPosition: Qt.point(0,0)
@@ -26,9 +27,10 @@ TextField {
     function openPicker() {
         month=workspace.datePicker(text,0)
         if(inlineMode){inlineExpanded=true;inlinePickerRequested();forceActiveFocus();return}
+        pickerContent.active=true
         anchorPosition=mapToItem(null,0,0)
         const popupWidth=picker.width
-        const desiredHeight=Math.min(calendar.implicitHeight+picker.padding*2,(hostWindow ? hostWindow.height : 720)-24)
+        const desiredHeight=Math.min(pickerContent.implicitHeight+picker.padding*2,(hostWindow ? hostWindow.height : 720)-24)
         if(hostWindow && hostWindow.height-anchorPosition.y-height-12>=desiredHeight)placement="below"
         else if(anchorPosition.y-12>=desiredHeight)placement="above"
         else if(anchorPosition.x>=popupWidth+8)placement="left"
@@ -45,7 +47,7 @@ TextField {
     Keys.onReturnPressed: function(event) {if(pickerVisible)closePicker();else event.accepted=false}
     Keys.onPressed: function(event) {
         if(event.key===Qt.Key_Down && (event.modifiers & Qt.AltModifier)) {openPicker();event.accepted=true}
-        else if(event.key===Qt.Key_Down && pickerVisible){if(inlineMode)calendarFocusRequested();else calendar.focusSelectedDay();event.accepted=true}
+        else if(event.key===Qt.Key_Down && pickerVisible){if(inlineMode)calendarFocusRequested();else {const content=pickerContent.item as PickerContent;if(content)content.focusCalendar()};event.accepted=true}
     }
     TapHandler {enabled:field.readOnly && !field.iconOnly;onTapped:function(point){if(point.position.x<field.width-calendarButton.width)field.openPicker()}}
     IconToolButton {
@@ -73,8 +75,15 @@ TextField {
         focus: false
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle {color: Theme.content;border.color: Theme.separator;radius: Theme.panelRadius}
-        contentItem: ScrollView {
+        onClosed: pickerContent.active=false
+        contentItem: Loader {
+          id:pickerContent;active:false
+          sourceComponent:PickerContent {}
+        }
+    }
+    component PickerContent:ScrollView {
             id:dateScroll
+            function focusCalendar(){calendar.focusSelectedDay()}
             clip: true
             implicitHeight: calendar.implicitHeight
             CalendarPicker {
@@ -89,5 +98,4 @@ TextField {
                 onMoveMonth: function(offset){field.month=field.workspace.datePicker(field.month.anchor,offset)}
             }
         }
-    }
 }

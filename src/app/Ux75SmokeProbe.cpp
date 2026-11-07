@@ -12,6 +12,9 @@ namespace daymark {
 Ux75SmokeProbe::Ux75SmokeProbe(TaskWorkspace& workspace,WidgetViewModel& controller,QQuickWindow* main,QQuickWindow* widget,QString screenshot)
     :m_workspace(workspace),m_controller(controller),m_main(main),m_widget(widget),m_screenshot(std::move(screenshot)){
     m_wait.start();
+    QObject::connect(widget,&QQuickWindow::afterSynchronizing,this,[this]{++m_syncedFrames;},Qt::QueuedConnection);
+    QObject::connect(widget,&QQuickWindow::frameSwapped,this,[this]{++m_swappedFrames;},Qt::QueuedConnection);
+    QObject::connect(widget,&QQuickWindow::afterFrameEnd,this,[this]{++m_endedFrames;},Qt::QueuedConnection);
     QObject::connect(widget,&QWindow::widthChanged,this,[this]{++m_geometryEvents;});
     QObject::connect(widget,&QWindow::heightChanged,this,[this]{++m_geometryEvents;});
     QObject::connect(widget,&QQuickWindow::afterAnimating,this,[this]{
@@ -32,10 +35,29 @@ QObject* Ux75SmokeProbe::find(QObject* root,const QString& name)const{
     return nullptr;
 }
 QString Ux75SmokeProbe::advance(){
-    if(m_stage==8)return "DONE";
+    if(m_stage==9)return "DONE";
     if(m_wait.elapsed()<100)return {};
     const auto fail=[&](const QString& reason){return QStringLiteral("UX75 stage %1 cycle %2 target %3: %4").arg(m_stage).arg(m_cycle).arg(m_target).arg(reason);};
     static constexpr int targets[]={2,0,1,2,1,0};
+    if(m_stage==8){
+        const auto frame=m_main->grabWindow().convertToFormat(QImage::Format_RGBA8888);
+        if(frame.isNull())return fail("restored main frame missing");
+        const double sx=double(frame.width())/m_main->width(),sy=double(frame.height())/m_main->height();
+        for(const auto* name:{"settingsAndTools","navigation-trash","showCalendarView"}){
+            auto* control=find(m_main,QString::fromLatin1(name));
+            auto* glyph=control?qobject_cast<QQuickItem*>(control->property("contentItem").value<QObject*>()):nullptr;
+            if(!glyph || !glyph->isVisible())return fail(QStringLiteral("restored glyph missing: %1").arg(QString::fromLatin1(name)));
+            const auto ink=glyph->property("ink").value<QColor>();
+            const auto at=glyph->mapToScene(QPointF());
+            const auto area=QRect(qRound(at.x()*sx),qRound(at.y()*sy),qRound(glyph->width()*sx),qRound(glyph->height()*sy)).intersected(frame.rect());
+            if(!ink.isValid() || area.isEmpty())return fail("restored glyph has invalid paint geometry");
+            int painted=0;
+            for(int y=area.top();y<=area.bottom();++y)for(int x=area.left();x<=area.right();++x){const auto pixel=frame.pixelColor(x,y);if(qAbs(pixel.red()-ink.red())<24 && qAbs(pixel.green()-ink.green())<24 && qAbs(pixel.blue()-ink.blue())<24 && pixel.alpha()>128)++painted;}
+            if(painted<3)return fail(QStringLiteral("restored operation icon ink mismatch: %1").arg(QString::fromLatin1(name)));
+        }
+        if(!m_screenshot.isEmpty() && !frame.save(m_screenshot+".restored-icons.png"))return fail("restored glyph frame save");
+        m_stage=9;return "DONE";
+    }
     if(m_stage==0){
         m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",false);
         m_workspace.setPreference("desktopCalendarVisible",true);
@@ -49,8 +71,9 @@ QString Ux75SmokeProbe::advance(){
         m_monitor=false;m_workspace.setThemeMode(m_cycle?2:1);m_workspace.setTextScale(m_cycle?2:1);
         const auto available=m_widget->screen()->availableGeometry();
         m_widget->setPosition(m_cycle?available.bottomRight()-QPoint(m_widget->width()+24,m_widget->height()+24):available.topLeft()+QPoint(24,24));
-        m_controller.normalizeGeometry();m_widget->requestActivate();m_widget->update();m_stage=3;
+        m_controller.normalizeGeometry();m_widget->raise();m_widget->requestActivate();m_widget->update();m_stage=3;
     }else if(m_stage==3){
+        if(QGuiApplication::platformName()=="windows" && !m_widget->isExposed()){if(m_wait.elapsed()<1200){m_widget->raise();m_widget->update();return {};}return fail("rendering target is not exposed");}
         if(m_controller.transitionPending()){if(m_wait.elapsed()<1200){m_widget->update();return {};}return fail("initial layout not presented");}
         m_canvas=m_widget->geometry();m_geometryBaseline=m_geometryEvents;m_monitor=true;m_emptyMask=false;m_lostGraph=false;m_stage=4;
     }else if(m_stage==4){
@@ -58,7 +81,7 @@ QString Ux75SmokeProbe::advance(){
         m_widget->update();m_stage=5;
     }else if(m_stage==5){
         if(m_controller.transitionPending() || m_widget->property("motionInputBlocked").toBool()){
-            if(m_wait.elapsed()<1500){m_widget->update();return {};}return fail("presented completion fence did not finish");
+            if(m_wait.elapsed()<1500){m_widget->update();return {};}return fail(QStringLiteral("presented completion fence did not finish: exposed=%1 graph=%2 visible=%3 progress=%4 pending=%5 sync=%6 swap=%7 end=%8 visualId=%9 controllerId=%10 lostGraph=%11").arg(m_widget->isExposed()).arg(m_widget->isSceneGraphInitialized()).arg(m_widget->isVisible()).arg(m_widget->property("motionProgress").toDouble()).arg(m_controller.transitionPending()).arg(m_syncedFrames).arg(m_swappedFrames).arg(m_endedFrames).arg(m_widget->property("visualTransition").toInt()).arg(m_controller.transitionId()).arg(m_lostGraph));
         }
         if(m_widget->geometry()!=m_canvas || m_geometryEvents!=m_geometryBaseline)return fail("shape change resized/repositioned native canvas");
         if(m_emptyMask || m_lostGraph)return fail("shape change cleared mask or invalidated scene graph");
@@ -88,6 +111,6 @@ QString Ux75SmokeProbe::advance(){
         else if(++m_cycle<2){m_target=0;m_monitor=false;m_stage=2;}
         else {if(!m_intermediateFrames)return fail("no actual interpolated frame was observed");m_monitor=false;m_main->show();m_stage=8;}
     }
-    m_wait.restart();return m_stage==8?QStringLiteral("DONE"):QString();
+    m_wait.restart();return {};
 }
 }

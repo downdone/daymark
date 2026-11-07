@@ -70,7 +70,7 @@ jobs:
           run-id: ${{ inputs.candidate_run }}
           name: windows-update-candidate
           path: build/candidate
-      - name: Sign the four executables with the pinned self-signed certificate
+      - name: Sign the five executables with the pinned self-signed certificate
         shell: pwsh
         env:
           CODE_SIGNING_PFX: ${{ secrets.DAYMARK_AUTHENTICODE_PFX_BASE64 }}
@@ -150,6 +150,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -162,12 +163,23 @@ jobs:
         with:
           name: windows-update-validated
           path: build/candidate
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate_run }}
+          name: windows-installer-test
+          path: build/installer-test
+      - name: Get pinned installer compiler
+        shell: pwsh
+        run: |
+          $compiler=./scripts/Get-PinnedNsis.ps1 -Directory build/nsis
+          "DAYMARK_MAKENSIS=$compiler" >> $env:GITHUB_ENV
       - name: Verify signatures again before signing the manifest
         shell: pwsh
         run: |
           $policy = Get-Content config/authenticode-policy.json -Raw | ConvertFrom-Json
           Import-Module ./scripts/Authenticode.psm1 -Force
-          foreach ($file in @('payload/daymark.exe','native/daymark-launcher.exe','native/daymark-update-cli.exe','native/daymark-updater.exe')) {
+          foreach ($file in @('payload/daymark.exe','native/daymark-launcher.exe','native/daymark-update-cli.exe','native/daymark-updater.exe','native/daymark-setup-helper.exe')) {
             $null = Assert-DaymarkSelfSignedExecutable "build/candidate/$file" $policy.certificate_sha256
           }
           "DAYMARK_AUTHENTICODE_CERT_SHA256=$($policy.certificate_sha256)" >> $env:GITHUB_ENV
@@ -176,6 +188,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           UPDATE_SIGNING_KEY: ${{ secrets.DAYMARK_UPDATE_SIGNING_KEY }}
+          CODE_SIGNING_PFX: ${{ secrets.DAYMARK_AUTHENTICODE_PFX_BASE64 }}
+          CODE_SIGNING_PASSWORD: ${{ secrets.DAYMARK_AUTHENTICODE_PASSWORD }}
           UPDATE_TAG: ${{ inputs.tag }}
           UPDATE_SOURCE: ${{ needs.sign.outputs.source }}
-        run: python scripts/publish-windows-update.py --directory build/candidate --tag "$env:UPDATE_TAG" --source "$env:UPDATE_SOURCE"
+        run: |
+          $pfx=Join-Path $env:RUNNER_TEMP 'installer-signing.pfx'
+          $certificate=$null
+          try {
+            [IO.File]::WriteAllBytes($pfx,[Convert]::FromBase64String($env:CODE_SIGNING_PFX))
+            $certificate=Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $env:CODE_SIGNING_PASSWORD -AsPlainText -Force)
+            $pin=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($certificate.RawData)).ToLowerInvariant()
+            if ($pin -cne $env:DAYMARK_AUTHENTICODE_CERT_SHA256) { throw 'Installer certificate pin mismatch' }
+            $tools=@(Get-ChildItem 'C:/Program Files (x86)/Windows Kits/10/bin' -Directory | Where-Object { $_.Name -match '^10\.0\.\d+\.0$' } | Sort-Object { [version]$_.Name } -Descending)
+            $tool=@($tools | ForEach-Object { Join-Path $_.FullName 'x64/signtool.exe' } | Where-Object { Test-Path -LiteralPath $_ }) | Select-Object -First 1
+            if (!$tool) { throw 'Windows SDK signing tool unavailable' }
+            python scripts/publish-windows-update.py --directory build/candidate --tag "$env:UPDATE_TAG" --source "$env:UPDATE_SOURCE" --makensis "$env:DAYMARK_MAKENSIS" --signtool "$tool" --certificate-thumbprint "$($certificate.Thumbprint)" --installer-test build/installer-test/test_installer_flow.exe
+            if ($LASTEXITCODE -ne 0) { throw 'Package, installer acceptance or publication failed' }
+          } finally {
+            if (Test-Path -LiteralPath $pfx) { Remove-Item -LiteralPath $pfx }
+            if ($null -ne $certificate) { Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($certificate.Thumbprint)" }
+          }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: windows-installer-publication-proof
+          path: build/installer-publication-proof/
+          if-no-files-found: ignore

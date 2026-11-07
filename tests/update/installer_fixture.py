@@ -1,5 +1,5 @@
 """Real signed NSIS -> Qt app -> repair -> cleanup -> uninstall, QTemporaryDir-owned."""
-import argparse, hashlib, json, subprocess, time, winreg
+import argparse, hashlib, json, subprocess, time, winreg, os
 from pathlib import Path
 from flow_fixture import wait_for, stop_owned
 KEY=r'Software\Microsoft\Windows\CurrentVersion\Uninstall\Daymark'
@@ -17,15 +17,38 @@ def main():
         result=subprocess.run(command,cwd=a.work,timeout=90)
         assert (result.returncode==0)==(expected==0),('installer exit',result.returncode)
     def snapshot():return {f.relative_to(profile).as_posix():hashlib.sha256(f.read_bytes()).hexdigest() for f in profile.rglob('*') if f.is_file()}
+    clean_env={k:v for k,v in os.environ.items() if not k.upper().startswith(('QT','QML','DAYMARK','SSL_CERT'))}
+    clean_env['PATH']=os.environ.get('SystemRoot',r'C:\Windows')+r'\System32;'+os.environ.get('SystemRoot',r'C:\Windows')
+    def audit_modules(pid):
+        import ctypes
+        from ctypes import wintypes
+        kernel=ctypes.WinDLL('kernel32',use_last_error=True);api=ctypes.WinDLL('psapi',use_last_error=True)
+        kernel.OpenProcess.argtypes=[wintypes.DWORD,wintypes.BOOL,wintypes.DWORD];kernel.OpenProcess.restype=wintypes.HANDLE;kernel.CloseHandle.argtypes=[wintypes.HANDLE]
+        handle=kernel.OpenProcess(0x410,False,pid);assert handle
+        try:
+            modules=(wintypes.HMODULE*2048)();needed=wintypes.DWORD()
+            api.EnumProcessModulesEx.argtypes=[wintypes.HANDLE,ctypes.c_void_p,wintypes.DWORD,ctypes.POINTER(wintypes.DWORD),wintypes.DWORD]
+            api.GetModuleFileNameExW.argtypes=[wintypes.HANDLE,wintypes.HMODULE,wintypes.LPWSTR,wintypes.DWORD]
+            assert api.EnumProcessModulesEx(handle,modules,ctypes.sizeof(modules),ctypes.byref(needed),3)
+            found=[]
+            for module in modules[:needed.value//ctypes.sizeof(wintypes.HMODULE)]:
+                name=ctypes.create_unicode_buffer(32768);assert api.GetModuleFileNameExW(handle,module,name,len(name))
+                path=Path(name.value)
+                if path.name.lower().startswith(('qt6','libgcc','libstdc++','libwinpthread','msvcp140','vcruntime140','concrt140')) or path.name.lower()=='qwindows.dll':
+                    assert root.resolve() in path.resolve().parents,('external runtime dependency',path.name);found.append(path.name.lower())
+            assert {'qt6core.dll','qt6quick.dll','qwindows.dll'}<=set(found)
+            return len(found)
+        finally:kernel.CloseHandle(handle)
     def launch():
         subprocess.run([str(root/'daymark-update-cli.exe'),'auto','--root',str(root),'--enabled','false'],check=True,capture_output=True,timeout=10)
         receipt=root/'update-state/running-receipt.json'
         if receipt.exists():receipt.unlink()
-        child=subprocess.Popen([str(root/'daymark.exe'),'--data-dir',str(profile)],cwd=a.work)
+        child=subprocess.Popen([str(root/'daymark.exe'),'--data-dir',str(profile)],cwd=a.work,env=clean_env)
         try:
             child.wait(timeout=30);assert child.returncode==0,'bootstrap failed'
             record=wait_for(lambda:json.loads(receipt.read_text()) if receipt.exists() else None,30)
             wait_for(lambda:list(profile.rglob('*.sqlite*')) or list(profile.rglob('*.db')),20)
+            assert audit_modules(record['pid'])>=3
             return record['pid']
         except BaseException:
             if receipt.exists():stop_owned(root,json.loads(receipt.read_text()).get('pid',0))

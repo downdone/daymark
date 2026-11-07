@@ -43,6 +43,7 @@ def source_release_payload(tag, version, notes):
 RELEASE_ASSET_PATTERN = re.compile(
     r"^Daymark-(?:\d+\.\d+\.\d+)-(?:windows-x64|macos-arm64|linux-x64)\.tar\.gz(?:\.sha256)?$"
     r"|^Daymark-(?:\d+\.\d+\.\d+)-windows-x64\.zip(?:\.sha256)?$"
+    r"|^Daymark-(?:\d+\.\d+\.\d+)-windows-x64-setup\.exe(?:\.sha256)?$"
     r"|^SHA256SUMS\.txt$"
     r"|^update-windows-x64\.json(?:\.sig)?$")
 

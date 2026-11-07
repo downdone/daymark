@@ -12,6 +12,7 @@ Dialog {
     height: Math.min(480*Theme.scale,parent.height-32)
     title: qsTr("数据导出、导入与恢复")
     modal: true
+    onAboutToHide:workspace.discardImport()
     closePolicy: Popup.NoAutoClose
     Shortcut {sequence: "Escape";enabled: root.visible && !root.workspace.busy && !replaceFirst.visible && !replaceSecond.visible;onActivated: root.close()}
     contentItem: ScrollView {

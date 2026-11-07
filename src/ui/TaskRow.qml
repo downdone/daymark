@@ -6,7 +6,10 @@ import QtQuick.Layouts
 ItemDelegate {
     id: root
     objectName: "taskRow-"+taskId
-    function openVerificationMenu() {menu.open()}
+    required property var sharedContextMenu
+    readonly property var menu: sharedContextMenu
+    function prepareMenu(){menuRequested();menu.capture(root)}
+    function openVerificationMenu() {prepareMenu();menu.open()}
     function closeVerificationMenu() {menu.close()}
     function verifyMenuHighlight() {
         if(menu.verifyGrouping()!=="PASS")return menu.verifyGrouping()
@@ -23,7 +26,7 @@ ItemDelegate {
         for(let i=0;i<menu.count;i++) {const item=menu.itemAt(i) as MenuItem;if(item && item.visible && !item.enabled && item.text===qsTr("移到")){const at=item.mapToItem(null,item.width/2,item.height/2);return {x:at.x,y:at.y}}}
         return {}
     }
-    function showContextMenu(x,y) {menu.popup(root,x,y)}
+    function showContextMenu(x,y) {prepareMenu();menu.popupAtPoint(root,Qt.point(x,y))}
     signal contextRequested(real x,real y)
     signal selectionGestureRequested(int modifiers)
     function verifyMenuSpacing() {
@@ -136,30 +139,6 @@ ItemDelegate {
     signal dragStateChanged(bool active)
     signal menuRequested()
     signal moveToViewRequested(string view)
-    DS.Menu {
-        id: menu;objectName: "taskContext-"+root.taskId
-        onAboutToShow: root.menuRequested()
-        MenuItem {text: qsTr("任务详情");onTriggered: root.editRequested()}
-        MenuItem {objectName: "taskMenuState-"+root.taskId;text: root.isDone ? qsTr("重新打开") : qsTr("完成任务");onTriggered: root.completeRequested()}
-        DS.MenuSeparator {}
-        MenuItem {objectName: "taskMenuPin-"+root.taskId;text: root.pinned ? qsTr("取消置顶") : qsTr("置顶");onTriggered: root.pinRequested(!root.pinned)}
-        DS.MenuItem {objectName: "taskMenuImportant-"+root.taskId;text: root.important ? qsTr("取消特别关注") : qsTr("特别关注");shortcutText:Qt.platform.os==="osx" ? "⇧⌘F" : "Ctrl+Shift+F";onTriggered: root.importantRequested(!root.important)}
-        MenuItem {objectName: "taskMenuCancelReminder-"+root.taskId;text: qsTr("取消提醒");visible: root.hasReminder;onTriggered: root.cancelReminderRequested()}
-        DS.MenuSeparator {}
-        DS.Menu {
-            objectName:"taskMenuMove-"+root.taskId;title: qsTr("移到");enabled: !root.isDone
-            MenuItem {text: qsTr("收集箱");onTriggered: root.moveToViewRequested("inbox")}
-            MenuItem {text: qsTr("今天");onTriggered: root.moveToViewRequested("today")}
-            MenuItem {text: qsTr("指定日期…");onTriggered: root.moveToViewRequested("upcoming")}
-        }
-        MenuItem {text: root.evening ? qsTr("安排到今天") : qsTr("安排到今晚");visible: root.inToday && !root.isDone;onTriggered: root.eveningRequested(!root.evening)}
-        MenuItem {text: qsTr("清除日期安排");visible: root.canActivate;onTriggered: root.activateRequested()}
-        DS.MenuSeparator {}
-        MenuItem {text: qsTr("上移");visible: root.canReorder && root.canMoveUp;onTriggered: root.moveRequested(-1)}
-        MenuItem {text: qsTr("下移");visible: root.canReorder && root.canMoveDown;onTriggered: root.moveRequested(1)}
-        DS.MenuSeparator {}
-        DS.MenuItem {objectName: "taskMenuDelete-"+root.taskId;text: qsTr("删除任务…");destructive: true;onTriggered: root.deleteRequested()}
-    }
     function placeDrag(x,y){const at=mapToItem(dragProxy.parent,x,y);dragProxy.x=at.x-12;dragProxy.y=at.y-dragOriginY}
     function armDrag(x,y){dragOriginX=x;dragOriginY=y;dragArmed=true;dragProxy.parent=dragLayer || root;placeDrag(x,y);forceActiveFocus()}
     function updateDrag(x,y){if(!dragArmed)return;const dx=x-dragOriginX,dy=y-dragOriginY;if(!dragging && Math.abs(dx)+Math.abs(dy)>2)dragging=true;if(dragging)placeDrag(x,y)}
