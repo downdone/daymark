@@ -1,10 +1,10 @@
 # Daymark 当前进度
 
-更新：2026-11-08。**2.0.2 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-08。**2.1.1 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## MEM-04 优化实现与2.1.1发行（正式流水线验收中）
+## MEM-04 优化实现与2.1.1发行（完成）
 
-用户已授权完成自审、实现、测试、推送及新版本发布。单代理使用autonomous-project-loop；不改写已发布标签，不混用本地MinGW与正式MSVC产物。当前公开可用程序仍为2.0.2；2.1.1源码为`76a74df801d334fa7c5db3cdaa87d9d81b438f5f`，标签`v2.1.1`已推送。
+用户已授权完成自审、实现、测试、推送及新版本发布。单代理使用autonomous-project-loop；不改写已发布标签，不混用本地MinGW与正式MSVC产物。当前正式Windows程序为2.1.1；生产源码为`76a74df801d334fa7c5db3cdaa87d9d81b438f5f`，标签`v2.1.1`已推送。
 
 | 切片 | 实施与验收 |
 |---|---|
@@ -13,13 +13,22 @@
 | OBJ-03 窗口与页面 | 设置仅创建当前可见分类，保留导航/滚动；独立日历保留轻根和窗口状态，关闭后卸载内容；隐藏工具窗释放可重建场景图。可见小窗保持持久画布，层级临时hide不触发回收 |
 | OBJ-04 临时计划 | 取消导入立即失效UI代次、排队discard，切资料时清除旧计划；晚回调不恢复旧预览。真实临时SQLite覆盖取消零写、旧计划拒绝及重新预览成功 |
 | OBJ-05 图形 | CurveRenderer因真实图标回归拒绝发布。保留Geometry/MSAA，只在颜色/路径变化时重建Shape；原生恢复图标像素检查与浅深两组6转换通过 |
-| OBJ-06 回归与发行 | 本地Qt6.10.2 Release构建及QML lint无警告，完整CTest **48/48 PASS，453.41s**。GitHub main源码/桌面与Account/sync通过；正式MSVC候选完整48/48 PASS（446.89s）、QML lint/打包及五程序自签名通过，独立部署/安装/公网更新门禁恢复中 |
+| OBJ-06 回归与发行 | 本地Qt6.10.2 Release构建及QML lint无警告，完整CTest **48/48 PASS，453.41s**。GitHub main源码/桌面与Account/sync通过；正式MSVC候选完整48/48 PASS（446.89s）、QML lint/打包及五程序自签名通过。独立部署/安装发布、公网2.0.2→2.1.1及带持久日志的公开安装验收均PASS |
 
 同机D3D11/DPR1.5、20条合成任务的原生34阶段，双窗启动可达对象**30,029→17,157**，私有提交**297.84→254.62MiB**、私有工作集**242.25→202.00MiB**；十次设置重开后提交**495.83→312.95MiB**，全部隐藏**500.52→204.01MiB**。完整对照见[对象审计](design/object-management-audit.md)和[脱敏证据](evidence/object-management-after.json)。这是本地最终Geometry实现的单轮阶段快照，不是正式MSVC资产测量、统计SLA、逐字节堆/GPU归因或跨机器内存保证。此前220/190MiB预算已撤回，2h/物理多屏/读屏及非Windows仍UNVERIFIED。
 
 自审覆盖拥有者/销毁时机、草稿与焦点、菜单目标身份、异步代次、资料隔离和窗口呈现；不是独立评审。不使用定时trim/全GC，不改变schema10、HTTP JSON v1、Qt6.10.2及现有更新提交/清理语义。
 
-发行过程失败如实保留：2.1.0在GitHub生成码门禁发现16个已登记setup错误码未同步Qt映射，未上传程序/ready资产；已取消过期构建，将空Release转草稿，原`v2.1.0`保留不移动。2.1.1补齐映射并增加两个生成契约CTest，桌面/标签编译均先通过源码门禁。后续发布及公网2.0.2→2.1.1须另行记录实际证据，不以本地48项代替。
+发行过程失败如实保留：2.1.0在GitHub生成码门禁发现16个已登记setup错误码未同步Qt映射，未上传程序/ready资产；已取消过期构建，将空Release转草稿，原`v2.1.0`保留不移动。2.1.1补齐映射并增加两个生成契约CTest，桌面/标签编译均先通过源码门禁。正式发行与公网证据见本页发行表及下列记录，不以本地48项代替。
+
+### 2.1.1正式交付证据
+
+- 精确生产源码`76a74df801d334fa7c5db3cdaa87d9d81b438f5f`，不可变`v2.1.1`；[正式候选42389695899](https://github.com/downdone/daymark/actions/runs/42389695899)完整48/48、446.89s。main源码/桌面42389564764及同步42389564848均成功。
+- [签名/独立部署/安装发布42392523180](https://github.com/downdone/daymark/actions/runs/42392523180)：五程序固定证书指纹验签、独立Windows实际原生窗口/Qt与CRT来源、签名Setup及嵌入式卸载器；7项公开资产逐个GitHub digest核对，ready JSON/签名最后上传。
+- [匿名公网升级42393012685](https://github.com/downdone/daymark/actions/runs/42393012685)：2.0.2→2.1.1、自动prepare、生产Qt保存退出/重启、持久COMMIT/RUNNING、旧exe删除、未知/修改文件及合成SQLite保留；无fixture/信任/API覆盖、无账号/资料上传。完整32.632s，其中Qt更新22.825s；前后各29个模块来自自己的payload。[结构化证据](evidence/windows-update-2.0.2-to-2.1.1.json)由成功job直接输出提取，未依赖86MB程序归档下载。
+- [公开安装最终验收42394028927](https://github.com/downdone/daymark/actions/runs/42394028927)：匿名下载同一Setup、固定证书/版本验证，QTemporaryDir真实Unicode/空格路径安装、注册、Qt RUNNING与模块来源、运行中拒绝、两次修复、旧程序清理、卸载保留资料。Qt自身持久文件日志1007字符，实际完成标记及**3 passed / 0 failed / 0 skipped，44.992s**均验证；[证据](evidence/windows-installer-2.1.1.json)绑定安装包与日志SHA256。首次空stdout门禁不足已如实记录并修正，最终不再凭空日志判断通过。
+- [正式便携包](https://github.com/downdone/daymark/releases/download/v2.1.1/Daymark-2.1.1-windows-x64.zip)：44,442,698字节，assetId721283811，SHA256 `b6c98a00b18414612037aee187502dd462464769865c5817e92518d2bccff98e`。[安装包](https://github.com/downdone/daymark/releases/download/v2.1.1/Daymark-2.1.1-windows-x64-setup.exe)：43,549,648字节，assetId721283816，SHA256 `ad200a8024067a3d46deb60af70cc5cbaa3ef8e3ac52aa2bbc53de3e7dea1a0a`。
+- 本机两项CDN下载180秒有界超时，分别只收到7,355,715/130,365字节，已标为.part且不分发；没有把它们当成功本地包，未反复重试。正式公开包及独立匿名下载/安装/更新均成功。本地内存测量、正式MSVC和其他机器现场仍分别归因。
 
 ## MEM-03 对象管理全面审计（分析与诊断实现完成）
 
@@ -85,11 +94,12 @@ SETUP-01：每用户原生NSIS向导，签名managed布局、根宿主/Qt完整�
 
 | 功能 | 当前结果 | 证据与边界 |
 |---|---|---|
-| 本地任务/分类/标签/日历/重复/提醒/备份 | IMPLEMENTED / WINDOWS-PASS | 当前完整Windows CTest 40/40包含仓库、事务、查询、时间、工作区和导入导出 |
+| 本地任务/分类/标签/日历/重复/提醒/备份 | IMPLEMENTED / WINDOWS-PASS | 当前正式Windows CTest 48/48包含仓库、事务、查询、时间、工作区和导入导出 |
 | 主窗/小窗/Mini/球及分类快查 | IMPLEMENTED / WINDOWS-PASS | 分类默认全部未完成/可选今天；快速添加/排序/菜单/穿透恢复及统一呈现已实现，相关真实QML/原生回归已通过 |
 | 账号/同步/完成面板筛选 | IMPLEMENTED / WINDOWS-PASS | 官方/自定义URL、8字符密码、本地优先、资料隔离、冲突及分类/标签交集；真实Qt→Go TLS同步CI成功 |
 | 全局日志与诊断 | IMPLEMENTED / WINDOWS-PASS | 本地有界脱敏日志、请求ID、Sxxx-Cxxx、Qt/TLS底层证据、复制详情/日志入口；不上传 |
-| Windows在线更新 | PUBLISHED / PUBLIC-GITHUB-PASS | 原生SDK/CLI/Win32薄UI、自动prepare、保存退出、受限启动/COMMIT/RUNNING/清理；真实2.0.1→2.0.2通过 |
+| Windows在线更新 | PUBLISHED / PUBLIC-GITHUB-PASS | 原生SDK/CLI/Win32薄UI、自动prepare、保存退出、受限启动/COMMIT/RUNNING/清理；真实2.0.2→2.1.1通过 |
+| Windows完整安装器 | PUBLISHED / PUBLIC-INSTALLER-PASS | 原生向导、当前用户安装/修复/卸载，固定指纹与实际持久Qt测试日志，资料保留通过 |
 | 已实施性能优化 | IMPLEMENTED | 已交付索引/快照/增量模型/提醒判断等，现行测试通过；整应用/GPU/长期SLA未宣称已验收 |
 
 ## UPD-06 完成队列
@@ -105,10 +115,11 @@ SETUP-01：每用户原生NSIS向导，签名managed布局、根宿主/Qt完整�
 
 | 版本 | 精确生产源码 | 构建/最终发布 |
 |---|---|---|
+| [2.1.1](https://github.com/downdone/daymark/releases/tag/v2.1.1) | `76a74df801d334fa7c5db3cdaa87d9d81b438f5f` | [候选42389695899](https://github.com/downdone/daymark/actions/runs/42389695899)；[签名/独立部署/安装发布42392523180](https://github.com/downdone/daymark/actions/runs/42392523180) |
 | [2.0.1](https://github.com/downdone/daymark/releases/tag/v2.0.1) | `9e5ead18f7e4d2a990f0eccbe8096dec48dfd0e1` | 固定源码[重建42160035601](https://github.com/downdone/daymark/actions/runs/42160035601)；[签名/独立部署/发布42161946172](https://github.com/downdone/daymark/actions/runs/42161946172) |
 | [2.0.2](https://github.com/downdone/daymark/releases/tag/v2.0.2) | `0bdaca92b5a1158df035c830dd926307464125d6` | [标签构建42161583632](https://github.com/downdone/daymark/actions/runs/42161583632)；[签名/独立部署/发布42164523268](https://github.com/downdone/daymark/actions/runs/42164523268) |
 
-最新[Windows x64便携包](https://github.com/downdone/daymark/releases/download/v2.0.2/Daymark-2.0.2-windows-x64.zip)：44,041,439字节，assetId `715946759`，SHA256 `0b94cb2245b4070e164336570e05300aa269f5b45b866959100f9388aa06798b`。解压完整目录，运行根目录daymark.exe；versions内的payload不单独移动。无更新器的旧平铺包需先手动安装一次引导布局。
+历史2.0.2[Windows x64便携包](https://github.com/downdone/daymark/releases/download/v2.0.2/Daymark-2.0.2-windows-x64.zip)：44,041,439字节，assetId `715946759`，SHA256 `0b94cb2245b4070e164336570e05300aa269f5b45b866959100f9388aa06798b`。解压完整目录，运行根目录daymark.exe；versions内的payload不单独移动。无更新器的旧平铺包需先手动安装一次引导布局。
 
 首次tag候选的打包失败未上传资产；恢复使用同一2.0.1源码、独立记录的已审查main工具SHA和run身份，重新完整测试，没有移动tag或把工具SHA冒充源码。2.0.1内部README保留原候选文案的问题已在2.0.2最终说明中更正，旧包没有覆盖。
 
@@ -151,3 +162,5 @@ MEM-04最终评审补记（2026-11-07）：CurveRenderer实验被原生截图评
 2026-11-08正式发行：42392523180签名/独立部署/安装发布PASS，7项资产已附加v2.1.1，所有GitHub digest复核通过。42393012685真实匿名2.0.2→2.1.1更新PASS。安装宿主退出成功但默认Qt Test stdout为空，补充显式`-o -,txt`并在未来发布前检查实际完成标记；新增只读公共安装验收工作流，从同一精确tag build取得宿主、匿名下载现有签名Setup，在QTemporaryDir重复验证并保存完整输出，不替换任何已发布资产。Python发布保护10项、Python/YAML/全部新PowerShell块语法PASS；公共安装日志证据待运行。
 
 安装证据补充：首次公开补验42393583562返回成功，但Qt在Windows重定向stdout仍为空；PowerShell命令空结果的-notmatch未能拒绝该空输出，不能把该日志门禁视为通过。改由Qt Test自身写独立文本文件，ReadAllText强制真实文件/字符串，再验证实际NSIS完成标记及3 passed/0 failed/0 skipped；发布器同样核对该文件。缺artifact的本地故障探针退出1并可靠写出Qt日志，证明文件日志路径有效。补验仍只针对不可变安装包，不重跑已通过的公开升级或产品全套。
+
+2026-11-08 MEM-04收尾：Windows2.1.1正式发行及最终非空安装文件日志复核完成，事实汇总于本页首部；后续工具修复均仅修改main发行/验收逻辑，不改原tag/程序散列。macOS/Linux跳过，物理/长期、另一机器注册现场与全堆/GPU归因边界保留。

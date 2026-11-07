@@ -1,16 +1,13 @@
 # 当前状态
 
-2026-11-07：**Daymark 2.0.2已发布，Windows在线更新已启用**；schema10、HTTP JSON v1、Qt6.10.2。
+2026-11-08：**Daymark 2.1.1已发布**；schema10、HTTP JSON v1、Qt6.10.2。
 
-- Windows完整CTest 40/40，桌面和真实Qt→Go TLS同步CI成功。
-- 独立Windows实际匿名GitHub 2.0.1→2.0.2升级通过，生产Qt保存重启、持久提交、任务保留及旧程序清理均已验证。
-- 使用项目P-256更新签名与固定指纹自签名EXE；不是Windows公共发布者信任，不导入根证书。
-- Linux/macOS按用户指示跳过；本机CDN超时、他机网络现场及物理/长时矩阵保持明确边界。
+- 已实施对象生命周期和隐藏图形资源优化。少量任务双窗原生单轮：30,029→17,157对象，私有工作集242.25→202.00MiB；这是本地对照，不是正式MSVC内存保证。
+- 正式MSVC完整CTest **48/48**、源码/桌面与真实Qt→Go同步CI通过。
+- 五程序固定指纹自签名、独立Windows部署、真实安装/修复/卸载和匿名公网2.0.2→2.1.1更新通过。最终安装验收持久Qt日志3通过、0失败、0跳过，数据保留及旧程序清理通过。
+- 使用P-256更新签名与项目自签名EXE；不属于Windows公共发行者信任，不导入根证书。
+- 新版本包含离线时间输入识别、完整Windows安装向导、首次启动锁错误分类、Mini按钮与拖动修复、导入计划生命周期与生成契约门禁。
 
-当前事实、资产身份、证据与剩余边界统一见[PROGRESS](PROGRESS.md)；下载见[2.0.2 Release](https://github.com/downdone/daymark/releases/tag/v2.0.2)。旧状态页与逐轮原文已完整保留在[历史](PROGRESS-HISTORY.md)，不再作为当前待办。
+[下载2.1.1](https://github.com/downdone/daymark/releases/tag/v2.1.1) · [发行说明](release-notes-v2.1.1.md)。当前事实、精确资产身份和证据统一见[PROGRESS](PROGRESS.md)。
 
-TIME-01智能时间输入及新增能力设计标准已本地完成，尚未发布；具体评审与验证边界见[PROGRESS](PROGRESS.md)。
-
-2.1.1性能/对象生命周期、离线时间识别及Windows安装器已实现，本地完整测试与原生验收详见[PROGRESS](PROGRESS.md)。当前正在完成正式流水线，尚未发布2.1.1，不把本地测试等同正式MSVC产物验收。
-
-2.1.0仅源码的Release已因生成映射门禁失败转草稿，原标签保留；2.1.1修复并纳入CTest，正式发布尚待验证。
+Linux/macOS按用户指示跳过；2h/物理多屏/读屏、另一台机器注册现场与逐字节堆/GPU归因仍UNVERIFIED。本机CDN下载超时不冒充完整本地包，独立Windows匿名下载/安装/升级已通过。2.1.0空Release转草稿，原标签保留，无程序资产发布。
