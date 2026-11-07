@@ -1,10 +1,10 @@
 # Daymark 当前进度
 
-更新：2026-11-07。**2.0.2 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-08。**2.0.2 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## MEM-04 优化实现与2.1.0发行（进行中，用户授权发布）
+## MEM-04 优化实现与2.1.1发行（进行中，用户授权发布）
 
-目标：完成对象生命周期方案评审、逐片实现与真实内存对照，相关回归/安装/更新通过后提交并推送GitHub，发布新版本。单代理使用autonomous-project-loop。发布版本2.1.0（已核对GitHub最新仍为2.0.2），保持既有不可变tag/签名/独立部署门禁；不将本地MinGW包作为线上MSVC更新包。
+目标：完成对象生命周期方案评审、逐片实现与真实内存对照，相关回归/安装/更新通过后提交并推送GitHub，发布新版本。单代理使用autonomous-project-loop。发布版本2.1.1（2.1.0源码标签保留，生成码门禁失败且无程序资产，Release转为草稿），保持既有不可变tag/签名/独立部署门禁；不将本地MinGW包作为线上MSVC更新包。
 
 OBJ-01已实施：DateField/TimeField的fallback内容仅打开时创建、onClosed卸载，inline路径不创建fallback。新增picker_lifecycle隔离验收覆盖选择/取消/重开/inline/200%缩放，连同time_input_ui **2/2 PASS，9.75s**。首次Loader误设只读implicitHeight导致加载失败，已移除并以最终构建复验；不把失败计为通过。
 
@@ -138,3 +138,6 @@ SETUP-01：每用户原生NSIS向导，签名managed布局、根宿主/Qt完整�
 
 
 MEM-04最终评审补记（2026-11-07）：CurveRenderer实验被原生截图评审拒绝，发行保留Geometry/MSAA。新增恢复后设置/最近删除/日历入口的声明ink与实际像素断言；该断言先捕获Geometry旧色，随后Glyph仅在颜色/路径改变时重建Shape后真实Windows通过，两组6条转换无尺寸事件/QML警告，截图已检查。不是通过提高阈值或忽略失败放行。最终选定版本原生34阶段PASS，启动可达17,157对象（之前30,029），提交254.62MiB/私有工作集202.00MiB；十次设置后312.95MiB，全部隐藏204.01MiB。未采用实验低值冒充发行数据，尚无逐字节堆/GPU归因或跨机器内存保证；完整脱敏数据见object-management-after.json。最终选定代码完整CTest **46/46 PASS，434.46s**，QML lint无警告；6项类型化复验PASS（165.62s），最终原生恢复图标/动画像素PASS。单代理源码/所有权/隐私/CI门禁自审通过，49项明确文件已暂存且源码隐私检查PASS；进入提交/推送/tag及正式MSVC流水线验收。
+
+
+2026-11-07 GitHub门禁：b79329b及不可变v2.1.0已推送；Source Release和Account/sync成功，但Build/source-policy的generate-diagnostics --check发现此前安装能力新增16个setup key后未同步src/sync/Diagnostics.h。主程序当时仍在编译，无程序资产/ready发布。已取消两个过期编译，将无程序资产的2.1.0 Release转可恢复草稿，保留原标签，不覆盖资产或移动标签。修复为重新生成唯一来源映射，并增加diagnostic_registry/generated_sync_contract两个CTest、desktop等待source-policy、tag编译前同样检查。正式版本顺延2.1.1；不是绕过门禁或把旧源码标为通过。2.1.1最终本地构建及QML lint PASS（无警告），完整CTest **48/48 PASS，453.41s**；完全按GitHub source-policy命令复现的27项Python保护测试、源码隐私/版本、两个生成契约检查全部PASS。准备推送修复，先核对GitHub快速源码门禁，再创建v2.1.1，不移动v2.1.0。新的正式MSVC/安装/公网更新仍待验证。

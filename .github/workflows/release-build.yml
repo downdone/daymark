@@ -165,7 +165,10 @@ jobs:
       # can never be produced for a tag whose metadata is inconsistent.
       - name: Verify tag metadata
         shell: bash
-        run: python3 scripts/publish-source-release.py --tag "$RELEASE_TAG" --check
+        run: |
+          python3 scripts/publish-source-release.py --tag "$RELEASE_TAG" --check
+          python3 scripts/generate-diagnostics.py --check
+          python3 scripts/generate-sync-contract.py --check
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |

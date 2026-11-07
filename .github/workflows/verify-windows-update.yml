@@ -9,7 +9,7 @@ on:
         type: string
       new_version:
         description: Published target version to verify
-        default: '2.1.0'
+        default: '2.1.1'
         required: true
         type: string
 permissions:

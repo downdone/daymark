@@ -23,7 +23,10 @@ jobs:
       - name: Check source release metadata
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-        run: python3 scripts/publish-source-release.py --tag "$RELEASE_TAG" --check
+        run: |
+          python3 scripts/publish-source-release.py --tag "$RELEASE_TAG" --check
+          python3 scripts/generate-diagnostics.py --check
+          python3 scripts/generate-sync-contract.py --check
       - name: Fetch publication branch explicitly
         env:
           RELEASE_TAG: ${{ github.ref_name }}

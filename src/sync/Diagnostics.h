@@ -98,6 +98,22 @@ inline QString clientDiagnostic(const QString& key) {
         {QStringLiteral("syncLegacyUnsupported"),QStringLiteral("C314")},
         {QStringLiteral("syncProfilePath"),QStringLiteral("C407")},
         {QStringLiteral("syncRemoteVersionMissing"),QStringLiteral("C315")},
+        {QStringLiteral("setup.target_unsafe"),QStringLiteral("C801")},
+        {QStringLiteral("setup.target_filesystem"),QStringLiteral("C802")},
+        {QStringLiteral("setup.source_target_overlap"),QStringLiteral("C803")},
+        {QStringLiteral("setup.extra_bundle_file"),QStringLiteral("C804")},
+        {QStringLiteral("setup.file_remove"),QStringLiteral("C805")},
+        {QStringLiteral("setup.directory_commit"),QStringLiteral("C806")},
+        {QStringLiteral("setup.receipt_invalid"),QStringLiteral("C807")},
+        {QStringLiteral("setup.target_not_managed"),QStringLiteral("C808")},
+        {QStringLiteral("setup.downgrade"),QStringLiteral("C809")},
+        {QStringLiteral("setup.disk_space"),QStringLiteral("C810")},
+        {QStringLiteral("setup.recovery_required"),QStringLiteral("C811")},
+        {QStringLiteral("setup.not_running"),QStringLiteral("C812")},
+        {QStringLiteral("setup.cleanup_required"),QStringLiteral("C813")},
+        {QStringLiteral("setup.filesystem"),QStringLiteral("C814")},
+        {QStringLiteral("setup.internal"),QStringLiteral("C815")},
+        {QStringLiteral("setup.update_dependency"),QStringLiteral("C850")},
     };
     return codes.value(key,QStringLiteral("C999"));
 }

@@ -28,6 +28,7 @@ jobs:
           python3 scripts/generate-diagnostics.py --check
           python3 scripts/generate-sync-contract.py --check
   desktop:
+    needs: source-policy
     timeout-minutes: 45
     strategy:
       fail-fast: false
