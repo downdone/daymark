@@ -1,4 +1,4 @@
-"""Reject Qt/CRT/external imports in the three OS-only Windows update hosts."""
+"""Reject Qt/CRT/external imports in all supplied OS-only Windows hosts."""
 import argparse
 from pathlib import Path
 import struct
@@ -60,6 +60,6 @@ def audit(data: bytes) -> list[str]:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('files', type=Path, nargs=3)
+    parser.add_argument('files', type=Path, nargs='+')
     for path in parser.parse_args().files:
         print('PASS:', path.name, ', '.join(audit(path.read_bytes())))

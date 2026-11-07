@@ -1,6 +1,9 @@
 import importlib.util
 from pathlib import Path
 import struct
+import subprocess
+import sys
+import tempfile
 import unittest
 
 spec = importlib.util.spec_from_file_location('native_imports', Path(__file__).resolve().parents[1] / 'scripts/audit-native-imports.py')
@@ -25,6 +28,23 @@ def image(name=b'KERNEL32.dll'):
 
 
 class NativeImportsTest(unittest.TestCase):
+    def test_cli_audits_every_host_including_installer_helper(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            paths = [Path(temporary) / name for name in
+                     ('launcher.exe', 'cli.exe', 'updater.exe', 'setup-helper.exe')]
+            for path in paths:
+                path.write_bytes(image())
+            command = [sys.executable, str(spec.origin)]
+            for hosts in (paths[:3], paths):
+                result = subprocess.run(command + list(map(str, hosts)), capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.count('PASS:'), len(hosts))
+            paths[-1].write_bytes(image(b'Qt6Core.dll'))
+            result = subprocess.run(command + list(map(str, paths)), capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('external runtime import rejected: qt6core.dll', result.stderr)
+            self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
+
     def test_system_imports_allowed_external_qt_and_crt_rejected(self):
         self.assertEqual(pe.audit(image()), ['kernel32.dll'])
         for name in (b'Qt6Core.dll', b'VCRUNTIME140.dll', b'msvcp140.dll', b'api-ms-win-crt-runtime-l1-1-0.dll', b'evil.dll'):

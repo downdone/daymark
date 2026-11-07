@@ -2,22 +2,24 @@
 
 更新：2026-11-08。**2.0.2 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## MEM-04 优化实现与2.1.1发行（进行中，用户授权发布）
+## MEM-04 优化实现与2.1.1发行（正式流水线验收中）
 
-目标：完成对象生命周期方案评审、逐片实现与真实内存对照，相关回归/安装/更新通过后提交并推送GitHub，发布新版本。单代理使用autonomous-project-loop。发布版本2.1.1（2.1.0源码标签保留，生成码门禁失败且无程序资产，Release转为草稿），保持既有不可变tag/签名/独立部署门禁；不将本地MinGW包作为线上MSVC更新包。
+用户已授权完成自审、实现、测试、推送及新版本发布。单代理使用autonomous-project-loop；不改写已发布标签，不混用本地MinGW与正式MSVC产物。当前公开可用程序仍为2.0.2；2.1.1源码为`76a74df801d334fa7c5db3cdaa87d9d81b438f5f`，标签`v2.1.1`已推送。
 
-OBJ-01已实施：DateField/TimeField的fallback内容仅打开时创建、onClosed卸载，inline路径不创建fallback。新增picker_lifecycle隔离验收覆盖选择/取消/重开/inline/200%缩放，连同time_input_ui **2/2 PASS，9.75s**。首次Loader误设只读implicitHeight导致加载失败，已移除并以最终构建复验；不把失败计为通过。
+| 切片 | 实施与验收 |
+|---|---|
+| OBJ-01 选择器 | 日期/时间fallback在打开时创建、关闭动画结束后释放；inline不建fallback。隔离生命周期测试覆盖取消、选择、重开、键盘及200% |
+| OBJ-02 共享菜单 | 主列表只持有一份菜单，打开时捕获taskId/version；不随当前选中项漂移，模型使目标失效时关闭 |
+| OBJ-03 窗口与页面 | 设置仅创建当前可见分类，保留导航/滚动；独立日历保留轻根和窗口状态，关闭后卸载内容；隐藏工具窗释放可重建场景图。可见小窗保持持久画布，层级临时hide不触发回收 |
+| OBJ-04 临时计划 | 取消导入立即失效UI代次、排队discard，切资料时清除旧计划；晚回调不恢复旧预览。真实临时SQLite覆盖取消零写、旧计划拒绝及重新预览成功 |
+| OBJ-05 图形 | CurveRenderer因真实图标回归拒绝发布。保留Geometry/MSAA，只在颜色/路径变化时重建Shape；原生恢复图标像素检查与浅深两组6转换通过 |
+| OBJ-06 回归与发行 | 本地Qt6.10.2 Release构建及QML lint无警告，完整CTest **48/48 PASS，453.41s**。GitHub main源码/桌面与Account/sync通过；正式MSVC候选完整48/48 PASS（446.89s）、QML lint/打包及五程序自签名通过，独立部署/安装/公网更新门禁恢复中 |
 
-OBJ-02/03已实施：主列表共用TaskContextMenu，捕获身份/版本并在过期时关闭；设置仅创建可见分类，保留分类与滚动，日历保留轻根与窗口状态、关闭后卸载内容。隐藏工具窗允许释放场景图。修复新生命周期暴露的延迟回调、ListView异步cache孵化、动态布局焦点揭示，以及测试无条件访问隐藏内容；真实图形层级临时隐藏不卸载日历。picker/qml启动2/2 PASS（55.00s）、contextual_workspace PASS（16.81s）、desktop_surfaces PASS（52.89s），最终cache修正后qml_startup PASS（39.15s）。一次在旧测试占用exe时链接失败，待该进程自然完成后链接通过，未强杀用户实例。
+同机D3D11/DPR1.5、20条合成任务的原生34阶段，双窗启动可达对象**30,029→17,157**，私有提交**297.84→254.62MiB**、私有工作集**242.25→202.00MiB**；十次设置重开后提交**495.83→312.95MiB**，全部隐藏**500.52→204.01MiB**。完整对照见[对象审计](design/object-management-audit.md)和[脱敏证据](evidence/object-management-after.json)。这是本地最终Geometry实现的单轮阶段快照，不是正式MSVC资产测量、统计SLA、逐字节堆/GPU归因或跨机器内存保证。此前220/190MiB预算已撤回，2h/物理多屏/读屏及非Windows仍UNVERIFIED。
 
-OBJ-04已实施：关闭导入页排队discard、取消预览代次拒绝晚到结果、切资料worker重载清除计划并绑定代次；增加取消零写、切资料失效和重新预览后成功导入的真实临时SQLite测试。隐藏日历不做独立/未安排投影。task_workspace/continuous_calendar 2项PASS；日历测试发现旧夹具读取已卸载设置页导致崩溃，改为实际打开对应分类后验证，最终task_workspace/calendar_interaction **2/2 PASS，36.51s**。
+自审覆盖拥有者/销毁时机、草稿与焦点、菜单目标身份、异步代次、资料隔离和窗口呈现；不是独立评审。不使用定时trim/全GC，不改变schema10、HTTP JSON v1、Qt6.10.2及现有更新提交/清理语义。
 
-当前OBJ-05：主窗隐藏资源与组件彻底隐藏资源释放、图标渲染A/B。初次OBJ03原生试验主窗visible但未exposed/未初始化场景图，已排除其启动内存比较；后续采样前强制校验主窗与组件实际呈现。有效原生A/B：DPR1.5/D3D11/20任务双窗已exposed且图形初始化，A(逐图标layer)启动提交246.16MiB、B(CurveRenderer)230.61MiB；B十次设置重开后247.58MiB，全部隐藏115.04MiB。以上是同机单轮阶段样本，不是统计SLA。原生动画曾出现终态等待帧确认，已加入同步/交换/提交计数和exposure前置检查；诊断版本在独立、无并行编译的运行中通过两组6条转换，未改变生产fence语义或放宽超时，早期失败不掩盖。最终版本原生复验仍待执行。
-
-
-OBJ-06进行中：完整本地构建PASS，第一轮CTest **46/46 PASS，445.35s**；随后将Loader接口改为具名inline component和显式类型转换，消除新引入的QML lint警告，正在复验受影响UI。发布元数据/保护测试25项PASS，历史构建来源8项PASS。正式CI已接入第五个setup helper、安装验收宿主、固定散列NSIS和安装/修复/卸载门禁，再上传ready文件；公网验收改为明确2.0.2→2.1.0。GitHub远端main未超前、本地已有6个未推送功能提交，保护环境四个Secret和发布开关均已核对存在；尚未推送/tag/发布。上轮一次执行因自动审批额度耗尽未执行，当前授权操作已恢复。
-
-评审：保持单QML引擎和稳定小窗画布；关闭选择器在退出动画完成后卸载内容，inline模式不建fallback；菜单按taskId/version捕获目标；低频窗口保留可恢复入口及会话状态，资源释放只针对已隐藏窗，不破坏动效/菜单/IME/草稿；导入计划须绑定资料生命周期。先选择器、再共享菜单、窗口/隐藏投影、临时数据与图形路径，单切片构建测试/测量，不提前宣布内存达标。评审主体为单代理自审，不冒充独立评审。
+发行过程失败如实保留：2.1.0在GitHub生成码门禁发现16个已登记setup错误码未同步Qt映射，未上传程序/ready资产；已取消过期构建，将空Release转草稿，原`v2.1.0`保留不移动。2.1.1补齐映射并增加两个生成契约CTest，桌面/标签编译均先通过源码门禁。后续发布及公网2.0.2→2.1.1须另行记录实际证据，不以本地48项代替。
 
 ## MEM-03 对象管理全面审计（分析与诊断实现完成）
 
@@ -141,3 +143,5 @@ MEM-04最终评审补记（2026-11-07）：CurveRenderer实验被原生截图评
 
 
 2026-11-07 GitHub门禁：b79329b及不可变v2.1.0已推送；Source Release和Account/sync成功，但Build/source-policy的generate-diagnostics --check发现此前安装能力新增16个setup key后未同步src/sync/Diagnostics.h。主程序当时仍在编译，无程序资产/ready发布。已取消两个过期编译，将无程序资产的2.1.0 Release转可恢复草稿，保留原标签，不覆盖资产或移动标签。修复为重新生成唯一来源映射，并增加diagnostic_registry/generated_sync_contract两个CTest、desktop等待source-policy、tag编译前同样检查。正式版本顺延2.1.1；不是绕过门禁或把旧源码标为通过。2.1.1最终本地构建及QML lint PASS（无警告），完整CTest **48/48 PASS，453.41s**；完全按GitHub source-policy命令复现的27项Python保护测试、源码隐私/版本、两个生成契约检查全部PASS。准备推送修复，先核对GitHub快速源码门禁，再创建v2.1.1，不移动v2.1.0。新的正式MSVC/安装/公网更新仍待验证。
+
+2026-11-08发布工具修复：正式MSVC候选42389695899与main桌面/同步均成功；首次受保护发布42391537466签名通过，独立部署发现audit-native-imports.py固定nargs=3，拒绝新增安装helper的第四个参数，发布跳过且未上传程序资产。改为逐个审计所有提供的host，至少一个参数，CLI回归验证旧三项/新四项、第四项外部DLL拒绝及空参数拒绝；3项Python审计测试和实际本地四PE审计PASS，发布保护10项PASS。仅修main工具，保持v2.1.1源SHA/候选/标签不变，重新执行完整签名与独立部署，不重编已通过的产品。
