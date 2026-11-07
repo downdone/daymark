@@ -149,3 +149,5 @@ MEM-04最终评审补记（2026-11-07）：CurveRenderer实验被原生截图评
 2026-11-08获取工具修复：42391984474五程序签名与独立真实Qt/CRT部署均PASS，发布阶段固定NSIS ZIP散列拒绝了下载响应，未上传资产。本机复现Invoke-WebRequest取得141862字节HTML而非ZIP；原2,363,925字节官方ZIP散列仍与ADR一致。修正为官方文件直链+Windows原生curl、HTTPS及有界超时，新增ZIP头检查，保留原双散列。
 
 2026-11-08正式发行：42392523180签名/独立部署/安装发布PASS，7项资产已附加v2.1.1，所有GitHub digest复核通过。42393012685真实匿名2.0.2→2.1.1更新PASS。安装宿主退出成功但默认Qt Test stdout为空，补充显式`-o -,txt`并在未来发布前检查实际完成标记；新增只读公共安装验收工作流，从同一精确tag build取得宿主、匿名下载现有签名Setup，在QTemporaryDir重复验证并保存完整输出，不替换任何已发布资产。Python发布保护10项、Python/YAML/全部新PowerShell块语法PASS；公共安装日志证据待运行。
+
+安装证据补充：首次公开补验42393583562返回成功，但Qt在Windows重定向stdout仍为空；PowerShell命令空结果的-notmatch未能拒绝该空输出，不能把该日志门禁视为通过。改由Qt Test自身写独立文本文件，ReadAllText强制真实文件/字符串，再验证实际NSIS完成标记及3 passed/0 failed/0 skipped；发布器同样核对该文件。缺artifact的本地故障探针退出1并可靠写出Qt日志，证明文件日志路径有效。补验仍只针对不可变安装包，不重跑已通过的公开升级或产品全套。
