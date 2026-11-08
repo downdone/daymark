@@ -120,7 +120,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--old-version', default=os.environ.get('DAYMARK_UPDATE_PUBLIC_OLD_VERSION','2.1.1'))
-    parser.add_argument('--new-version', default=os.environ.get('DAYMARK_UPDATE_PUBLIC_NEW_VERSION','2.2.0'))
+    parser.add_argument('--new-version', default=os.environ.get('DAYMARK_UPDATE_PUBLIC_NEW_VERSION','2.2.1'))
     parser.add_argument('--wait-for-target-seconds',type=int,default=0,
                         help='Wait for public target assets before launching Qt; never changes updater state')
     parser.add_argument('--export-artifacts',type=Path,

@@ -11,6 +11,11 @@ ColumnLayout {
     implicitHeight: 480
     Layout.minimumWidth: 0
     property bool smallSurface: false
+    function prepareForUnload() {
+        rangeRequest.stop();monthGrid.prepareForUnload();
+        agenda.model=null;agenda.forceLayout();
+        timelineLoader.active=false;yearLoader.active=false;
+    }
     readonly property CalendarMetrics metrics: CalendarMetrics {smallSurface: panel.smallSurface}
     required property TaskWorkspace workspace
     signal desktopRequested

@@ -1,0 +1,97 @@
+{
+  "capability": "CHROME-01",
+  "ux": "UX-79",
+  "version": "2.2.0",
+  "sourceCommit": "21a945bf8ace6709ce3b53abdbb792712e441a29",
+  "platform": "Windows 11",
+  "qt": "6.10.2",
+  "toolchain": "MinGW 13.1.0 Release worktree build; separate from formal MSVC artifacts",
+  "ctest": {
+    "passed": 50,
+    "failed": 0,
+    "total": 50,
+    "seconds": 451.61
+  },
+  "qmlLint": {
+    "warnings": 0
+  },
+  "nativeWindowQtTest": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "coverage": [
+      "QSettings persistence/invalid/read-only/write-failure rollback",
+      "cross-window partial native failure rollback",
+      "8 native/custom physical outer-frame and HWND round trips",
+      "actual native maximum hit/down/leave/up and IsZoomed",
+      "event-delivered maximize state, minimize, normal restore rectangle",
+      "hidden mode switch does not show window",
+      "weak interactive regions, disabled controls and destroyed item"
+    ]
+  },
+  "nativeUiFlow": {
+    "passed": true,
+    "phases": 18,
+    "coverage": [
+      "settings entry / three-window mode switch",
+      "unsaved task and account drafts retained",
+      "integrated header action separation and top inset",
+      "calendar scene-to-body arrow boundary",
+      "Tab caption order / Enter restore / Space minimize and account close",
+      "dark narrow 200 percent account / hidden graphics restore"
+    ]
+  },
+  "screenshots": [
+    {
+      "name": "main-light",
+      "sha256": "6a88550a2ad94ead38293358dfefcbf730db46de4f3c49eb50d583a66354cf8b",
+      "pixels": [
+        1680,
+        1080
+      ],
+      "theme": "light",
+      "textScalePercent": 100,
+      "scope": "QQuickWindow client-area capture; not OS frame/Snap proof"
+    },
+    {
+      "name": "settings-light",
+      "sha256": "dde93dae9b22bc7e960fcbe0de8a8863072494e48027086594395d2de3fbc5db",
+      "pixels": [
+        1290,
+        1020
+      ],
+      "theme": "light",
+      "textScalePercent": 100,
+      "scope": "QQuickWindow client-area capture; not OS frame/Snap proof"
+    },
+    {
+      "name": "account-dark-200",
+      "sha256": "a6b114c440e64ac8a2cd028126967c5d24ab1344c95d3e3431ef00e22bdac30a",
+      "pixels": [
+        630,
+        660
+      ],
+      "theme": "dark",
+      "textScalePercent": 200,
+      "scope": "QQuickWindow client-area capture; not OS frame/Snap proof"
+    },
+    {
+      "name": "restored",
+      "sha256": "c1b47e2dd017a66a681193305a52decb2ac304a7e1bd67558be1f4968d6e5869",
+      "pixels": [
+        1680,
+        1080
+      ],
+      "theme": "light",
+      "textScalePercent": 100,
+      "scope": "QQuickWindow client-area capture; not OS frame/Snap proof"
+    }
+  ],
+  "unverified": [
+    "physical multi-monitor and mixed DPI",
+    "screen reader",
+    "Windows 11 Snap hover flyout",
+    "macOS/Linux physical UI"
+  ],
+  "privacy": "QTemporaryDir synthetic tasks and account labels; no real accounts, task data or service URLs"
+}

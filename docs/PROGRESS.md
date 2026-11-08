@@ -2,11 +2,13 @@
 
 更新：2026-11-08。**2.1.1 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## CHROME-01 / UX-79 Windows标题栏（实施中）
+## CHROME-01 / UX-79 Windows标题栏（2.2.1修复候选）
 
-用户要求新增Daymark标题栏、融入现有界面，在设置切换系统原生，完成后发布新版本；目标2.2.0，当前仍未发布。按[十二项设计](design/windows-title-bar.md)完成单代理自审与实现：默认Windows Daymark，覆盖主窗/设置/账号，设备偏好与账号资料独立；保留Qt标准窗口flags，仅隔离接管Win32非客户区绘制/命中及原生placement。复用原有品牌/标题/工具区，保护交互区域、草稿、标准关闭和更新写门；偏好/原生失败回滚，组件保留既有画布。
+用户要求新增Daymark标题栏、融入现有界面，在设置切换系统原生，完成后发布新版本；当前目标2.2.1；2.2.0正式候选未通过，空Release已转草稿，原标签保留，当前仍未发布程序。按[十二项设计](design/windows-title-bar.md)完成单代理自审与实现：默认Windows Daymark，覆盖主窗/设置/账号，设备偏好与账号资料独立；保留Qt标准窗口flags，仅隔离接管Win32非客户区绘制/命中及原生placement。复用原有品牌/标题/工具区，保护交互区域、草稿、标准关闭和更新写门；偏好/原生失败回滚，组件保留既有画布。
 
-本地Qt6.10.2 Release构建、无警告QML lint、原生偏好/几何/最大化/最小化/隐藏测试及三窗用户链已通过；修正首轮回归后，标题栏、日历、完整桌面组件、任务列表、晚阶段看门狗5项全部PASS（183.78s）。最终50项完整回归与Tab顺序/呈现等待独立计时门禁进行中；通过后推送，正式MSVC/签名/独立部署/安装/匿名2.1.1→2.2.0仍待执行。客户区截图只证明QML绘制，不把遮挡或黑屏当原生视觉PASS。物理多屏/DPI/读屏、Snap悬停及非Windows仍UNVERIFIED。
+2.2.0本地完整50/50、三窗原生键盘/模式及[脱敏截图证据](evidence/windows-title-bar-2.2.0.json)通过；main42450609807和同步42450609779通过，但标签42451106148在MSVC48/50失败，无程序资产。已将空Release转草稿，修复进入2.2.1，不重跑/覆盖旧标签。2.2.1包含日历终态卸载和有效上下文的deferred遍历、12轮生命周期用例，以及按1000ms空闲+1500ms呈现+100ms调度定义的2600ms验收预算；生产空闲时间不改。7项重点复验PASS（176.68s），最终51项门禁进行中；源码推送/新标签/正式MSVC/签名/安装/匿名2.1.1→2.2.1尚待完成。
+
+客户区截图只证明QML绘制，不把遮挡或黑屏当原生视觉PASS。物理多屏/DPI/读屏、Snap悬停及非Windows仍UNVERIFIED。
 
 ## MEM-04 优化实现与2.1.1发行（完成）
 
@@ -180,3 +182,9 @@ CHROME-01用户追加融合设计：第一版原生UI启动发现AbstractButton.
 CHROME-01首轮完整回归：Qt6.10.2 Release构建/QML lint通过（无lint警告），50项中47通过、3失败，340.98s，未发布。失败为desktop_surfaces终态帧/空闲回球、task_list_interaction的旧正文/场景坐标混用，以及qml_watchdog_late在短备注焦点前置场景中提前失败。已补充实际帧读取、交互/计时器诊断，箭头断言改为场景坐标；新顶区减少正文高度后暴露短备注被上次滚动裁切，按完整短字段定位修复。字体环境已按标准Windows测试入口补齐，但不能将其当短备注根因或把3项失败计为通过；继续针对性验证。原生新增IsZoomed与最小化/还原矩形断言、Enter键用户链均已通过针对性测试，尚待最终完整回归。
 
 CHROME-01最终构建预检：Qt6.10.2 Release再次构建与QML lint无警告；强制Windows QPA的window_chrome/title_bar_ui两项PASS（8.02s），包括真实HWND IsZoomed、物理外框、最小化/还原位置、隐藏不唤起、三窗切换/草稿、日历场景→正文箭头、Tab顺序与Enter/Space。空闲回球验收改为呈现帧与空闲阶段分别计时，保留各自1500/1900ms预算与生产帧确认；非盲重试，不改变生产自动返回时序。最终50项完整回归进行中，先推送已通过切片启动Windows CI，完整门禁成功前不创建发布标签。
+
+CHROME-01最终本地门禁：完整CTest **50/50 PASS，451.61s**；QML lint无警告，强制Windows QPA的原生用户链/Tab/Enter/Space及最终浅色主窗/设置、深色200%窄账号和恢复截图均PASS（截图仅客户区）。[本地证据](evidence/windows-title-bar-2.2.0.json)记录范围、摘要和图像散列，正式MSVC资产另验。源码`21a945bf8ace6709ce3b53abdbb792712e441a29`已推送main；不可变注释标签v2.2.0对象`7dfc6ef36119d0088c2ea11bf48db3b9da1d25ba`已推送，源码发布42451106147成功，正式候选42451106148进行中。main源码门禁成功，同步42450609779成功，桌面42450609807仍在运行；尚无2.2.0程序资产，不宣称正式发行完成。
+
+2.2.0候选最终FAIL：main Windows42450609807完整通过，但标签候选42451106148编译PASS后48/50，qml_startup出现卸载上下文的CalendarMonthStream/CalendarPicker/ScrollPhysics访问；desktop_surfaces回球断言时实际returnRemainingMs仍25，hover/press/menu/keyboard/moving/visual均false。未生成或上传程序资产。保留原v2.2.0对象和失败记录，修复进入2.2.1，不移动标签：卸载前显式停投影/布局/回收Timer及清空ListView模型取消incubators，探针只执行有效QQmlContext的deferred控件；新增12轮快速/绘制后卸载。空闲验收预算2600ms=1000空闲+1500呈现等待+100调度，不改变生产1000ms逻辑；不盲重跑旧候选。
+
+2.2.1生命周期补充：新12轮用例首次复验捕获WeekRow在延迟销毁期间读取已先销毁的CalendarMetrics.headingSize；不能仅清空列表就宣称完成。改为值类型rowMetrics，卸载前冻结必要尺寸并断开已销毁QObject依赖，正常可见时仍绑定实时尺寸；未加常驻日历、未屏蔽警告。最终calendar_lifecycle与完整qml_startup两项PASS（44.60s），QML lint无警告；51项完整回归已开始，源代码冻结准备推送。

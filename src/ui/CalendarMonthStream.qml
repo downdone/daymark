@@ -7,6 +7,9 @@ Item {
     id: root
     property bool smallSurface: false
     readonly property CalendarMetrics metrics: CalendarMetrics {smallSurface: root.smallSurface}
+    // Bound week delegates can be released after this owned QObject's metrics.
+    // Keep their geometry in values, and freeze those values before retirement.
+    property var rowMetrics: ({weekMinimum: metrics.weekMinimum, captionSize: metrics.captionSize, headingSize: metrics.headingSize})
     required property TaskWorkspace workspace
     property string anchorDate: workspace.dateOffset(0)
     property bool scoped: true
@@ -21,6 +24,7 @@ Item {
     property string visibleFrom:""
     property string visibleThrough:""
     property bool rebuilding: false
+    property bool retiring: false
     property bool resetPending: false
     property string pendingFocusDate: ""
     property string focusAnchor: ""
@@ -31,7 +35,7 @@ Item {
     property real placedHeight: 0
     readonly property real textScale: workspace.textScale
     readonly property bool layoutReady: !rebuilding && !projectionRefresh.running && placedScale === textScale && placedHeight === list.height
-    readonly property real weekHeight: Math.max(root.metrics.weekMinimum, root.metrics.captionSize * 4, list.height / 5.4)
+    readonly property real weekHeight: Math.max(root.rowMetrics.weekMinimum, root.rowMetrics.captionSize * 4, list.height / 5.4)
     signal dateSelected(string date)
     signal dateActivated(string date)
     signal dateOpened(string date)
@@ -56,6 +60,7 @@ Item {
         return -1;
     }
     function refresh(reset) {
+        if(retiring)return;
         resetPending = resetPending || reset;
         if(visible)projectionRefresh.restart();
     }
@@ -69,7 +74,7 @@ Item {
         }
     }
     function performRefresh(reset) {
-        if (!visible || !workspace)
+        if (retiring || !visible || !workspace)
             return;
         const capturedScale = textScale, capturedHeight = list.height;
         const effectiveReset = reset || rebuilding || placedScale !== capturedScale || placedHeight !== capturedHeight;
@@ -129,6 +134,15 @@ Item {
         layoutCompletion.restart();
     }
     Timer {id:layoutCompletion;interval:0;property var action:null;onTriggered:{const next=action;action=null;if(next)next()}}
+    function prepareForUnload() {
+        const saved=rowMetrics;
+        rowMetrics={weekMinimum:saved.weekMinimum,captionSize:saved.captionSize,headingSize:saved.headingSize};
+        retiring=true;++refreshGeneration;
+        projectionRefresh.stop();layoutCompletion.stop();layoutCompletion.action=null;
+        anchorPlacementRetry.stop();recycle.stop();
+        // Cancel view incubators while their bound creation context is alive.
+        list.model=null;list.reuseItems=false;list.forceLayout();weeks=[];
+    }
     function positionAnchor() {
         const target = focusAnchor || (textScale >= 1.5 || list.height < 280 ? anchorDate : anchorDate.slice(0, 8) + "01");
         const index = indexForDate(target);
@@ -274,9 +288,9 @@ Item {
         Label {
             width: parent.width
             visible: !!row.modelData.title
-            height: visible ? Math.max(28, root.metrics.headingSize + 12) : 0
+            height: visible ? Math.max(28, root.rowMetrics.headingSize + 12) : 0
             text: row.modelData.title
-            font.pixelSize: root.metrics.headingSize
+            font.pixelSize: root.rowMetrics.headingSize
             font.weight: Font.DemiBold
             verticalAlignment: Text.AlignVCenter
         }

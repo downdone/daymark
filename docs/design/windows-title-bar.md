@@ -75,3 +75,7 @@ A偏好/绑定/Win32规则与单测→B三窗共享标题栏及设置入口→C�
 原生最大化根因复审：Qt FramelessWindowHint会走几何模拟最大化，Qt缓存为Maximized但HWND的IsZoomed为false、placement仍Normal；随后改flags产生迟到Normal事件。最终不再切换Qt frameless标记，保留Qt标准窗口契约，仅由已注册HWND subclass控制NCCALCSIZE/命中；原生placement与正常还原矩形在切换中保存/恢复。新增下一事件轮、OS最大化及最小化/正常位置回归，不用延迟重试掩盖。
 
 正文坐标复审：列表来源直接映射到Main.contentItem；日历/时间轴对外锚点明确为scene坐标（mapToItem(null)），进入主窗详情时只在边界转换一次，避免Window.window的基类contentItem与ApplicationWindow正文混用。箭头验收统一mapToScene后比较，不能用正文y直接比场景y。短备注能完整容纳时按完整字段最小滚动，长备注仍跟随光标；新顶区缩小正文不应留下旧字段的滚动偏移。CI与本地标准测试入口均从Windows系统字体目录读取字体，不复制字体资产；offscreen不是原生焦点证明。
+
+2.2.1发布门禁复审：v2.2.0本地与main通过，标签MSVC48/50失败，暴露可卸载日历的绑定上下文和测试时间边界。维持不可变旧标签，修复以2.2.1发布：CalendarPanel.prepareForUnload先使月历retiring、停止投影/布局/定位/回收Timer，清空月历和agenda的ListView.model，forceLayout取消待创建委托，再关闭年/时间轴Loader，最后释放顶层CalendarContent；不以常驻整个日历规避生命周期问题。新增12轮快速/已绘制关闭的隔离用例，验证旧page弱引用归零且无QML警告。全量探针只对有效QQmlContext执行deferred属性；纯C++容器仍遍历子树，失效上下文不复活，执行后QPointer检查避免读取已销毁对象，不屏蔽运行时警告。回球验收2600ms由1000ms产品空闲+1500ms帧呈现+100ms调度组成，日志已证明旧断言发生时生产计时器仍余25ms；生产1000ms不改。参考[Qt ListView](https://doc.qt.io/qt-6.10/qml-qtquick-listview.html)关于按需创建、缓存与委托寿命的约束；在线6.10.3说明不代替实际6.10.2测试。
+
+生命周期复审补充：清空ListView后，其旧周行仍可能延迟销毁；CalendarMetrics是根的子QObject，先销毁会让跨组件周行绑定读取null。用rowMetrics的标量值快照承载周行尺寸，在prepareForUnload时断开实时metrics绑定并冻结，销毁期间不再访问该QObject；正常浏览仍实时响应字号。新增隔离用例曾可靠捕获此问题，修复后12轮和完整启动均通过，未将错误过滤成通过。

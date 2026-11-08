@@ -24,6 +24,7 @@
 #include <QGuiApplication>
 #include <QMessageBox>
 #include <QQmlError>
+#include <QQmlContext>
 #include <QQmlIncubator>
 #include <QQuickWindow>
 #include <QQuickItem>
@@ -230,6 +231,37 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto* timer=new QTimer(&m_engine);timer->setInterval(240);
         QObject::connect(timer,&QTimer::timeout,&m_engine,[this,test,timer]{const auto result=test->advance();if(result.isEmpty())return;timer->stop();if(result=="DONE"){m_verificationCompleted=true;qInfo()<<"PASS: CHROME01 native title bar and settings user flow";QCoreApplication::exit(m_qmlWarnings?3:0);}else{qCritical()<<result;QCoreApplication::exit(3);}});
         timer->start();QTimer::singleShot(30000,&m_engine,[]{QCoreApplication::exit(3);});return true;
+    }
+    if(smokeTest && smokeProfile==QStringLiteral("calendar-lifecycle")) {
+        auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));
+        if(!calendar)return false;
+        auto phase=std::make_shared<int>(0);
+        auto retired=std::make_shared<QPointer<QObject>>();
+        auto* timer=new QTimer(&m_engine);timer->setInterval(50);
+        QObject::connect(timer,&QTimer::timeout,&m_engine,[this,calendar,phase,retired,timer]{
+            if(!m_workspace.ready() || m_workspace.busy())return;
+            auto fail=[timer]{timer->stop();qCritical()<<"Calendar lifetime did not retire its content safely";QCoreApplication::exit(3);};
+            const int cycle=*phase/3,step=*phase%3;
+            if(cycle==12){timer->stop();if(m_qmlWarnings){qCritical()<<"Calendar lifetime produced QML warnings";QCoreApplication::exit(3);return;}m_verificationCompleted=true;qInfo()<<"PASS: 12 calendar rapid/painted unload cycles with no stale context";QCoreApplication::exit(0);return;}
+            if(step==0){
+                m_workspace.setTextScale(cycle%2 ? 2 : 1);
+                if(!m_workspace.setPreference("desktopCalendarVisible",true)){fail();return;}
+                *retired=calendar->property("page").value<QObject*>();
+                if(!*retired){fail();return;}
+                // Alternate cancellation before queued projection timers and
+                // cancellation after a real delegate/render pass.
+                if(cycle%2==0)m_workspace.setPreference("desktopCalendarVisible",false);
+            }else if(step==1 && cycle%2){
+                calendar->grabWindow();
+                if(auto* incubator=m_engine.incubationController())incubator->incubateFor(5);
+                if(!m_workspace.setPreference("desktopCalendarVisible",false)){fail();return;}
+            }else if(step==2){
+                if(auto* incubator=m_engine.incubationController())incubator->incubateFor(5);
+                if(calendar->isVisible() || calendar->property("page").value<QObject*>() || *retired){fail();return;}
+            }
+            ++*phase;
+        });
+        timer->start();QTimer::singleShot(20000,&m_engine,[]{QCoreApplication::exit(3);});return true;
     }
     if(smokeTest && smokeProfile==QStringLiteral("picker-lifecycle")) {
         auto test=std::make_shared<PickerLifecycleProbe>(m_engine,m_workspace,mainWindow);
@@ -1582,7 +1614,11 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 QSet<QObject*> visited;
                 while(!pending.isEmpty()) {
                     auto* item=pending.takeLast().data();if(!item || visited.contains(item))continue;visited.insert(item);
-                    qmlExecuteDeferred(item);
+                    auto* context=QQmlEngine::contextForObject(item);
+                    if(context && !context->isValid())continue;
+                    QPointer<QObject> alive=item;
+                    if(context)qmlExecuteDeferred(item);
+                    if(!alive)continue;
                     for(auto* child:item->children())pending.append(child);
                     if(auto* visual=qobject_cast<QQuickItem*>(item))for(auto* child:visual->childItems())pending.append(child);
                     if(auto* window=qobject_cast<QQuickWindow*>(item))pending.append(window->contentItem());

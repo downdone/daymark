@@ -57,7 +57,7 @@ ApplicationWindow {
     readonly property CalendarPanel page:calendarContent.item ? (calendarContent.item as CalendarContent).page : null
     onVisibleChanged:{
         if(visible)calendarContent.active=true
-        else if(!workspace.preferences.desktopCalendarVisible && page && !page.modalOpen && !page.timelineDragging){savedAnchor=page.anchorDate;savedSelection=page.selectedDate;calendarContent.active=false}
+        else if(!workspace.preferences.desktopCalendarVisible && page && !page.modalOpen && !page.timelineDragging){savedAnchor=page.anchorDate;savedSelection=page.selectedDate;page.prepareForUnload();calendarContent.active=false}
     }
     Loader {
         id:calendarContent;anchors.fill:parent;active:false

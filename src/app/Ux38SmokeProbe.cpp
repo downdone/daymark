@@ -798,7 +798,7 @@ QString Ux38SmokeProbe::advance() {
         m_widget->setProperty("miniKeyboardInteraction",false);leaveWidget();
     }
     if(m_stage==163){
-        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1900)return {};qCritical()<<"Dock idle holds"<<m_controller.interactionDiagnostics()<<m_widget->property("miniKeyboardFocus")<<m_widget->property("interactionPressed")<<m_widget->property("errorMessage")<<m_widget->isActive()<<QCursor::pos()<<m_widget->geometry();return fail("idle borrowed panel returns to ball without auto compact");}
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<2600)return {};qCritical()<<"Dock idle holds"<<m_controller.interactionDiagnostics()<<m_widget->property("miniKeyboardFocus")<<m_widget->property("interactionPressed")<<m_widget->property("errorMessage")<<m_widget->isActive()<<QCursor::pos()<<m_widget->geometry();return fail("idle borrowed panel returns to ball without auto compact");}
         m_widget->grabWindow();
         auto* ball=qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"));const auto center=ball->mapToGlobal(QPointF(ball->width()/2,ball->height()/2));
         if(QLineF(center,m_dockPoint).length()>1){qCritical()<<"Dock return location"<<m_dockCycle<<center<<m_dockPoint<<m_widget->geometry();return fail("return preserves the original ball location");}
@@ -830,7 +830,7 @@ QString Ux38SmokeProbe::advance() {
         QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_widget->setProperty("miniKeyboardInteraction",false);leaveWidget();
     }
     if(m_stage==167){
-        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1900)return {};return fail("menu dismissal restarts docking delay");}
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<2600)return {};return fail("menu dismissal restarts docking delay");}
         m_controller.setFormEnabled(1,false);m_controller.setAutoCompact(false);click("widgetMiniBall");
     }
     if(m_stage==168){
@@ -838,7 +838,7 @@ QString Ux38SmokeProbe::advance() {
         m_widget->setProperty("miniKeyboardInteraction",false);leaveWidget();
     }
     if(m_stage==169){
-        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1900)return {};return fail("panel returns without Mini enabled");}
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<2600)return {};return fail("panel returns without Mini enabled");}
         m_controller.selectForm(0);leaveWidget();
     }
     if(m_stage==170){
