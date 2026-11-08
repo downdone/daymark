@@ -140,6 +140,7 @@ Item {
         retiring=true;++refreshGeneration;
         projectionRefresh.stop();layoutCompletion.stop();layoutCompletion.action=null;
         anchorPlacementRetry.stop();recycle.stop();
+        monthPhysics.detach();
         // Cancel view incubators while their bound creation context is alive.
         list.model=null;list.reuseItems=false;list.forceLayout();weeks=[];
     }
@@ -357,6 +358,7 @@ Item {
             policy: ScrollBar.AsNeeded
         }
         DS.ScrollPhysics {
+            id: monthPhysics
             target: list
         }
         onMovementStarted: {root.focusAnchor="";root.userScrolled=true}

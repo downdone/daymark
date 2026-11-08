@@ -2,11 +2,13 @@
 
 更新：2026-11-08。**2.1.1 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## CHROME-01 / UX-79 Windows标题栏（2.2.1修复候选）
+## CHROME-01 / UX-79 Windows标题栏（2.2.2修复候选）
 
-用户要求新增Daymark标题栏、融入现有界面，在设置切换系统原生，完成后发布新版本；当前目标2.2.1；2.2.0正式候选未通过，空Release已转草稿，原标签保留，当前仍未发布程序。按[十二项设计](design/windows-title-bar.md)完成单代理自审与实现：默认Windows Daymark，覆盖主窗/设置/账号，设备偏好与账号资料独立；保留Qt标准窗口flags，仅隔离接管Win32非客户区绘制/命中及原生placement。复用原有品牌/标题/工具区，保护交互区域、草稿、标准关闭和更新写门；偏好/原生失败回滚，组件保留既有画布。
+用户要求新增Daymark融合顶区并可切换系统原生，完成后发布新版本。功能覆盖主窗/设置/账号，按设备持久化，保留窗口外框、状态、焦点、草稿、关闭保护和更新写门；Win32非客户区适配隔离在platform。设计与单代理自审见[十二项契约](design/windows-title-bar.md)。当前目标2.2.2，程序尚未发布。
 
-2.2.0本地完整50/50、三窗原生键盘/模式及[脱敏截图证据](evidence/windows-title-bar-2.2.0.json)通过；main42450609807和同步42450609779通过，但标签42451106148在MSVC48/50失败，无程序资产。已将空Release转草稿，修复进入2.2.1，不重跑/覆盖旧标签。2.2.1包含日历终态卸载和有效上下文的deferred遍历、12轮生命周期用例，以及按1000ms空闲+1500ms呈现+100ms调度定义的2600ms验收预算；生产空闲时间不改。7项重点复验PASS（176.68s），最终51项门禁进行中；源码推送/新标签/正式MSVC/签名/安装/匿名2.1.1→2.2.1尚待完成。
+2.2.0本地/main通过，标签候选48/50失败；2.2.1本地与标签候选51/51通过，但main新增生命周期用例50/51失败，已知ScrollPhysics目标销毁竞态，因此两版均无程序资产，空Release转草稿、原标签保留。2.2.2保留原有CalendarMetrics与周行值快照，卸载前显式detach滚动策略并清空目标、取消列表创建；全量探针只强制完成真实可见场景的控件，独立16种月/周/日/年×字号×立即/绘制后关闭用例保持零QML警告与旧页弱引用门禁。共享单例尺寸实验造成回归，已撤回未提交。
+
+2.2.2 Release构建与QML lint通过（无lint警告），calendar_lifecycle/qml_startup/desktop_surfaces **3/3 PASS（100.33s）**，最终完整51项进行中。源码冻结后推送main，须远端MSVC完整通过后再创建2.2.2标签；签名、独立部署、安装和2.1.1→2.2.2公网验证尚未执行。
 
 客户区截图只证明QML绘制，不把遮挡或黑屏当原生视觉PASS。物理多屏/DPI/读屏、Snap悬停及非Windows仍UNVERIFIED。
 
@@ -188,3 +190,11 @@ CHROME-01最终本地门禁：完整CTest **50/50 PASS，451.61s**；QML lint无
 2.2.0候选最终FAIL：main Windows42450609807完整通过，但标签候选42451106148编译PASS后48/50，qml_startup出现卸载上下文的CalendarMonthStream/CalendarPicker/ScrollPhysics访问；desktop_surfaces回球断言时实际returnRemainingMs仍25，hover/press/menu/keyboard/moving/visual均false。未生成或上传程序资产。保留原v2.2.0对象和失败记录，修复进入2.2.1，不移动标签：卸载前显式停投影/布局/回收Timer及清空ListView模型取消incubators，探针只执行有效QQmlContext的deferred控件；新增12轮快速/绘制后卸载。空闲验收预算2600ms=1000空闲+1500呈现等待+100调度，不改变生产1000ms逻辑；不盲重跑旧候选。
 
 2.2.1生命周期补充：新12轮用例首次复验捕获WeekRow在延迟销毁期间读取已先销毁的CalendarMetrics.headingSize；不能仅清空列表就宣称完成。改为值类型rowMetrics，卸载前冻结必要尺寸并断开已销毁QObject依赖，正常可见时仍绑定实时尺寸；未加常驻日历、未屏蔽警告。最终calendar_lifecycle与完整qml_startup两项PASS（44.60s），QML lint无警告；51项完整回归已开始，源代码冻结准备推送。
+
+2.2.1最终本地完整CTest **51/51 PASS，455.67s**，QML lint无警告；[证据](evidence/windows-title-bar-2.2.1.json)。不可变v2.2.1已推送，对象`6c7071b93b10426666edc1f703ab4710411048e5`，生产源码`d2c75ea7fc38374506ab5cabd97acb4eb5349e1e`。开始正式MSVC候选，不将本地通过替代签名/安装/公网升级门禁。
+
+2.2.1远端main42469313594在MSVC50/51失败：新增calendar_lifecycle捕获ScrollPhysics目标已销毁仍求contentHeight，未签名或发布。完整复审不再逐个字段补空值：滚动策略detach先禁用绑定并清空目标，卸载前遍历视图解除滚动策略；两套纯主题日历尺寸由引擎级CalendarMetricSet共享，寿命覆盖可卸载页面，字号/间距实时跟随Theme。生命周期扩至16种（月/周/日/年×100/200%×立即/绘制后关闭），保持所有QML警告与旧页弱引用门禁。修复进入2.2.2，先通过main远端再打标签，不重跑旧失败候选。
+
+2.2.2本地复审：共享CalendarMetricSet实验引入CalendarMonthGrid绑定回归，未提交，已撤回；保留原有CalendarMetrics所有权和值快照，聚焦显式detach滚动绑定。全量探针也限定为当前可见且真正挂接window.contentItem的控件，纯C++容器子树仍遍历，16种独立生命周期场景保留，不屏蔽任何QML警告。
+
+2.2.2收窄修复复验：原有尺寸所有权恢复，显式滚动detach与可见场景的deferred遍历均保留；16种生命周期、完整startup和桌面组件3项全部PASS（100.33s），无QML警告，最终51项进行中。接下来先推送main并通过实际MSVC门禁再打标签，避免仅以本地结果继续产生候选。

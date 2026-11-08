@@ -79,3 +79,5 @@ A偏好/绑定/Win32规则与单测→B三窗共享标题栏及设置入口→C�
 2.2.1发布门禁复审：v2.2.0本地与main通过，标签MSVC48/50失败，暴露可卸载日历的绑定上下文和测试时间边界。维持不可变旧标签，修复以2.2.1发布：CalendarPanel.prepareForUnload先使月历retiring、停止投影/布局/定位/回收Timer，清空月历和agenda的ListView.model，forceLayout取消待创建委托，再关闭年/时间轴Loader，最后释放顶层CalendarContent；不以常驻整个日历规避生命周期问题。新增12轮快速/已绘制关闭的隔离用例，验证旧page弱引用归零且无QML警告。全量探针只对有效QQmlContext执行deferred属性；纯C++容器仍遍历子树，失效上下文不复活，执行后QPointer检查避免读取已销毁对象，不屏蔽运行时警告。回球验收2600ms由1000ms产品空闲+1500ms帧呈现+100ms调度组成，日志已证明旧断言发生时生产计时器仍余25ms；生产1000ms不改。参考[Qt ListView](https://doc.qt.io/qt-6.10/qml-qtquick-listview.html)关于按需创建、缓存与委托寿命的约束；在线6.10.3说明不代替实际6.10.2测试。
 
 生命周期复审补充：清空ListView后，其旧周行仍可能延迟销毁；CalendarMetrics是根的子QObject，先销毁会让跨组件周行绑定读取null。用rowMetrics的标量值快照承载周行尺寸，在prepareForUnload时断开实时metrics绑定并冻结，销毁期间不再访问该QObject；正常浏览仍实时响应字号。新增隔离用例曾可靠捕获此问题，修复后12轮和完整启动均通过，未将错误过滤成通过。
+
+2.2.2收敛：ScrollPhysics.detach将attached关闭、解除五类属性绑定、将target变为null；溢出计算只捕获一次有效目标。页面卸载前解除月历、agenda与可视子树滚动策略，通用ScrollView销毁也清除策略。保留原CalendarMetrics所有权及周行值快照；共享单例方案回归已撤回。全量deferred辅助只处理真实可见且祖先链通往window.contentItem的控件或可见Window，仍遍历C++容器，不复活池中/脱离窗口的旧控件。独立真实引擎生命周期扩大为16种（月/周/日/年×100/200%×立即/绘制后关闭），并保留原页面弱引用、QML警告和完整场景断言。发布先过main MSVC再打新标签；旧标签不改。

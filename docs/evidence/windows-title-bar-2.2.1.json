@@ -1,0 +1,48 @@
+{
+  "capability": "CHROME-01 / UX-79",
+  "version": "2.2.1",
+  "sourceCommit": "d2c75ea7fc38374506ab5cabd97acb4eb5349e1e",
+  "tagObject": "6c7071b93b10426666edc1f703ab4710411048e5",
+  "platform": "Windows 11",
+  "qt": "6.10.2",
+  "toolchain": "MinGW 13.1.0 Release worktree; not formal MSVC artifact identity",
+  "ctest": {
+    "passed": 51,
+    "failed": 0,
+    "seconds": 455.67
+  },
+  "qmlLintWarnings": 0,
+  "calendarLifecycle": {
+    "rapidAndPaintedUnloadCycles": 12,
+    "alternatingTextScales": [
+      1,
+      2
+    ],
+    "weakOldPageCleared": true,
+    "noQmlWarnings": true,
+    "scope": "QTemporaryDir and real QML engine; no actual user data"
+  },
+  "uiEvidence": "windows-title-bar-2.2.0.json; visible title-bar UI unchanged, native flow revalidated by 2.2.1 CTest",
+  "priorCandidate": {
+    "version": "2.2.0",
+    "sourceCommit": "21a945bf8ace6709ce3b53abdbb792712e441a29",
+    "failedRun": 42451106148,
+    "passed": 48,
+    "failed": 2,
+    "programAssets": 0,
+    "releaseDraft": true,
+    "immutableTagRetained": true
+  },
+  "fixes": [
+    "retire timers and view models before unloading calendar scope",
+    "freeze scalar week metrics before owned QObject teardown",
+    "only execute deferred QML properties in valid contexts; still traverse C++ containers",
+    "independent render/idle clocks and 2600ms total idle acceptance budget; production idle remains 1000ms"
+  ],
+  "unverified": [
+    "physical multi-monitor/mixed DPI",
+    "screen reader",
+    "Windows 11 Snap hover flyout",
+    "macOS/Linux physical UI"
+  ]
+}

@@ -12,6 +12,7 @@ T.ScrollView {
     clip: true
     wheelEnabled: physics.overflowing
     property ScrollPhysics scrolling: ScrollPhysics {id: physics;target: control.contentItem as Flickable}
+    Component.onDestruction: if(physics)physics.detach()
     ScrollBar.vertical: ScrollBar {parent: control;x: control.width-width;y: control.topPadding;height: control.availableHeight;policy: ScrollBar.AsNeeded}
     ScrollBar.horizontal: ScrollBar {policy: ScrollBar.AlwaysOff}
 }

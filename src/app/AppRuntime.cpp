@@ -242,9 +242,11 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             if(!m_workspace.ready() || m_workspace.busy())return;
             auto fail=[timer]{timer->stop();qCritical()<<"Calendar lifetime did not retire its content safely";QCoreApplication::exit(3);};
             const int cycle=*phase/3,step=*phase%3;
-            if(cycle==12){timer->stop();if(m_qmlWarnings){qCritical()<<"Calendar lifetime produced QML warnings";QCoreApplication::exit(3);return;}m_verificationCompleted=true;qInfo()<<"PASS: 12 calendar rapid/painted unload cycles with no stale context";QCoreApplication::exit(0);return;}
+            if(cycle==16){timer->stop();if(m_qmlWarnings){qCritical()<<"Calendar lifetime produced QML warnings";QCoreApplication::exit(3);return;}m_verificationCompleted=true;qInfo()<<"PASS: 16 month/week/day/year rapid/painted unload cases with no stale context";QCoreApplication::exit(0);return;}
             if(step==0){
-                m_workspace.setTextScale(cycle%2 ? 2 : 1);
+                m_workspace.setTextScale((cycle/2)%2 ? 2 : 1);
+                const QStringList modes={"month","week","day","year"};
+                if(!m_workspace.setPreference("desktopCalendarScale",modes.at(cycle/4))){fail();return;}
                 if(!m_workspace.setPreference("desktopCalendarVisible",true)){fail();return;}
                 *retired=calendar->property("page").value<QObject*>();
                 if(!*retired){fail();return;}
@@ -261,7 +263,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             }
             ++*phase;
         });
-        timer->start();QTimer::singleShot(20000,&m_engine,[]{QCoreApplication::exit(3);});return true;
+        timer->start();QTimer::singleShot(25000,&m_engine,[]{QCoreApplication::exit(3);});return true;
     }
     if(smokeTest && smokeProfile==QStringLiteral("picker-lifecycle")) {
         auto test=std::make_shared<PickerLifecycleProbe>(m_engine,m_workspace,mainWindow);
@@ -1617,7 +1619,17 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     auto* context=QQmlEngine::contextForObject(item);
                     if(context && !context->isValid())continue;
                     QPointer<QObject> alive=item;
-                    if(context)qmlExecuteDeferred(item);
+                    // Pool/deferred-delete objects can outlive their visual
+                    // owner. Never resurrect their unpainted control content.
+                    // Pure C++ containers are still traversed below.
+                    bool inLiveScene=false;
+                    if(auto* visual=qobject_cast<QQuickItem*>(item);visual && visual->isVisible() && visual->window() && visual->window()->isVisible()){
+                        auto* ancestor=visual;
+                        const auto* scene=visual->window()->contentItem();
+                        while(ancestor && ancestor!=scene)ancestor=ancestor->parentItem();
+                        inLiveScene=ancestor==scene;
+                    }else if(auto* surface=qobject_cast<QQuickWindow*>(item))inLiveScene=surface->isVisible();
+                    if(context && inLiveScene)qmlExecuteDeferred(item);
                     if(!alive)continue;
                     for(auto* child:item->children())pending.append(child);
                     if(auto* visual=qobject_cast<QQuickItem*>(item))for(auto* child:visual->childItems())pending.append(child);

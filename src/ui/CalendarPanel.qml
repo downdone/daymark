@@ -12,9 +12,17 @@ ColumnLayout {
     Layout.minimumWidth: 0
     property bool smallSurface: false
     function prepareForUnload() {
-        rangeRequest.stop();monthGrid.prepareForUnload();
+        detachScrollViews(panel);
+        rangeRequest.stop();monthGrid.prepareForUnload();agendaPhysics.detach();
         agenda.model=null;agenda.forceLayout();
         timelineLoader.active=false;yearLoader.active=false;
+    }
+    function detachScrollViews(item) {
+        if(!item)return;
+        const scrolling=item.scrolling;
+        if(scrolling && typeof scrolling.detach === "function")scrolling.detach();
+        const children=Array.from(item.children);
+        for(const child of children)detachScrollViews(child);
     }
     readonly property CalendarMetrics metrics: CalendarMetrics {smallSurface: panel.smallSurface}
     required property TaskWorkspace workspace
@@ -816,6 +824,7 @@ ColumnLayout {
                     // Avoid background row incubation across model resets on Qt 6.10.2.
                     cacheBuffer: 0
                     DS.ScrollPhysics {
+                        id: agendaPhysics
                         target: agenda
                     }
                     objectName: "calendarAgendaList"
