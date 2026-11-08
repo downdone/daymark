@@ -55,7 +55,8 @@ private:
     QVariantMap m_footerSyncState;
     QPointF m_widgetModeCollapse,m_widgetModeMore;
     QVariantMap m_originalSyncState,m_accountDisplayState;
-    QElapsedTimer m_wait;
+    QElapsedTimer m_wait, m_presentationWait;
+    bool m_waitingForPresentation=false;
     QString advanceCategories();
     QString m_categoryRoot,m_categoryChild,m_categoryOther,m_categoryCreated;
     QRect m_categoryHost;

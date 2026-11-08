@@ -259,6 +259,12 @@ void WidgetViewModel::scheduleAutomatic()
 }
 void WidgetViewModel::setInteraction(bool hovered,bool pressed,bool menu,bool keyboard)
 {m_hovered=hovered;m_pressed=pressed;m_menu=menu;m_keyboard=keyboard;scheduleAutomatic();}
+QVariantMap WidgetViewModel::interactionDiagnostics() const
+{
+    return {{"hovered",m_hovered},{"pressed",m_pressed},{"menu",m_menu},
+            {"keyboard",m_keyboard},{"moving",m_moving},{"visualPending",m_visualPending},
+            {"temporaryOpen",m_presentation.temporaryOpen},{"returnRemainingMs",m_returnTimer.remainingTime()}};
+}
 void WidgetViewModel::enableVisualTransitions(){if(m_visualTransitions)return;m_visualTransitions=true;if(m_window)applyPresentation(m_presentation,false);}
 void WidgetViewModel::finishTransition(int id)
 {

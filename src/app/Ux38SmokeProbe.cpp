@@ -134,10 +134,17 @@ QString Ux38SmokeProbe::advance() {
         QEvent leave(QEvent::Leave);QCoreApplication::sendEvent(m_widget,&leave);
     };
     if(m_controller.transitionPending()){
-        m_widget->requestUpdate();
-        if(m_wait.elapsed()<1500)return {};
-        return fail("current form did not reach its presented terminal frame");
+        if(!m_waitingForPresentation){m_waitingForPresentation=true;m_presentationWait.restart();}
+        // Offscreen/occluded windows may defer requestUpdate indefinitely. Read
+        // back a real frame; the production afterSynchronizing/frameSwapped fence
+        // still owns acknowledgement. Never finish a transition in the probe.
+        m_widget->grabWindow();
+        if(m_presentationWait.elapsed()<1500)return {};
+        return fail(QStringLiteral("current form did not reach its presented terminal frame: form=%1 visual=%2 id=%3 visible=%4 exposed=%5 progress=%6").arg(m_controller.effectiveForm()).arg(m_widget->property("visualTransition").toInt()).arg(m_controller.transitionId()).arg(m_widget->isVisible()).arg(m_widget->isExposed()).arg(m_widget->property("motionProgress").toDouble()));
     }
+    // Automatic idle return starts after the terminal frame is acknowledged.
+    // Its deadline must not include the preceding render-fence wait.
+    if(m_waitingForPresentation){m_waitingForPresentation=false;m_wait.restart();}
     auto* list=find(m_widget,"widgetTasks");
     auto* calendar=qobject_cast<QQuickWindow*>(find(m_main,"desktopCalendarWindow"));
     if(!list || !calendar)return fail("desktop surfaces missing");
@@ -791,7 +798,7 @@ QString Ux38SmokeProbe::advance() {
         m_widget->setProperty("miniKeyboardInteraction",false);leaveWidget();
     }
     if(m_stage==163){
-        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1900)return {};qCritical()<<"Dock idle holds"<<m_widget->property("miniKeyboardFocus")<<m_widget->property("interactionPressed")<<m_widget->property("errorMessage")<<m_widget->isActive()<<QCursor::pos()<<m_widget->geometry();return fail("idle borrowed panel returns to ball without auto compact");}
+        if(!m_controller.miniCollapsed()){if(m_wait.elapsed()<1900)return {};qCritical()<<"Dock idle holds"<<m_controller.interactionDiagnostics()<<m_widget->property("miniKeyboardFocus")<<m_widget->property("interactionPressed")<<m_widget->property("errorMessage")<<m_widget->isActive()<<QCursor::pos()<<m_widget->geometry();return fail("idle borrowed panel returns to ball without auto compact");}
         m_widget->grabWindow();
         auto* ball=qobject_cast<QQuickItem*>(find(m_widget,"widgetMiniBall"));const auto center=ball->mapToGlobal(QPointF(ball->width()/2,ball->height()/2));
         if(QLineF(center,m_dockPoint).length()>1){qCritical()<<"Dock return location"<<m_dockCycle<<center<<m_dockPoint<<m_widget->geometry();return fail("return preserves the original ball location");}

@@ -114,6 +114,9 @@ inline QString clientDiagnostic(const QString& key) {
         {QStringLiteral("setup.filesystem"),QStringLiteral("C814")},
         {QStringLiteral("setup.internal"),QStringLiteral("C815")},
         {QStringLiteral("setup.update_dependency"),QStringLiteral("C850")},
+        {QStringLiteral("windowChromeUnavailable"),QStringLiteral("C901")},
+        {QStringLiteral("windowChromeSettingsFailed"),QStringLiteral("C902")},
+        {QStringLiteral("windowChromeNativeFailed"),QStringLiteral("C903")},
     };
     return codes.value(key,QStringLiteral("C999"));
 }

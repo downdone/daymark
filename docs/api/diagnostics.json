@@ -106,6 +106,9 @@
     "setup.cleanup_required": "C813",
     "setup.filesystem": "C814",
     "setup.internal": "C815",
-    "setup.update_dependency": "C850"
+    "setup.update_dependency": "C850",
+    "windowChromeUnavailable": "C901",
+    "windowChromeSettingsFailed": "C902",
+    "windowChromeNativeFailed": "C903"
   }
 }

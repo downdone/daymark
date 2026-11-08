@@ -66,7 +66,7 @@ ColumnLayout {
     readonly property real gutter: Math.max(root.smallSurface ? 44 : 56, (root.smallSurface ? 36 : 44) * Theme.scale)
     property point taskAnchor: Qt.point(0, 0)
     function inspectAt(id, item) {
-        taskAnchor = item.mapToItem(root.Window.window.contentItem, item.width, item.height/2);
+        taskAnchor = item.mapToItem(null, item.width, item.height/2);
         openTask(id);
     }
     signal timeMoveRequested(string taskId, real version, string date, int minute, string edge)

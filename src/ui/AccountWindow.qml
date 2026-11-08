@@ -7,6 +7,31 @@ ApplicationWindow {
     id: root
     objectName: "accountWindow"
     required property TaskWorkspace workspace
+    required property WindowChromeController windowChrome
+    WindowChrome {
+        id: accountChrome; objectName: "accountChrome"
+        window: root; controller: root.windowChrome; dark: Theme.dark
+        titleBar: accountTop
+        buttonStrip: accountCaption.item ? (accountCaption.item as DaymarkTitleBar).buttonStrip : null
+
+    }
+
+
+    header: Item {
+        id: accountTop; objectName: "accountIntegratedHeader"
+        height: 72
+        Rectangle {anchors.fill: parent; color: Theme.content}
+        BrandLockup {objectName: "accountWordmark"; x: (body.availableWidth-contentColumn.width)/2; y: 12; width: 208; height: 208*72/320}
+        Loader {
+            id: accountCaption; objectName: "accountCaption"
+            anchors.top: parent.top; anchors.right: parent.right
+            active: accountChrome.customEnabled && root.visible && root.visibility !== Window.FullScreen
+            visible: active; width: active && item ? (item as Item).implicitWidth : 0
+            height: active && item ? (item as Item).implicitHeight : 0
+            sourceComponent: DaymarkTitleBar {chrome: accountChrome; targetWindow: root}
+        }
+    }
+
     signal syncLoginRequested(string origin, string login, string password)
     signal syncRegisterRequested(string origin, string login, string password)
     signal syncProfileRequested(string id)
@@ -130,11 +155,10 @@ ApplicationWindow {
                     id: contentColumn
                     objectName: "accountContent"
                     anchors.top: parent.top
-                    anchors.topMargin: 24
+                    anchors.topMargin: 16
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: Math.max(0, Math.min(parent.width - 48, 440 * Math.min(1.4, Theme.scale)))
                     spacing: Theme.blockGap
-                    BrandLockup { objectName: "accountWordmark"; Layout.preferredWidth: 208; Layout.preferredHeight: 208 * 72 / 320; Layout.bottomMargin: 8 }
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: Theme.fieldGap
                         Label { objectName: "accountHeading"; Layout.fillWidth: true; text: root.connected ? qsTr("账号与同步") : root.syncRegisterMode ? qsTr("创建账号") : qsTr("登录 Daymark"); font.pixelSize: Theme.headingSize; font.weight: Font.DemiBold; wrapMode: Text.Wrap }

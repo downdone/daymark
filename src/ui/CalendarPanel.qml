@@ -55,7 +55,7 @@ ColumnLayout {
         rangeError="";
         selectedTaskId=entry.taskId || entry.eventId || "";selectedEntry=entry;selectedMinute=-1
         if(date)selectedDate=date
-        if(source){selectedAnchor=source.mapToItem(panel.Window.window.contentItem,source.width,source.height/2);source.forceActiveFocus()}
+        if(source){selectedAnchor=source.mapToItem(null,source.width,source.height/2);source.forceActiveFocus()}
     }
     function clearSelection() {selectedTaskId="";selectedEntry=({});selectedMinute=-1;rangeError=""}
     function editSelected() {if(selectedTaskId){taskAnchor=selectedAnchor;openTask(selectedTaskId)}}
@@ -159,7 +159,7 @@ ColumnLayout {
     }
     property point taskAnchor: Qt.point(0, 0)
     function inspectAt(id, item) {
-        taskAnchor = item.mapToItem(panel.Window.window.contentItem, item.width, item.height/2);
+        taskAnchor = item.mapToItem(null, item.width, item.height/2);
         openTask(id);
     }
     signal openTask(string taskId)
@@ -575,7 +575,7 @@ ColumnLayout {
             onRangeAssignmentRequested:function(id,version,date,first,last){const range=panel.workspace.timeRangeDraft({startDate:date,startMinute:first,endMinute:last,zone:panel.timelineData.zone});panel.rangeError=range.valid ? "" : range.error;if(range.valid)panel.timeRangeRequested(id,version,range)}
             slotSelectionActive: panel.selectedMinute>=0
             onTaskSelected: function(entry,source){panel.selectEntry(entry,source,entry.date)}
-            onSlotSelected: function(date,minute,at){panel.clearSelection();panel.selectedDate=date;panel.selectedMinute=minute;panel.selectedAnchor=panel.timelineView.mapToItem(panel.Window.window.contentItem,at.x,at.y)}
+            onSlotSelected: function(date,minute,at){panel.clearSelection();panel.selectedDate=date;panel.selectedMinute=minute;panel.selectedAnchor=panel.timelineView.mapToItem(null,at.x,at.y)}
             onOpenTask: function (id) {
                 panel.taskAnchor = panel.timelineView.taskAnchor;
                 panel.openTask(id);
@@ -747,7 +747,7 @@ ColumnLayout {
                         panel.clearSelection();panel.selectedDate = date;
                     }
                     onDateOpened: function(date){panel.navigateTo(date,"day")}
-                    onCreateRequested: function(date,source){panel.selectedDate=date;panel.openCreate(date,-1,-1,source.mapToItem(panel.Window.window.contentItem,source.width/2,source.height/2))}
+                    onCreateRequested: function(date,source){panel.selectedDate=date;panel.openCreate(date,-1,-1,source.mapToItem(null,source.width/2,source.height/2))}
                     onTaskSelected: function(entry,source,date){panel.selectEntry(entry,source,date)}
                     onContextRequested: function(entry,source,at){panel.selectEntry(entry,source,entry.date);panel.contextTask=entry;const point=source.mapToItem(panel,at.x,at.y);taskMenu.popup(panel,point.x,point.y)}
                     onDateActivated: function (date) {

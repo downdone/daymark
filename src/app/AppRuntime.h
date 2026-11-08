@@ -9,6 +9,7 @@
 #include "platform/common/WindowStateStore.h"
 #include "platform/common/StartupController.h"
 #include "platform/common/SystemEventFilter.h"
+#include "platform/common/WindowChrome.h"
 #include <QTemporaryDir>
 #include "platform/common/ApplicationMenus.h"
 
@@ -38,6 +39,7 @@ private:
     std::unique_ptr<sync::Coordinator> m_sync;
     std::unique_ptr<StartupController> m_startup;
     std::unique_ptr<UpdateController> m_updates;
+    std::unique_ptr<WindowChromeController> m_chrome;
     QQmlApplicationEngine m_engine;
     std::unique_ptr<DesktopTray> m_tray;
     std::unique_ptr<ApplicationMenus> m_menus;

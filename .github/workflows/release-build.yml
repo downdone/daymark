@@ -226,6 +226,7 @@ jobs:
         shell: bash
         run: |
           set +e
+          if [ "$RUNNER_OS" = "Windows" ]; then export QT_QPA_FONTDIR="$WINDIR/Fonts"; fi
           report="$PWD/build/ctest-report.xml"
           log="$PWD/build/ctest-console.log"
           ctest --test-dir build/release -C Release --output-on-failure --no-tests=error \

@@ -7,6 +7,7 @@
 #include "WidgetPointerSmokeProbe.h"
 #include "ObjectAuditProbe.h"
 #include "PickerLifecycleProbe.h"
+#include "ChromeSmokeProbe.h"
 #include "Ux39SmokeProbe.h"
 #include "Ux71SmokeProbe.h"
 #include "Ux75SmokeProbe.h"
@@ -94,8 +95,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     QObject::connect(&m_widget,&WidgetViewModel::errorChanged,&m_engine,[this]{if(!m_widget.errorText().isEmpty())diagnostics::event("window","operation.failed",{{"message",m_widget.errorText()}},"warning");});
     m_startup=std::make_unique<StartupController>(smokeTest?QDir(directory).filePath(QStringLiteral("startup-test.ini")):QString());
     m_updates=std::make_unique<UpdateController>(directory,smokeTest);
+    m_chrome=std::make_unique<WindowChromeController>(QDir(directory).filePath(QStringLiteral("ui.ini")),!restricted);
     if(smokeTest && smokeProfile==QStringLiteral("object-audit") && !ObjectAuditProbe::seedFixture(QDir(directory).filePath("daymark.sqlite")))return false;
-    m_engine.setInitialProperties({{QStringLiteral("startupController"),QVariant::fromValue(m_startup.get())},{QStringLiteral("widgetController"), QVariant::fromValue(&m_widget)},
+    m_engine.setInitialProperties({{QStringLiteral("windowChrome"),QVariant::fromValue(m_chrome.get())},{QStringLiteral("startupController"),QVariant::fromValue(m_startup.get())},{QStringLiteral("widgetController"), QVariant::fromValue(&m_widget)},
                                    {QStringLiteral("taskWorkspace"),QVariant::fromValue(&m_workspace)},{QStringLiteral("updateController"),QVariant::fromValue(m_updates.get())}});
     m_engine.loadFromModule(QStringLiteral("Daymark"), QStringLiteral("Main"));
     diagnostics::event("startup","qml.loaded",{{"root_available",!m_engine.rootObjects().isEmpty()},{"restricted_update",restricted}});
@@ -187,7 +189,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
             if(!*firstFrame){
                 *firstFrame=true;
                 if(!updateGate->commitReady()){QCoreApplication::exit(40);return;}
-                *committed=true;*settingsWritable=true;
+                *committed=true;*settingsWritable=true;m_chrome->setWritable(true);
                 m_widget.configureSettings(QDir(directory).filePath(QStringLiteral("ui.ini")));
                 if(!m_widget.attachWindow(widgetWindow)){QCoreApplication::exit(40);return;}
                 m_mainState=std::make_unique<WindowStateStore>(mainWindow,QDir(directory).filePath(QStringLiteral("ui.ini")));
@@ -222,6 +224,12 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto* ready=new QTimer(&m_engine);ready->setInterval(50);
         QObject::connect(ready,&QTimer::timeout,&m_engine,[this]{if(m_workspace.ready() && !m_workspace.busy()){m_verificationCompleted=true;QCoreApplication::exit(m_qmlWarnings?3:0);}});ready->start();
         QTimer::singleShot(25000,&m_engine,[]{QCoreApplication::exit(3);});return true;
+    }
+    if(smokeTest && smokeProfile==QStringLiteral("title-bar")) {
+        auto test=std::make_shared<ChromeSmokeProbe>(m_workspace,*m_chrome,mainWindow,screenshotPath);
+        auto* timer=new QTimer(&m_engine);timer->setInterval(240);
+        QObject::connect(timer,&QTimer::timeout,&m_engine,[this,test,timer]{const auto result=test->advance();if(result.isEmpty())return;timer->stop();if(result=="DONE"){m_verificationCompleted=true;qInfo()<<"PASS: CHROME01 native title bar and settings user flow";QCoreApplication::exit(m_qmlWarnings?3:0);}else{qCritical()<<result;QCoreApplication::exit(3);}});
+        timer->start();QTimer::singleShot(30000,&m_engine,[]{QCoreApplication::exit(3);});return true;
     }
     if(smokeTest && smokeProfile==QStringLiteral("picker-lifecycle")) {
         auto test=std::make_shared<PickerLifecycleProbe>(m_engine,m_workspace,mainWindow);
@@ -1130,7 +1138,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                         // do not synthesize it in the same callback as focus change.
                         if(++noteFocusFrames<3)return;
                         if(flick->property("contentY").toDouble()>1
-                            || notes->property("contentHeight").toDouble()>target->height()-20+1){fail("short notes focus must not scroll");return;}
+                            || notes->property("contentHeight").toDouble()>target->height()-20+1){qCritical()<<"Short notes geometry"<<flick->property("contentY")<<flick->property("height")<<notes->property("contentHeight")<<target->height()<<target->mapToItem(qobject_cast<QQuickItem*>(flick),QPointF())<<mainWindow->height();fail("short notes focus must not scroll");return;}
                         if(!capture(QStringLiteral("scroll-short-notes-focus"))){fail("short notes focus capture");return;}
                     } else {
                         QObject::disconnect(*wheelConnection);

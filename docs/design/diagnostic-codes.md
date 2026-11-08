@@ -35,3 +35,7 @@
 ## 安装器诊断
 
 SETUP-01 的安装、卸载和启动后清理使用客户端 8xx 范围；编号仍由 docs/api/diagnostics.json 唯一分配，通过 CMake 生成无 Qt 的原生映射，不另存第二份表。JSON format=1 保留 error（稳定 setup key）、code（S000-C8xx）、platform_error（若有）、exit_code。基础更新 SDK 的拒绝以 setup.update_dependency 模块码关联，并保留原 update.* key/Win32 码。NSIS 错误页显示原始结构化终态，不只显示“安装失败”。无服务请求，故 S000。
+
+## CHROME-01 Windows标题栏
+
+本地UI适配沿S000-Cxxx体系：windowChromeUnavailable=C901（不支持/受限启动/非法模式），windowChromeSettingsFailed=C902（偏好持久化失败，恢复原模式），windowChromeNativeFailed=C903（原生适配失败，恢复原模式并保留Win32数值）。唯一来源仍是diagnostics.json，已同步生成Qt映射；不新增网络协议或服务端操作。

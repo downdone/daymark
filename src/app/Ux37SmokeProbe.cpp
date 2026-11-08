@@ -78,9 +78,9 @@ QString Ux37SmokeProbe::advance() {
         auto* editor=qobject_cast<QQuickItem*>(find("taskEditor"));auto* surface=find("taskEditorSurface");
         const auto point=surface->property("sourcePoint").toPointF();
         auto* title=qobject_cast<QQuickItem*>(find("taskTitle-"+m_ids[0]));const auto inset=title->property("topPadding").toReal();const auto titleY=title->mapToScene(QPointF(0,inset+(title->height()-inset)/2)).y();
-        if(!editor->isVisible() || editor->x()<=m_window->property("sidebarWidth").toReal()+12 || surface->property("arrowEdge")!="left" || qAbs(point.y()+editor->y()-titleY)>1 || qAbs(surface->property("arrowOffset").toReal()-point.y())>1)return fail("first subtask entry positions beside title with accurate arrow");
-        if(m_firstInspectorPhase==1){if(m_window->property("editorTab").toInt()!=1 || !capture("first-open-source"))return fail("first subtask tab");m_columns["sourcePoint"]=point+editor->position();click(qobject_cast<QQuickItem*>(find("taskEditorTabs-segment-0")));++m_firstInspectorPhase;m_wait.restart();return {};}
-        if(point+editor->position()!=m_columns.value("sourcePoint").toPointF())return fail("tab does not replace source with popup origin");
+        if(!editor->isVisible() || editor->x()<=m_window->property("sidebarWidth").toReal()+12 || surface->property("arrowEdge")!="left" || qAbs(editor->mapToScene(point).y()-titleY)>1 || qAbs(surface->property("arrowOffset").toReal()-point.y())>1)return fail("first subtask entry positions beside title with accurate arrow");
+        if(m_firstInspectorPhase==1){if(m_window->property("editorTab").toInt()!=1 || !capture("first-open-source"))return fail("first subtask tab");m_columns["sourcePoint"]=editor->mapToScene(point);click(qobject_cast<QQuickItem*>(find("taskEditorTabs-segment-0")));++m_firstInspectorPhase;m_wait.restart();return {};}
+        if(editor->mapToScene(point)!=m_columns.value("sourcePoint").toPointF())return fail("tab does not replace source with popup origin");
         invoke(m_window,"returnFromDetails");click(row(0));
     }
     if(m_stage==6){if(count()!=1 || selection->property("anchorId")!=m_ids[0])return fail("plain click anchor");click(row(2),Qt::ShiftModifier);}

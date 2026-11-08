@@ -59,6 +59,7 @@ public:
     QRect miniRect() const {return m_layout.forms[1];}
     QRect ballRect() const {return m_layout.forms[2];}
     bool ready() const { return !m_window.isNull(); }
+    QVariantMap interactionDiagnostics() const;
     bool mini() const { return m_renderForm != WidgetPresentation::Panel; }
     bool miniAutoCollapse() const { return m_autoCompact; }
     bool miniCollapsed() const { return m_renderForm == WidgetPresentation::Ball; }

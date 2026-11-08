@@ -10,6 +10,39 @@ ApplicationWindow {
     signal helpRequested()
     signal calendarVisibilityRequested(bool visible)
     required property TaskWorkspace workspace
+    required property WindowChromeController windowChrome
+    WindowChrome {
+        id: settingsChrome; objectName: "settingsChrome"
+        window: root; controller: root.windowChrome; dark: Theme.dark
+        titleBar: settingsTop
+        buttonStrip: settingsCaption.item ? (settingsCaption.item as DaymarkTitleBar).buttonStrip : null
+
+    }
+
+
+    header: Item {
+        id: settingsTop; objectName: "settingsIntegratedHeader"
+        height: Math.max(56,settingsHeader.implicitHeight+24)
+        Rectangle {anchors.fill: parent; color: Theme.grouped}
+        Rectangle {width: root.sidebarWidth; height: parent.height; color: Theme.sidebar
+            Rectangle {anchors.right: parent.right; width: 1; height: parent.height; color: Theme.separator}
+        }
+        Label {x: 20; y: 12; text: qsTr("设置"); font.pixelSize: Theme.headingSize; font.weight: Font.DemiBold}
+        ColumnLayout {
+            id:settingsHeader; x: root.sidebarWidth+16; y: 12; width: Math.max(0,root.width-x-16-54); spacing:4
+            Label {objectName:"settingsCategoryTitle";text:root.categoryTitles[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;wrapMode:Text.Wrap}
+            Label {text:root.categoryDetails[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.captionSize;color:Theme.secondary;wrapMode:Text.Wrap}
+        }
+        Loader {
+            id: settingsCaption; objectName: "settingsCaption"
+            anchors.top: parent.top; anchors.right: parent.right
+            active: settingsChrome.customEnabled && root.visible && root.visibility !== Window.FullScreen
+            visible: active; width: active && item ? (item as Item).implicitWidth : 0
+            height: active && item ? (item as Item).implicitHeight : 0
+            sourceComponent: DaymarkTitleBar {chrome: settingsChrome; targetWindow: root; surface: Theme.grouped}
+        }
+    }
+
     property var updateController: null
     required property WidgetViewModel widgetController
     required property StartupController startupController
@@ -78,7 +111,6 @@ ApplicationWindow {
             Rectangle {anchors.right:parent.right;width:1;height:parent.height;color:Theme.separator}
             ColumnLayout {
                 anchors.fill:parent;anchors.margins:12;spacing:12
-                Label {text:qsTr("设置");font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;Layout.leftMargin:8;Layout.topMargin:6;Layout.fillWidth:true}
                 ListView {
                     id:categories;objectName:"settingsCategories";Layout.fillWidth:true;Layout.fillHeight:true;clip:true;spacing:4
                     model:root.categoryTitles;currentIndex:root.categoryIndex;boundsBehavior:Flickable.StopAtBounds
@@ -111,11 +143,7 @@ ApplicationWindow {
         }
         ColumnLayout {
             id:contentPane;objectName:"settingsContentPane";Layout.fillWidth:true;Layout.minimumWidth:0;Layout.fillHeight:true;Layout.margins:16;spacing:12
-            ColumnLayout {
-                id:settingsHeader;Layout.fillWidth:true;spacing:4
-                Label {objectName:"settingsCategoryTitle";text:root.categoryTitles[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;wrapMode:Text.Wrap}
-                Label {text:root.categoryDetails[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.captionSize;color:Theme.secondary;wrapMode:Text.Wrap}
-            }
+
             ScrollView {
                 id:body;objectName:"settingsScroll";Layout.fillWidth:true;Layout.minimumWidth:0;Layout.fillHeight:true;contentWidth:availableWidth;clip:true
                 ColumnLayout {
@@ -196,9 +224,10 @@ ApplicationWindow {
             }
             Label {visible:root.widgetController.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.widgetController.errorText}
             Label {visible:root.workspace.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.workspace.errorText}
+            Label {visible:root.windowChrome.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.windowChrome.errorText}
             RowLayout {
                 Layout.fillWidth:true
-                Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.workspace.errorText ? qsTr("设置未保存，请重试") : qsTr("更改立即保存");font.pixelSize:Theme.captionSize;color:root.workspace.errorText ? Theme.danger : Theme.secondary}
+                Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:(root.workspace.errorText || root.windowChrome.errorText) ? qsTr("设置未保存，请重试") : qsTr("更改立即保存");font.pixelSize:Theme.captionSize;color:(root.workspace.errorText || root.windowChrome.errorText) ? Theme.danger : Theme.secondary}
                 Button {objectName:"settingsClose";text:qsTr("关闭");flat:true;onClicked:root.close()}
             }
         }
@@ -207,6 +236,17 @@ ApplicationWindow {
                     id:appearancePage;Layout.fillWidth:true;spacing:Theme.blockGap
                     SettingsGroup {
                         heading:qsTr("显示")
+                        SettingsRow {
+                            visible: root.windowChrome.supported
+                            label: qsTr("标题栏")
+                            SegmentedPicker {
+                                objectName: "titleBarModePicker"
+                                model: [qsTr("Daymark"), qsTr("系统原生")]
+                                selectionIsExternal: true
+                                currentIndex: root.windowChrome.mode === 1 ? 0 : 1
+                                onActivated: function(index) {root.windowChrome.requestMode(index === 0 ? 1 : 0)}
+                            }
+                        }
                         SettingsRow {
                             label:qsTr("主题")
                             SegmentedPicker {objectName:"themeModePicker";model:[qsTr("系统"),qsTr("浅色"),qsTr("深色")];selectionIsExternal:true;currentIndex:root.workspace.themeMode;onActivated:function(index){root.workspace.themeMode=index}}

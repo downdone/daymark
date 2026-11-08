@@ -4,12 +4,12 @@ on:
     inputs:
       old_version:
         description: Existing public managed version to upgrade
-        default: '2.0.2'
+        default: '2.1.1'
         required: true
         type: string
       new_version:
         description: Published target version to verify
-        default: '2.1.1'
+        default: '2.2.0'
         required: true
         type: string
 permissions:
