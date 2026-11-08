@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "passed": true,
+  "version": "2.2.2",
+  "source_revision": "13e68f064bda6e66df1bd2575fd8468b0e2367f1",
+  "installer_sha256": "fd671b5fd9b7a36d09e34526fb0a189e5f5e3b0d0dbf0506be9b9cf279c16d05",
+  "test_log_sha256": "636863520d118b2295de9c5ae98819e3386ed0d4d9f008e25261343bc98ce7c5",
+  "signature_policy": "self-signed-pinned",
+  "public_trust": false,
+  "anonymous_download": true,
+  "acceptance": "QTemporaryDir native install, Qt startup/module audit, busy refusal, two repairs, old-program cleanup, uninstall/data preservation",
+  "verification_run_id": 42477479819
+}

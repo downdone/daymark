@@ -20,8 +20,9 @@ Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick
 - **数据安全**：软删除与撤销、一致性快照备份、JSON/CSV 导入导出、升级迁移。
 - **离线优先**：默认仅本地保存，无遥测，核心操作不依赖网络。
 - **可选同步**：官方账号或自定义HTTPS服务，支持离线队列、冲突处理与独立账号资料；[服务端指南](server/README.md)。官方构建地址按[本地配置说明](config/README.md)提供，公开源码仅示例。
+- **Windows交付**：完整安装向导、托管便携包和签名在线更新；标题栏融入界面，并可在外观设置切回系统原生。
 
-当前版本 **2.0.0**，数据库 schema 10。实现与验证状态只以[进度](docs/PROGRESS.md)为准。
+当前版本 **2.2.2**，数据库 schema 10。[Windows下载](https://github.com/downdone/daymark/releases/tag/v2.2.2)；实现与验证状态只以[进度](docs/PROGRESS.md)为准。
 
 ## 构建
 
@@ -31,9 +32,9 @@ Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick
 |---|---|---|
 | Windows | MinGW GCC 13.1 或 MSVC 2022 | PowerShell 7（测试/打包脚本） |
 | macOS | Apple Clang（Xcode） | 最低 macOS 13 |
-| Linux | GCC 13 | X11/OpenGL 运行库；CI 用 `ubuntu-24.04` |
+| Linux | GCC 13 | X11/OpenGL 运行库；按需手动构建 |
 
-三个平台都在 CI 中构建、跑完整 CTest 与 QML lint。
+当前产品CI优先Windows，使用开源Qt 6.10.2/MSVC 2022执行完整CTest和QML lint；macOS/Linux本轮按用户指示跳过。
 
 ```bash
 # Windows（设置 DAYMARK_QT 指向 6.10.2/mingw_64，DAYMARK_MINGW 指向 Tools/mingw1310_64）
@@ -49,13 +50,13 @@ cmake --build build --parallel 4
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-打 `v*` 标签会触发 [release-build.yml](.github/workflows/release-build.yml)：三平台构建后把归档附加到源码 Release。
+打 `v*` 标签会触发 [release-build.yml](.github/workflows/release-build.yml)，生成完整测试通过的Windows候选；随后由受保护的 [windows-update.yml](.github/workflows/windows-update.yml) 签名、独立部署验收并发布安装包、便携包与更新清单。
 
 完整环境说明见[环境与构建](docs/environment.md)；测试分层见[测试方法](docs/testing-method.md)。
 
 ## 项目状态
 
-Windows 与 macOS 是工程目标。CI 在两端执行构建、完整 CTest 与 QML lint；平台专属门禁（物理输入、通知、穿透、多屏/睡眠、干净机部署、签名）仍需分别验收，不能以版本号代替。
+Windows 与 macOS 是工程目标，当前优先交付Windows。正式包使用项目固定指纹自签名及P-256更新签名，尚非Windows公共发行者信任。独立Windows部署、安装与公网升级和物理输入、多屏/DPI、读屏等实机边界分别记录，不能以版本号代替验收。
 
 ## 许可
 

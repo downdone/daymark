@@ -1,0 +1,128 @@
+{
+  "capability": "CHROME-01 / UX-79",
+  "version": "2.2.2",
+  "sourceCommit": "13e68f064bda6e66df1bd2575fd8468b0e2367f1",
+  "tagObject": "c9ee81a7c520b6eb3c02ebda155fb54360c45a6e",
+  "qt": "6.10.2",
+  "local": {
+    "toolchain": "Windows MinGW 13.1.0 Release; separate from formal MSVC artifacts",
+    "ctest": {
+      "passed": 51,
+      "failed": 0,
+      "seconds": 460.23
+    },
+    "qmlLintWarnings": 0,
+    "focusedRegression": {
+      "passed": 3,
+      "failed": 0,
+      "seconds": 100.33
+    },
+    "shutdownWarning": "One pre-existing ToolTip height-null warning after task-list probe completion; not claiming the entire process is warning-free"
+  },
+  "main": {
+    "buildRun": 42473347093,
+    "syncRun": 42473347105,
+    "passed": true,
+    "ctest": {
+      "passed": 51,
+      "failed": 0,
+      "seconds": 477.13
+    },
+    "tagCreatedOnlyAfterMainSuccess": true
+  },
+  "calendarLifecycle": {
+    "cases": 16,
+    "modes": [
+      "month",
+      "week",
+      "day",
+      "year"
+    ],
+    "textScales": [
+      1,
+      2
+    ],
+    "closing": [
+      "immediate",
+      "after painting"
+    ],
+    "weakOldPageCleared": true,
+    "noQmlWarnings": true,
+    "scope": "QTemporaryDir and actual QML engine; synthetic data only"
+  },
+  "nativeUiEvidence": "windows-title-bar-2.2.0.json; unchanged title-bar UI, native window and 18-phase UI flow revalidated by 2.2.2 CTest",
+  "candidateRun": 42475170289,
+  "publicationVerified": true,
+  "unverified": [
+    "physical multi-monitor/mixed DPI",
+    "screen reader",
+    "Windows 11 Snap hover flyout",
+    "macOS/Linux physical UI"
+  ],
+  "candidate": {
+    "run": 42475170289,
+    "passed": true,
+    "ctest": {
+      "passed": 51,
+      "failed": 0,
+      "seconds": 474.76
+    }
+  },
+  "publication": {
+    "run": 42477036184,
+    "passed": true,
+    "releaseId": 438196320,
+    "assets": [
+      {
+        "digest": "sha256:fd671b5fd9b7a36d09e34526fb0a189e5f5e3b0d0dbf0506be9b9cf279c16d05",
+        "id": 723778677,
+        "name": "Daymark-2.2.2-windows-x64-setup.exe",
+        "size": 43598832
+      },
+      {
+        "digest": "sha256:e429c699cbbb0b23cf69c1174948194dcd22a50481324e25b24ec86f4d622ccd",
+        "id": 723778674,
+        "name": "Daymark-2.2.2-windows-x64-setup.exe.sha256",
+        "size": 103
+      },
+      {
+        "digest": "sha256:754bc72bcde4bf7b514a64e023fc01a1a283053e619e85d783d22ee40aad3320",
+        "id": 723778672,
+        "name": "Daymark-2.2.2-windows-x64.zip",
+        "size": 44495824
+      },
+      {
+        "digest": "sha256:02afa7cbd38ef42da3a4a7593da6b158a463a67a398350e938214b63ebf93334",
+        "id": 723778676,
+        "name": "Daymark-2.2.2-windows-x64.zip.sha256",
+        "size": 97
+      },
+      {
+        "digest": "sha256:cd4b332a11ab842b5952522a9db46673b6718cb3b816e8c3d006918909ccaafe",
+        "id": 723778675,
+        "name": "SHA256SUMS.txt",
+        "size": 200
+      },
+      {
+        "digest": "sha256:6a17ceee3686146d3297a99c93a9ed23a071f054d7f837869c9b8d484fa99522",
+        "id": 723778781,
+        "name": "update-windows-x64.json",
+        "size": 878
+      },
+      {
+        "digest": "sha256:d4155566c0cf669feabfe766104e06cf5dfdcf6bb27cd947f2d54754326b93c9",
+        "id": 723778780,
+        "name": "update-windows-x64.json.sig",
+        "size": 185
+      }
+    ],
+    "signaturePolicy": "self-signed-pinned",
+    "publicTrust": false,
+    "certificateSha256": "1ad9354c645562f1d82964e5a7844a49e71aca29b33f67a5276064c71554fe6e",
+    "rootStoreModified": false
+  },
+  "publicUpdateRun": 42477474916,
+  "publicInstallerRun": 42477479819,
+  "publicUpgradeEvidence": "windows-update-2.1.1-to-2.2.2.json",
+  "publicInstallerEvidence": "windows-installer-2.2.2.json"
+}

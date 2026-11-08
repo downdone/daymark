@@ -1,4 +1,12 @@
-# Windows本地候选交付与离线校验
+# Windows交付、安装与离线校验
+
+## 正式Windows发行
+
+从[GitHub Release](https://github.com/downdone/daymark/releases/tag/v2.2.2)下载完整安装包或托管便携ZIP。安装包提供安装、修复和卸载流程；便携包解压后运行顶层daymark.exe，保留versions及全部配套文件。应用通过签名更新清单准备新版本，用户重启后提交并清理旧程序，个人资料保持独立。
+
+正式资产由开源Qt/MSVC候选、项目固定指纹自签名、独立Windows部署与实际安装/公网升级门禁生成；自签名不等于Windows公共发行者信任，无需导入根证书。精确版本、哈希与实际验证见[PROGRESS](PROGRESS.md)，协议及目录/资料规则见[在线更新设计](design/update/README.md)和[安装器设计](design/windows-installer.md)。
+
+## 本地非托管候选（开发入口）
 
 候选ZIP是免安装目录包。解压到新目录，保留完整文件树；从托盘退出旧版后再运行daymark.exe，避免单实例激活旧程序。运行核心业务不需要Qt SDK、PowerShell、账号或联网。默认业务库在系统应用数据目录；不要把真实数据库复制进发行目录。
 
@@ -36,7 +44,7 @@ report.json的passed只表示这台机器的SDK隔离原生检查通过；cleanM
 
 脚本重新构建并测试当前Release，按ADR-025部署必要运行库、简明说明、SBOM和小型结果元数据，生成源码提交及版本元数据/manifest，再运行无SDK验收；通过后生成新的ZIP及SHA侧车，并逐项比较ZIP内容与已验证目录。失败保留独立候选目录用于诊断，不覆盖历史包，不自动推送或上传。合成篡改回归已接入Windows CTest的package_validation，也可单独执行tests/scripts/PackageValidationTest.ps1；合成文件不用于证明Qt可以运行。
 
-升级/回退与数据库备份继续遵循[RC2说明](release-notes-v1-rc2.md)。公开分发前核实[第三方许可](third-party-notices.md)，当前版本不包含安装器、签名或自动升级。
+上述package-windows入口用于本地非托管候选，历史升级/回退与备份说明见[RC2说明](release-notes-v1-rc2.md)，不替代正式托管发行。公开分发前核实[第三方许可](third-party-notices.md)；正式安装、签名和在线更新采用本文开头的受保护流水线。
 
 ## macOS差异
 
