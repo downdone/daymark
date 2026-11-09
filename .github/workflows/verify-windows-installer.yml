@@ -8,6 +8,9 @@ on:
       candidate_run:
         required: true
         type: string
+      verified_source:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
@@ -35,12 +38,13 @@ jobs:
         with:
           python-version: '3.13'
           architecture: x64
-      - name: Verify exact tag build provenance
+      - name: Verify installer acceptance host provenance
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_TAG: ${{ inputs.tag }}
           CANDIDATE_RUN: ${{ inputs.candidate_run }}
+          VERIFIED_SOURCE: ${{ inputs.verified_source }}
         run: |
           if ($env:SOURCE_TAG -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' -or $env:CANDIDATE_RUN -notmatch '^[1-9][0-9]*$') { throw 'Invalid immutable identities' }
           & git fetch --no-tags origin "refs/tags/$env:SOURCE_TAG`:refs/tags/$env:SOURCE_TAG"
@@ -49,7 +53,12 @@ jobs:
           & git merge-base --is-ancestor $source HEAD
           if ($LASTEXITCODE -ne 0) { throw 'Source must be reviewed on main' }
           $run=(& gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:CANDIDATE_RUN") | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0 -or $run.path -ne '.github/workflows/release-build.yml' -or $run.conclusion -ne 'success' -or $run.event -ne 'push' -or $run.head_branch -cne $env:SOURCE_TAG -or $run.head_sha -cne $source) { throw 'Exact tag build required' }
+          if ($LASTEXITCODE -ne 0 -or $run.path -ne '.github/workflows/release-build.yml' -or $run.conclusion -ne 'success' -or $run.repository.full_name -cne $env:GITHUB_REPOSITORY) { throw 'Candidate run provenance mismatch' }
+          if ($env:VERIFIED_SOURCE -and $env:VERIFIED_SOURCE -cne $source) { throw 'Publisher source differs from the immutable tag' }
+          $tagBuild = $run.event -eq 'push' -and $run.head_branch -ceq $env:SOURCE_TAG -and $run.head_sha -ceq $source
+          # Rebuild artifact provenance is verified by the protected signer before publication.
+          $signedRebuild = $env:VERIFIED_SOURCE -ceq $source -and $run.event -eq 'workflow_dispatch' -and $run.head_branch -ceq 'main'
+          if (!$tagBuild -and !$signedRebuild) { throw 'Expected an exact tag build or a publisher-verified rebuild' }
           "DAYMARK_INSTALLER_SOURCE=$source" >> $env:GITHUB_ENV
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:

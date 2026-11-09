@@ -223,7 +223,7 @@ jobs:
           path: build/installer-publication-proof/
           if-no-files-found: ignore
   verify-installer:
-    needs: publish
+    needs: [sign, publish]
     permissions:
       contents: read
       actions: read
@@ -231,6 +231,7 @@ jobs:
     with:
       tag: ${{ inputs.tag }}
       candidate_run: ${{ inputs.candidate_run }}
+      verified_source: ${{ needs.sign.outputs.source }}
   verify-update:
     needs: publish
     if: inputs.previous_version != ''
