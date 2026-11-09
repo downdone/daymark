@@ -1,15 +1,19 @@
 # Daymark 当前进度
 
-更新：2026-11-09。**2.2.3 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-09。**2.2.4 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## CHROME-03 / UX-79 Windows 窗口边框与客户区（本地通过）
+## CHROME-03 / UX-79 Windows 窗口边框与客户区（2.2.4 已发布）
 
-用户授权将此修复作为 Windows 2.2.4 发布，同时简化流程。计划同一 SHA 原子推送 `main` 和注释标签，完整 MSVC 候选仅跑一份；复用打包对实际候选 CRT 的检查；受保护发布后自动并行跑匿名安装和升级。完整 CTest、签名、独立部署和资料保护门禁保留。最终资产和验证状态按实回填。
+源码 `fdead442f4bb927c054b6cfbf9f55dc829a999b6`，注释标签 `v2.2.4` 对象 `835e59a7c22b05266c4a488ffc07d8e28fa81448`。四类日常流程见[工程方法](engineering.md)，发行入口与恢复见[发布规则](release-policy.md)。
+
+- `main` 的[源码门禁](https://github.com/downdone/daymark/actions/runs/42577058458)通过并跳过同 SHA 的桌面重跑。[标签候选](https://github.com/downdone/daymark/actions/runs/42577058452)是唯一正式 Windows 构建，CTest **52/52**（486.89 秒）、QML lint、CRT/包结构通过，生成托管候选和安装验收 host。[同步 CI](https://github.com/downdone/daymark/actions/runs/42577058673)独立通过。本地 2.2.4 复验 2/2，发布相关 Python 守卫 37/37。
+- [受保护发布](https://github.com/downdone/daymark/actions/runs/42579379317)一次执行签名、独立部署、上传和并行公开验收，工具版本 `576a336`。匿名安装 3/3，覆盖启动、运行中拒绝、修复和卸载保留资料。匿名公网 2.2.3→2.2.4 实际准备、退出重启、持久提交、删除旧程序及 SQLite 保留均通过，19.982 秒（其中 Qt 更新 12.718 秒）。报告的源码和资产身份与 GitHub API 核对一致。
+- GitHub Release `438823862` 含 7 项资产。[完整安装包](https://github.com/downdone/daymark/releases/download/v2.2.4/Daymark-2.2.4-windows-x64-setup.exe) `726618983`，SHA-256 `e139ff5937431eefb3a3aafa0fe0eafc9ecc8e34eb07d11be5641deade73c9d8`。[便携包](https://github.com/downdone/daymark/releases/download/v2.2.4/Daymark-2.2.4-windows-x64.zip) `726618982`，SHA-256 `a6cad4a8f7aad4832d0584eb541cb2f24ba694a4ee78ec34cb8a3eb4ead9adec`。沿项目固定指纹自签名策略，非 Windows 公共发行者信任。
 
 2.2.3 用户报告普通窗口右侧和底部黑带，设置叠在主窗前时两窗各有黑带，浅色背景上边界难以辨识。按 P-13 与 UX-79，保留融合顶区与 Windows 窗口层次，恢复系统可辨识的细边框，保证高 DPI 下正文完整覆盖客户区、四边可缩放、最大化避让任务栏。先对照 Win32 客户区与 Qt 渲染尺寸，再覆盖普通、缩放、最大化还原和模式切换。涉及共享 Windows 适配与原生验证，不涉及同步、协议、偏好格式或数据库。
 
 - 150% 实机旧版回归复现 Win32 客户区 1372×1031 px、Qt 1350×975 px，分别多出 22 px 和 56 px。按[窗口契约](design/windows-title-bar.md)移除原生 caption 并保留系统缩放窗框，共用非客户区计算；最大化限制原生外框以避开任务栏。普通合成窗实拍可见细边框与圆角，叠放窗分别通过 DWM 外框与客户区断言。最大化客户区与工作区同为 2560×1528 px，最大化中切换装饰保留原生 placement，观察到 1 px 装饰差异，回归容差仅 1 px。
-- Qt 6.10.2 Release 构建通过。`window_chrome` 1/1 PASS（1.89s，Qt Test 6/6），覆盖实际边/角消息、叠放、尺寸调整、八轮模式切换、最大化按钮和标题区双击、还原与隐藏。相同 Win11 显示器上将 Qt 有效 DPR 提高至 2.0，原生案例复验通过（Qt Test 3/3）。`title_bar_ui`、`title_bar_layout`、`qml_startup`、`account_access` 4/4 PASS（76.24s，退出受限沙箱后以合成资料执行）。仅运行相关用例；物理混合 DPI 多屏与其他平台仍未验证。修复尚处本地。
+- 修复阶段 Qt 6.10.2 Release 构建通过。`window_chrome` 1/1 PASS（1.89s，Qt Test 6/6），覆盖实际边/角消息、叠放、尺寸调整、八轮模式切换、最大化按钮和标题区双击、还原与隐藏。相同 Win11 显示器上将 Qt 有效 DPR 提高至 2.0，原生案例复验通过（Qt Test 3/3）。`title_bar_ui`、`title_bar_layout`、`qml_startup`、`account_access` 4/4 PASS（76.24s，退出受限沙箱后以合成资料执行）。物理混合 DPI 多屏与其他平台仍未验证。
 
 ## CHROME-02 / UX-80 顶区稳定与更新通知（2.2.3发行完成）
 

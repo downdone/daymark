@@ -2,7 +2,7 @@
 
 ## 正式Windows发行
 
-从[GitHub Release](https://github.com/downdone/daymark/releases/tag/v2.2.3)下载完整安装包或托管便携ZIP。安装包提供安装、修复和卸载流程；便携包解压后运行顶层daymark.exe，保留versions及全部配套文件。应用通过签名更新清单准备新版本，用户重启后提交并清理旧程序，个人资料保持独立。
+从[GitHub Release](https://github.com/downdone/daymark/releases/tag/v2.2.4)下载完整安装包或托管便携ZIP。安装包提供安装、修复和卸载流程；便携包解压后运行顶层daymark.exe，保留versions及全部配套文件。应用通过签名更新清单准备新版本，用户重启后提交并清理旧程序，个人资料保持独立。
 
 正式资产由开源Qt/MSVC候选、项目固定指纹自签名、独立Windows部署与实际安装/公网升级门禁生成；自签名不等于Windows公共发行者信任，无需导入根证书。精确版本、哈希与实际验证见[PROGRESS](PROGRESS.md)，协议及目录/资料规则见[在线更新设计](design/update/README.md)和[安装器设计](design/windows-installer.md)。
 
