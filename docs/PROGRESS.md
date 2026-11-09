@@ -1,12 +1,21 @@
 # Daymark 当前进度
 
-更新：2026-11-09。**2.2.2 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-09。**2.2.3 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## CHROME-02 / UX-80 顶区稳定与更新通知（2.2.3发布中）
+## CHROME-02 / UX-80 顶区稳定与更新通知（2.2.3发行完成）
 
 发行冻结源码`25a7f24a2ee2fe75965c60927c145b76165db091`：main MSVC42541171175 **52/52 PASS（470.40s）**及同步42541171311成功后才推注释标签v2.2.3（对象`733ffdf3abefb9b85392ee674bb9208d6b200046`）。正式候选42543020867 **52/52 PASS（484.22s）**、lint/包结构通过；签名/独立部署/发布42545413374成功，公开安装42545873062通过。
 
 公网升级首轮42545868088在完成新Qt提交/清理后，观察器再次读取current.json遇到临时PermissionError；Engine按契约先写cleaned journal、再原子清除current.previous，脚本原先只在轮询内读取journal，随后直接读取current形成竞态。修复仅在测试工具中将两个一致记录一起放入原90s轮询，保留全部状态、版本、资料和程序错误断言；新增4个反例/边界，发布工具单测14/14通过。生产EXE、包、tag不修改，不增加超时；工具提交使用[skip ci]，随后重新验证同一公开2.2.2→2.2.3链路，不重复编译无变化的产品或覆盖资产。
+
+### 2.2.3正式交付证据
+
+- 生产源码及不可变标签见上文。[main42541171175](https://github.com/downdone/daymark/actions/runs/42541171175)与[正式候选42543020867](https://github.com/downdone/daymark/actions/runs/42543020867)各自完整52/52通过及lint/包结构通过；本地2.2.3版本构建及两项标题栏复验2/2、26.79s。完整发行身份见[证据](evidence/windows-release-2.2.3.json)，本地MinGW不混入正式MSVC资产。
+- [签名、独立部署及发布42545413374](https://github.com/downdone/daymark/actions/runs/42545413374)成功，五程序固定指纹自签名、实际Qt/CRT来源和窗口启动、Setup/卸载器签名、包内安装验收及7项公开资产digest核对，ready JSON/签名最后上传。沿项目固定证书策略，尚非Windows公共发行者信任，无根证书导入。
+- [匿名公开安装42545873062](https://github.com/downdone/daymark/actions/runs/42545873062)通过：Unicode/空格目录、注册、Qt RUNNING/模块来源、运行中拒绝、两次修复、旧程序清理和卸载保留资料；持久Qt日志**3 passed / 0 failed / 0 skipped，48.878s**。[证据](evidence/windows-installer-2.2.3.json)的日志SHA256、Setup SHA256与公开asset digest已逐项核对。
+- [最终匿名公网升级42546731691](https://github.com/downdone/daymark/actions/runs/42546731691)通过：公开2.2.2→2.2.3、自动prepare、真实Qt保存退出/重启、持久COMMIT/RUNNING、旧exe删除，合成SQLite及未知/修改文件保留；前后各29个模块来自对应payload，无fixture或信任覆盖，30.703s（其中Qt更新22.483s）。[原始结构化证据](evidence/windows-update-2.2.2-to-2.2.3.json)由成功job直接提取，并绑定生产源码25a7f24和只读观察工具78b09b5；保留首轮失败，不移动标签或覆盖已签名资源。
+- [便携包](https://github.com/downdone/daymark/releases/download/v2.2.3/Daymark-2.2.3-windows-x64.zip)：44,520,119字节，assetId725806851，SHA256 `aaea48caca621d8450f5b4abbc942f61e2ba79dd93816a4bfc832b2bb239b79c`。[完整安装包](https://github.com/downdone/daymark/releases/download/v2.2.3/Daymark-2.2.3-windows-x64-setup.exe)：43,623,712字节，assetId725806853，SHA256 `df701c1a89ac91294ded6a34c7a7680cf1fd30db7b17973505c076d2ceb76c00`。精确7项资产与边界见发行证据。
+- README、状态、版本索引、设计及交付指南已同步；最后仅文档/证据提交按链接、元数据/隐私与diff校验，以[skip ci]避免再次完整编译相同产品代码。正式程序身份始终绑定v2.2.3源码25a7f24，观察工具及收尾提交不替换该身份。
 
 用户反馈2.2.2切换收集箱/今天时整窗布局上下跳动、更新就绪提示与白色正文难以区分。本轮先复审主窗/设置/账号的顶区、正文和弹层预算，再修复与验证，不改已发布标签。根因是主窗header高度依赖可选副标题，设置header也依赖当前分类说明换行；更新Pane未定义通知表面。
 
@@ -18,7 +27,7 @@
 
 最终CTest生成5张合成原生客户区截图，已复看主窗共轴、设置稳定说明预算和正文右下通知；[证据](evidence/title-bar-layout-stability.json)记录精确源码文件哈希、各轮PASS/FAIL与截图SHA256。此前直接GUI调用的默认Shell退出值不足以证明完整动作，本轮最终验收采用CTest真实进程退出、明确完成标记和截图，不以空日志判定成功。
 
-新增独立title_bar_layout（45s保护/50sCTest），原title_bar_ui的30s/35s不改；先前合并探针验收接近原预算，现按覆盖范围拆开，不延长旧用例或删断言。所有输入为QTemporaryDir合成资料；通知UI夹具版本9.9.9不代表实际安装更新。以上为发布前本地证据。2026-11-09用户明确授权发布，目标2.2.3；先提交并等待main正式MSVC完整52项及同步CI通过，再推不可变标签、正式候选、签名与独立部署、2.2.2→2.2.3公网更新及公开安装验收。2.2.2标签/资产不修改；物理读屏、多屏/DPI及macOS仍UNVERIFIED。
+新增独立title_bar_layout（45s保护/50sCTest），原title_bar_ui的30s/35s不改；先前合并探针验收接近原预算，现按覆盖范围拆开，不延长旧用例或删断言。所有输入为QTemporaryDir合成资料；通知UI夹具版本9.9.9不代表实际安装更新。以上本地证据的后续正式交付已完成，精确结果见本节发行记录。2.2.2标签/资产不修改；物理读屏、多屏/DPI及macOS仍UNVERIFIED。
 
 ## CHROME-01 / UX-79 Windows融合顶区与2.2.2发行（完成）
 

@@ -22,7 +22,7 @@ Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick
 - **可选同步**：官方账号或自定义HTTPS服务，支持离线队列、冲突处理与独立账号资料；[服务端指南](server/README.md)。官方构建地址按[本地配置说明](config/README.md)提供，公开源码仅示例。
 - **Windows交付**：完整安装向导、托管便携包和签名在线更新；标题栏融入界面，并可在外观设置切回系统原生。
 
-当前版本 **2.2.2**，数据库 schema 10。[Windows下载](https://github.com/downdone/daymark/releases/tag/v2.2.2)；实现与验证状态只以[进度](docs/PROGRESS.md)为准。
+当前版本 **2.2.3**，数据库 schema 10。[Windows下载](https://github.com/downdone/daymark/releases/tag/v2.2.3)；实现与验证状态只以[进度](docs/PROGRESS.md)为准。
 
 ## 构建
 

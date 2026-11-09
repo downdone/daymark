@@ -1,0 +1,112 @@
+{
+  "version": "2.2.3",
+  "sourceCommit": "25a7f24a2ee2fe75965c60927c145b76165db091",
+  "tagObject": "733ffdf3abefb9b85392ee674bb9208d6b200046",
+  "qt": "6.10.2",
+  "formalToolchain": "Windows x64 MSVC2022 / open-source Qt",
+  "main": {
+    "run": 42541171175,
+    "passed": true,
+    "ctest": {
+      "passed": 52,
+      "failed": 0,
+      "seconds": 470.4
+    }
+  },
+  "sync": {
+    "run": 42541171311,
+    "passed": true
+  },
+  "candidate": {
+    "run": 42543020867,
+    "passed": true,
+    "ctest": {
+      "passed": 52,
+      "failed": 0,
+      "seconds": 484.22
+    }
+  },
+  "local": {
+    "toolchain": "MinGW13.1.0 Release; not public artifact identity",
+    "focusedTests": {
+      "passed": 2,
+      "failed": 0,
+      "seconds": 26.79
+    },
+    "qmlLintWarnings": 0,
+    "compilerWarnings": "Existing probe indentation warnings retained; not claiming a warning-free whole C++ build"
+  },
+  "prePublicationUiEvidence": "title-bar-layout-stability.json",
+  "publication": {
+    "run": 42545413374,
+    "verified": true,
+    "releaseId": 438638266,
+    "signaturePolicy": "self-signed-pinned",
+    "certificateSha256": "1ad9354c645562f1d82964e5a7844a49e71aca29b33f67a5276064c71554fe6e",
+    "publicTrust": false,
+    "assets": [
+      {
+        "digest": "sha256:df701c1a89ac91294ded6a34c7a7680cf1fd30db7b17973505c076d2ceb76c00",
+        "id": 725806853,
+        "name": "Daymark-2.2.3-windows-x64-setup.exe",
+        "size": 43623712
+      },
+      {
+        "digest": "sha256:e29d5acbec29583b180b0da89d542bb729319a92633e78d48c7473ddf5487c86",
+        "id": 725806852,
+        "name": "Daymark-2.2.3-windows-x64-setup.exe.sha256",
+        "size": 103
+      },
+      {
+        "digest": "sha256:aaea48caca621d8450f5b4abbc942f61e2ba79dd93816a4bfc832b2bb239b79c",
+        "id": 725806851,
+        "name": "Daymark-2.2.3-windows-x64.zip",
+        "size": 44520119
+      },
+      {
+        "digest": "sha256:d92103bfd6bef61ad1317931f794f6a1ee2c63c6f27d052b8316c1392fbc96b6",
+        "id": 725806860,
+        "name": "Daymark-2.2.3-windows-x64.zip.sha256",
+        "size": 97
+      },
+      {
+        "digest": "sha256:40de80ada1eb44d3e8886fe55e2d4fd3e395514cd18295cfa611c6a45ecf51c2",
+        "id": 725806854,
+        "name": "SHA256SUMS.txt",
+        "size": 200
+      },
+      {
+        "digest": "sha256:bb66b9d5dfe6f638636f227dcf379a7cbf8e9a49a1e6ad997e4b534101456fa0",
+        "id": 725806979,
+        "name": "update-windows-x64.json",
+        "size": 878
+      },
+      {
+        "digest": "sha256:30f4babf4cb5761bb7c428084412e9dfe781ba6b597d92fac51f250067612284",
+        "id": 725806977,
+        "name": "update-windows-x64.json.sig",
+        "size": 185
+      }
+    ]
+  },
+  "unverified": [
+    "physical mixed DPI/multi-monitor",
+    "screen reader",
+    "Windows11 Snap hover flyout",
+    "minimum Windows physical matrix",
+    "macOS/Linux physical UI"
+  ],
+  "publicUpdateRun": 42546731691,
+  "publicInstallerRun": 42545873062,
+  "releaseVerified": true,
+  "observerFixCommit": "78b09b5680c6f246b56c26a26cf78adee7e77ce7",
+  "firstPublicUpdateFailure": {
+    "run": 42545868088,
+    "reason": "Observer read current.json outside existing bounded poll during final atomic replacement",
+    "productionArtifactsChanged": false,
+    "existing90SecondDeadlineUnchanged": true,
+    "toolRegressionTestsPassed": 14
+  },
+  "publicUpdateEvidence": "windows-update-2.2.2-to-2.2.3.json",
+  "publicInstallerEvidence": "windows-installer-2.2.3.json"
+}
