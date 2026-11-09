@@ -22,7 +22,18 @@ ApplicationWindow {
 
     header: Item {
         id: settingsTop; objectName: "settingsIntegratedHeader"
-        height: Math.max(56,settingsHeader.implicitHeight+24)
+        height: Math.max(56,settingsHeadingMetrics.height+4+settingsDescriptionMetrics.reservedHeight+24)
+        FontMetrics {id: settingsHeadingMetrics; font: settingsCategoryTitle.font}
+        Item {
+            id: settingsDescriptionMetrics
+            visible: false
+            width: settingsHeader.width
+            readonly property real reservedHeight: Math.max(appearanceMeasure.implicitHeight,widgetMeasure.implicitHeight,generalMeasure.implicitHeight,aboutMeasure.implicitHeight)
+            Text {id: appearanceMeasure; width: parent.width; text: root.categoryDetails[0];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
+            Text {id: widgetMeasure; width: parent.width; text: root.categoryDetails[1];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
+            Text {id: generalMeasure; width: parent.width; text: root.categoryDetails[2];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
+            Text {id: aboutMeasure; width: parent.width; text: root.categoryDetails[3];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
+        }
         Rectangle {anchors.fill: parent; color: Theme.grouped}
         Rectangle {width: root.sidebarWidth; height: parent.height; color: Theme.sidebar
             Rectangle {anchors.right: parent.right; width: 1; height: parent.height; color: Theme.separator}
@@ -30,7 +41,7 @@ ApplicationWindow {
         Label {x: 20; y: 12; text: qsTr("设置"); font.pixelSize: Theme.headingSize; font.weight: Font.DemiBold}
         ColumnLayout {
             id:settingsHeader; x: root.sidebarWidth+16; y: 12; width: Math.max(0,root.width-x-16-54); spacing:4
-            Label {objectName:"settingsCategoryTitle";text:root.categoryTitles[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;wrapMode:Text.Wrap}
+            Label {id: settingsCategoryTitle;objectName:"settingsCategoryTitle";text:root.categoryTitles[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;wrapMode:Text.Wrap}
             Label {text:root.categoryDetails[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.captionSize;color:Theme.secondary;wrapMode:Text.Wrap}
         }
         Loader {
@@ -38,7 +49,7 @@ ApplicationWindow {
             anchors.top: parent.top; anchors.right: parent.right
             active: settingsChrome.customEnabled && root.visible && root.visibility !== Window.FullScreen
             visible: active; width: active && item ? (item as Item).implicitWidth : 0
-            height: active && item ? (item as Item).implicitHeight : 0
+            height: active ? Math.max(36,settingsHeadingMetrics.height+24) : 0
             sourceComponent: DaymarkTitleBar {chrome: settingsChrome; targetWindow: root; surface: Theme.grouped}
         }
     }
@@ -54,7 +65,6 @@ ApplicationWindow {
     property bool restoringScroll:false
     readonly property real sidebarWidth:Math.min(220,176*Theme.scale)
     readonly property real availableWidth:width-sidebarWidth-32
-    readonly property real availableHeight:height-64
     title:qsTr("设置 · Daymark")
     visible:false
     flags:Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint | Qt.CustomizeWindowHint

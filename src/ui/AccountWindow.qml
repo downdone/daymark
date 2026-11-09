@@ -27,7 +27,7 @@ ApplicationWindow {
             anchors.top: parent.top; anchors.right: parent.right
             active: accountChrome.customEnabled && root.visible && root.visibility !== Window.FullScreen
             visible: active; width: active && item ? (item as Item).implicitWidth : 0
-            height: active && item ? (item as Item).implicitHeight : 0
+            height: active ? parent.height : 0
             sourceComponent: DaymarkTitleBar {chrome: accountChrome; targetWindow: root}
         }
     }

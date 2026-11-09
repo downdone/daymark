@@ -226,11 +226,12 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         QObject::connect(ready,&QTimer::timeout,&m_engine,[this]{if(m_workspace.ready() && !m_workspace.busy()){m_verificationCompleted=true;QCoreApplication::exit(m_qmlWarnings?3:0);}});ready->start();
         QTimer::singleShot(25000,&m_engine,[]{QCoreApplication::exit(3);});return true;
     }
-    if(smokeTest && smokeProfile==QStringLiteral("title-bar")) {
-        auto test=std::make_shared<ChromeSmokeProbe>(m_workspace,*m_chrome,mainWindow,screenshotPath);
+    if(smokeTest && (smokeProfile==QStringLiteral("title-bar") || smokeProfile==QStringLiteral("title-layout"))) {
+        const bool layoutOnly=smokeProfile==QStringLiteral("title-layout");
+        auto test=std::make_shared<ChromeSmokeProbe>(m_workspace,*m_chrome,mainWindow,screenshotPath,layoutOnly);
         auto* timer=new QTimer(&m_engine);timer->setInterval(240);
-        QObject::connect(timer,&QTimer::timeout,&m_engine,[this,test,timer]{const auto result=test->advance();if(result.isEmpty())return;timer->stop();if(result=="DONE"){m_verificationCompleted=true;qInfo()<<"PASS: CHROME01 native title bar and settings user flow";QCoreApplication::exit(m_qmlWarnings?3:0);}else{qCritical()<<result;QCoreApplication::exit(3);}});
-        timer->start();QTimer::singleShot(30000,&m_engine,[]{QCoreApplication::exit(3);});return true;
+        QObject::connect(timer,&QTimer::timeout,&m_engine,[this,test,timer]{const auto result=test->advance();timer->setInterval(test->intervalMs());if(result.isEmpty())return;timer->stop();if(result=="DONE"){m_verificationCompleted=true;qInfo()<<"PASS: CHROME01/02 native title bar, layout and settings user flow";QCoreApplication::exit(m_qmlWarnings?3:0);}else{qCritical()<<result;QCoreApplication::exit(3);}});
+        timer->start();QTimer::singleShot(layoutOnly ? 45000 : 30000,&m_engine,[]{QCoreApplication::exit(3);});return true;
     }
     if(smokeTest && smokeProfile==QStringLiteral("calendar-lifecycle")) {
         auto* calendar=mainWindow->findChild<QQuickWindow*>(QStringLiteral("desktopCalendarWindow"));

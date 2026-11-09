@@ -1,0 +1,136 @@
+{
+  "capability": "CHROME-02 / UX-80",
+  "scope": "Local uncommitted worktree; not a published version or MSVC release artifact",
+  "baseCommit": "7f7ebe274c5acef58549096c4b7bee3d9138e4ca",
+  "qt": "6.10.2",
+  "platform": "Windows native QPA",
+  "toolchain": "MinGW 13.1.0 Release",
+  "sourceSha256": {
+    "CMakeLists.txt": "c7466029db832e0288b04f25a18fe259cc4aafa1ea433a0dd6426c1ed1886c28",
+    "src/main.cpp": "7bc6db0948b1cd46ee8dee2a1fd9375d607a4ded52cf51134e9cbc8a4a1b0dd4",
+    "src/app/AppRuntime.cpp": "1981d825e941242c5fba5efbdcc8f6541ceb971508859d8243b813abdfa134ca",
+    "src/app/ChromeSmokeProbe.h": "ef8ef2ddecf799c87e7e241b79667ca460597092c0cb59ae32ebb9b7a4e82582",
+    "src/app/ChromeSmokeProbe.cpp": "50c13f264ee5ce7effbc726aa2013841021b44f0596db63990d023ab5cbd7874",
+    "src/ui/Main.qml": "d04adf339350c1a9dd2604f318410d5d9e6fb0c046284d1e4385d98b706e529f",
+    "src/ui/SettingsDialog.qml": "cd77567a115438ebda8448f0e62af3e889c725a17bef2af2a40490391dd78522",
+    "src/ui/AccountWindow.qml": "d19f8a786333963bc4010532851377ddc512de1756e537052cfcca58e8f807d3"
+  },
+  "redRegression": {
+    "expectedFailure": true,
+    "message": "inbox to today integratedHeader height 60 -> 78 DIP",
+    "seconds": 11.63
+  },
+  "fullSuiteBeforeFinalNotificationKeyboardFix": {
+    "passed": 51,
+    "failed": 1,
+    "seconds": 481.32,
+    "failedTest": "title_bar_layout",
+    "failure": "Enter restart intent did not complete"
+  },
+  "intermediateFocused": {
+    "passed": 2,
+    "failed": 1,
+    "seconds": 64.26,
+    "failedTest": "title_bar_layout",
+    "failure": "Test key helper accessed destroyed or detached button after key-down; fixed by weak window receiver"
+  },
+  "finalFocused": {
+    "passed": 2,
+    "failed": 0,
+    "seconds": 25.03,
+    "tests": [
+      "title_bar_ui",
+      "title_bar_layout"
+    ],
+    "completionMarkerVerified": true
+  },
+  "startupAfterNotificationFix": {
+    "test": "qml_startup",
+    "passed": true,
+    "seconds": 39.51
+  },
+  "coverage": {
+    "mainViewSwitches": 40,
+    "settingsCategorySwitches": 16,
+    "widths": [
+      1120,
+      880
+    ],
+    "textScales": [
+      1,
+      2
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "windowModes": [
+      "Daymark",
+      "OS native"
+    ],
+    "accountLoginRegistrationAxes": true,
+    "captionPrimaryAxis": true,
+    "notificationHighContrast": true,
+    "notificationDoesNotStealFocus": true,
+    "notificationDeferRestoresLatestFocus": true,
+    "notificationBusyDisablesRestart": true,
+    "notificationSingleRestartIntent": true,
+    "notificationReleasedAfterDismissal": true
+  },
+  "notificationFixture": {
+    "availableVersion": "9.9.9",
+    "controller": "Synthetic UI intent counter; no actual updater installation",
+    "actualGitHubUpdateValidatedThisSlice": false
+  },
+  "qmlLintWarnings": 0,
+  "screenshots": [
+    {
+      "name": "title-layout-preview.stable-settings-large.png",
+      "pixels": [
+        960,
+        1020
+      ],
+      "sha256": "1ad872aa151493693cdbb4c375e22a56e84985470d347b6d0fbc7d25115cd89a"
+    },
+    {
+      "name": "title-layout-preview.stable-today-large.png",
+      "pixels": [
+        1320,
+        1080
+      ],
+      "sha256": "eee1f6a63c807cb39fd36fe0553b2794e6088898379c2c2ae4ba6bb0262bfaad"
+    },
+    {
+      "name": "title-layout-preview.stable-today-light.png",
+      "pixels": [
+        1680,
+        1080
+      ],
+      "sha256": "e5e008d9ca8af45c06acf041e4c7f0a3c939186e624e5255562e4dbc02a6f7e8"
+    },
+    {
+      "name": "title-layout-preview.update-ready-dark-large.png",
+      "pixels": [
+        1320,
+        1080
+      ],
+      "sha256": "b2d2498562974ebd606f2def6cfc85d422701344342e49ee2bf05b1afbe06dbf"
+    },
+    {
+      "name": "title-layout-preview.update-ready-light.png",
+      "pixels": [
+        1680,
+        1080
+      ],
+      "sha256": "f5f253abf3ad0b074666ea9e2b3f28b91edfdfed1a0b5866d432ed248a0782b8"
+    }
+  ],
+  "screenshotScope": "QQuickWindow client capture with QTemporaryDir synthetic data; not OS frame or physical DPI/reader proof",
+  "validationBoundary": "52-test inventory exercised, then changed notification and shared key helper verified with focused tests; not claiming a fresh final-snapshot 52/52 run",
+  "unverified": [
+    "formal MSVC package for this patch",
+    "physical mixed DPI/multi-monitor",
+    "screen reader",
+    "macOS/Linux physical UI"
+  ]
+}

@@ -22,30 +22,102 @@ ApplicationWindow {
 
     property var updateController: null
     property bool updateNoticeVisible: false
+    property Item updateReturnFocus: null
     property bool updateCloseIntent: false
+    readonly property string headerMetadataText: !taskContentVisible ? "" : search.text.trim().length>0 ? (taskWorkspace.view==="trash" ? qsTr("搜索最近删除 · %1 项结果") : taskWorkspace.view==="completed" ? qsTr("搜索已完成 · %1 项结果") : taskWorkspace.view==="cancelled" ? qsTr("搜索已取消 · %1 项结果") : taskWorkspace.view==="logbook" ? qsTr("搜索已完成与已取消 · %1 项结果") : qsTr("全局任务搜索 · %1 项结果")).arg(taskWorkspace.tasks.count) : taskWorkspace.view==="today" ? taskWorkspace.localToday+qsTr(" · 待办 %1 · 完成 %2").arg(taskWorkspace.todayTasks.count).arg(taskWorkspace.completedToday) : ""
+    function dismissUpdateNotice() {
+        const returnFocus=updateNoticeOwnsFocus(activeFocusItem) ? updateReturnFocus : null
+        updateNoticeVisible=false
+        if(returnFocus)returnFocus.forceActiveFocus(Qt.OtherFocusReason)
+        updateReturnFocus=null
+    }
+    function updateNoticeOwnsFocus(item) {
+        if(!updateNotice.item)return false
+        while(item && item!==updateNotice.item)item=item.parent
+        return !!item
+    }
+    function restartFromUpdateNotice() {
+        const controller=updateController
+        if(!controller || controller.busy)return
+        dismissUpdateNotice()
+        controller.restart()
+    }
     Connections {
         target: mainWindow.updateController
-        function onUpdateReady() { mainWindow.updateNoticeVisible = true }
+        function onUpdateReady() {
+            if(!mainWindow.updateNoticeVisible)mainWindow.updateReturnFocus=mainWindow.activeFocusItem
+            mainWindow.updateNoticeVisible=true
+        }
     }
-    Pane {
+    Loader {
+        id: updateNotice
+        objectName: "updateNoticeHost"
         z: 1000
         x: Math.max(16, mainWindow.width-width-16)
-        y: 16
-        width: Math.min(400, mainWindow.width-32)
-        visible: mainWindow.updateNoticeVisible && mainWindow.updateController && mainWindow.updateController.ready
-        padding: 16
-        contentItem: ColumnLayout {
-            spacing: 12
-            Label {text: qsTr("更新已安装，重启后生效。");wrapMode: Text.Wrap;Layout.fillWidth: true}
-            RowLayout {
-                Button {text: qsTr("立即重启");enabled: mainWindow.updateController && !mainWindow.updateController.busy;onClicked: {mainWindow.updateNoticeVisible=false;mainWindow.updateController.restart()}}
-                Button {text: qsTr("稍后");onClicked: mainWindow.updateNoticeVisible=false}
+        y: Math.max(16,mainWindow.contentItem.height-height-(pageFooter.visible ? Theme.pagePadding+Math.max(Theme.controlHeight,pageFooter.height)+12 : 16))
+        width: Math.min(440*Math.min(1.5,Theme.scale), Math.max(0,mainWindow.width-mainWindow.sidebarWidth-32))
+        height: item ? (item as Item).implicitHeight : 0
+        active: mainWindow.updateNoticeVisible && !!mainWindow.updateController && mainWindow.updateController.ready
+        visible: active
+        sourceComponent: Pane {
+            objectName: "updateReadyNotice"
+            padding: 16
+            Accessible.role: Accessible.AlertMessage
+            Accessible.name: qsTr("更新已就绪")
+            Accessible.description: updateMessage.text
+            background: Rectangle {
+                objectName: "updateReadySurface"
+                radius: Theme.panelRadius
+                color: Theme.primaryFill
+                border.color: Theme.accent
+                border.width: Theme.highContrast ? 2 : 1
+            }
+            contentItem: ColumnLayout {
+                spacing: Theme.fieldGap
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+                    Rectangle {
+                        Layout.alignment: Qt.AlignTop
+                        Layout.preferredWidth: 32; Layout.preferredHeight: 32
+                        radius: 16; color: Theme.accent
+                        AppIcon {anchors.centerIn: parent; width: 20; height: 20; name: "check"; ink: Theme.accentText; Accessible.ignored: true}
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true; Layout.minimumWidth: 0
+                        spacing: Theme.textLineGap
+                        Label {text: qsTr("更新已就绪");font.pixelSize: Theme.headingSize;font.weight: Font.DemiBold;Layout.fillWidth: true;wrapMode: Text.Wrap}
+                        Label {
+                            id: updateMessage; objectName: "updateReadyMessage"
+                            text: mainWindow.updateController && mainWindow.updateController.availableVersion.length>0 ? qsTr("版本 %1 已安装。\n重启后生效，当前编辑会先保存。").arg(mainWindow.updateController.availableVersion) : qsTr("新版已安装。\n重启后生效，当前编辑会先保存。")
+                            color: Theme.text; Layout.fillWidth: true; wrapMode: Text.Wrap
+                        }
+                    }
+                }
+                RowLayout {
+                    Layout.alignment: Qt.AlignRight
+                    spacing: Theme.gap
+                    Button {
+                        objectName: "deferUpdate";text: qsTr("稍后");flat: true
+                        Keys.onReturnPressed: function(event) {if(!event.isAutoRepeat)clicked()}
+                        Keys.onEnterPressed: function(event) {if(!event.isAutoRepeat)clicked()}
+                        onClicked: mainWindow.dismissUpdateNotice()
+                    }
+                    Button {
+                        objectName: "restartUpdate";text: qsTr("立即重启");highlighted: true
+                        enabled: !!mainWindow.updateController && !mainWindow.updateController.busy
+                        Keys.onReturnPressed: function(event) {if(!event.isAutoRepeat)clicked()}
+                        Keys.onEnterPressed: function(event) {if(!event.isAutoRepeat)clicked()}
+                        onClicked: mainWindow.restartFromUpdateNotice()
+                    }
+                }
             }
         }
     }
     header: Item {
         id: integratedHeader; objectName: "integratedHeader"
-        height: Math.max(36,pageToolbar.reservedHeight)+24
+        height: pageToolbar.reservedHeight+24
+        FontMetrics {id: pageTitleMetrics; font: pageTitleLabel.font}
         Rectangle {anchors.fill: parent; color: Theme.content}
         Rectangle {width: mainWindow.sidebarWidth; height: parent.height; color: Theme.sidebar}
         Item {
@@ -63,30 +135,36 @@ ApplicationWindow {
         RowLayout {
             id: pageToolbar
             objectName: "pageToolbar"
-            readonly property real reservedHeight: Math.max(Theme.controlHeight,pageHeading.implicitHeight)
+            readonly property real reservedHeight: Math.max(36,Theme.controlHeight,pageTitleMetrics.height)
             x: mainWindow.sidebarWidth + Theme.pagePadding
             y: (parent.height-height)/2; height: reservedHeight
             width: Math.max(0,mainWindow.width-x-Theme.pagePadding-Math.max(146,mainWindow.detailDocked ? mainWindow.detailWidth+Theme.pagePadding+16 : 0))
             WidgetAction {id: workspaceBack; objectName: "returnFromWorkspacePage";visible: mainWindow.toolPageVisible;symbol: "left";description: qsTr("返回之前的内容");onClicked: mainWindow.returnToContent()}
-            ColumnLayout {
+            RowLayout {
                 id:pageHeading
+                readonly property bool inlineMetadata: width>=360*Theme.scale
                 Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
-                spacing: Theme.textLineGap
+                Layout.minimumWidth: 0
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 12
                 Label {
                 id:pageTitleLabel
+                objectName: "pageTitle"
                 text: mainWindow.taskContentVisible && search.text.trim().length > 0 ? qsTr("搜索结果") : mainWindow.currentViewTitle()
                 font.pixelSize: Theme.pageTitleSize
                 color: !mainWindow.taskContentVisible ? Theme.text : mainWindow.taskWorkspace.view==="today" ? Theme.accent : mainWindow.taskWorkspace.view==="scheduled" ? Theme.danger : mainWindow.taskWorkspace.view==="important" ? Theme.catalogColor("orange") : mainWindow.taskWorkspace.view==="completed" ? Theme.secondary : Theme.text
                 elide: Text.ElideRight
                 font.weight: Font.DemiBold
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 }
                 Label {
-                    Layout.fillWidth: true
-                    visible: text.length>0
+                    objectName: "headerMetadata"
+                    Layout.minimumWidth: 0
+                    Layout.maximumWidth: pageHeading.width*0.6
+                    visible: pageHeading.inlineMetadata && text.length>0
                     font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight
-                    text: !mainWindow.taskContentVisible ? "" : search.text.trim().length>0 ? (mainWindow.taskWorkspace.view==="trash" ? qsTr("搜索最近删除 · %1 项结果") : mainWindow.taskWorkspace.view==="completed" ? qsTr("搜索已完成 · %1 项结果") : mainWindow.taskWorkspace.view==="cancelled" ? qsTr("搜索已取消 · %1 项结果") : mainWindow.taskWorkspace.view==="logbook" ? qsTr("搜索已完成与已取消 · %1 项结果") : qsTr("全局任务搜索 · %1 项结果")).arg(mainWindow.taskWorkspace.tasks.count) : mainWindow.taskWorkspace.view==="today" ? mainWindow.taskWorkspace.localToday+qsTr(" · 待办 %1 · 完成 %2").arg(mainWindow.taskWorkspace.todayTasks.count).arg(mainWindow.taskWorkspace.completedToday) : ""
+                    text: mainWindow.headerMetadataText
                 }
             }
             RowLayout {
@@ -134,7 +212,7 @@ ApplicationWindow {
             active: mainChrome.customEnabled && mainWindow.visible && mainWindow.visibility !== Window.FullScreen
             visible: active
             width: active && item ? (item as Item).implicitWidth : 0
-            height: active && item ? (item as Item).implicitHeight : 0
+            height: active ? parent.height : 0
             sourceComponent: DaymarkTitleBar {chrome: mainChrome; targetWindow: mainWindow; fullControls: true}
         }
     }
@@ -573,6 +651,7 @@ ApplicationWindow {
         else if(bottom>flick.contentY+flick.height)flick.contentY=bottom-flick.height+8
     }
     onActiveFocusItemChanged: {
+        if(updateNoticeVisible && activeFocusItem && !updateNoticeOwnsFocus(activeFocusItem))updateReturnFocus=activeFocusItem
         editorManualScroll=false
         if(activeFocusItem)editorFocusTarget=activeFocusItem
         if(quickEditor.editing && activeFocusItem){quickManualScroll=false;quickFocusTarget=activeFocusItem;quickFocusDelay.restart()}
@@ -1256,8 +1335,13 @@ ApplicationWindow {
                 ActionButton {symbol: "expand"; text: qsTr("查看任务"); onClicked: mainWindow.openEditor(approaching.currentValue) }
             }
             RowLayout {
+                id: pageFooter
+                objectName: "pageFooter"
                 visible: !mainWindow.toolPageVisible
-                Label { text: mainWindow.calendarVisible ? qsTr("任务") : qsTr("%1 项").arg(mainWindow.taskWorkspace.tasks.count); color: Theme.secondary; Layout.fillWidth: true;elide: Text.ElideRight }
+                Layout.fillWidth: true
+                Label { text: mainWindow.calendarVisible ? qsTr("任务") : qsTr("%1 项").arg(mainWindow.taskWorkspace.tasks.count); color: Theme.secondary;elide: Text.ElideRight }
+                Label {id: footerMetadata;objectName: "footerMetadata";visible: !pageHeading.inlineMetadata && text.length>0;text: mainWindow.headerMetadataText;color: Theme.secondary;font.pixelSize: Theme.captionSize;Layout.fillWidth: true;Layout.minimumWidth: 0;elide: Text.ElideRight}
+                Item {visible: !footerMetadata.visible;Layout.fillWidth: true}
                 ActionButton {symbol: "plus";visible: mainWindow.taskWorkspace.view === "upcoming";text: qsTr("未来%1天 · 再显示30天").arg(mainWindow.taskWorkspace.upcomingDays);onClicked: mainWindow.taskWorkspace.loadMoreUpcoming()}
                 ActionButton {objectName:"undoTaskDeletion";symbol: "undo"; visible: mainWindow.taskWorkspace.canUndo; text: qsTr("撤销删除"); enabled: !mainWindow.taskWorkspace.busy; onClicked: mainWindow.taskWorkspace.undoDelete() }
                 ActionButton {symbol: "undo";visible: mainWindow.taskWorkspace.canUndoEvent;text: qsTr("撤销删除事件");enabled: !mainWindow.taskWorkspace.busy;onClicked: mainWindow.taskWorkspace.undoEventDelete()}

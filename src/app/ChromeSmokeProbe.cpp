@@ -6,11 +6,14 @@
 #include <QKeyEvent>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QQmlComponent>
+#include <QQmlEngine>
+#include <QQmlContext>
 #include <QSet>
 namespace daymark {
 ChromeSmokeProbe::ChromeSmokeProbe(TaskWorkspace &w, WindowChromeController &c,
-                                   QQuickWindow *v, QString path)
-    : workspace(w), controller(c), window(v), screenshot(std::move(path)) {}
+                                   QQuickWindow *v, QString path, bool layoutOnly)
+    : workspace(w), controller(c), window(v), screenshot(std::move(path)), phase(layoutOnly ? 18 : 0) {}
 QObject *ChromeSmokeProbe::find(QObject *root, const QString &name) const {
     QList<QObject *> pending{root};
     QSet<QObject *> seen;
@@ -33,12 +36,15 @@ QObject *ChromeSmokeProbe::find(QObject *root, const QString &name) const {
 bool ChromeSmokeProbe::pressKey(QQuickItem *item, int key) {
     if (!item || !item->window())
         return false;
-    item->window()->requestActivate();
+    QPointer<QQuickWindow> target = item->window();
+    target->requestActivate();
     item->forceActiveFocus(Qt::TabFocusReason);
     QKeyEvent down(QEvent::KeyPress, key, Qt::NoModifier),
         up(QEvent::KeyRelease, key, Qt::NoModifier);
-    QCoreApplication::sendEvent(item->window(), &down);
-    QCoreApplication::sendEvent(item->window(), &up);
+    QCoreApplication::sendEvent(target, &down);
+    // Enter can close a lazy control on key-down. Deliver release to the
+    // surviving window, without touching the destroyed/detached button.
+    if (target) QCoreApplication::sendEvent(target, &up);
     return true;
 }
 bool ChromeSmokeProbe::capture(QQuickWindow *target, const QString &suffix) {
@@ -77,6 +83,12 @@ QString ChromeSmokeProbe::advance() {
     };
     if (!settings || !account)
         return fail("tool window roots missing");
+    if (phase >= 18) {
+        const auto result = advanceLayout(settings, account);
+        if (!result.isEmpty()) return result;
+        ++phase;
+        return {};
+    }
     if (phase == 0) {
         if (!controller.supported() || !allModes(true) || !window->isExposed())
             return fail("native Windows chrome not active");
@@ -127,6 +139,13 @@ QString ChromeSmokeProbe::advance() {
                 caption->mapToScene({0, 0}).x() ||
             toolbar->y() + toolbar->height() > header->height())
             return fail("integrated title and actions overlap or lose top inset");
+        const auto *heading = qobject_cast<QQuickItem *>(find(window, "pageTitle"));
+        const qreal axis = heading ? heading->mapToScene({0, heading->height()/2}).y() : -1000;
+        for (const auto *name : {"sidebarWordmark", "toggleSidebar", "pageOptionsAction", "mainCaption"}) {
+            const auto *item = qobject_cast<QQuickItem *>(find(window, QString::fromLatin1(name)));
+            if (!item || qAbs(item->mapToScene({0, item->height()/2}).y()-axis)>1.5)
+                return fail("brand, heading, actions and window controls do not share their primary axis");
+        }
         if (!capture(window, ".main-light.png"))
             return fail("main title bar capture");
         // Calendar anchors are scene coordinates; the inspector is in the body
@@ -223,6 +242,180 @@ QString ChromeSmokeProbe::advance() {
         return "DONE";
     }
     ++phase;
+    return {};
+}
+
+QString ChromeSmokeProbe::compareLayout(QObject *root, const QStringList &names, bool reset) {
+    if (reset) layoutBaseline.clear();
+    for (const auto &name : names) {
+        const auto *item = qobject_cast<QQuickItem *>(find(root, name));
+        if (!item || !item->isVisible()) return "CHROME02 layout item missing: " + name;
+        const QRectF actual(item->mapToScene({0, 0}), item->size());
+        if (reset) layoutBaseline.insert(name, actual);
+        const auto expected = layoutBaseline.value(name);
+        if (qAbs(actual.y() - expected.y()) > 1 ||
+            (name.endsWith("Header") && qAbs(actual.height() - expected.height()) > 1))
+            return QStringLiteral("CHROME02 phase %1: %2 moved: y %3 -> %4, height %5 -> %6")
+                .arg(phase).arg(name).arg(expected.y()).arg(actual.y())
+                .arg(expected.height()).arg(actual.height());
+    }
+    return {};
+}
+
+QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *account) {
+    auto fail = [this](const QString &text) {
+        return QStringLiteral("CHROME02 phase %1: %2").arg(phase).arg(text);
+    };
+    if (phase == 18) {
+        if (!controller.supported() || !window->isExposed()) return fail("native Windows surface missing");
+        if (!workspace.saveCatalog({{"kind", "project"}, {"title", "Synthetic long category for stable title layout"}}))
+            return fail("category seed failed");
+    } else if (phase == 19) {
+        for (const auto &entry : workspace.catalog()) {
+            const auto value = entry.toMap();
+            if (value.value("kind") == "project") categoryId = value.value("id").toString();
+        }
+        if (categoryId.isEmpty() || !workspace.saveCatalog({{"kind", "tag"}, {"title", "Synthetic layout tag"}}))
+            return fail("tag seed failed");
+    } else if (phase < 100) {
+        const int sample = (phase - 20) / 2, group = sample / 10, page = sample % 10;
+        const bool apply = (phase - 20) % 2 == 0;
+        if (apply) {
+            if (phase == 20) {
+                for (const auto &entry : workspace.catalog()) {
+                    const auto value = entry.toMap();
+                    if (value.value("kind") == "tag") tagId = value.value("id").toString();
+                }
+                if (tagId.isEmpty()) return fail("tag identity missing");
+            }
+            if (page == 0) {
+                workspace.setTextScale(group >= 2 ? 2 : 1);
+                workspace.setThemeMode(group == 1 || group == 2 ? 2 : 1);
+                if (!controller.requestMode(group % 2 ? 0 : 1)) return fail("mode setup failed");
+                window->resize(group % 2 ? 880 : 1120, 720);
+            }
+            auto *search = find(window, "taskSearch");
+            search->setProperty("text", "");
+            const QStringList views{"inbox", "today", "anytime", "important", "project:" + categoryId,
+                                    "tag:" + tagId, "completed", "cancelled", "trash", "inbox"};
+            workspace.setView(views.at(page));
+            if (page == 9) search->setProperty("text", "Synthetic");
+        } else {
+            const auto result = compareLayout(window, {"integratedHeader", "sidebarBrandHeader", "sidebarWordmark",
+                "toggleSidebar", "navigationScroll", "pageToolbar", "taskContent", "taskHeaderViewport"}, page == 0);
+            if (!result.isEmpty()) return result;
+            if (page == 1 && (group == 0 || group == 3) &&
+                !capture(window, group == 0 ? ".stable-today-light.png" : ".stable-today-large.png"))
+                return fail("stable today capture failed");
+        }
+    } else if (phase < 132) {
+        const int sample = (phase - 100) / 2, group = sample / 4, category = sample % 4;
+        if ((phase - 100) % 2 == 0) {
+            if (category == 0) {
+                find(window, "taskSearch")->setProperty("text", "");
+                workspace.setTextScale(group >= 2 ? 2 : 1);
+                workspace.setThemeMode(group % 2 ? 2 : 1);
+                if (!controller.requestMode(group % 2 ? 0 : 1)) return fail("settings mode setup failed");
+                settings->resize(group % 2 ? 640 : 860, 680);
+                QMetaObject::invokeMethod(settings, "open");
+            }
+            QMetaObject::invokeMethod(settings, "activateVerificationCategory", Q_ARG(QVariant, QVariant(category)));
+        } else {
+            const auto result = compareLayout(settings, {"settingsIntegratedHeader", "settingsCategories", "settingsScroll"}, category == 0);
+            if (!result.isEmpty()) return result;
+            if (category == 1 && group == 3 && !capture(settings, ".stable-settings-large.png"))
+                return fail("settings capture failed");
+        }
+    } else if (phase == 132) {
+        QMetaObject::invokeMethod(settings, "close");
+        workspace.setTextScale(2);
+        workspace.setThemeMode(2);
+        if (!controller.requestMode(1)) return fail("restore custom controls failed");
+        QMetaObject::invokeMethod(account, "open");
+        account->resize(420, 440);
+        account->setProperty("syncRegisterMode", false);
+    } else if (phase == 133) {
+        const auto result = compareLayout(account, {"accountIntegratedHeader", "accountWordmark", "accountScroll"}, true);
+        if (!result.isEmpty()) return result;
+        const auto *brand = qobject_cast<QQuickItem *>(find(account, "accountWordmark"));
+        const auto *form = qobject_cast<QQuickItem *>(find(account, "accountContent"));
+        if (!brand || !form || qAbs(brand->mapToScene({0,0}).x() - form->mapToScene({0,0}).x()) > 1)
+            return fail("account brand and form axes differ");
+        const auto *caption = qobject_cast<QQuickItem *>(find(account, "accountCaption"));
+        if (!caption || qAbs(caption->mapToScene({0,caption->height()/2}).y()-brand->mapToScene({0,brand->height()/2}).y())>1.5)
+            return fail("account window controls and brand are not aligned");
+        account->setProperty("syncRegisterMode", true);
+    } else if (phase == 134) {
+        const auto result = compareLayout(account, {"accountIntegratedHeader", "accountWordmark", "accountScroll"}, false);
+        if (!result.isEmpty()) return result;
+        QMetaObject::invokeMethod(account, "close");
+        workspace.setTextScale(1);
+        workspace.setThemeMode(1);
+        workspace.setView("inbox");
+        window->resize(1120, 720);
+    } else if (phase == 135) {
+        auto *engine = qmlEngine(window);
+        if (!engine) return fail("QML engine missing");
+        QQmlComponent component(engine);
+        component.setData("import QtQuick\nQtObject { property bool ready: true; property bool busy: false; "
+                          "property string availableVersion: '9.9.9'; property int restartCount: 0; "
+                          "signal updateReady(); signal changed(); function restart() { ++restartCount } }", {});
+        updateStub = component.create(engine->rootContext());
+        if (!updateStub) return fail(component.errorString());
+        updateStub->setParent(window);
+        window->setProperty("updateController", QVariant::fromValue(updateStub.data()));
+        auto *input = qobject_cast<QQuickItem *>(find(window, "newTaskTitle"));
+        input->forceActiveFocus();
+        QMetaObject::invokeMethod(updateStub, "updateReady");
+    } else if (phase == 136) {
+        auto *notice = qobject_cast<QQuickItem *>(find(window, "updateReadyNotice"));
+        auto *surface = find(window, "updateReadySurface");
+        auto *body = find(window, "updateReadyMessage");
+        auto *input = qobject_cast<QQuickItem *>(find(window, "newTaskTitle"));
+        if (!notice || !surface || !body || !input->hasActiveFocus() ||
+            surface->property("color") == window->color() || !body->property("text").toString().contains("9.9.9"))
+            return fail("notice lacks distinct surface/version or stole input focus");
+        const QRectF bounds(notice->mapToScene({0,0}), notice->size());
+        const auto *header = qobject_cast<QQuickItem *>(find(window, "integratedHeader"));
+        const auto *footer = qobject_cast<QQuickItem *>(find(window, "pageFooter"));
+        const auto *entry = qobject_cast<QQuickItem *>(find(window, "newTaskTitle"));
+        if (bounds.top() < header->height() || bounds.left() < window->property("sidebarWidth").toReal()+16 ||
+            bounds.right() > window->width() || bounds.bottom() > footer->mapToScene({0,0}).y()-8 ||
+            bounds.top() < entry->mapToScene({0,entry->height()}).y()+8)
+            return fail("notice overlaps caption, navigation, quick entry or footer");
+        if (!capture(window, ".update-ready-light.png")) return fail("notice capture failed");
+        qobject_cast<QQuickItem *>(find(window, "taskList"))->forceActiveFocus();
+        if (!pressKey(qobject_cast<QQuickItem *>(find(window, "deferUpdate")))) return fail("defer keyboard failed");
+    } else if (phase == 137) {
+        if (find(window, "updateReadyNotice") || updateStub->property("restartCount").toInt() != 0 ||
+            !qobject_cast<QQuickItem *>(find(window, "taskList"))->hasActiveFocus())
+            return fail("defer did not release notice/restore focus, or restarted");
+        workspace.setTextScale(2);
+        workspace.setThemeMode(2);
+        if (!workspace.setPreference("followSystemAccessibility", false) || !workspace.setPreference("highContrast", true))
+            return fail("high contrast preference setup failed");
+        window->resize(880, 720);
+        updateStub->setProperty("busy", true);
+        QMetaObject::invokeMethod(updateStub, "updateReady");
+    } else if (phase == 138) {
+        auto *restart = qobject_cast<QQuickItem *>(find(window, "restartUpdate"));
+        auto *notice = qobject_cast<QQuickItem *>(find(window, "updateReadyNotice"));
+        if (!restart || restart->isEnabled() || !notice || notice->height() >= window->height() - 160)
+            return fail("busy or large notice geometry incorrect");
+        if (!capture(window, ".update-ready-dark-large.png")) return fail("dark large notice capture failed");
+        updateStub->setProperty("busy", false);
+    } else if (phase == 139) {
+        auto *restart = qobject_cast<QQuickItem *>(find(window, "restartUpdate"));
+        if (!restart || !restart->isEnabled() || !pressKey(restart, Qt::Key_Return))
+            return fail("restart keyboard failed");
+    } else if (phase == 140) {
+        if (updateStub->property("restartCount").toInt() != 1 || find(window, "updateReadyNotice"))
+            return fail("restart intent must be delivered exactly once and release notice");
+        window->setProperty("updateController", QVariant::fromValue<QObject *>(nullptr));
+        delete updateStub.data();
+        qInfo() << "PASS: CHROME02 40 main views, 16 settings categories, account axes and notification UI (synthetic controller)";
+        return "DONE";
+    }
     return {};
 }
 } // namespace daymark
