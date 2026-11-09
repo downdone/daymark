@@ -116,6 +116,22 @@ def wait_for(predicate, seconds, phase, root=None):
     raise AssertionError('Bounded verification deadline exceeded: '+phase)
 
 
+def committed_snapshot(root, version):
+    """Observe both durable records inside the caller's bounded state poll.
+
+    Cleanup publishes its journal before atomically clearing current.previous.
+    The current record can be briefly unavailable during that replacement.
+    OSError is intentionally handled by wait_for, not outside its deadline.
+    """
+    journal = json.loads((root/'update-state/journal.json').read_text(encoding='utf-8'))
+    if journal.get('phase') != 'cleaned':
+        return None
+    current = json.loads((root/'current.json').read_text(encoding='utf-8'))
+    if current.get('version') != version or current.get('previous') is not None:
+        return None
+    return journal, current
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True)
@@ -275,10 +291,8 @@ def main():
         response = run([root/'daymark-update-cli.exe','apply','--root',root,'--data-dir',data,'--json'],environment=runtime_environment)
         assert 'restart_requested' in response
         wait_for(lambda:process_exited(old['pid']),40,'old Qt saved/exited',root)
-        wait_for(lambda:json.loads((root/'update-state/journal.json').read_text()).get('phase') == 'cleaned',90,'new Qt commit/RUNNING/cleanup',root)
-        journal = json.loads((root/'update-state/journal.json').read_text())
+        journal, current = wait_for(lambda:committed_snapshot(root,args.new_version),90,'new Qt commit/RUNNING/cleanup',root)
         processes.append(journal['new_pid'])
-        current = json.loads((root/'current.json').read_text())
         assert current['version'] == args.new_version and current['previous'] is None
         assert not old_exe.exists() and (root/current['current']/'daymark.exe').exists()
         assert unknown.read_text(encoding='utf-8') == 'Synthetic unknown user file'

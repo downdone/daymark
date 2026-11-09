@@ -147,4 +147,56 @@ class ImmutableRebuildProvenanceTest(unittest.TestCase):
             with self.assertRaises(ValueError):check_candidate_provenance(self.record,run,self.source,'v2.0.1')
 
 
+class PublicUpdateObservationTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(ROOT / 'tests/update'))
+        spec = importlib.util.spec_from_file_location('github_update_observer', ROOT / 'tests/update/github_flow.py')
+        cls.flow = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.flow)
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        (self.root/'update-state').mkdir()
+        (self.root/'update-state/journal.json').write_text(json.dumps({'phase':'cleaned','new_pid':123}),encoding='utf-8')
+        self.current = self.root/'current.json'
+        self.current.write_text(json.dumps({'version':'2.2.3','previous':None}),encoding='utf-8')
+
+    def test_cleaned_journal_waits_for_final_current_snapshot(self):
+        for state in ({'version':'2.2.3','previous':'versions/2.2.2'},
+                      {'version':'2.2.2','previous':None}):
+            self.current.write_text(json.dumps(state),encoding='utf-8')
+            self.assertIsNone(self.flow.committed_snapshot(self.root,'2.2.3'))
+        self.current.write_text(json.dumps({'version':'2.2.3','previous':None}),encoding='utf-8')
+        journal,current = self.flow.committed_snapshot(self.root,'2.2.3')
+        self.assertEqual(journal['new_pid'],123)
+        self.assertEqual(current,{'version':'2.2.3','previous':None})
+
+    def test_atomic_replacement_read_conflict_is_retried_inside_existing_poll(self):
+        original = Path.read_text
+        attempts = []
+        def interrupted(path,*args,**kwargs):
+            if path == self.current:
+                attempts.append(1)
+                if len(attempts) == 1: raise PermissionError('transient replacement sharing conflict')
+                if len(attempts) == 2: raise json.JSONDecodeError('incomplete observation','',0)
+            return original(path,*args,**kwargs)
+        with patch.object(Path,'read_text',interrupted),patch.object(self.flow.time,'sleep'):
+            _,current = self.flow.wait_for(lambda:self.flow.committed_snapshot(self.root,'2.2.3'),1,'commit snapshot',self.root)
+        self.assertEqual(len(attempts),3)
+        self.assertIsNone(current['previous'])
+
+    def test_persistent_read_denial_still_fails_at_original_deadline(self):
+        with patch.object(self.flow.time,'monotonic',side_effect=[0,0,1]),patch.object(self.flow.time,'sleep'):
+            with self.assertRaisesRegex(AssertionError,'Bounded verification deadline exceeded'):
+                self.flow.wait_for(lambda:(_ for _ in ()).throw(PermissionError('denied')),1,'commit snapshot')
+
+    def test_production_error_is_not_hidden_by_snapshot_polling(self):
+        (self.root/'update-state/status.json').write_text(json.dumps({'state':'error','error':'update.file_write'}),encoding='utf-8')
+        with self.assertRaisesRegex(AssertionError,'Production updater failed'):
+            self.flow.wait_for(lambda:self.flow.committed_snapshot(self.root,'2.2.3'),1,'commit snapshot',self.root)
+
+
 if __name__ == '__main__': unittest.main()
