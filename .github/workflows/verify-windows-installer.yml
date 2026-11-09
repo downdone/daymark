@@ -1,5 +1,13 @@
 name: Verify public Windows installer
 on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      candidate_run:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:

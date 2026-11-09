@@ -1,6 +1,6 @@
 # Daymark 发布规则
 
-2026-10-26。用户已确认保留公开v1.0.0，本次使用v1.0.1；本规则适用于后续发布。最新执行状态只维护在[PROGRESS](PROGRESS.md)。
+当前发布规则。最新执行状态只维护在[PROGRESS](PROGRESS.md)，日常 Bugfix、New feature、Test 和 Release 的路径见[工程方法](engineering.md)。
 
 ## 版本和标签
 
@@ -28,11 +28,9 @@
 
 ## 执行顺序
 
-1. 同步远端并查现有版本/标签；确定增量版本，先写真实发行说明和本轮PROGRESS计划。
-2. 审查并暂存明确文件，运行`python scripts/publish-source-release.py --check-current`、发布守卫单测、文档链接/颜色检查及合适的构建/测试；完整门禁结果如实披露。
-3. 检查cached diff、隐私及项目作者，提交。创建本次annotated tag，重新检查其commit/版本/说明；确认远端没有同名tag，再非强制推送main和该tag。
-4. 按用户2026-11-05/06要求，当前产品构建、账号同步和标签候选的默认矩阵只跑Windows；源码元数据等轻量编排仍可在Ubuntu runner运行，不代表构建Linux产品。Windows固定Qt6.10.2/MSVC2022和Python3.13，执行完整CTest与QML lint。tag并行触发`release-source.yml`（校验源码、注释标签、checkout SHA及main可达性）与`release-build.yml`（同tag的Windows候选）；受保护托管更新发布另见[GitHub准备](design/update/github-prerequisites.md)。历史已验证Unix资产的恢复校验保留，但本轮不新增Unix构建。两类发布使用短期最小权限GITHUB_TOKEN；源码入口不因合法资产存在而失败，仍拒绝白名单外资产。
-5. 同一tag发布串行，幂等重试只接受目标和说明均一致的现有Release，不静默修订；若失败修复后重跑，不移动公开tag。确认远端分支/tag和Release真实内容，再汇报链接及CI状态。
+1. 选版本并写发行说明。本地跑受影响测试、元数据和隐私检查。审查明确暂存的文件及作者元数据，提交后创建注释标签。确认远端无同名标签，用 `git push --atomic origin HEAD:refs/heads/main refs/tags/<tag>` 推送。普通提交、PR 和手动 CI 保留现行验证；`main` 推送只有查到当前版本的远端注释标签确实指向同一 SHA，才把完整桌面门禁交给标签候选。查不到时走常规 CI。
+2. 标签并行创建源码快照和构建 Windows 候选。正式 Qt 6.10.2/MSVC2022 候选执行一次完整 CTest 与 QML lint。打包时验证实际拷入的 CRT。托管发布直接复用候选目录，最终便携 ZIP 只在签名阶段生成；单独的 CRT 盘点入口供诊断。账号与同步 CI 保留独立职责。
+3. 候选成功后运行一次 `windows-update.yml`，输入 `tag`、`candidate_run` 和上一公开托管版本 `previous_version`（首次托管发行才留空）。受保护环境完成签名、独立部署、安装验收和上传，随后自动并行验证匿名公开安装与升级。公开升级直接运行现有真实 Qt 公网观察器，复用实际公开产物。查看整条工作流与资产摘要后更新 PROGRESS。失败重跑对应 job 或手动复验；同一标签和已公开资产保持不可变。
 
 本地预检（Windows和macOS均使用Python3；macOS通常命令为python3）：
 

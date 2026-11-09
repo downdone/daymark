@@ -9,6 +9,8 @@ permissions:
 jobs:
   source-policy:
     runs-on: ubuntu-latest
+    outputs:
+      tagged_candidate: ${{ steps.release.outputs.tagged_candidate }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -27,8 +29,23 @@ jobs:
         run: |
           python3 scripts/generate-diagnostics.py --check
           python3 scripts/generate-sync-contract.py --check
+      - name: Check for an identical tagged release candidate
+        id: release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          version=$(sed -n 's/^set(DAYMARK_VERSION "\([0-9.]*\)")$/\1/p' CMakeLists.txt)
+          tag="refs/tags/v$version"
+          if [[ -n "$version" ]] && refs=$(git ls-remote --tags origin "$tag" "$tag^{}") &&
+             awk -v tag="$tag" -v commit="$GITHUB_SHA" \
+               '$2 == tag {object = $1} $2 == tag "^{}" {source = $1}
+                END {exit !(object && object != commit && source == commit)}' <<< "$refs"; then
+            echo 'tagged_candidate=true' >> "$GITHUB_OUTPUT"
+            echo 'The identical annotated tag runs the full Windows candidate gate.'
+          fi
   desktop:
     needs: source-policy
+    if: needs.source-policy.outputs.tagged_candidate != 'true'
     timeout-minutes: 45
     strategy:
       fail-fast: false

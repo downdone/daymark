@@ -88,7 +88,7 @@ UX-38/39新增独立`desktop_surfaces`、`calendar_interaction`入口，当时�
 1. `TaskWorkspaceTest`与`Ux34WorkspaceTest`中等worker空闲/就绪的50ms轮询改为`WorkspaceWait`等待`stateChanged`，维持原5秒失败期限及原predicate，数据/错误/模型断言不删。没有完成通知会明确失败，不以进程启动或固定sleep替代完成。
 2. reduceMotion/highContrast/compact三个仅重复建库重启的测试合成一次外观偏好持久化场景；各自默认、错误类型、改值及重启结果保留。批量业务场景不再顺便重复compact持久化；backupDays合法/非法与批量冲突重启仍保留。
 3. 历史UI探针暂保留60ms轮询、45秒守卫和所有阶段/frame断言。20ms与软件渲染试验暴露旧搜索去抖、tooltip及虚拟delegate的帧时序依赖，未作为默认或发布通过条件；试验代码已撤回。下一片需按有独立fixture的链路拆分及条件等待，不能为绿色结果批量删阶段、加长预算或降低呈现断言。
-4. CTest标签提供开发者按改动跑fast或ui；默认及CI仍跑full。UI测试共享resource lock，外部开启CTest并行也不让几组窗口抢焦点。新功能按风险选择增量测试，不默认复制所有主题/尺寸组合。
+4. CTest 标签供开发者按改动跑 fast 或 ui。常规 CI 默认 full；同一 SHA 的发布提交由正式标签候选执行一次 full，主分支复用该责任分工。UI 测试共享 resource lock，开启 CTest 并行也不会争抢焦点。新功能按风险选择增量测试，正式发布仍执行所有完整门禁。
 
 不能删除：WAL快照/升级失败、导入晚失败零修改、树CAS和中途写失败回滚、DST间隙/重叠、提醒持久去重、关闭排空已接受写入、真实单实例进程、穿透恢复通路、200%键盘可达、脏草稿失败保持。
 

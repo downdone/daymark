@@ -77,7 +77,7 @@ class WindowChrome : public QObject, public QQmlParserStatus {
     bool nativeMaximizePressed() const { return m_pressed; }
     // Win32-compatible results; coordinates are client DIP, never screen
     // pixels.
-    int hitTest(const QPointF &local, qreal border) const;
+    int hitTest(const QPointF &local) const;
     quint32 nativeError() const { return m_nativeError; }
     virtual bool applyMode(bool custom);
     Q_INVOKABLE void toggleMaximize();

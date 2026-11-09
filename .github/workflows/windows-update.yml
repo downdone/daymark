@@ -10,6 +10,10 @@ on:
         description: Successful trusted tag build run containing windows-update-candidate
         required: true
         type: string
+      previous_version:
+        description: Previously published managed version (without v); empty for the first managed release
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -42,8 +46,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           UPDATE_TAG: ${{ inputs.tag }}
           CANDIDATE_RUN: ${{ inputs.candidate_run }}
+          PREVIOUS_VERSION: ${{ inputs.previous_version }}
         run: |
           if ($env:UPDATE_TAG -notmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' -or $env:CANDIDATE_RUN -notmatch '^[1-9][0-9]*$') { throw 'Invalid immutable identities' }
+          if ($env:PREVIOUS_VERSION -and ($env:PREVIOUS_VERSION -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' -or
+              [version]$env:PREVIOUS_VERSION -ge [version]$env:UPDATE_TAG.Substring(1))) { throw 'Expected an earlier stable version' }
           & git fetch --no-tags origin main:refs/remotes/origin/main
           & git fetch --no-tags --force origin "refs/tags/$env:UPDATE_TAG`:refs/tags/$env:UPDATE_TAG"
           if ($LASTEXITCODE -ne 0 -or (& git cat-file -t "refs/tags/$env:UPDATE_TAG") -ne 'tag') { throw 'Annotated source tag required' }
@@ -215,3 +222,21 @@ jobs:
           name: windows-installer-publication-proof
           path: build/installer-publication-proof/
           if-no-files-found: ignore
+  verify-installer:
+    needs: publish
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/verify-windows-installer.yml
+    with:
+      tag: ${{ inputs.tag }}
+      candidate_run: ${{ inputs.candidate_run }}
+  verify-update:
+    needs: publish
+    if: inputs.previous_version != ''
+    permissions:
+      contents: read
+    uses: ./.github/workflows/verify-windows-update.yml
+    with:
+      old_version: ${{ inputs.previous_version }}
+      new_version: ${{ inputs.tag }}

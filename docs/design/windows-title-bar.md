@@ -14,7 +14,7 @@ Windows默认使用融入界面的Daymark窗口顶区：主窗复用侧栏字标
 
 Qt固定6.10.2、C++20、Quick；不用Qt Widgets/浏览器/新增第三方库。当前主窗、设置和账号是ApplicationWindow，系统边框与WindowStateStore独立管理。Qt6.9+扩展客户区可融合背景但会依赖平台caption覆盖/安全区；本轮需要可控的Daymark按钮/主题及明确命中，选择QML融合顶区＋保留Qt标准窗口flags＋隔离Win32非客户区适配。Qt扩展客户区仅作取证原型，不作为发布实现。初次原生桌面抓图被遮挡/黑屏不计为视觉PASS，纯Qt客户区捕获仅证明QML绘制。
 
-Win32保留WS_CAPTION/SYSMENU/THICKFRAME及对应min/max能力，WM_NCCALCSIZE去除原生标题栏，WM_NCHITTEST让边缘、标题拖动、最大化按钮保留系统语义；不手写拖动坐标或最大化铺屏。Windows11 Snap布局依赖HTMAXBUTTON，物理悬停菜单单独标记验收边界。主窗最小宽度仍为880DIP，窄屏或高DPI下部分贴靠分区可能小于现有最小尺寸；本轮不扩大为主工作区响应式改版，不承诺所有分区均可容纳。参考[Qt窗口flags](https://doc.qt.io/qt-6.10/qt.html#WindowType-enum)、[ApplicationWindow安全区](https://doc.qt.io/qt-6.10/qml-qtquick-controls-applicationwindow.html#safe-areas)、[微软Snap要求](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/apply-snap-layout-menu)。在线Qt页现为6.10.3，实际仅用本地6.10.2公共头与构建验证。
+融合模式移除 Win32 `WS_CAPTION`，保留 `WS_SYSMENU`、`WS_THICKFRAME` 及对应 min/max 能力；Qt 和 Windows 负责非客户区尺寸、边框及缩放。客户区 `WM_NCHITTEST` 保留标题拖动和最大化按钮的系统语义。Windows 11 Snap 布局依赖 `HTMAXBUTTON`，物理悬停菜单单独标记验收边界。主窗最小宽度为 880 DIP，窄屏或高 DPI 下部分贴靠分区可能小于现有最小尺寸。参考 [Qt 6.10.2 Windows 后端](https://github.com/qt/qtbase/blob/v6.10.2/src/plugins/platforms/windows/qwindowswindow.cpp)、[Qt 窗口标记](https://doc.qt.io/qt-6.10/qt.html#WindowType-enum)、[ApplicationWindow 安全区](https://doc.qt.io/qt-6.10/qml-qtquick-controls-applicationwindow.html#safe-areas)、[微软 Snap 要求](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/apply-snap-layout-menu)。
 
 ## 3 架构与数据流
 
@@ -32,7 +32,7 @@ Controller寿命覆盖QML引擎；绑定QObject由对应QML窗口拥有，以QPo
 
 WindowChromeController提供supported、mode、errorText/errorKey/原生数值、requestMode(int):bool；非法值/只读拒绝，无变更。对已注册绑定先应用，全部成功才sync设备设置；失败恢复先前模式及窗口几何/状态，公开错误；重复相同值幂等。WindowChrome提供window、controller、titleBar、buttonStrip、maximizeButton、customEnabled，窗口命令toggleMaximize/showSystemMenu；close/minimize仍调用目标Window的标准方法。
 
-布局坐标为DIP；Win32消息坐标是有符号物理屏幕坐标，先ScreenToClient再除目标DPR。命中优先级：可见最大化按钮HTMAXBUTTON→按钮条HTCLIENT（保持完整命中高度）→非最大化边缘/角→标题空白HTCAPTION→客户区。隐藏/失效item不命中。最大化只取当前monitor工作区；全屏不显示标题栏，不拦截边缘。
+布局坐标为 DIP。Win32 消息坐标是有符号物理屏幕坐标，先 `ScreenToClient` 再除目标 DPR。客户区外由系统判断缩放边和角。客户区内优先可用最大化按钮（`HTMAXBUTTON`）、窗口和页面按钮区域（`HTCLIENT`）、标题空白（`HTCAPTION`），再到正文。最大化沿系统工作区；全屏沿原有标题栏可见性规则。
 
 ## 7 数据库与事务
 
@@ -74,7 +74,13 @@ A偏好/绑定/Win32规则与单测→B三窗共享标题栏及设置入口→C�
 
 自审：修复第一版重复品牌/独立灰条、交互区被HTCAPTION吞掉和正文/弹层高度边界。新增interactiveItems为QVariantList输入，内部转为QPointer弱引用，销毁后不悬挂；需要Native/Qt用户链及浅深100/200%重新验收。此前原生切片6项通过仍只证明后端消息和偏好，不将其等同v2布局通过。第一版用户链在最大化切换后的下一事件轮失败，必须保留这个用例并修复，不通过改设计隐藏失败。
 
-原生最大化根因复审：Qt FramelessWindowHint会走几何模拟最大化，Qt缓存为Maximized但HWND的IsZoomed为false、placement仍Normal；随后改flags产生迟到Normal事件。最终不再切换Qt frameless标记，保留Qt标准窗口契约，仅由已注册HWND subclass控制NCCALCSIZE/命中；原生placement与正常还原矩形在切换中保存/恢复。新增下一事件轮、OS最大化及最小化/正常位置回归，不用延迟重试掩盖。
+原生最大化根因复审：Qt FramelessWindowHint 会走几何模拟最大化，Qt 缓存为 Maximized 但 HWND 的 IsZoomed 为 false、placement 仍 Normal；随后改 flags 产生迟到的 Normal 事件。Qt 保留标准窗口标记，模式切换保存和恢复原生 placement 与正常还原矩形。CHROME-03 修订了原非客户区实现，保留下一事件轮、OS 最大化及最小化/正常位置回归。
+
+### CHROME-03 窗口边界与客户区
+
+按 HIG 的层级、清晰度和平台一致性（P-13、UX-79），普通主窗、设置和账号保留系统细边框与缩放热区，便于辨认叠放层级。顶区仍随正文表面，控件、键盘路径和正文布局沿用现有契约。最大化交给系统工作区，恢复后回到原物理窗口矩形。浅深色沿系统边框行为，边框不作为焦点或点击区域加入 QML。
+
+2.2.3 拦截 `WM_NCCALCSIZE` 将原生客户区扩到整窗，但 Qt 在窗框尺寸相等时保留已有边距。150% 的实机回归先复现 Win32 客户区 1372×1031 px、Qt 1350×975 px。评审选定保留有框 HWND 和 Qt 标准窗口标记，融合模式只去掉原生 caption，保留可缩放窗框，由 Qt 和 Windows 共用非客户区计算。原生适配层负责自绘按钮与拖动命中，窗框由系统命中。通过 `WM_WINDOWPOSCHANGING` 把最大化的外框限制在当前屏幕工作区加系统边距内，保留 Windows 的最大化状态并保持客户区计算一致。该修复复用标题栏偏好与公共接口，不涉及网络协议、数据库、持久化格式或新依赖。验证原生客户区/正文尺寸、外框、缩放、两种模式/最大化还原，以及实际主窗、设置和账号；混合 DPI 与其他未实测平台单独标记。
 
 正文坐标复审：列表来源直接映射到Main.contentItem；日历/时间轴对外锚点明确为scene坐标（mapToItem(null)），进入主窗详情时只在边界转换一次，避免Window.window的基类contentItem与ApplicationWindow正文混用。箭头验收统一mapToScene后比较，不能用正文y直接比场景y。短备注能完整容纳时按完整字段最小滚动，长备注仍跟随光标；新顶区缩小正文不应留下旧字段的滚动偏移。CI与本地标准测试入口均从Windows系统字体目录读取字体，不复制字体资产；offscreen不是原生焦点证明。
 

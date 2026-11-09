@@ -17,7 +17,8 @@ param(
     [Parameter(Mandatory)][string]$BuildDirectory,
     [Parameter(Mandatory)][string]$OutputDirectory,
     [Parameter(Mandatory)][string]$Version,
-    [string]$SourceDirectory=(Split-Path $PSScriptRoot -Parent)
+    [string]$SourceDirectory=(Split-Path $PSScriptRoot -Parent),
+    [switch]$PayloadOnly
 )
 $ErrorActionPreference = 'Stop'
 
@@ -91,6 +92,10 @@ $files = Get-ChildItem -LiteralPath $stage -Recurse -File
     fileCount      = $files.Count
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $stage 'BUILD-INFO.json') -Encoding utf8
 
+if ($PayloadOnly) {
+    Write-Output "PASS: $stage ($($files.Count) files)"
+    return
+}
 $archive = "$stage.zip"
 Compress-Archive -LiteralPath $stage -DestinationPath $archive -CompressionLevel Optimal
 Write-DaymarkArchiveChecksum $archive

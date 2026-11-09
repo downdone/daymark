@@ -101,7 +101,9 @@ bool WindowChrome::configureNative() {
     auto style = (GetWindowLongPtrW(hwnd, GWL_STYLE) & ~frameMask) |
                  LONG_PTR(m_originalFrameStyle);
     if (m_custom) {
-        style |= WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
+        // Keep the real resize frame and let QPA/Win32 agree on its margins.
+        // Only the native caption is replaced by the integrated Qt controls.
+        style = (style & ~WS_CAPTION) | WS_THICKFRAME | WS_SYSMENU;
         if (m_window->flags().testFlag(Qt::WindowMaximizeButtonHint))
             style |= WS_MAXIMIZEBOX;
         if (m_window->flags().testFlag(Qt::WindowMinimizeButtonHint))
@@ -158,32 +160,42 @@ bool WindowChrome::handleNativeMessage(const QByteArray &type, void *message,
                        at.y / m_window->devicePixelRatio());
     };
     switch (msg->message) {
-    case WM_NCCALCSIZE: {
-        if (IsZoomed(msg->hwnd)) {
-            MONITORINFO monitor{};
-            monitor.cbSize = sizeof(monitor);
-            if (GetMonitorInfoW(
-                    MonitorFromWindow(msg->hwnd, MONITOR_DEFAULTTONEAREST),
-                    &monitor)) {
-                auto *rect =
-                    msg->wParam
-                        ? &reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam)
-                               ->rgrc[0]
-                        : reinterpret_cast<RECT *>(msg->lParam);
-                *rect = monitor.rcWork;
-            }
+    case WM_WINDOWPOSCHANGING: {
+        auto &position = *reinterpret_cast<WINDOWPOS *>(msg->lParam);
+        if (!IsZoomed(msg->hwnd) || (position.flags & (SWP_NOMOVE | SWP_NOSIZE)) ||
+            m_window->windowState() == Qt::WindowFullScreen)
+            break;
+        const RECT proposed{position.x, position.y, position.x + position.cx,
+                            position.y + position.cy};
+        MONITORINFO monitor{};
+        monitor.cbSize = sizeof(monitor);
+        if (!GetMonitorInfoW(MonitorFromRect(&proposed, MONITOR_DEFAULTTONEAREST),
+                             &monitor))
+            break;
+        // Without WS_CAPTION, Windows can maximize across the taskbar. Limit
+        // the proposed *outer* rectangle, keeping the native client margins.
+        const auto style = DWORD(GetWindowLongPtrW(msg->hwnd, GWL_STYLE));
+        const auto exStyle = DWORD(GetWindowLongPtrW(msg->hwnd, GWL_EXSTYLE));
+        RECT frame = monitor.rcWork;
+        if (!AdjustWindowRectExForDpi(&frame, style, FALSE, exStyle,
+                                      GetDpiForWindow(msg->hwnd)))
+            break;
+        RECT bounded{};
+        if (IntersectRect(&bounded, &proposed, &frame)) {
+            position.x = bounded.left;
+            position.y = bounded.top;
+            position.cx = bounded.right - bounded.left;
+            position.cy = bounded.bottom - bounded.top;
         }
-        *result = 0;
-        return true;
+        break;
     }
     case WM_NCHITTEST: {
-        const UINT dpi = GetDpiForWindow(msg->hwnd);
-        const qreal border = (GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) +
-                              GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi)) /
-                             m_window->devicePixelRatio();
-        *result = hitTest(
-            local({GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam)}),
-            qMax(1.0, border));
+        const auto point =
+            local({GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam)});
+        const auto target = hitTest(point);
+        if (target == HTNOWHERE)
+            return false; // Native resize frame lies outside the Qt client.
+        *result = target;
         return true;
     }
     case WM_NCMOUSEMOVE: {

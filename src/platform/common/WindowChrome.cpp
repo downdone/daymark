@@ -210,7 +210,7 @@ void WindowChrome::setInteractiveItems(const QVariantList &items) {
     m_interactiveItems = next;
     emit interactiveItemsChanged();
 }
-int WindowChrome::hitTest(const QPointF &point, qreal border) const {
+int WindowChrome::hitTest(const QPointF &point) const {
     if (!m_custom || !m_window ||
         m_window->windowState() == Qt::WindowFullScreen)
         return 1;
@@ -225,28 +225,6 @@ int WindowChrome::hitTest(const QPointF &point, qreal border) const {
         return 1;
     for (const auto &item : m_interactiveItems)
         if (inVisibleRegion(item)) return 1;
-    if (m_window->windowState() != Qt::WindowMaximized) {
-        const bool left = point.x() < border,
-                   right = point.x() >= m_window->width() - border;
-        const bool top = point.y() < border,
-                   bottom = point.y() >= m_window->height() - border;
-        if (top && left)
-            return 13;
-        if (top && right)
-            return 14;
-        if (bottom && left)
-            return 16;
-        if (bottom && right)
-            return 17;
-        if (left)
-            return 10;
-        if (right)
-            return 11;
-        if (top)
-            return 12;
-        if (bottom)
-            return 15;
-    }
     return contains(m_titleBar, point) ? 2 : 1;
 }
 void WindowChrome::toggleMaximize() {

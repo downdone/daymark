@@ -6,8 +6,33 @@
 #include <QtTest>
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <dwmapi.h>
 #endif
 using namespace daymark;
+#ifdef Q_OS_WIN
+static QString clientAreaMismatch(QQuickWindow &window) {
+    RECT client{};
+    const auto handle = reinterpret_cast<HWND>(window.winId());
+    if (!GetClientRect(handle, &client))
+        return QStringLiteral("GetClientRect failed");
+    const auto dpr = window.devicePixelRatio();
+    const QSize nativeSize(client.right - client.left, client.bottom - client.top);
+    const QSize renderedSize = window.size() * dpr;
+    if (qAbs(nativeSize.width() - renderedSize.width()) <= 1 &&
+        qAbs(nativeSize.height() - renderedSize.height()) <= 1)
+        return {};
+    return QStringLiteral("Win32 client %1x%2 px, Qt window %3x%4 px at DPR %5")
+        .arg(nativeSize.width()).arg(nativeSize.height())
+        .arg(renderedSize.width()).arg(renderedSize.height()).arg(dpr);
+}
+static QRect screenClientRect(HWND hwnd) {
+    POINT origin{};
+    RECT client{};
+    if (!ClientToScreen(hwnd, &origin) || !GetClientRect(hwnd, &client))
+        return {};
+    return {origin.x, origin.y, client.right, client.bottom};
+}
+#endif
 class NativeFailureBinding : public WindowChrome {
   public:
     bool rejectNative = false;
@@ -130,6 +155,11 @@ class WindowChromeTest : public QObject {
                                     QVariant::fromValue(&maximize)));
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const auto checkClient = [&] {
+            const auto mismatch = clientAreaMismatch(window);
+            QVERIFY2(mismatch.isEmpty(), qPrintable(mismatch));
+        };
+        checkClient();
         qInfo("CHROME native window exposed");
         auto nativeRect = [&] {
             RECT r{};
@@ -137,32 +167,87 @@ class WindowChromeTest : public QObject {
             return QRect(r.left, r.top, r.right - r.left, r.bottom - r.top);
         };
         const auto original = nativeRect();
-        QCOMPARE(binding.hitTest({2, 2}, 8), HTTOPLEFT);
-        QCOMPARE(binding.hitTest({898, 648}, 8), HTBOTTOMRIGHT);
-        QCOMPARE(binding.hitTest({200, 20}, 8), HTCAPTION);
-        QCOMPARE(binding.hitTest({780, 20}, 8), HTCLIENT);
-        QCOMPARE(binding.hitTest({830, 20}, 8), HTMAXBUTTON);
-        QCOMPARE(binding.hitTest({200, 200}, 8), HTCLIENT);
+        const auto handle = window.winId();
+        const auto hwnd = reinterpret_cast<HWND>(handle);
+        const auto nativeHit = [hwnd](int x, int y) {
+            return SendMessageW(hwnd, WM_NCHITTEST, 0, MAKELPARAM(x, y));
+        };
+        QCOMPARE(nativeHit(original.left() + 2, original.top() + 2),
+                 LRESULT(HTTOPLEFT));
+        QCOMPARE(nativeHit(original.right() - 2, original.bottom() - 2),
+                 LRESULT(HTBOTTOMRIGHT));
+        QCOMPARE(nativeHit(original.left() + 2, original.center().y()),
+                 LRESULT(HTLEFT));
+        QCOMPARE(nativeHit(original.right() - 2, original.center().y()),
+                 LRESULT(HTRIGHT));
+        QCOMPARE(nativeHit(original.center().x(), original.top() + 2),
+                 LRESULT(HTTOP));
+        QCOMPARE(nativeHit(original.center().x(), original.bottom() - 2),
+                 LRESULT(HTBOTTOM));
+        const auto checkOutline = [](HWND target) {
+            RECT bounds{};
+            QVERIFY(SUCCEEDED(DwmGetWindowAttribute(target, DWMWA_EXTENDED_FRAME_BOUNDS,
+                                                    &bounds, sizeof(bounds))));
+            const QRect frame(bounds.left, bounds.top, bounds.right - bounds.left,
+                              bounds.bottom - bounds.top);
+            const auto client = screenClientRect(target);
+            QVERIFY(frame.contains(client));
+            QVERIFY(frame.width() > client.width());
+            QVERIFY(frame.height() > client.height());
+            qInfo() << "CHROME visible frame and client" << frame << client;
+        };
+        checkOutline(hwnd);
+        QCOMPARE(binding.hitTest({200, 20}), HTCAPTION);
+        QCOMPARE(binding.hitTest({780, 20}), HTCLIENT);
+        QCOMPARE(binding.hitTest({830, 20}), HTMAXBUTTON);
+        QCOMPARE(binding.hitTest({200, 200}), HTCLIENT);
         auto *interactive = new QQuickItem(window.contentItem());
         interactive->setX(400); interactive->setWidth(70); interactive->setHeight(40);
         binding.setInteractiveItems({QVariant::fromValue(interactive)});
-        QCOMPARE(binding.hitTest({410,20},8), HTCLIENT);
+        QCOMPARE(binding.hitTest({410,20}), HTCLIENT);
         interactive->setEnabled(false);
-        QCOMPARE(binding.hitTest({410,20},8), HTCLIENT);
+        QCOMPARE(binding.hitTest({410,20}), HTCLIENT);
         delete interactive;
         QVERIFY(binding.interactiveItems().isEmpty());
-        QCOMPARE(binding.hitTest({410,20},8), HTCAPTION);
-        QCOMPARE(binding.hitTest({-2, 20}, 8), HTNOWHERE);
-        const auto handle = window.winId();
+        QCOMPARE(binding.hitTest({410,20}), HTCAPTION);
+        QCOMPARE(binding.hitTest({-2, 20}), HTNOWHERE);
         qInfo("CHROME native hit policy passed");
+        {
+            QQuickWindow settingsWindow;
+            settingsWindow.setTransientParent(&window);
+            settingsWindow.setFlags(Qt::Dialog | Qt::WindowTitleHint |
+                                    Qt::WindowCloseButtonHint | Qt::CustomizeWindowHint);
+            settingsWindow.setGeometry(220, 220, 600, 400);
+            WindowChrome settingsBinding;
+            settingsBinding.setWindow(&settingsWindow);
+            settingsBinding.setController(&settings);
+            settingsBinding.componentComplete();
+            settingsWindow.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&settingsWindow));
+            const auto settingsHwnd = reinterpret_cast<HWND>(settingsWindow.winId());
+            QVERIFY(screenClientRect(hwnd).intersects(screenClientRect(settingsHwnd)));
+            const auto mismatch = clientAreaMismatch(settingsWindow);
+            QVERIFY2(mismatch.isEmpty(), qPrintable(mismatch));
+            checkOutline(settingsHwnd);
+            checkClient();
+        }
+        QVERIFY(SetWindowPos(hwnd, nullptr, 0, 0, original.width() + 70,
+                             original.height() + 35,
+                             SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE));
+        checkClient();
+        QVERIFY(SetWindowPos(hwnd, nullptr, 0, 0, original.width(), original.height(),
+                             SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE));
+        checkClient();
         for (int i = 0; i < 8; ++i) {
             QVERIFY(settings.requestMode(0));
             QCOMPARE(nativeRect(), original);
             QVERIFY(!binding.customEnabled());
             QVERIFY(!window.flags().testFlag(Qt::FramelessWindowHint));
+            checkClient();
             QVERIFY(settings.requestMode(1));
             QCOMPARE(nativeRect(), original);
             QCOMPARE(window.winId(), handle);
+            checkClient();
         }
         POINT at{LONG(830 * window.devicePixelRatio()),
                  LONG(20 * window.devicePixelRatio())};
@@ -183,18 +268,39 @@ class WindowChromeTest : public QObject {
                      MAKELPARAM(client.x, client.y));
         QVERIFY(!binding.nativeMaximizePressed());
         QTRY_COMPARE(window.windowState(), Qt::WindowMaximized);
-        QVERIFY(IsZoomed(reinterpret_cast<HWND>(handle)));
+        QVERIFY(IsZoomed(hwnd));
+        checkClient();
+        const auto checkMaximizedWorkArea = [hwnd] {
+            MONITORINFO monitor{};
+            monitor.cbSize = sizeof(monitor);
+            QVERIFY(GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST),
+                                    &monitor));
+            const auto &work = monitor.rcWork;
+            const QRect workArea(work.left, work.top, work.right - work.left,
+                                 work.bottom - work.top);
+            const auto client = screenClientRect(hwnd);
+            qInfo() << "CHROME maximized work area and client" << workArea << client;
+            QVERIFY(!client.isEmpty());
+            // A live mode switch can retain one physical pixel of the previous
+            // native frame while preserving the maximized HWND placement.
+            QVERIFY(workArea.adjusted(-1, -1, 1, 1).contains(client));
+        };
+        checkMaximizedWorkArea();
         QVERIFY(settings.requestMode(0));
         QCoreApplication::processEvents();
         QCOMPARE(window.windowState(), Qt::WindowMaximized);
         QVERIFY(IsZoomed(reinterpret_cast<HWND>(handle)));
+        checkClient();
         QVERIFY(settings.requestMode(1));
         QCoreApplication::processEvents();
         QCOMPARE(window.windowState(), Qt::WindowMaximized);
         QVERIFY(IsZoomed(reinterpret_cast<HWND>(handle)));
+        checkClient();
+        checkMaximizedWorkArea();
         binding.toggleMaximize();
         QTRY_COMPARE(window.windowState(), Qt::WindowNoState);
         QCOMPARE(nativeRect(), original);
+        checkClient();
         window.showMinimized();
         QTRY_COMPARE(window.windowState(), Qt::WindowMinimized);
         QVERIFY(settings.requestMode(0));
@@ -203,6 +309,18 @@ class WindowChromeTest : public QObject {
         QVERIFY(settings.requestMode(1));
         QCoreApplication::processEvents();
         QCOMPARE(window.windowState(), Qt::WindowMinimized);
+        window.showNormal();
+        QTRY_COMPARE(window.windowState(), Qt::WindowNoState);
+        QCOMPARE(nativeRect(), original);
+        POINT caption{LONG(200 * window.devicePixelRatio()),
+                      LONG(20 * window.devicePixelRatio())};
+        QVERIFY(ClientToScreen(hwnd, &caption));
+        QCOMPARE(nativeHit(caption.x, caption.y), LRESULT(HTCAPTION));
+        SendMessageW(hwnd, WM_NCLBUTTONDBLCLK, HTCAPTION,
+                     MAKELPARAM(caption.x, caption.y));
+        QTRY_VERIFY(IsZoomed(hwnd));
+        checkClient();
+        checkMaximizedWorkArea();
         window.showNormal();
         QTRY_COMPARE(window.windowState(), Qt::WindowNoState);
         QCOMPARE(nativeRect(), original);
