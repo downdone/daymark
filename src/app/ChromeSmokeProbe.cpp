@@ -57,10 +57,10 @@ bool ChromeSmokeProbe::capture(QQuickWindow *target, const QString &suffix) {
 QString ChromeSmokeProbe::advance() {
     if (!workspace.ready() || workspace.busy())
         return {};
-    auto fail = [&](const char *message) {
+    auto fail = [&](const QString &message) {
         return QStringLiteral("CHROME01 phase %1: %2")
             .arg(phase)
-            .arg(QString::fromLatin1(message));
+            .arg(message);
     };
     auto *settings =
         qobject_cast<QQuickWindow *>(find(window, "settingsDialog"));
@@ -143,8 +143,12 @@ QString ChromeSmokeProbe::advance() {
         const qreal axis = heading ? heading->mapToScene({0, heading->height()/2}).y() : -1000;
         for (const auto *name : {"sidebarWordmark", "toggleSidebar", "pageOptionsAction", "mainCaption"}) {
             const auto *item = qobject_cast<QQuickItem *>(find(window, QString::fromLatin1(name)));
-            if (!item || qAbs(item->mapToScene({0, item->height()/2}).y()-axis)>1.5)
-                return fail("brand, heading, actions and window controls do not share their primary axis");
+            if (!item)
+                return fail(QStringLiteral("missing aligned title-bar item %1").arg(QString::fromLatin1(name)));
+            const auto itemAxis = item->mapToScene({0, item->height()/2}).y();
+            if (qAbs(itemAxis-axis)>1.5)
+                return fail(QStringLiteral("title-bar axis: %1 y=%2, heading y=%3")
+                                .arg(QString::fromLatin1(name)).arg(itemAxis).arg(axis));
         }
         if (!capture(window, ".main-light.png"))
             return fail("main title bar capture");

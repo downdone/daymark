@@ -146,6 +146,8 @@ ApplicationWindow {
                 readonly property bool showsCount: inlineMetadata && mainWindow.taskContentVisible && !mainWindow.headerMetadataText
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
+                Layout.minimumHeight: 0
+                Layout.fillHeight: true
                 Layout.alignment: Qt.AlignVCenter
                 spacing: 12
                 Label {
@@ -178,8 +180,7 @@ ApplicationWindow {
                 }
             }
             RowLayout {
-            id:headerActions; Layout.alignment:Qt.AlignTop
-            Layout.topMargin:Math.max(0,(pageTitleLabel.implicitHeight-implicitHeight)/2)
+            id:headerActions; Layout.alignment:Qt.AlignVCenter
             spacing:Theme.gap
             Button {visible:mainWindow.taskContentVisible && ["completed","cancelled"].indexOf(mainWindow.taskWorkspace.view)>=0;flat:true;text:mainWindow.taskWorkspace.view==="completed" ? qsTr("查看已取消") : qsTr("查看已完成");onClicked:mainWindow.changeView(mainWindow.taskWorkspace.view==="completed" ? "cancelled" : "completed")}
             BusyIndicator { running: mainWindow.taskWorkspace.busy && !mainWindow.taskWorkspace.backgroundBusy; visible: running; Layout.preferredWidth: 28; Layout.preferredHeight: 28 }

@@ -24,7 +24,10 @@ Window {
     objectName: "widgetWindow"
     width: 340;height: 360
     readonly property int ballDiameter: Math.max(36,Theme.iconSize+12)
-    readonly property int miniBarHeight: Math.max(48,Theme.controlHeight+2*Theme.panelPadding)
+    readonly property real miniControlHeight: Math.max(Theme.controlHeight,miniMore.implicitHeight)
+    readonly property int miniBarHeight: Math.ceil(miniControlHeight+2*Theme.panelPadding)
+    readonly property real shellCorner: 12
+    readonly property real shellInset: 2
     onMiniBarHeightChanged: Qt.callLater(syncMiniLayout)
     onBallDiameterChanged: Qt.callLater(syncMiniLayout)
     Component.onCompleted: {syncMiniLayout();controller.enableVisualTransitions();Qt.callLater(syncPanelMinimum);Qt.callLater(setMiniAnimation);Qt.callLater(syncBrowsePresentation)}
@@ -174,8 +177,8 @@ Window {
     property real fromOpacity:1
     property real fromMini:0
     property real toMini:0
-    property real fromRadius:Theme.panelRadius
-    property real toRadius:Theme.panelRadius
+    property real fromRadius:shellCorner
+    property real toRadius:shellCorner
     readonly property rect frameRect:Qt.rect(fromRect.x+(toRect.x-fromRect.x)*motionProgress,fromRect.y+(toRect.y-fromRect.y)*motionProgress,fromRect.width+(toRect.width-fromRect.width)*motionProgress,fromRect.height+(toRect.height-fromRect.height)*motionProgress)
     readonly property real visualWidth:frameRect.width
     readonly property real visualHeight:frameRect.height
@@ -183,6 +186,7 @@ Window {
     readonly property real panelReveal:fromPanel+(toPanel-fromPanel)*motionProgress
     readonly property real panelContentOpacity:toPanel>fromPanel ? fromOpacity+(1-fromOpacity)*Math.max(0,(motionProgress-0.2)/0.8) : toPanel<fromPanel ? fromOpacity*Math.max(0,1-motionProgress*2.5) : fromOpacity+(toPanel-fromOpacity)*motionProgress
     readonly property real miniReveal:fromMini+(toMini-fromMini)*motionProgress
+    readonly property real ballReveal: Math.max(0,1-panelReveal-miniReveal)
     readonly property bool miniTransitionRunning:motionAnimation.running && !controller.panelMotion
     readonly property bool panelTransitionRunning:motionAnimation.running && controller.panelMotion
     readonly property bool motionInputBlocked:motionAnimation.running || controller.transitionPending
@@ -227,7 +231,7 @@ Window {
         motionAnimation.stop();visualTransition=controller.transitionId
         fromRect=currentRect;fromPanel=currentPanel;fromMini=currentMini;fromRadius=currentRadius;fromOpacity=currentOpacity
         toRect=targetRect();toPanel=controller.effectiveForm===0?1:0;toMini=controller.effectiveForm===1?1:0
-        toRadius=controller.effectiveForm===0?Theme.panelRadius:controller.effectiveForm===2?ballDiameter/2:Math.min(controller.miniRect.height/2,22)
+        toRadius=controller.effectiveForm===2?ballDiameter/2:shellCorner
         motionProgress=0
         if(!controller.transitionPending || reduceMotion || !visible || controller.clickThrough){finishVisual(!controller.transitionPending || !visible || controller.clickThrough);return}
         const distance=Math.max(Math.abs(toRect.width-fromRect.width),Math.abs(toRect.height-fromRect.height),Math.abs(toRect.x-fromRect.x),Math.abs(toRect.y-fromRect.y))
@@ -278,8 +282,8 @@ Window {
     Shortcut {sequences:["Shift+F10","Menu"];enabled:widget.active && !widget.motionInputBlocked;onActivated:{const row=widget.controller.mini?null:widget.focusedTaskRow();if(row && !widget.addingTask)widget.openTaskMenu(row.taskId,row,Qt.point(row.width/2,row.height/2));else widget.openVerificationMenu()}}
     Rectangle {
         id:categoryPage;objectName:"widgetCategoryPage";parent:panelContent
-        anchors.fill:parent;z:5;visible:widget.categoryPickerOpen
-        color:Theme.content;radius:Theme.panelRadius;border.color:Theme.separator
+        anchors.fill:parent;anchors.margins:widget.shellInset;z:5;visible:widget.categoryPickerOpen
+        color:Theme.content;radius:widget.shellCorner-widget.shellInset;border.width:0
         MouseArea {anchors.fill:parent;acceptedButtons:Qt.AllButtons;onWheel:function(wheel){wheel.accepted=true}}
         ColumnLayout {
             anchors.fill:parent;anchors.margins:Theme.panelPadding;spacing:Theme.fieldGap
@@ -473,16 +477,29 @@ Window {
         palette.button: Theme.sidebar;palette.buttonText: Theme.text;palette.highlight: Theme.accent
         Keys.onPressed:function(event){widget.miniKeyboardInteraction=true;widget.reportInteraction();event.accepted=false}
         contentItem: Item {
-          Rectangle {
+          Item {
             id: surface
             x:widget.frameRect.x;y:widget.frameRect.y
             width: widget.visualWidth
             height: widget.visualHeight
             clip:true
             objectName: "widgetBackground"
-            radius:widget.frameRadius
-            color: Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,widget.workspace.preferences.solidWidget || Theme.highContrast ? 1 : widget.controller.backgroundOpacity)
-            border.color: Theme.separator
+            readonly property color ballFill: miniBall.down ? Theme.pressed : miniBall.hovered ? Theme.primaryFill : Theme.content
+            readonly property color fill: Qt.tint(Theme.content,Qt.rgba(ballFill.r,ballFill.g,ballFill.b,widget.ballReveal))
+            readonly property real panelAlpha: widget.workspace.preferences.solidWidget || Theme.highContrast ? 1 : widget.controller.backgroundOpacity
+            readonly property color color: Qt.rgba(fill.r,fill.g,fill.b,panelAlpha+(1-panelAlpha)*widget.ballReveal)
+            // The native input region is integer-clipped. Keep the painted
+            // antialiased edge inside it in every frame.
+            Rectangle {
+                objectName: "widgetShell"
+                anchors.fill: parent
+                anchors.margins: widget.shellInset
+                radius: Math.max(0,widget.frameRadius-widget.shellInset)
+                antialiasing: true
+                color: surface.color
+                border.color: Theme.highContrast ? Theme.separator : Qt.rgba(Theme.text.r,Theme.text.g,Theme.text.b,Theme.dark ? 0.18 : 0.12)
+                border.pixelAligned: false
+            }
             HoverHandler {id:miniHover;onHoveredChanged:widget.reportInteraction()}
             ToolButton {
                 id:miniBall;objectName:"widgetMiniBall"
@@ -501,21 +518,17 @@ Window {
                 WidgetMoveHandle {id:ballDrag;controller:widget.controller}
                 contentItem:Item {
                     implicitWidth:24;implicitHeight:24
-                    BrandMark {objectName:"widgetBrandMark";anchors.fill:parent;monochrome:true;ink:"#ffffff";visible:!widget.controller.errorText.length;Accessible.ignored:true}
-                    AppIcon {anchors.fill:parent;visible:widget.controller.errorText.length>0;name:"info";ink:"#ffffff"}
+                    BrandMark {objectName:"widgetBrandMark";anchors.fill:parent;monochrome:true;ink:Theme.primaryInk;visible:!widget.controller.errorText.length;Accessible.ignored:true}
+                    AppIcon {anchors.fill:parent;visible:widget.controller.errorText.length>0;name:"info";ink:Theme.danger}
                 }
                 background: Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 5
                     radius: width/2
-                    color: miniBall.down ? Qt.darker(Theme.brandFill,1.12) : miniBall.hovered ? Qt.lighter(Theme.brandFill,1.08) : Theme.brandFill
-                    Rectangle {
-                        anchors.fill: parent
-                        anchors.margins: 3
-                        radius: width/2
-                        color: "transparent"
-                        border.width: 2
-                        border.color: "#ffffff"
-                        visible: miniBall.visualFocus
-                    }
+                    color: "transparent"
+                    border.width: 2
+                    border.color: Theme.accent
+                    visible: miniBall.visualFocus
                 }
             }
             Item {
@@ -754,7 +767,7 @@ Window {
                     ToolTip.timeout: Theme.hintTimeout
                     ToolTip.text: widget.errorMessage || widget.workspace.firstWidgetTitle
                 }
-                WidgetAction {Layout.alignment:Qt.AlignTop;id:miniMore;objectName:"miniMore";symbol:"more";description:qsTr("组件菜单");onPressedChanged:if(pressed)widget.miniKeyboardInteraction=false;onClicked:widget.openVerificationMenu()}
+                WidgetAction {Layout.alignment:Qt.AlignVCenter;id:miniMore;objectName:"miniMore";symbol:"more";description:qsTr("组件菜单");onPressedChanged:if(pressed)widget.miniKeyboardInteraction=false;onClicked:widget.openVerificationMenu()}
             }
             // Block pointer delivery without changing content enabled/palette
             // or rendering a dimmer over the transparent desktop surface.

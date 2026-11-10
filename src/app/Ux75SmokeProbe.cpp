@@ -60,6 +60,7 @@ QString Ux75SmokeProbe::advance(){
     }
     if(m_stage==0){
         m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",false);
+        m_workspace.setPreference("solidWidget",true);
         m_workspace.setPreference("desktopCalendarVisible",true);
         if(!m_workspace.createTodayTask(QStringLiteral("绘制事务验证")))return fail("fixture create");
         m_stage=1;
@@ -89,6 +90,31 @@ QString Ux75SmokeProbe::advance(){
         const auto expected=targets[m_target]==0?m_controller.panelRect():targets[m_target]==1?m_controller.miniRect():m_controller.ballRect();
         auto* surface=qobject_cast<QQuickItem*>(find(m_widget,"widgetBackground"));
         if(!surface || (surface->position()-expected.topLeft()).manhattanLength()>1 || qAbs(surface->width()-expected.width())>1 || qAbs(surface->height()-expected.height())>1)return fail("visual rectangle differs from logical target");
+        if(targets[m_target]==1){
+            auto* more=qobject_cast<QQuickItem*>(find(m_widget,"miniMore"));
+            if(!more || !expected.contains(more->mapRectToScene(more->boundingRect()).toAlignedRect()))
+                return fail("Mini menu button does not fit inside the strip");
+            if(QGuiApplication::platformName()=="windows"){
+                const auto image=m_widget->grabWindow();
+                if(image.isNull())return fail("Mini frame missing");
+                const double sx=double(image.width())/m_widget->width();
+                const double sy=double(image.height())/m_widget->height();
+                const auto corner=QRect(qRound(expected.x()*sx),qRound(expected.y()*sy),
+                                        qRound(14*sx),qRound(14*sy)).intersected(image.rect());
+                bool antialiasedEdge=false;
+                for(int y=corner.top();y<=corner.bottom();++y){
+                    for(int x=corner.left();x<=corner.right();++x){
+                        const auto alpha=image.pixelColor(x,y).alpha();
+                        if(alpha>0 && alpha<255){
+                            if(!m_widget->mask().contains(QPoint(int(x/sx),int(y/sy))))
+                                return fail("Mini antialiased pixels extend outside the native region");
+                            antialiasedEdge=true;
+                        }
+                    }
+                }
+                if(!antialiasedEdge)return fail("Mini corner has no antialiasing");
+            }
+        }
         if(targets[m_target]==2){m_samples=0;m_ballFrame={};m_stage=6;}else m_stage=7;
     }else if(m_stage==6){
         const auto image=m_widget->grabWindow().convertToFormat(QImage::Format_RGBA8888);
