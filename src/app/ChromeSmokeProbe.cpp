@@ -4,6 +4,8 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QKeyEvent>
+#include <QLineF>
+#include <QMouseEvent>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QQmlComponent>
@@ -152,6 +154,22 @@ QString ChromeSmokeProbe::advance() {
         }
         if (!capture(window, ".main-light.png"))
             return fail("main title bar capture");
+        auto *close = qobject_cast<QQuickItem *>(find(caption, "captionClose"));
+        const auto *feedback = qobject_cast<QQuickItem *>(find(close, "captionFeedback"));
+        if (!close || !feedback || close->height() != caption->height() ||
+            feedback->size() != QSizeF(36, 28) ||
+            QLineF(close->mapToScene(close->boundingRect().center()),
+                   feedback->mapToScene(feedback->boundingRect().center())).length() > 1)
+            return fail("caption feedback must be compact and centered in the original hit area");
+        const auto at = close->mapToScene(close->boundingRect().center());
+        QMouseEvent hover(QEvent::MouseMove, at, window->mapToGlobal(at),
+                          Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(window, &hover);
+        if (feedback->property("color").value<QColor>() != QColor("#c42b1c") ||
+            !capture(window, ".close-hover.png"))
+            return fail("compact close hover feedback");
+        QEvent leave(QEvent::Leave);
+        QCoreApplication::sendEvent(window, &leave);
         // Calendar anchors are scene coordinates; the inspector is in the body
         // below the integrated header. Compare the actual arrow in scene space.
         const QPointF anchor(600, 200);
@@ -300,7 +318,7 @@ QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *ac
             }
             auto *search = find(window, "taskSearch");
             search->setProperty("text", "");
-            const QStringList views{"inbox", "today", "anytime", "important", "project:" + categoryId,
+            const QStringList views{"inbox", "today", group % 2 ? "anytime" : "scheduled", "important", "project:" + categoryId,
                                     "tag:" + tagId, "completed", "cancelled", "trash", "inbox"};
             workspace.setView(views.at(page));
             if (page == 9) search->setProperty("text", "Synthetic");
@@ -308,6 +326,14 @@ QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *ac
             const auto result = compareLayout(window, {"integratedHeader", "sidebarBrandHeader", "sidebarWordmark",
                 "toggleSidebar", "navigationScroll", "pageToolbar", "taskContent", "taskHeaderViewport"}, page == 0);
             if (!result.isEmpty()) return result;
+            const QStringList themes{"inbox", "today", group % 2 ? "all" : "scheduled", "important",
+                                     "", "", "completed", "completed", "", ""};
+            if (!themes.at(page).isEmpty()) {
+                const auto *tile = find(window, "navigation-" + themes.at(page));
+                const auto *title = find(window, "pageTitle");
+                if (!tile || !title || title->property("color").value<QColor>() != tile->property("tint").value<QColor>())
+                    return fail("page title color differs from its sidebar theme");
+            }
             if (page == 1 && (group == 0 || group == 3) &&
                 !capture(window, group == 0 ? ".stable-today-light.png" : ".stable-today-large.png"))
                 return fail("stable today capture failed");
@@ -327,8 +353,26 @@ QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *ac
         } else {
             const auto result = compareLayout(settings, {"settingsIntegratedHeader", "settingsCategories", "settingsScroll"}, category == 0);
             if (!result.isEmpty()) return result;
-            if (category == 1 && group == 3 && !capture(settings, ".stable-settings-large.png"))
-                return fail("settings capture failed");
+            if (category == 1) {
+                for (const auto *name : {"widgetFormSelection", "widgetCategoryRangeSetting"}) {
+                    const auto *picker = find(settings, QString::fromLatin1(name));
+                    const auto *background = picker ? picker->property("background").value<QObject *>() : nullptr;
+                    if (!background || !background->property("quietOutline").toBool())
+                        return fail("settings dropdown lost quiet field styling");
+                }
+                const auto *solid = find(settings, "widgetSolidBackgroundSetting");
+                if (!solid || solid->property("highlightRow").toBool())
+                    return fail("settings switch highlights the whole row");
+                const auto *enabledPanel = find(settings, "widgetPanelEnabled");
+                const auto *track = enabledPanel ? enabledPanel->property("indicator").value<QObject *>() : nullptr;
+                const auto green = track ? track->property("color").value<QColor>() : QColor();
+                if (!enabledPanel || !enabledPanel->property("checked").toBool() ||
+                    !green.isValid() || green.green() <= qMax(green.red(),green.blue()))
+                    return fail("enabled settings switch lost its green track");
+                if ((group == 0 || group == 3) &&
+                    !capture(settings, group == 0 ? ".settings-fields-light.png" : ".stable-settings-large.png"))
+                    return fail("settings capture failed");
+            }
         }
     } else if (phase == 132) {
         QMetaObject::invokeMethod(settings, "close");

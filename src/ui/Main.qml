@@ -144,6 +144,14 @@ ApplicationWindow {
                 id:pageHeading
                 readonly property bool inlineMetadata: width>=360*Theme.scale
                 readonly property bool showsCount: inlineMetadata && mainWindow.taskContentVisible && !mainWindow.headerMetadataText
+                readonly property bool showingSearch: mainWindow.taskContentVisible && search.text.trim().length>0
+                readonly property string smartScope: {
+                    const scope=mainWindow.taskWorkspace.scope
+                    if(scope==="upcoming")return "scheduled"
+                    if(scope==="anytime")return "all"
+                    if(scope==="cancelled" || scope==="logbook")return "completed"
+                    return scope
+                }
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 Layout.minimumHeight: 0
@@ -153,9 +161,10 @@ ApplicationWindow {
                 Label {
                 id:pageTitleLabel
                 objectName: "pageTitle"
-                text: mainWindow.taskContentVisible && search.text.trim().length > 0 ? qsTr("搜索结果") : mainWindow.currentViewTitle()
+                text: pageHeading.showingSearch ? qsTr("搜索结果") : mainWindow.currentViewTitle()
                 font.pixelSize: Theme.pageTitleSize
-                color: !mainWindow.taskContentVisible ? Theme.text : mainWindow.taskWorkspace.view==="today" ? Theme.accent : mainWindow.taskWorkspace.view==="scheduled" ? Theme.danger : mainWindow.taskWorkspace.view==="important" ? Theme.catalogColor("orange") : mainWindow.taskWorkspace.view==="completed" ? Theme.secondary : Theme.text
+                color: mainWindow.toolPageVisible || pageHeading.showingSearch
+                    ? Theme.text : (Theme.smartBadgeColors[pageHeading.smartScope] || Theme.text)
                 elide: Text.ElideRight
                 font.weight: Font.DemiBold
                 Layout.fillWidth: true
@@ -956,7 +965,7 @@ ApplicationWindow {
                             Layout.fillWidth: true;Layout.preferredWidth: 1
                             text: modelData;selected: !mainWindow.toolPageVisible && (mainWindow.taskWorkspace.scope===viewCode || (viewCode==="completed" && mainWindow.taskWorkspace.scope==="cancelled"))
                             symbol: ["inbox","today","calendar","list","flag","logbook"][index]
-                            tint: viewCode==="inbox" ? Theme.catalogColor("purple") : viewCode==="scheduled" ? Theme.danger : viewCode==="all" || viewCode==="completed" ? Theme.secondary : viewCode==="important" ? Theme.catalogColor("orange") : Theme.accent
+                            tint: Theme.smartBadgeColors[viewCode] || Theme.accent
                             count: mainWindow.taskWorkspace.viewCounts[viewCode] || 0
                             acceptsTaskDrop: viewCode!=="all" && mainWindow.taskWorkspace.ready && !mainWindow.taskWorkspace.busy
                             onTaskDropped: function(taskId,version){mainWindow.moveTaskToNavigation(taskId,version,viewCode==="scheduled" ? "upcoming" : viewCode==="completed" ? "logbook" : viewCode)}

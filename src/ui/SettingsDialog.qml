@@ -2,8 +2,18 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import DaymarkStyle as DS
 ApplicationWindow {
     id: root
+    component SettingsComboBox: ComboBox {
+        id: picker
+        background: DS.FieldSurface {
+            quietOutline: true
+            focused: picker.visualFocus || picker.popup.visible
+            hovered: picker.hovered || picker.down
+            enabledField: picker.enabled
+        }
+    }
     objectName: "settingsDialog"
     signal quitRequested()
     signal dataRequested()
@@ -169,7 +179,7 @@ ApplicationWindow {
                         SettingsToggle {objectName:"widgetBallEnabled";text:qsTr("启用悬浮球");checked:((root.widgetController.enabledForms & 4)!==0);onClicked:root.widgetController.setFormEnabled(2,checked)}
                         SettingsRow {
                             label:qsTr("常驻形态")
-                            ComboBox {
+                            SettingsComboBox {
                                 objectName:"widgetFormSelection"
                                 readonly property var forms: {const mask=root.widgetController.enabledForms;return [0,1,2].filter(function(form){return (mask & (1<<form))!==0})}
                                 Layout.fillWidth:true;enabled:forms.length>0
@@ -198,7 +208,7 @@ ApplicationWindow {
                         detail:qsTr("小窗标题下的“分类”入口始终可用；今天入口不受此范围影响。")
                         SettingsRow {
                             label:qsTr("分类任务范围")
-                            ComboBox {objectName:"widgetCategoryRangeSetting";Layout.fillWidth:true;Accessible.name:qsTr("小窗分类任务范围");model:[qsTr("全部未完成"),qsTr("仅今天")];currentIndex:root.workspace.widgetCategoryToday?1:0;enabled:root.workspace.ready && !root.workspace.busy;onActivated:{root.workspace.requestWidgetCategoryToday(currentIndex===1);currentIndex=Qt.binding(function(){return root.workspace.widgetCategoryToday?1:0})}}
+                            SettingsComboBox {objectName:"widgetCategoryRangeSetting";Layout.fillWidth:true;Accessible.name:qsTr("小窗分类任务范围");model:[qsTr("全部未完成"),qsTr("仅今天")];currentIndex:root.workspace.widgetCategoryToday?1:0;enabled:root.workspace.ready && !root.workspace.busy;onActivated:{root.workspace.requestWidgetCategoryToday(currentIndex===1);currentIndex=Qt.binding(function(){return root.workspace.widgetCategoryToday?1:0})}}
                         }
                         SettingsToggle {objectName:"widgetShowShortcutsSetting";separator:false;text:qsTr("显示常用分类");checked:root.workspace.widgetShowShortcuts;onClicked:root.workspace.setWidgetShowShortcuts(checked)}
                       }
@@ -207,7 +217,7 @@ ApplicationWindow {
                         detail:qsTr("鼠标穿透可从托盘或这里关闭；重启后恢复为可点击。")
                         SettingsRow {
                             label:qsTr("窗口层级")
-                            ComboBox {objectName:"widgetLayerSelection";Layout.fillWidth:true;Accessible.name:qsTr("任务组件窗口层级");model:[qsTr("普通"),qsTr("始终置顶"),qsTr("桌面层")];currentIndex:root.widgetController.layer;onActivated:root.widgetController.setLayer(currentIndex)}
+                            SettingsComboBox {objectName:"widgetLayerSelection";Layout.fillWidth:true;Accessible.name:qsTr("任务组件窗口层级");model:[qsTr("普通"),qsTr("始终置顶"),qsTr("桌面层")];currentIndex:root.widgetController.layer;onActivated:root.widgetController.setLayer(currentIndex)}
                         }
                         SettingsToggle {text:qsTr("鼠标穿透");enabled:root.widgetController.trayAvailable;checked:root.widgetController.clickThrough;onClicked:root.widgetController.setClickThrough(checked)}
                         SettingsToggle {text:qsTr("锁定拖动");checked:root.widgetController.locked;onClicked:root.widgetController.setLocked(checked)}
@@ -310,7 +320,7 @@ ApplicationWindow {
                         detail:qsTr("启动时检查，保留最近7份一致性快照。")
                         SettingsRow {
                             label:qsTr("备份周期")
-                            ComboBox {objectName:"backupDaysPicker";Layout.fillWidth:true;Accessible.name:qsTr("自动备份周期");model:[qsTr("每天"),qsTr("每7天"),qsTr("每30天")];currentIndex:[1,7,30].indexOf(root.workspace.preferences.backupDays);onActivated:root.workspace.setPreference("backupDays",[1,7,30][currentIndex])}
+                            SettingsComboBox {objectName:"backupDaysPicker";Layout.fillWidth:true;Accessible.name:qsTr("自动备份周期");model:[qsTr("每天"),qsTr("每7天"),qsTr("每30天")];currentIndex:[1,7,30].indexOf(root.workspace.preferences.backupDays);onActivated:root.workspace.setPreference("backupDays",[1,7,30][currentIndex])}
                         }
                         SettingsLink {separator:false;objectName:"settingsData";symbol:"backup";text:qsTr("数据与备份");onClicked:root.dataRequested()}
                     }

@@ -16,7 +16,7 @@ Rectangle {
     height: parent ? Math.max(0,parent.height-2*DesignTokens.controlInset) : DesignTokens.controlVisualHeight
     radius: DesignTokens.radius
     color: !enabledField ? DesignTokens.sidebar
-        : quietOutline ? DesignTokens.quietFieldFill
+        : quietOutline ? (hovered ? DesignTokens.hover : DesignTokens.quietFieldFill)
         : hovered || (understated && focused) ? DesignTokens.hover
         : understated ? "transparent" : DesignTokens.fieldFill
     border.width: focused || DesignTokens.highContrast || (!understated && !quietOutline) ? 1 : 0

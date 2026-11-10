@@ -26,7 +26,8 @@ QtObject {
     readonly property color accentText: dark ? "#101828" : "#ffffff"
     readonly property color danger: dark ? "#ff9ca4" : "#b92330"
     readonly property color success: dark ? "#83d6aa" : "#236e46"
-    readonly property color toggleOn: dark ? "#32d45a" : "#248a3d"
+    readonly property color toggleOn: highContrast ? (dark ? "#72dea0" : "#19642e") : dark ? "#26a659" : "#208946"
+    readonly property color toggleThumb: dark && highContrast ? accentText : "#ffffff"
     readonly property color border: highContrast ? (dark ? "#77808d" : "#9fa5b0") : dark ? "#49494e" : "#d9d9df"
     readonly property color taskDivider: highContrast ? border : dark ? "#323234" : "#ececef"
     readonly property color detailDivider: highContrast ? border : dark ? "#48484b" : "#e2e2e6"
@@ -48,6 +49,14 @@ QtObject {
     // Semantic roles are shared by every window; glyph size never sets its hit area.
     readonly property color brandFill: dark ? "#1e63ba" : "#0964d4"
     readonly property color smartFill: dark ? "#39393c" : "#eaeaee"
+    readonly property var smartBadgeColors: ({
+        inbox: dark ? "#b995ea" : "#8053aa",
+        today: dark ? "#42aafa" : "#1279cb",
+        scheduled: dark ? "#ff6965" : "#d63b43",
+        all: dark ? "#b0b1ba" : "#626773",
+        important: dark ? "#f4ac47" : "#ba6d09",
+        completed: dark ? "#9aaebe" : "#657985"
+    })
     readonly property int windowTitle: Math.round(22*scale)
     readonly property int panelTitle: Math.round(15*scale)
     readonly property int smartCount: Math.round(20*scale)

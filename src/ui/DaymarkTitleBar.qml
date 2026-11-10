@@ -45,9 +45,19 @@ Item {
         Accessible.name: accessibleText
         Keys.onReturnPressed: clicked()
         Keys.onEnterPressed: clicked()
-        background: Rectangle {
-            color: control.emphasized ? (control.captionAction === "close" ? "#c42b1c" : control.down || control.nativePressed ? Theme.pressed : Theme.hover) : "transparent"
-            border.width: control.visualFocus ? 1 : 0; border.color: Theme.accent
+        background: Item {
+            Rectangle {
+                objectName: "captionFeedback"
+                anchors.centerIn: parent
+                width: Math.min(36,parent.width)
+                height: Math.min(28,parent.height)
+                radius: Theme.controlRadius
+                color: !control.emphasized ? "transparent"
+                    : control.captionAction === "close" ? (control.down ? "#a72319" : "#c42b1c")
+                    : control.down || control.nativePressed ? Theme.pressed : Theme.hover
+                border.width: control.visualFocus ? 1 : 0
+                border.color: control.captionAction === "close" && control.emphasized ? "white" : Theme.accent
+            }
         }
         contentItem: Item {
             id: drawing

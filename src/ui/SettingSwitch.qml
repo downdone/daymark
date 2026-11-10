@@ -6,6 +6,7 @@ import QtQuick.Templates as T
 T.Switch {
     id: control
     property bool showSymbol: true
+    property bool highlightRow: true
     property string symbol: "settings"
     readonly property real trackWidth: Math.min(48,36*Theme.scale)
     readonly property real trackHeight: Math.min(28,22*Theme.scale)
@@ -23,17 +24,26 @@ T.Switch {
         Text {text: control.text;font: control.font;color: control.enabled ? Theme.text : Theme.disabledText;Layout.fillWidth: true;wrapMode: Text.Wrap}
     }
     indicator: Rectangle {
+        readonly property color restingColor: !control.enabled ? Theme.separator
+            : control.checked ? Theme.toggleOn : DS.DesignTokens.outline
         x: control.width-width-control.rightPadding+control.trackWidth+8
         y: (control.height-height)/2
         implicitWidth: control.trackWidth;implicitHeight: control.trackHeight
         radius: height/2
-        color: !control.enabled ? Theme.separator : control.checked ? Theme.toggleOn : DS.DesignTokens.outline
+        color: control.highlightRow || !control.enabled || Theme.highContrast ? restingColor
+            : control.down ? Qt.darker(restingColor,1.18)
+            : control.hovered ? Qt.darker(restingColor,1.08) : restingColor
         border.width: control.visualFocus ? 2 : 0;border.color: Theme.accent
         Rectangle {
             width: parent.height-6;height: width;radius: width/2
             x: control.checked ? parent.width-width-3 : 3;y: 3
-            color: Theme.dark && control.checked ? Theme.accentText : Theme.content
+            color: control.enabled && control.checked ? Theme.toggleThumb : Theme.content
         }
     }
-    background: Rectangle {radius: Theme.rowRadius;color: control.down || control.hovered ? Theme.hover : "transparent";border.width: control.visualFocus ? 2 : 0;border.color: Theme.accent}
+    background: Rectangle {
+        radius: Theme.rowRadius
+        color: control.highlightRow && (control.down || control.hovered) ? Theme.hover : "transparent"
+        border.width: control.highlightRow && control.visualFocus ? 2 : 0
+        border.color: Theme.accent
+    }
 }

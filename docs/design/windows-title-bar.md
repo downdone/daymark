@@ -42,6 +42,8 @@ WindowChromeController提供supported、mode、errorText/errorKey/原生数值�
 
 映射HIG的一致性、内容优先、适应上下文和用户控制（P-13/17/20/21，UX-09～13/79）：同一标题条/控件槽、浅深/高对比统一token、标题省略但不侵入按钮；高度max(36,caption+16)，按钮46DIP宽，不引入常驻装饰工具。活动/非活动、hover/pressed、键盘焦点、禁用、最大化/还原均明确。关闭hover用Windows危险操作习惯，按钮有Accessible.name，无普通tooltip。
 
+融合顶区中的窗口按钮共享居中的 36×28 DIP 视觉反馈。46 DIP 宽的原生命中槽、标题主轴和最大化命中仍由既有布局提供。关闭悬停为局部红色，键盘焦点独立描边。
+
 拖动空白、双击最大化/还原、右击/Alt+Space系统菜单、Alt+F4和Win+方向键沿系统。按钮Tab/Space/Enter可达，切模式不丢编辑/IME/焦点。设置选项在窄窗/200%重排，错误可换行。标题不另复制侧栏字标或工具栏。
 
 HIG来源沿项目[UI调研](ui-research.md)，[Windows](https://developer.apple.com/design/human-interface-guidelines/windows)明确遵守运行平台窗口习惯；不复制macOS交通灯或Apple资产。

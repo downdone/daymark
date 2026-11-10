@@ -21,6 +21,7 @@ QtObject {
     readonly property bool dark: DS.DesignTokens.dark
     readonly property color brandFill: DS.DesignTokens.brandFill
     readonly property color smartFill: DS.DesignTokens.smartFill
+    readonly property var smartBadgeColors: DS.DesignTokens.smartBadgeColors
     readonly property int windowTitleSize: DS.DesignTokens.windowTitle
     readonly property int panelTitleSize: DS.DesignTokens.panelTitle
     readonly property int smartCountSize: DS.DesignTokens.smartCount
@@ -39,6 +40,7 @@ QtObject {
     readonly property color calendarTodayText: DS.DesignTokens.calendarTodayText
     readonly property color danger: DS.DesignTokens.danger
     readonly property color toggleOn: DS.DesignTokens.toggleOn
+    readonly property color toggleThumb: DS.DesignTokens.toggleThumb
     readonly property color primaryInk: DS.DesignTokens.primaryInk
     readonly property color primaryFill: DS.DesignTokens.primaryFill
     readonly property color scheduleFill: DS.DesignTokens.scheduleFill

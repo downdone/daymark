@@ -2,6 +2,24 @@
 
 更新：2026-11-10。**2.2.6 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
+## 2.2.7 开关与首页标题
+
+用户选择绿色启用轨道和任务视图主题色标题，并授权 Windows 发布。按 FR-018、UX-09～11/80、P-13/17，以滑块位置及绿/灰表达开关状态，六个任务视图的标题与侧栏徽标共用浅深主题色，搜索和工具页使用正文色。对照 Apple [Toggles](https://developer.apple.com/design/human-interface-guidelines/toggles) 与 [Color](https://developer.apple.com/design/human-interface-guidelines/color)。沿现有偏好、页面路由和查询，无协议或数据库变化。验证六色映射、浅深对比、200% 字号、标题栏与设置状态，再跑正式 CTest、签名安装和 2.2.6→2.2.7 公开升级。
+
+本地 Windows Release 构建、原生标题布局和设置配色通过。窗口命中、标题栏、选择器 CTest 3/3 通过（15.73 秒），发布守卫 15/15 通过。截图见 `build/release227-preview.*`。
+
+## UI-81 开关与首页颜色
+
+按 FR-018、UX-09～11 和 P-13/17，对照用户提供的 macOS 提醒事项截图及 Apple [Color](https://developer.apple.com/design/human-interface-guidelines/color)、[Toggles](https://developer.apple.com/design/human-interface-guidelines/toggles) 指南。开关开启用操作蓝体系，关闭用中性轨道，滑块位置独立表达状态。首页五个对应智能列表分别用清蓝、暖红、中性灰、橙色、蓝灰。Daymark 收集箱保留紫色；颜色落在图标徽标，选中底、焦点和计数各自表达状态。色值按浅深和小图标对比度定义。沿现有偏好和查询契约，无网络或数据库改动。构建后检查浅深、200% 字号和实际设置流程。
+
+Windows Release 构建、原生标题与设置布局、原生品牌截图均通过。CTest 的标题栏交互与选择器生命周期 2/2 通过（14.83 秒）。复审浅色首页、浅色开关和深色 200% 首页。静态色值计算中徽标与图标对比最低 3.98:1，开启轨道与滑块最低 3.65:1。证据见 `build/reminders-colors*`。
+
+## UI-81 标题栏与设置反馈
+
+按 FR-018/039、UX-09～11/79/80、P-13/15/17 收束视觉反馈。窗口按钮的反馈独立于原生命中区，随共同标题轴居中，限制为 28 DIP 高。设置下拉值使用轻填充，焦点和高对比显示边界；开关整行可点击，反馈集中到开关轨道。按 HIG 的层级、反馈和一致性评审。沿现有命令、设置与存储，无协议或数据库变化。用原生标题栏流程和设置布局检查浅深、键盘、缩放、尺寸与状态。
+
+Windows Release 构建通过。原生标题栏流程通过并捕获悬停红底，验证 36×28 DIP 反馈与原命中槽同轴。窗口命中、标题与设置布局、选择器生命周期 CTest 3/3 通过（26.45 秒）。复审浅色设置截图，记录见 `build/ui-feedback*` 和 `build/windows-release/title-layout-preview.*`。
+
 ## 2.2.5 Windows 发布候选
 
 用户授权发布 UI-81。现有功能的兼容视觉调整使用补丁版本，候选覆盖主窗、现有详情、设置、账号外观和桌面三形态。正式构建及公开安装、2.2.4→2.2.5 在线升级由现有 Windows 流水线验证。
