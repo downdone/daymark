@@ -1,6 +1,6 @@
 # Daymark 当前进度
 
-更新：2026-11-10。**2.2.4 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-10。**2.2.6 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
 ## 2.2.5 Windows 发布候选
 
@@ -8,9 +8,16 @@
 
 [Windows 候选](https://github.com/downdone/daymark/actions/runs/42749403733)编译通过，CTest 51/52。融合标题栏的品牌、标题、动作和系统按钮未对齐，`title_bar_ui` 阻断发布。v2.2.5 保留源码标签和发行记录。
 
+## 2.2.6 Windows 发布
+
 用户追加桌面外观精修，后续候选为 2.2.6。按 UX-09～13/75/77 及 HIG 的布局、颜色层级，三形态共用单层中性外壳，小窗收束边线、Mini 取消胶囊式曲率、球以品牌色图形做识别。实体绘制收进现有原生裁剪区，保留裁剪区、窗口事务与命令路由。重点验证圆角像素、菜单完整可见、原生拖动和标题共同轴。沿现有协议和数据库。
 
 2.2.6 本地 Windows Release 构建通过。标题栏原生流程、标题布局、指针和渲染 4/4 通过（43.96 秒）。Windows 原生抗锯齿及帧事务专项通过（8.894 秒），验证 Mini 圆角像素位于实际裁剪区内，按钮位于条内，切换不改变画布。原生桌面全链通过（67.503 秒，无 QML 警告）。记录见 `build/desktop-polish*`。
+
+- 发布源码 `5ca53191e697fd9086d04c6ddd6a46865560b8fc`，注释标签对象 `c7fa5b1c4b0f22ec5c48bd9a1dd8f0bf6b5217ef`。[正式 Windows 候选](https://github.com/downdone/daymark/actions/runs/42777325730) CTest 52/52（482.99 秒），包括原生标题栏回归，QML lint、运行库与包结构通过。
+- [受保护发布与公开验收](https://github.com/downdone/daymark/actions/runs/42780317348)通过签名、独立 Windows 部署、匿名公网安装和从 2.2.4 在线升级。GitHub Release `440068974` 已公开 7 项资产，含更新清单及签名。
+- [Windows 安装包](https://github.com/downdone/daymark/releases/download/v2.2.6/Daymark-2.2.6-windows-x64-setup.exe) `730641787`，SHA-256 `e8fb5490d5b15f4be85984c1ee5f1dc100f96eb6cc184a2bec984b6e8aebc980`。[Windows 便携包](https://github.com/downdone/daymark/releases/download/v2.2.6/Daymark-2.2.6-windows-x64.zip) `730641792`，SHA-256 `8f79c37a3526d5366a2ea4c25d208cc402e3e5c05fde7487876fa5830cacf83e`。
+- 采用项目固定指纹自签名。macOS、Linux、物理混合 DPI 多屏和读屏未在本轮验证。四色流光为独立配色样稿。
 
 ## UI-81 桌面三形态复审
 
