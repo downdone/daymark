@@ -1,12 +1,16 @@
 # Daymark 当前进度
 
-更新：2026-11-10。**2.2.6 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-10。**2.2.7 已发布 / schema10 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
 ## 2.2.7 开关与首页标题
 
 用户选择绿色启用轨道和任务视图主题色标题，并授权 Windows 发布。按 FR-018、UX-09～11/80、P-13/17，以滑块位置及绿/灰表达开关状态，六个任务视图的标题与侧栏徽标共用浅深主题色，搜索和工具页使用正文色。对照 Apple [Toggles](https://developer.apple.com/design/human-interface-guidelines/toggles) 与 [Color](https://developer.apple.com/design/human-interface-guidelines/color)。沿现有偏好、页面路由和查询，无协议或数据库变化。验证六色映射、浅深对比、200% 字号、标题栏与设置状态，再跑正式 CTest、签名安装和 2.2.6→2.2.7 公开升级。
 
 本地 Windows Release 构建、原生标题布局和设置配色通过。窗口命中、标题栏、选择器 CTest 3/3 通过（15.73 秒），发布守卫 15/15 通过。截图见 `build/release227-preview.*`。
+
+- 正式源码 `54dded6a2ad392441f5f2cf7642cf7ccb23a23d9`，注释标签对象 `466d23fd036e550f56f0cad8fe478fd43dc9581a`。[正式 Windows 候选](https://github.com/downdone/daymark/actions/runs/42784611656) CTest 52/52（500.33 秒），QML lint、运行库与包结构通过。
+- [受保护发布](https://github.com/downdone/daymark/actions/runs/42787478710)首次独立 Windows 冒烟进程提前退出，日志未报告具体断言。本机同入口通过，复验只重跑失败作业并复用原签名候选。独立部署、签名发布、匿名公网安装和从 2.2.6 在线升级均通过。
+- GitHub Release `440117273` 已公开七项资产，含签名更新清单。[Windows 安装包](https://github.com/downdone/daymark/releases/download/v2.2.7/Daymark-2.2.7-windows-x64-setup.exe) `730803172`，SHA-256 `04390652d1e883013f53b44adc3db31fcae915173cbbd5bccee9a83bc96a027b`。[便携包](https://github.com/downdone/daymark/releases/download/v2.2.7/Daymark-2.2.7-windows-x64.zip) `730803160`，SHA-256 `ccd8824f2aa2f5d00573ee53756905bd291c649e523baa57127cb049978d9190`。
 
 ## UI-81 开关与首页颜色
 
