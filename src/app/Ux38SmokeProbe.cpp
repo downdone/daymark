@@ -324,7 +324,19 @@ QString Ux38SmokeProbe::advance() {
     if(m_stage==42){m_workspace.saveCatalog({{"kind","project"},{"title",QStringLiteral("这是需要截断显示并且应该恢复完整名称的分类验收")}});}
     if(m_stage==43){for(const auto& value:m_workspace.categoryTree()){const auto row=value.toMap();if(row.value("title")=="123")m_shortCategory=row.value("id").toString();else if(row.value("title").toString().startsWith(QStringLiteral("这是需要截断")))m_longCategory=row.value("id").toString();}if(m_shortCategory.isEmpty() || m_longCategory.isEmpty())return fail("catalog hint fixtures");m_main->requestActivate();m_main->grabWindow();capture(m_main,"category-hints");hover(find(m_main,"categoryNav-"+m_shortCategory),"navigationLabel");}
     if(m_stage==44){if(m_wait.elapsed()<750)return {};if(hint(find(m_main,"categoryNav-"+m_shortCategory)).value("visible").toBool())return fail("short category repeats visible name");m_main->grabWindow();auto* row=find(m_main,"categoryNav-"+m_longCategory);auto* label=find(row,"navigationLabel");if(!label->property("truncated").toBool()){if(m_wait.elapsed()<1800)return {};qCritical()<<"Long hint geometry"<<label->property("width")<<label->property("text")<<label->property("visible")<<label->property("contentWidth")<<m_main->size();capture(m_main,"category-failure");return fail("long category fixture not truncated");}hover(row,"navigationLabel");}
-    if(m_stage==45){if(m_wait.elapsed()<750)return {};const auto info=hint(find(m_main,"categoryNav-"+m_longCategory));if(!info.value("visible").toBool() || !info.value("text").toString().startsWith(QStringLiteral("这是需要截断")))return fail("truncated category did not reveal full text");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
+    if(m_stage==45){
+        if(m_wait.elapsed()<750)return {};
+        auto* row=find(m_main,"categoryNav-"+m_longCategory);
+        const auto info=hint(row);
+        if(!info.value("visible").toBool() || !info.value("text").toString().startsWith(QStringLiteral("这是需要截断"))){
+            const auto* label=qobject_cast<QQuickItem*>(find(row,"navigationLabel"));
+            qCritical()<<"Category hint state"<<info<<"main active"<<m_main->isActive()
+                       <<"label"<<(label?label->mapToGlobal(QPointF(label->width()/2,label->height()/2)):QPointF())
+                       <<"widget"<<m_widget->geometry()<<"cursor"<<QCursor::pos();
+            return fail("truncated category did not reveal full text");
+        }
+        QMetaObject::invokeMethod(m_widget,"openVerificationMenu");
+    }
     if(m_stage==46){if(hint(find(m_main,"categoryNav-"+m_longCategory)).value("visible").toBool())return fail("cross-window menu tooltip suppression");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");auto* row=qobject_cast<QQuickItem*>(find(m_main,"categoryNav-"+m_shortCategory));hover(m_main,"contentViewSwitch");row->forceActiveFocus();}
     if(m_stage==47){if(m_wait.elapsed()<750)return {};if(hint(find(m_main,"categoryNav-"+m_shortCategory)).value("visible").toBool())return fail("keyboard focus opened tooltip");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("highContrast",false);m_main->resize(1120,720);m_main->requestActivate();m_workspace.setView("inbox");}
     if(m_stage>=48 && m_stage<=53){m_main->grabWindow();const QStringList views={"inbox","today","scheduled","all","important","completed"};if(!checkSidebar() || m_workspace.scope()!=views[m_stage-48]){if(m_wait.elapsed()<1800)return {};return fail("sidebar layout or six-scope routing");}if(m_stage==48){QVariant rhythm;QMetaObject::invokeMethod(m_main,"verifyPageRhythm",Q_RETURN_ARG(QVariant,rhythm));if(rhythm!="PASS" || !capture(m_main,"sidebar-light"))return fail("page typography rhythm: "+rhythm.toString());}click("navigation-"+(m_stage<53?views[m_stage-47]:QString("inbox")),m_main);}
@@ -745,9 +757,20 @@ QString Ux38SmokeProbe::advance() {
         m_controller.selectForm(2);
     }
     if(m_stage==151){
+        if(m_controller.transitionPending()){
+            if(m_wait.elapsed()<1500)return {};
+            return fail("explicit ball frame did not settle");
+        }
         if(!m_controller.miniCollapsed() || !layout() || !capture(m_widget,"forms-ball"))return fail("explicit ball renders independently");
         if(QGuiApplication::platformName()=="windows"){
-            const auto mask=m_widget->mask();if(mask.isEmpty() || mask.contains(QPoint(0,0)) || !mask.contains(QPoint(m_widget->width()/2,m_widget->height()/2)))return fail("native ball input region follows round surface");
+            // The ball occupies one corner of the persistent widget canvas.
+            const auto ball=m_controller.ballRect();
+            const auto mask=m_widget->mask();
+            if(mask.isEmpty() || !ball.contains(mask.boundingRect()) ||
+               mask.contains(ball.topLeft()) || !mask.contains(ball.center())){
+                qCritical()<<"Ball input geometry"<<ball<<"region"<<mask.boundingRect()<<"canvas"<<m_widget->geometry();
+                return fail("native ball input region follows round surface");
+            }
         }
         QMetaObject::invokeMethod(m_widget,"openVerificationMenu");
     }

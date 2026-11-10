@@ -19,6 +19,12 @@ QtObject {
     readonly property int hintTimeout: DS.DesignTokens.hintTimeout
     readonly property bool hintsBlocked: DS.DesignTokens.activeMenus>0 || DS.DesignTokens.dragActive
     readonly property bool dark: DS.DesignTokens.dark
+    readonly property color brandFill: DS.DesignTokens.brandFill
+    readonly property color smartFill: DS.DesignTokens.smartFill
+    readonly property int windowTitleSize: DS.DesignTokens.windowTitle
+    readonly property int panelTitleSize: DS.DesignTokens.panelTitle
+    readonly property int smartCountSize: DS.DesignTokens.smartCount
+    readonly property int completionSize: DS.DesignTokens.completionSize
     readonly property color content: DS.DesignTokens.surface
     readonly property color sidebar: DS.DesignTokens.sidebar
     readonly property color grouped: DS.DesignTokens.grouped
@@ -40,6 +46,10 @@ QtObject {
     readonly property color pressed: DS.DesignTokens.pressed
     readonly property color success: DS.DesignTokens.success
     readonly property color separator: DS.DesignTokens.border
+    readonly property color taskDivider: DS.DesignTokens.taskDivider
+    readonly property color detailDivider: DS.DesignTokens.detailDivider
+    readonly property color navigationSelection: DS.DesignTokens.navigationSelection
+    readonly property color inactiveSelection: DS.DesignTokens.inactiveSelection
     readonly property string fontFamily: DS.DesignTokens.fontFamily
     readonly property int taskTitleSize: DS.DesignTokens.taskTitle
     readonly property int rowRadius: DS.DesignTokens.rowRadius
@@ -69,6 +79,7 @@ QtObject {
     readonly property int metadataActionHeight: DS.DesignTokens.metadataActionHeight
     readonly property int textLineGap: DS.DesignTokens.textLineGap
     readonly property int pageTitleSize: DS.DesignTokens.pageTitle
+    readonly property int pageCountSize: DS.DesignTokens.pageCount
     readonly property int panelRadius: DS.DesignTokens.panelRadius
     readonly property int pagePadding: DS.DesignTokens.pagePadding
     readonly property int pageRegionGap: DS.DesignTokens.pageRegionGap

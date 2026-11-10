@@ -11,12 +11,14 @@ Popup {
     property bool multiple: false
     property real heightLimit: 440
     readonly property var hostWindow: parent ? parent.Window.window : null
+    readonly property real choiceHeight: Math.max(DS.DesignTokens.menuRowHeight,choiceMetrics.height+4)
+    FontMetrics {id: choiceMetrics;font.family: DS.DesignTokens.fontFamily;font.pixelSize: DS.DesignTokens.body}
     signal selected(string kind,string id,bool checked)
     signal createRequested(string kind)
     readonly property var matches: options.filter(item=>!search.text || (item.path || item.title).toLocaleLowerCase().indexOf(search.text.toLocaleLowerCase())>=0)
     width: Math.min(320*DS.DesignTokens.scale,hostWindow ? hostWindow.width-24 : 640)
-    height: Math.min(heightLimit,Math.max(220,140+Math.min(8,options.length)*32))
-    padding: 12;margins: 8;focus: true
+    height: Math.min(heightLimit,hostWindow ? hostWindow.height-16 : heightLimit,pickerContent.implicitHeight+topPadding+bottomPadding)
+    padding: 8;margins: 8;focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     onOpened: {search.clear();choices.positionViewAtBeginning();search.forceActiveFocus()}
     onAboutToShow: {
@@ -27,12 +29,14 @@ Popup {
     }
     background: Rectangle {color: DS.DesignTokens.surface;radius: DS.DesignTokens.panelRadius;border.color: DS.DesignTokens.border}
     contentItem: ColumnLayout {
+        id: pickerContent
         spacing: 8
         Label {text: root.heading;font.weight: Font.DemiBold}
-        TextField {id: search;Layout.fillWidth: true;placeholderText: qsTr("搜索…");Accessible.name: qsTr("搜索%1").arg(root.heading)}
+        TextField {id: search;objectName:"catalogPickerSearch";Layout.fillWidth: true;placeholderText: qsTr("搜索…");Accessible.name: qsTr("搜索%1").arg(root.heading)}
         ListView {
             id: choices
             Layout.fillWidth: true;Layout.fillHeight: true
+            implicitHeight: Math.max(Theme.controlHeight,Math.min(8,root.matches.length)*root.choiceHeight)
             cacheBuffer: 0;clip: true;boundsBehavior: Flickable.StopAtBounds
             DS.ScrollPhysics {target: choices}
             model: root.visible ? root.matches : []
@@ -41,6 +45,8 @@ Popup {
                 id: option
                 required property var modelData
                 width: choices.width-Theme.scrollGutter
+                implicitHeight: root.choiceHeight
+                topPadding: 2;bottomPadding: 2
                 text: modelData.path || modelData.title
                 checkable: true
                 checked: root.selectedIds.indexOf(modelData.id)>=0

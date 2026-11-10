@@ -5,7 +5,7 @@ T.TextArea {
     implicitWidth: 240
     implicitHeight: Math.max(96,contentHeight+20)
     padding: 10
-    font.pixelSize: DesignTokens.body
+    font.pixelSize: DesignTokens.listTitle
     font.family: DesignTokens.fontFamily
     color: enabled ? DesignTokens.text : DesignTokens.disabledText
     placeholderTextColor: DesignTokens.secondary

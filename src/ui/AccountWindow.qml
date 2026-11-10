@@ -150,18 +150,18 @@ ApplicationWindow {
             contentWidth: availableWidth
             Item {
                 width: body.availableWidth
-                implicitHeight: contentColumn.implicitHeight + 48
+                implicitHeight: contentColumn.implicitHeight + 32
                 ColumnLayout {
                     id: contentColumn
                     objectName: "accountContent"
                     anchors.top: parent.top
                     anchors.topMargin: 16
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: Math.max(0, Math.min(parent.width - 48, 440 * Math.min(1.4, Theme.scale)))
+                    width: Math.max(0, Math.min(parent.width - 32, 400 * Math.min(1.4, Theme.scale)))
                     spacing: Theme.blockGap
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: Theme.fieldGap
-                        Label { objectName: "accountHeading"; Layout.fillWidth: true; text: root.connected ? qsTr("账号与同步") : root.syncRegisterMode ? qsTr("创建账号") : qsTr("登录 Daymark"); font.pixelSize: Theme.headingSize; font.weight: Font.DemiBold; wrapMode: Text.Wrap }
+                        Label { objectName: "accountHeading"; Layout.fillWidth: true; text: root.connected ? qsTr("账号与同步") : root.syncRegisterMode ? qsTr("创建账号") : qsTr("登录 Daymark"); font.pixelSize: Theme.windowTitleSize; font.weight: Font.DemiBold; wrapMode: Text.Wrap }
                         Label { Layout.fillWidth: true; text: root.connected ? qsTr("你的任务先保存在此设备，再同步到服务器。") : qsTr("在你的设备之间，同步任务与安排。"); font.pixelSize: Theme.bodySize; color: Theme.secondary; wrapMode: Text.Wrap }
                     }
                     ColumnLayout {

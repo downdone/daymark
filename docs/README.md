@@ -39,6 +39,8 @@
 ## 3. 设计契约（现行）
 
 ### 3.1 界面与视觉
+[界面焕新设计稿](design/daymark-interface-refresh.md) · [焕新技术设计与全局评审](design/daymark-interface-refresh-technical.md)
+
 [品牌接入契约](design/brand-identity-integration.md) · [现行母版](../assets/brand/current/README.md) · [完整VI与PDF](../resource/VI/README.md) · [UI/UX 设计基准](design/ui-baseline.md) · [验收与迁移](design/ui-acceptance.md) · [官方调研](design/ui-research.md) · [全局视觉系统](design/global-visual-system.md) · [排版与比例留白](design/typography-and-proportional-spacing.md) · [空间稳定与滚动槽](design/stable-layout-and-scroll.md) · [提示与垂直节奏](design/tooltip-and-layout-rhythm.md) · [全菜单](design/menu-system-review.md) · [侧栏与字标](design/sidebar-and-wordmark.md) · [两栏设置](design/settings-split-navigation.md) · [详情尺寸](design/inspector-size-control.md)
 
 ### 3.2 任务与列表

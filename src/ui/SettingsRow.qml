@@ -29,5 +29,5 @@ Control {
         }
         ColumnLayout {id:values;Layout.fillWidth:true;spacing:2}
     }
-    Rectangle {visible:root.separator;x:12;y:parent.height-1;width:parent.width-24;height:1;color:Theme.separator}
+    Rectangle {visible:root.separator;x:12;y:parent.height-1;width:parent.width-24;height:1;color:Theme.detailDivider}
 }

@@ -11,14 +11,16 @@ Dialog {
     signal dateSelected(string date,string field)
     title: field === "upcoming" ? qsTr("安排到未来日期") : field === "start" ? qsTr("选择计划开始日") : qsTr("选择截止日")
     width: Math.min(360*Theme.scale,parent.width-32)
-    height: Math.min(460*Theme.scale,parent.height-32)
+    height: Math.min(implicitHeight,parent.height-32)
     modal: true
     standardButtons: Dialog.Cancel
     function showFor(date,which) {field=which;selectedDate=date;month=workspace.datePicker(date,0);open()}
     contentItem: ScrollView {
         id:dateScroll
+        implicitHeight: dateContent.implicitHeight+topPadding+bottomPadding
         clip: true
         ColumnLayout {
+            id: dateContent
             width: dateScroll.availableWidth
             RowLayout {
                 IconToolButton {contentItem: AppIcon {name: "left"} Accessible.name: qsTr("上月"); onClicked: root.month=root.workspace.datePicker(root.month.anchor,-1) }

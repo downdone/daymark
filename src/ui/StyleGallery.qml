@@ -24,7 +24,9 @@ Dialog {
     }
     function verifyVisualSystem() {
         if(Theme.titleSize<=Theme.headingSize || Theme.headingSize<=Theme.bodySize || Theme.bodySize<=Theme.captionSize || Theme.captionSize<=Theme.footnoteSize)return "type hierarchy";
-        if(Theme.controlRadius>=Theme.menuRadius || Theme.menuRadius>=Theme.groupRadius || Theme.groupRadius>=Theme.panelRadius)return "surface hierarchy";
+        // UI-81: cards and compact popovers share a radius; a popover does not
+        // need a rounder silhouette merely because it is on another layer.
+        if(Theme.controlRadius>=Theme.menuRadius || Theme.menuRadius>=Theme.groupRadius || Theme.groupRadius>Theme.panelRadius)return "surface hierarchy";
         return verifyMenuGroups();
     }
     property bool menuAuditFirst:true

@@ -21,6 +21,7 @@ ItemDelegate {
     property bool dragging: false
     property point dragPosition: Qt.point(0,0)
     property bool reduceMotion: false
+    property bool showSeparator: false
     property bool completing: false
     property bool removing: false
     signal openRequested(string id)
@@ -115,6 +116,7 @@ ItemDelegate {
         id: body
         spacing: 4
         IconToolButton {
+            id: completionAction
             objectName: "widgetComplete-"+row.taskId
             hintEnabled: false
             Layout.alignment: Qt.AlignTop
@@ -126,8 +128,9 @@ ItemDelegate {
             contentItem: Item {
                 implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize
                 Rectangle {
-                    anchors.centerIn: parent
-                    width: Theme.iconSize;height: width;radius: width/2
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: row.summary.length>0 ? (titleLabel.height-height)/2-completionAction.topPadding : (parent.height-height)/2
+                    width: Theme.completionSize;height: width;radius: width/2
                     color: row.removing ? Theme.accent : "transparent"
                     border.color: row.removing ? Theme.accent : Theme.secondary
                     AppIcon {anchors.centerIn: parent;width: Theme.iconSize*2/3;height: width;name: "check";ink: Theme.accentText;visible: row.removing}
@@ -135,10 +138,12 @@ ItemDelegate {
             }
         }
         ColumnLayout {
+            id: textStack
             Layout.fillWidth: true;Layout.minimumWidth: 0
             spacing: 2
             HoverHandler {id: textHover}
             RowLayout {
+                id: titleRow
                 Layout.fillWidth: true
                 spacing: 4
                 AppIcon {
@@ -154,13 +159,14 @@ ItemDelegate {
                     font.strikeout: row.removing;color: row.removing ? Theme.secondary : Theme.text
                     elide: Text.ElideRight
                 }
-                AppIcon {visible: row.important;name: "flag";ink: Theme.accent;Layout.preferredWidth: Theme.iconSize;Layout.preferredHeight: Theme.iconSize;Accessible.name: qsTr("特别关注")}
+                AppIcon {visible: row.important;name: "flag";ink: Theme.catalogColor("orange");Layout.preferredWidth: Theme.iconSize;Layout.preferredHeight: Theme.iconSize;Accessible.name: qsTr("特别关注")}
                 AppIcon {visible:row.pinned;name:"pin";ink:Theme.secondary;Layout.preferredWidth:Theme.iconSize;Layout.preferredHeight:Theme.iconSize;Accessible.name:qsTr("已置顶")}
             }
             Label {
                 id: summaryLabel
                 visible: row.summary.length>0
                 Layout.fillWidth: true;Layout.minimumWidth: 0
+                Layout.leftMargin: titleLabel.x
                 text: row.summary;textFormat: Text.PlainText;font.pixelSize: Theme.captionSize
                 color: row.isOverdue ? Theme.danger : Theme.secondary;elide: Text.ElideRight
             }
@@ -172,7 +178,17 @@ ItemDelegate {
     ToolTip.text: title+(summary.length ? "\n"+summary : "")
     background: Rectangle {
         radius: Theme.rowRadius
-        color: row.down ? Theme.pressed : row.hovered ? Theme.hover : "transparent"
-        border.width: row.visualFocus || row.highlighted ? 1 : 0;border.color: Theme.accent
+        color: "transparent"
+        border.width: row.visualFocus || row.highlighted || row.down ? 1 : 0
+        border.color: Theme.accent
+        Rectangle {
+            x: body.x + textStack.x + titleRow.x + titleLabel.x
+            anchors.bottom: parent.bottom
+            width: Math.max(0,parent.width-x-row.rightPadding)
+            height: 1
+            color: Theme.taskDivider
+            visible: row.showSeparator && !row.visualFocus && !row.highlighted && !row.down
+                     && !row.dragging && !row.removing && !dropZone.containsDrag
+        }
     }
 }

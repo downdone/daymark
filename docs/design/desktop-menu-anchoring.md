@@ -50,3 +50,5 @@ Popup.Window命令菜单显式focus/modal且不变暗背景。菜单打开期间
 共享Menu以nativePresented区分实际系统菜单与窗口回退；原生锚点采用按钮左下/点击位置，由系统避让，不拿QML预测宽度去定位系统菜单。自绘的颜色/原生窗口层级绑定仅在真实独立QQuickWindow存在时应用；系统菜单不触碰宿主透明色，也不创建一层虚假的QML实体菜单。
 
 验证分开记录：desktop_surfaces明确验证自绘回退的布局/图像/事件，不冒充系统菜单；desktop_input_feedback离屏覆盖空白右键无动作、更多入口、任务恢复和回退8轮。Windows专用分支实际显示系统菜单，以平台消息循环的有界取消检查生命周期，程序触发只记接线，不记真实鼠标。native-menu-fixture保留隔离资料和45秒无进展看门狗供真实输入；为使无障碍工具发现它，仅该手动夹具改普通任务窗类型，生产组件仍为Qt::Tool。真实工具窗/系统合成及macOS仍按各自证据验收。
+
+在 Windows 后端运行 `--desktop-surfaces-smoke` 完整回退链时，进程启动前设 `DAYMARK_SMOKE_MENU_FALLBACK=1`，并清除 `DAYMARK_SMOKE_UI_SLICE`。单靠运行中设置 `popupType` 无法可靠阻止 Qt 进入阻塞式系统菜单循环。专测系统任务菜单时设 `DAYMARK_SMOKE_UI_SLICE=task-menu` 并清除回退变量，继续检查实际 Win32 菜单窗口、上下层级和任务身份。需要保存截图时使用带 `.png` 后缀的路径。

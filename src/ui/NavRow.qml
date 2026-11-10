@@ -15,7 +15,11 @@ ItemDelegate {
     property bool suppressCatalogTooltips: false
     signal expansionRequested(bool value)
     signal optionsRequested(real x,real y)
-    function hintForVerification(){const tip=ToolTip.toolTip;return {visible:tip ? tip.visible && tip.parent===root : false,text:tip ? tip.text : ""}}
+    function hintForVerification(){
+        const tip=ToolTip.toolTip
+        return {visible:tip ? tip.visible && tip.parent===root : false,text:tip ? tip.text : "",
+                hovered:navTextHover.hovered,blocked:Theme.hintsBlocked,attached:tip ? tip.parent===root : false}
+    }
     ToolTip.visible: !Theme.hintsBlocked && showCatalogActions && navTextHover.hovered && !down && !catalogDragging && !suppressCatalogTooltips && detailsText.length>0 && (navText.truncated || detailsText!==text)
     ToolTip.delay: Theme.hintDelay
     ToolTip.timeout: Theme.hintTimeout
@@ -102,5 +106,10 @@ ItemDelegate {
     Keys.onEscapePressed: function(event){if(root.catalogDragging){catalogProxy.Drag.cancel();root.catalogDragging=false;categoryDrag.enabled=false;categoryDrag.enabled=Qt.binding(function(){return root.canDragCatalog})}else event.accepted=false}
     background: Rectangle {
         Rectangle {visible: dropTarget.containsDrag && root.catalogDropAllowed && root.catalogDropPlacement!=="inside";height: 2;width: parent.width;y: root.catalogDropPlacement==="before" ? 0 : parent.height-2;color: Theme.accent}
-        radius: Theme.rowRadius; color: (dropTarget.containsDrag && (!root.catalogDropActive || (root.catalogDropAllowed && root.catalogDropPlacement==="inside"))) || root.selected ? Theme.selected : root.hovered ? Theme.hover : "transparent"; border.width: (root.activeFocus && !root.catalogDragging) || (dropTarget.containsDrag && root.catalogDropAllowed && root.catalogDropPlacement==="inside") ? 1 : 0; border.color: Theme.accent }
+        radius: Theme.rowRadius
+        color: dropTarget.containsDrag && (!root.catalogDropActive || (root.catalogDropAllowed && root.catalogDropPlacement==="inside"))
+               ? Theme.selected : root.selected ? Theme.navigationSelection : root.hovered ? Theme.hover : "transparent"
+        border.width: (root.visualFocus && !root.catalogDragging) || (dropTarget.containsDrag && root.catalogDropAllowed && root.catalogDropPlacement==="inside") ? 1 : 0
+        border.color: Theme.accent
+    }
 }

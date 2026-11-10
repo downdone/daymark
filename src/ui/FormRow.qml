@@ -8,6 +8,7 @@ GridLayout {
     required property string label
     property string detail: ""
     property bool contextual: false
+    // The shared axis must also fit four-character labels such as 结束重复.
     property real labelWidth: contextual ? 56*Theme.scale : Theme.propertyLabelWidth
     property real minimumValueWidth: 180*Theme.scale
     readonly property bool stacked: width<labelWidth+minimumValueWidth+12
@@ -42,7 +43,7 @@ GridLayout {
         visible: row.detail.length>0
         text: row.detail
         Layout.columnSpan: row.stacked ? 1 : 2
-        Layout.leftMargin: row.stacked ? 0 : row.labelWidth+12
+        Layout.leftMargin: row.stacked ? 0 : row.labelWidth+row.columnSpacing
         Layout.fillWidth: true
         font.pixelSize: Theme.captionSize
         wrapMode: Text.Wrap

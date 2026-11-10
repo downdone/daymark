@@ -11,6 +11,7 @@ PickerLifecycleProbe::PickerLifecycleProbe(QQmlApplicationEngine &e,
 PickerLifecycleProbe::~PickerLifecycleProbe() {
   delete date.data();
   delete time.data();
+  delete catalog.data();
 }
 QString PickerLifecycleProbe::advance() {
   if (!workspace.ready() || workspace.busy())
@@ -118,6 +119,53 @@ QString PickerLifecycleProbe::advance() {
   } else if (phase == 11) {
     if (date->property("pickerContentLoaded").toBool())
       return fail("large date retained");
+    workspace.setTextScale(1);
+    QQmlComponent component(&engine);
+    component.loadFromModule("Daymark", "CatalogPicker");
+    catalog = component.createWithInitialProperties(
+        {{"parent", QVariant::fromValue(window->contentItem())},
+         {"heading", QStringLiteral("分类")},
+         {"options", QVariantList{
+             QVariantMap{{"id", "a"}, {"title", "Alpha"}},
+             QVariantMap{{"id", "b"}, {"title", "Beta"}}}}});
+    if (!catalog)
+      return fail("catalog creation");
+    catalog->setParent(window->contentItem());
+    invoke(catalog, "open");
+  } else if (phase == 12) {
+    compactCatalogHeight = catalog->property("height").toReal();
+    if (!catalog->property("visible").toBool() || compactCatalogHeight <= 0 ||
+        compactCatalogHeight >= 220)
+      return fail("short catalog should use natural height");
+    auto *search = catalog->findChild<QObject *>("catalogPickerSearch");
+    if (!search)
+      return fail("catalog search missing");
+    search->setProperty("text", "missing");
+  } else if (phase == 13) {
+    if (catalog->property("height").toReal() >= compactCatalogHeight)
+      return fail("filtered empty catalog retains blank rows");
+    QVariantList options;
+    for (int i = 0; i < 20; ++i)
+      options.append(QVariantMap{{"id", QString::number(i)},
+                                 {"title", QStringLiteral("Category %1").arg(i)}});
+    catalog->setProperty("options", options);
+    catalog->findChild<QObject *>("catalogPickerSearch")->setProperty("text", "");
+  } else if (phase == 14) {
+    const auto height = catalog->property("height").toReal();
+    if (height <= compactCatalogHeight || height > window->height() - 16 ||
+        height > catalog->property("heightLimit").toReal())
+      return fail("long catalog should grow within work area");
+    workspace.setTextScale(2);
+  } else if (phase == 15) {
+    const auto height = catalog->property("height").toReal();
+    if (height <= 0 || height > window->height() - 16 ||
+        height > catalog->property("heightLimit").toReal())
+      return fail("large catalog should remain bounded");
+    invoke(catalog, "close");
+  } else if (phase == 16) {
+    if (catalog->property("visible").toBool() ||
+        time->property("text") != "08:05")
+      return fail("catalog close changes unrelated field");
     return "DONE";
   }
   ++phase;

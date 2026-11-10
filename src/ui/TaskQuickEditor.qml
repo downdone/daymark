@@ -73,7 +73,7 @@ Control {
         RowLayout {
             id:quickHeader
             Layout.fillWidth: true;spacing: Theme.listTextGap
-            IconToolButton {id: quickComplete;Layout.alignment:Qt.AlignTop;enabled:!root.creationMode;hintEnabled: false;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {id:quickCompletionMark;anchors.horizontalCenter:parent.horizontalCenter;y:root.titleInkCenter-quickComplete.y-quickComplete.topPadding-height/2;width: Math.min(24,18*Theme.scale);height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.25}} onClicked: root.completeRequested()}
+            IconToolButton {id: quickComplete;Layout.alignment:Qt.AlignTop;enabled:!root.creationMode;hintEnabled: false;objectName: "inlineCompleteTask";Accessible.name: qsTr("完成任务：%1").arg(root.titleText);contentItem: Item {implicitWidth: Theme.iconSize;implicitHeight: Theme.iconSize;Rectangle {id:quickCompletionMark;anchors.horizontalCenter:parent.horizontalCenter;y:root.titleInkCenter-quickComplete.y-quickComplete.topPadding-height/2;width: Theme.completionSize;height: width;radius: width/2;color: "transparent";border.color: Theme.secondary;border.width: 1.25}} onClicked: root.completeRequested()}
             ColumnLayout {id:quickTextStack;Layout.fillWidth:true;Layout.alignment:Qt.AlignTop;spacing:Theme.textLineGap
             TextField {
                 id: quickTitle;objectName: "quickEditorTitle"
@@ -134,7 +134,7 @@ Control {
                 width: text ? 116*Theme.scale : height;height: Math.max(32,Theme.captionSize+14);implicitWidth: width
                 font.pixelSize: Theme.captionSize
                 iconOnly:!text;readOnly: true;activeFocusOnTab: false;color: iconOnly ? "transparent" : Theme.secondary;leftPadding: 8;placeholderText: ""
-                background: Rectangle {radius: height/2;border.width: quickStart.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickStart.text ? Theme.selected : Theme.hover}
+                background: Rectangle {radius: quickStart.iconOnly ? height/2 : Theme.controlRadius;border.width: quickStart.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickStart.text ? Theme.selected : Theme.hover}
                 onDateChosen: root.startEdited(text)
                 onActiveFocusChanged: if(activeFocus)root.focusRequested(quickStart)
             }
@@ -145,7 +145,7 @@ Control {
                 width: text ? 116*Theme.scale : height;height: Math.max(32,Theme.captionSize+14);implicitWidth: width
                 font.pixelSize: Theme.captionSize
                 readOnly: true;activeFocusOnTab: false;color: iconOnly ? "transparent" : Theme.secondary;leftPadding: 8;placeholderText: ""
-                background: Rectangle {radius: height/2;border.width: quickEnd.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickEnd.text ? Theme.selected : Theme.hover}
+                background: Rectangle {radius: quickEnd.iconOnly ? height/2 : Theme.controlRadius;border.width: quickEnd.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickEnd.text ? Theme.selected : Theme.hover}
                 onDateChosen: root.deadlineEdited(text)
                 onActiveFocusChanged: if(activeFocus)root.focusRequested(quickEnd)
             }
@@ -154,7 +154,7 @@ Control {
                 id: tagButton
                 objectName: "quickTagButton"
                 width: Math.max(32,Theme.iconSize+12);height: width
-                background: Rectangle {radius: height/2;color: tagButton.down ? Theme.pressed : tagButton.hovered ? Theme.hover : root.tagIds.length>0 ? Theme.selected : Theme.hover;border.width: tagButton.visualFocus ? 1 : 0;border.color: Theme.accent}
+                background: Rectangle {radius: Theme.controlRadius;color: tagButton.down ? Theme.pressed : tagButton.hovered ? Theme.hover : root.tagIds.length>0 ? Theme.selected : Theme.hover;border.width: tagButton.visualFocus ? 1 : 0;border.color: Theme.accent}
                 contentItem: AppIcon {name: "tag";ink: root.tagIds.length>0 ? Theme.accent : Theme.secondary}
                 Accessible.name: qsTr("选择标签，已选%1个").arg(root.tagIds.length)
                 onClicked: tagPicker.popup(tagButton,0,tagButton.height)
@@ -163,7 +163,7 @@ Control {
             IconToolButton {
                 id: destinationButton
                 width: Math.max(32,Theme.iconSize+12);height: width
-                background: Rectangle {radius: height/2;color: destinationButton.down ? Theme.pressed : destinationButton.hovered ? Theme.hover : root.destinationId ? Theme.selected : Theme.hover;border.width: destinationButton.visualFocus ? 1 : 0;border.color: Theme.accent}
+                background: Rectangle {radius: Theme.controlRadius;color: destinationButton.down ? Theme.pressed : destinationButton.hovered ? Theme.hover : root.destinationId ? Theme.selected : Theme.hover;border.width: destinationButton.visualFocus ? 1 : 0;border.color: Theme.accent}
                 contentItem: AppIcon {name: "folder";ink: root.destinationId ? Theme.accent : Theme.secondary}
                 Accessible.name: qsTr("选择分类")
                 onClicked: destinationPicker.open()
@@ -173,14 +173,14 @@ Control {
                 id: reminder;objectName: "quickEditorReminder";workspace: root.workspace;iconOnly: true;commitTask: false
                 width: Math.max(32,Theme.iconSize+12);height: width;implicitWidth: width
                 readOnly: true;activeFocusOnTab: false;color: "transparent";leftPadding: 0;placeholderText: ""
-                background: Rectangle {radius: height/2;border.width: reminder.activeFocus ? 1 : 0;border.color: Theme.accent;color: reminder.text ? Theme.selected : Theme.hover}
+                background: Rectangle {radius: Theme.controlRadius;border.width: reminder.activeFocus ? 1 : 0;border.color: Theme.accent;color: reminder.text ? Theme.selected : Theme.hover}
                 onReminderChosen: {root.reminderCycleEdited(repeatFrequency,repeatInterval);root.reminderEdited(text)}
                 onActiveFocusChanged: if(activeFocus)root.focusRequested(reminder)
             }
             Binding {target: reminder;property: "text";value: root.reminderText}
             Binding {target: reminder;property: "repeatFrequency";value: root.reminderRepeat}
             Binding {target: reminder;property: "repeatInterval";value: root.reminderEvery}
-            IconToolButton {id:importantButton;objectName:"quickImportant";Accessible.name:checked ? qsTr("取消特别关注") : qsTr("特别关注");checkable:true;checked:root.important;background:Rectangle {radius:height/2;color:importantButton.checked ? Theme.selected : importantButton.down ? Theme.pressed : Theme.hover;border.width:importantButton.visualFocus ? 1 : 0;border.color:Theme.accent} contentItem:AppIcon{name:"flag";ink:root.important ? Theme.catalogColor("orange") : Theme.secondary} onClicked:root.importantEdited(checked)}
+            IconToolButton {id:importantButton;objectName:"quickImportant";Accessible.name:checked ? qsTr("取消特别关注") : qsTr("特别关注");checkable:true;checked:root.important;background:Rectangle {radius:Theme.controlRadius;color:importantButton.checked ? Theme.selected : importantButton.down ? Theme.pressed : Theme.hover;border.width:importantButton.visualFocus ? 1 : 0;border.color:Theme.accent} contentItem:AppIcon{name:"flag";ink:root.important ? Theme.catalogColor("orange") : Theme.secondary} onClicked:root.importantEdited(checked)}
         }
         Label {Layout.fillWidth: true;Layout.leftMargin: root.textInset;visible: text.length>0;text: root.workspace.errorText;color: Theme.danger;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize}
     }

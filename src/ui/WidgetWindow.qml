@@ -3,9 +3,19 @@ import QtQuick
 import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Templates as T
 
 Window {
     id: widget
+    component NavigationSurface: Rectangle {
+        required property T.AbstractButton control
+        property bool keyboardFocus: control.visualFocus
+        radius: Theme.controlRadius
+        color: !control.enabled ? "transparent" : control.down ? Theme.pressed
+             : control.checked ? Theme.navigationSelection : control.hovered ? Theme.hover : "transparent"
+        border.width: keyboardFocus ? 1 : 0
+        border.color: Theme.accent
+    }
     required property WidgetViewModel controller
     required property TaskWorkspace workspace
     signal openMainRequested()
@@ -275,12 +285,13 @@ Window {
             anchors.fill:parent;anchors.margins:Theme.panelPadding;spacing:Theme.fieldGap
             RowLayout {
                 Layout.fillWidth:true
-                Label {Layout.fillWidth:true;text:widget.managingShortcuts?qsTr("常用分类"):qsTr("选择分类");font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;color:Theme.text;elide:Text.ElideRight}
+                Label {Layout.fillWidth:true;text:widget.managingShortcuts?qsTr("常用分类"):qsTr("选择分类");font.pixelSize:Theme.panelTitleSize;font.weight:Font.DemiBold;color:Theme.text;elide:Text.ElideRight}
                 WidgetAction {objectName:"widgetCategoryClose";symbol:"close";description:qsTr("关闭分类选择");onClicked:widget.categoryPickerOpen=false}
             }
             TextField {
                 id:categorySearch;objectName:"widgetCategorySearch";Layout.fillWidth:true;Layout.minimumWidth:0
                 placeholderText:qsTr("搜索分类名称或路径");Accessible.name:qsTr("搜索分类名称或路径")
+                background: DS.FieldSurface {quietOutline:true;focused:categorySearch.activeFocus;enabledField:categorySearch.enabled}
                 Keys.onDownPressed:if(categoryChoices.count){categoryChoices.currentIndex=0;categoryChoices.forceActiveFocus()}
                 Keys.onEscapePressed:widget.categoryPickerOpen=false
             }
@@ -306,6 +317,7 @@ Window {
                         Accessible.name:modelData.path
                         enabled:!widget.workspace.busy && !widget.addingPending
                         onClicked:widget.requestBrowse({kind:"context",key:modelData.key})
+                        background: NavigationSurface {control:categoryEntry;keyboardFocus:categoryEntry.highlighted}
                         contentItem:RowLayout {
                             spacing:4
                             Label {id:categoryName;Layout.fillWidth:true;Layout.minimumWidth:0;text:categorySearch.text || widget.managingShortcuts?categoryEntry.modelData.path:categoryEntry.modelData.title;color:Theme.text;elide:Text.ElideRight;DS.ToolTip {visible:!Theme.hintsBlocked && categoryName.truncated && nameHover.hovered;text:categoryEntry.modelData.path} HoverHandler {id:nameHover}}
@@ -319,7 +331,19 @@ Window {
             }
             RowLayout {
                 Layout.fillWidth:true
-                ToolButton {objectName:"widgetManageShortcuts";text:qsTr("常用管理");checkable:true;checked:widget.managingShortcuts;font.pixelSize:Theme.captionSize;onClicked:{widget.managingShortcuts=!widget.managingShortcuts;categorySearch.clear()}}
+                ToolButton {
+                    id: manageShortcuts
+                    objectName: "widgetManageShortcuts"
+                    text: qsTr("常用管理")
+                    checkable: true
+                    checked: widget.managingShortcuts
+                    font.pixelSize: Theme.captionSize
+                    background: NavigationSurface {control:manageShortcuts}
+                    onClicked: {
+                        widget.managingShortcuts = !widget.managingShortcuts
+                        categorySearch.clear()
+                    }
+                }
                 Item {Layout.fillWidth:true;Layout.minimumWidth:0}
                 WidgetAction {objectName:"widgetManageCategories";symbol:"window";description:qsTr("在主窗口管理分类");onClicked:{widget.categoryPickerOpen=false;widget.openMainRequested()}}
             }
@@ -477,10 +501,22 @@ Window {
                 WidgetMoveHandle {id:ballDrag;controller:widget.controller}
                 contentItem:Item {
                     implicitWidth:24;implicitHeight:24
-                    BrandMark {objectName:"widgetBrandMark";anchors.fill:parent;visible:!widget.controller.errorText.length;Accessible.ignored:true}
-                    AppIcon {anchors.fill:parent;visible:widget.controller.errorText.length>0;name:"info";ink:Theme.danger}
+                    BrandMark {objectName:"widgetBrandMark";anchors.fill:parent;monochrome:true;ink:"#ffffff";visible:!widget.controller.errorText.length;Accessible.ignored:true}
+                    AppIcon {anchors.fill:parent;visible:widget.controller.errorText.length>0;name:"info";ink:"#ffffff"}
                 }
-                background:Rectangle {radius:width/2;color:miniBall.down ? Theme.pressed : miniBall.hovered ? Theme.hover : "transparent";border.width:miniBall.visualFocus ? 2 : 0;border.color:Theme.accent}
+                background: Rectangle {
+                    radius: width/2
+                    color: miniBall.down ? Qt.darker(Theme.brandFill,1.12) : miniBall.hovered ? Qt.lighter(Theme.brandFill,1.08) : Theme.brandFill
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 3
+                        radius: width/2
+                        color: "transparent"
+                        border.width: 2
+                        border.color: "#ffffff"
+                        visible: miniBall.visualFocus
+                    }
+                }
             }
             Item {
                 id:panelContent;objectName:"widgetPanelContent"
@@ -508,8 +544,21 @@ Window {
                             RowLayout {
                                 width: parent.width
                                 spacing: 6
-                                Label {id:widgetTitleText;objectName:"widgetContextTitle";Layout.fillWidth:true;Layout.minimumWidth:0;text: widget.workspace.widgetContextTitle;elide: Text.ElideRight;font.pixelSize: Theme.headingSize;font.weight: Font.DemiBold;color: Theme.text;DS.ToolTip {visible:!Theme.hintsBlocked && widgetTitleText.truncated && titleHover.hovered;text:widgetTitleText.text} HoverHandler {id:titleHover}}
-                                Label {Layout.maximumWidth:48*Theme.scale;text: widget.workspace.widgetTasks.count;font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight;Accessible.name: qsTr("%1 项待办").arg(text)}
+                                Label {
+                                    id: widgetTitleText
+                                    objectName: "widgetContextTitle"
+                                    Layout.maximumWidth: Math.max(0,headerText.width-Math.min(taskCount.implicitWidth,taskCount.Layout.maximumWidth)-12)
+                                    Layout.minimumWidth: 0
+                                    text: widget.workspace.widgetContextTitle
+                                    elide: Text.ElideRight
+                                    font.pixelSize: Theme.panelTitleSize
+                                    font.weight: Font.DemiBold
+                                    color: Theme.text
+                                    DS.ToolTip {visible:!Theme.hintsBlocked && widgetTitleText.truncated && titleHover.hovered;text:widgetTitleText.text}
+                                    HoverHandler {id:titleHover}
+                                }
+                                Label {id:taskCount;Layout.maximumWidth:48*Theme.scale;text: widget.workspace.widgetTasks.count;font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight;Accessible.name: qsTr("%1 项待办").arg(text)}
+                                Item {Layout.fillWidth:true;Layout.minimumWidth:0}
                             }
                             Label {
                                 width: parent.width
@@ -540,6 +589,7 @@ Window {
                         checkable:true;autoExclusive:true;checked:widget.workspace.widgetContext==="today"
                         enabled:widget.workspace.ready && !widget.workspace.busy && !widget.addingPending
                         onClicked:widget.requestBrowse({kind:"context",key:"today"})
+                        background: NavigationSurface {control:todayButton}
                         Keys.onLeftPressed:widget.focusBrowse(-1);Keys.onRightPressed:widget.focusBrowse(1)
                         Keys.onReturnPressed:clicked()
                     }
@@ -554,6 +604,7 @@ Window {
                             enabled:widget.workspace.ready && !widget.workspace.busy && !widget.addingPending
                             Accessible.name:modelData.path
                             onClicked:widget.requestBrowse({kind:"context",key:modelData.key})
+                            background: NavigationSurface {control:shortcutControl}
                             Keys.onLeftPressed:widget.focusBrowse(-1);Keys.onRightPressed:widget.focusBrowse(1)
                             Keys.onReturnPressed:clicked()
                             contentItem:Label {id:shortcutLabel;text:shortcutControl.modelData.title;font.pixelSize:Theme.captionSize;color:Theme.text;elide:Text.ElideRight;horizontalAlignment:Text.AlignHCenter;verticalAlignment:Text.AlignVCenter}
@@ -567,6 +618,7 @@ Window {
                         enabled:widget.workspace.ready && !widget.workspace.busy && !widget.addingPending
                         Accessible.name:qsTr("选择小窗分类，当前%1").arg(widget.workspace.widgetContextTitle)
                         onClicked:if(widget.categoryPickerOpen)widget.categoryPickerOpen=false;else widget.openCategoryPicker()
+                        background: NavigationSurface {control:categoryButton}
                         Keys.onLeftPressed:widget.focusBrowse(-1);Keys.onRightPressed:widget.focusBrowse(1)
                         Keys.onReturnPressed:clicked()
                         contentItem:RowLayout {spacing:4;Label {text:categoryButton.text;font:categoryButton.font;color:Theme.text} AppIcon {name:widget.categoryPickerOpen?"up":"down";Layout.preferredWidth:Theme.iconSize*0.65;Layout.preferredHeight:Theme.iconSize*0.65;ink:Theme.secondary}}
@@ -598,7 +650,7 @@ Window {
                         visible: !widget.categoryPickerOpen && todayList.count===0 && todayList.contentHeight<1
                         spacing: 6
                         AppIcon {anchors.horizontalCenter: parent.horizontalCenter;name: widget.workspace.ready ? "check" : "clock";ink: Theme.secondary}
-                        Label {width: parent.width;horizontalAlignment: Text.AlignHCenter;text: widget.workspace.ready ? widget.emptyTaskText : qsTr("正在加载…");color: Theme.secondary;wrapMode: Text.Wrap}
+                        Label {width: parent.width;horizontalAlignment: Text.AlignHCenter;text: widget.workspace.ready ? widget.emptyTaskText : qsTr("正在加载…");font.pixelSize:Theme.captionSize;color: Theme.secondary;wrapMode: Text.Wrap}
                     }
                     ListView {
                         id: todayList
@@ -618,6 +670,7 @@ Window {
                             reduceMotion: widget.reduceMotion
                             dragLayer:widget.contentItem
                             highlighted: todayList.activeFocus && todayList.currentIndex===index
+                            showSeparator: index<todayList.count-1 && (!todayList.activeFocus || todayList.currentIndex!==index+1)
                             onOpenRequested: function(id){widget.openTaskRequested(id)}
                             onActionStarted:widget.taskError=""
                             onErrorReported:function(message){widget.taskError=message}
@@ -627,7 +680,7 @@ Window {
                         }
                     }
                 }
-                Rectangle {Layout.fillWidth: true;implicitHeight: 1;color: Theme.separator}
+                Rectangle {Layout.fillWidth: true;implicitHeight: 1;color: Theme.detailDivider}
                 ColumnLayout {
                     id:footer
                     Layout.fillWidth: true
@@ -644,6 +697,7 @@ Window {
                     ActionButton {id: addTask;objectName: "widgetAdd";Layout.fillWidth:true;Layout.minimumWidth:32;contentAlignment:Qt.AlignLeft;visible:!widget.addingTask;symbol: "plus";text: qsTr("添加任务");enabled: widget.workspace.ready && !widget.workspace.busy;onClicked:{widget.categoryPickerOpen=false;widget.addingTask=true;quickTitle.forceActiveFocus()}}
                     TextField {
                         id:quickTitle;objectName:"widgetQuickTitle";Layout.fillWidth:true;Layout.minimumWidth:0;visible:widget.addingTask
+                        background: DS.FieldSurface {quietOutline:true;focused:quickTitle.activeFocus;enabledField:quickTitle.enabled}
                         placeholderText:qsTr("添加到%1，Enter 保存").arg(widget.workspace.widgetContextTitle);Accessible.name:qsTr("小窗快速添加任务")
                         readOnly:widget.addingPending;enabled:widget.workspace.ready
                         onTextChanged:{if(!text.trim().length)widget.draftContext=null;else if(!widget.draftContext)widget.draftContext=widget.captureDraftContext()}
@@ -672,7 +726,7 @@ Window {
                     Accessible.name:widget.primaryActionName+qsTr("，或拖动 Mini 条")
                     onClicked:widget.controller.activatePrimary()
                     contentItem:AppIcon {name:"today";ink:Theme.secondary}
-                    background:Rectangle {radius:Theme.controlRadius;color:miniGrip.down ? Theme.pressed : miniGrip.hovered ? Theme.hover : "transparent"}
+                    background:NavigationSurface {control:miniGrip}
                     PointHandler {id:miniPress;acceptedButtons:Qt.LeftButton}
                     WidgetMoveHandle {id:miniDrag;controller:widget.controller}
                 }
@@ -684,10 +738,16 @@ Window {
                     Accessible.name: (widget.workspace.ready ? qsTr("%1 %2 项，%3").arg(widget.workspace.widgetContextTitle).arg(widget.workspace.widgetTasks.count).arg(widget.workspace.firstWidgetTitle || qsTr("暂无待办")) : qsTr("正在加载"))+(widget.errorMessage.length ? ", "+widget.errorMessage : "")+"。"+widget.primaryActionName
                     onClicked: widget.controller.activatePrimary()
                     Keys.onReturnPressed: widget.controller.activatePrimary()
+                    background: Rectangle {
+                        radius: Theme.controlRadius
+                        color: miniSummary.down ? Theme.pressed : "transparent"
+                        border.width: miniSummary.visualFocus ? 1 : 0
+                        border.color: Theme.accent
+                    }
                     contentItem: RowLayout {
                         spacing: 6
-                        Label {text: widget.workspace.widgetTasks.count;font.pixelSize: Theme.bodySize;font.weight: Font.DemiBold;color: Theme.text;visible: widget.workspace.ready}
-                        Label {id: miniTitle;objectName: "widgetMiniTitle";Layout.fillWidth: true;Layout.minimumWidth: 0;text: widget.workspace.ready ? (widget.workspace.firstWidgetTitle || widget.emptyTaskText) : qsTr("正在加载…");textFormat: Text.PlainText;font.pixelSize: Theme.bodySize;color: Theme.text;elide: Text.ElideRight}
+                        Label {text: widget.workspace.widgetTasks.count;font.pixelSize: Theme.captionSize;color: Theme.secondary;visible: widget.workspace.ready}
+                        Label {id: miniTitle;objectName: "widgetMiniTitle";Layout.fillWidth: true;Layout.minimumWidth: 0;text: widget.workspace.ready ? (widget.workspace.firstWidgetTitle || widget.emptyTaskText) : qsTr("正在加载…");textFormat: Text.PlainText;font.pixelSize: Theme.listTitleSize;color: miniSummary.hovered ? Theme.accent : widget.workspace.firstWidgetTitle ? Theme.text : Theme.secondary;elide: Text.ElideRight}
                     }
                     ToolTip.visible: !Theme.hintsBlocked && hovered && !down && !widget.interacting && (miniTitle.truncated || widget.errorMessage.length>0)
                     ToolTip.delay: Theme.hintDelay

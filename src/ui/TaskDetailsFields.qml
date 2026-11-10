@@ -134,7 +134,13 @@ ColumnLayout {
     DetailSection {
         plain:root.inspectorMode;visible:!root.creationMode;heading: root.inspectorMode ? "" : qsTr("任务关系");symbol: "list"
         FormRow {contextual:root.inspectorMode;label:qsTr("父任务")
-        Button {objectName: root.objectPrefix+"parentTaskButton";flat:root.inspectorMode;Layout.fillWidth: true;text: root.parentTaskId ? (root.taskData.parentDeleted ? qsTr("原父任务（已删除）：%1").arg(root.parentTaskTitle) : root.parentTaskTitle) : qsTr("无父任务");onClicked: {parentSearch.clear();root.refreshParentChoices();if(root.inspectorMode)root.parentExpanded=!root.parentExpanded;else parentPicker.open()}}
+        Button {
+            id: parentTaskChoice
+            objectName: root.objectPrefix+"parentTaskButton";flat:root.inspectorMode;Layout.fillWidth: true
+            text: root.parentTaskId ? (root.taskData.parentDeleted ? qsTr("原父任务（已删除）：%1").arg(root.parentTaskTitle) : root.parentTaskTitle) : qsTr("无父任务")
+            contentItem: Label {text:parentTaskChoice.text;font:parentTaskChoice.font;color:parentTaskChoice.enabled ? Theme.text : Theme.disabledText;verticalAlignment:Text.AlignVCenter;elide:Text.ElideRight}
+            onClicked: {parentSearch.clear();root.refreshParentChoices();if(root.inspectorMode)root.parentExpanded=!root.parentExpanded;else parentPicker.open()}
+        }
         }
         ColumnLayout {
             visible:root.parentExpanded;Layout.fillWidth:true
@@ -148,14 +154,17 @@ ColumnLayout {
         }
         Popup {
             id: parentPicker;objectName: root.objectPrefix+"parentTaskPicker";parent: Overlay.overlay;anchors.centerIn: parent
-            width: Math.min(520,parent.width-32);height: Math.min(480,parent.height-32);padding: 12;modal: true;focus: true
+            width: Math.min(420*Theme.scale,parent.width-32);height: Math.min(parentContent.implicitHeight+topPadding+bottomPadding,parent.height-32);padding: 12;modal: true;focus: true
             background: Rectangle {color: Theme.content;radius: Theme.panelRadius;border.color: Theme.separator}
             contentItem: ColumnLayout {
+                id: parentContent
                 TextField {id: parentSearch;Layout.fillWidth: true;placeholderText: qsTr("搜索父任务…");onTextEdited: root.refreshParentChoices()}
                 Label {visible: root.parentChoices.length===0;Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color: Theme.secondary;text: qsTr("没有可选父任务。仅能归入根任务；已有下级的任务需先移出下级。")}
                 Button {text: qsTr("无父任务");onClicked: {root.parentTaskId="";root.parentTaskTitle="";root.draftChanged();parentPicker.close()}}
                 ListView {
                     Layout.fillWidth: true;Layout.fillHeight: true;clip: true;model: root.parentChoices
+                    implicitHeight: Math.min(8,root.parentChoices.length)*Math.max(32,Theme.controlHeight)
+                    ScrollBar.vertical: ScrollBar {}
                     delegate: ItemDelegate {required property var modelData;width: ListView.view.width-Theme.scrollGutter;text: modelData.title;highlighted: root.parentTaskId===modelData.id;onClicked: {root.parentTaskId=modelData.id;root.parentTaskTitle=modelData.title;const parent=root.workspace.task(modelData.id);root.selectDestination(parent.projectId ? "project" : parent.areaId ? "area" : "",parent.projectId || parent.areaId || "",parent.headingId || "");root.draftChanged();parentPicker.close()}}
                 }
             }

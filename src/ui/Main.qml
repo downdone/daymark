@@ -143,6 +143,7 @@ ApplicationWindow {
             RowLayout {
                 id:pageHeading
                 readonly property bool inlineMetadata: width>=360*Theme.scale
+                readonly property bool showsCount: inlineMetadata && mainWindow.taskContentVisible && !mainWindow.headerMetadataText
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 Layout.alignment: Qt.AlignVCenter
@@ -165,6 +166,15 @@ ApplicationWindow {
                     visible: pageHeading.inlineMetadata && text.length>0
                     font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight
                     text: mainWindow.headerMetadataText
+                }
+                Label {
+                    objectName: "pageTaskCount"
+                    visible: pageHeading.showsCount
+                    text: mainWindow.taskWorkspace.tasks.count.toString()
+                    Accessible.name: qsTr("%1 项任务").arg(text)
+                    font.pixelSize: Theme.pageCountSize
+                    font.weight: Font.Normal
+                    color: pageTitleLabel.color
                 }
             }
             RowLayout {
@@ -315,7 +325,7 @@ ApplicationWindow {
     function toggleBatch(id,version) {
         taskSelection.toggle(id)
     }
-    function clearTaskSelection(){batchMode=false;taskSelection.clear()}
+    function clearTaskSelection(){batchMode=false;taskSelection.clear();taskList.keyboardNavigation=false}
     function selectTasks(id,modifiers) {
         navigateSafely(function(){
             const current=taskWorkspace.tasks.taskIdAt(taskList.currentIndex)
@@ -378,7 +388,7 @@ ApplicationWindow {
         }
     }
     readonly property bool calendarVisible: !toolPageVisible && taskWorkspace.calendarMode
-    readonly property real sidebarWidth: taskWorkspace.preferences.sidebarCollapsed ? 44 : Math.min(288,200*Theme.scale)
+    readonly property real sidebarWidth: taskWorkspace.preferences.sidebarCollapsed ? 44 : Math.min(288,232*Theme.scale)
     readonly property string accountEntryText: taskWorkspace.syncState.authenticated && taskWorkspace.syncState.login_label ? taskWorkspace.syncState.login_label : qsTr("登录")
     readonly property real detailWidth: Math.max(344,280*Theme.scale)
     readonly property bool detailDocked: false
@@ -1082,6 +1092,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 placeholderText: qsTr("搜索任务与备注…")
                 Accessible.name: qsTr("搜索任务和备注")
+                background: DS.FieldSurface {quietOutline:true;focused:search.activeFocus;enabledField:search.enabled}
                 onTextChanged: {mainWindow.clearTaskSelection();viewportState.searchChanged(text);mainWindow.taskWorkspace.setSearch(text)}
                 Keys.onEscapePressed: {clear();mainWindow.searchExpanded=false;taskList.forceActiveFocus()}
                 selectByMouse: true
@@ -1134,6 +1145,7 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     placeholderText: mainWindow.taskWorkspace.view === "upcoming" || mainWindow.taskWorkspace.view === "scheduled" ? qsTr("新增任务（默认安排明天）") : qsTr("输入任务标题，Enter 添加")
                     selectByMouse: true
+                    background: DS.FieldSurface {quietOutline:true;focused:newTitle.activeFocus;enabledField:newTitle.enabled}
                     onAccepted: if(!inputMethodComposing)mainWindow.taskWorkspace.createTask(text,mainTimePreview.ignored,mainTimePreview.overrides)
                     Keys.onEscapePressed: taskList.forceActiveFocus()
                 }
@@ -1221,7 +1233,6 @@ ApplicationWindow {
                     width:taskList.width-Theme.scrollGutter
                     height:mainWindow.newInlineDraft && quickEditor.editing ? quickEditor.implicitHeight+4 : 0
                     visible:height>0
-                    Rectangle {anchors.fill:parent;radius:Theme.rowRadius;color:Theme.grouped}
                 }
                 onContentHeightChanged: if(quickEditor.editing && !mainWindow.quickManualScroll)quickFocusDelay.restart()
                 onHeightChanged: if(quickEditor.editing && !mainWindow.quickManualScroll)quickFocusDelay.restart()
@@ -1247,10 +1258,15 @@ ApplicationWindow {
                     }
                 }
                 keyNavigationWraps: false
+                property bool keyboardNavigation: false
+                onActiveFocusChanged: if(!activeFocus)keyboardNavigation=false
                 section.property: "viewSection"
                 section.delegate: Label { required property string section; text: section; color: Theme.secondary; font.pixelSize: Theme.captionSize; height: section.length>0 ? implicitHeight+12 : 0;visible: section.length>0;verticalAlignment: Text.AlignVCenter }
                 Keys.onReturnPressed: {const item=taskList.currentItem as TaskRow;if(item){if(mainWindow.batchMode)item.selectionRequested();else item.editRequested()}}
                 Keys.onPressed: function(event){
+                    if(event.modifiers===Qt.NoModifier &&
+                       [Qt.Key_Up,Qt.Key_Down,Qt.Key_Home,Qt.Key_End,Qt.Key_PageUp,Qt.Key_PageDown].includes(event.key))
+                        taskList.keyboardNavigation=true
                     if((event.modifiers & Qt.ControlModifier) && event.key===Qt.Key_A){mainWindow.selectAllTasks();event.accepted=true}
                     else if((event.modifiers & Qt.ShiftModifier) && (event.key===Qt.Key_Up || event.key===Qt.Key_Down)){
                         const index=Math.max(0,Math.min(taskList.count-1,taskList.currentIndex+(event.key===Qt.Key_Up ? -1 : 1)))
@@ -1268,7 +1284,16 @@ ApplicationWindow {
                     workspace:mainWindow.taskWorkspace
                     required property int index
                     width: taskList.width-Theme.scrollGutter
-                    showSeparator: index<taskList.count-1
+                    readonly property bool nextRowDecorated: {
+                        const next=index+1
+                        if(next>=taskList.count)return false
+                        const nextId=mainWindow.taskWorkspace.tasks.taskIdAt(next)
+                        if(quickEditor.editing && mainWindow.editId===nextId)return true
+                        if(mainWindow.batchMode)return taskSelection.contains(nextId)
+                        return next===taskList.currentIndex &&
+                               (taskList.keyboardNavigation || taskSelection.contains(nextId))
+                    }
+                    showSeparator: index<taskList.count-1 && ListView.section===ListView.nextSection && !nextRowDecorated
                     showCategory: !mainWindow.taskWorkspace.scope.startsWith("project:")
                     smartView: mainWindow.taskWorkspace.smartView
                     deleted: mainWindow.taskWorkspace.view==="trash"
@@ -1284,6 +1309,9 @@ ApplicationWindow {
                     reduceMotion: (mainWindow.taskWorkspace.preferences.followSystemAccessibility ? mainWindow.taskWorkspace.systemAccessibility.reduceMotion : mainWindow.taskWorkspace.preferences.reduceMotion)
                     onEditorDetached: {if(!mainWindow.shuttingDown && mainWindow.inlineRow===taskRow){const reopen=quickEditor.editing;quickEditor.close();mainWindow.inlineRow=null;if(reopen){mainWindow.inlineAttachWanted=true;mainWindow.inlineAttachAttempts=0;Qt.callLater(mainWindow.attachQuickRow)}}}
                     highlighted: taskList.currentIndex === index
+                    activeListSelection: mainWindow.active && taskList.activeFocus && !editor.visible
+                    keyboardTarget: highlighted && activeListSelection && taskList.keyboardNavigation
+                    detailsOpen: editor.visible && editorSession.sourceFromList && editorSession.sourceId===taskId
                     showTodayMarker: mainWindow.taskWorkspace.view!=="today"
                     selectionMode: mainWindow.batchMode
                     canReorder: mainWindow.taskWorkspace.taskReorderingAllowed && !isDone
@@ -1311,7 +1339,7 @@ ApplicationWindow {
                     onSelectionGestureRequested: function(modifiers){mainWindow.selectTasks(taskId,modifiers)}
                     onContextRequested: function(x,y){mainWindow.showTaskContext(taskId,x,y)}
                     onEditRequested: {if(!deleted){mainWindow.batchMode=false;taskSelection.single(taskId);taskList.currentIndex=index;mainWindow.openEditor(taskId)}else restoreRequested()}
-                    onQuickEditRequested: {taskSelection.single(taskId);taskList.currentIndex=index;if(!deleted)mainWindow.openQuickEditor(taskId);else taskList.forceActiveFocus()}
+                    onQuickEditRequested: {taskList.keyboardNavigation=false;taskSelection.single(taskId);taskList.currentIndex=index;if(!deleted)mainWindow.openQuickEditor(taskId);else taskList.forceActiveFocus()}
                     onCompleteRequested: {if(deleted)mainWindow.taskWorkspace.changeState(taskId,rowVersion,"restore");else mainWindow.completeRow(taskRow)}
                     onActivateRequested: {const id=taskId;mainWindow.navigateSafely(function(){const item=mainWindow.taskWorkspace.task(id);editor.close();mainWindow.taskWorkspace.saveTaskWithDetails(id,item.rowVersion,item.title,item.notes,"ACTIVE","","",false,{schedule:null})})}
                     onMoveRequested: function(direction) {const id=taskId;mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.moveTask(id,direction)})}
@@ -1339,7 +1367,12 @@ ApplicationWindow {
                 objectName: "pageFooter"
                 visible: !mainWindow.toolPageVisible
                 Layout.fillWidth: true
-                Label { text: mainWindow.calendarVisible ? qsTr("任务") : qsTr("%1 项").arg(mainWindow.taskWorkspace.tasks.count); color: Theme.secondary;elide: Text.ElideRight }
+                Label {
+                    visible: !pageHeading.showsCount
+                    text: mainWindow.calendarVisible ? qsTr("任务") : qsTr("%1 项").arg(mainWindow.taskWorkspace.tasks.count)
+                    color: Theme.secondary
+                    elide: Text.ElideRight
+                }
                 Label {id: footerMetadata;objectName: "footerMetadata";visible: !pageHeading.inlineMetadata && text.length>0;text: mainWindow.headerMetadataText;color: Theme.secondary;font.pixelSize: Theme.captionSize;Layout.fillWidth: true;Layout.minimumWidth: 0;elide: Text.ElideRight}
                 Item {visible: !footerMetadata.visible;Layout.fillWidth: true}
                 ActionButton {symbol: "plus";visible: mainWindow.taskWorkspace.view === "upcoming";text: qsTr("未来%1天 · 再显示30天").arg(mainWindow.taskWorkspace.upcomingDays);onClicked: mainWindow.taskWorkspace.loadMoreUpcoming()}
@@ -1387,7 +1420,7 @@ ApplicationWindow {
         x: mainWindow.inspectorExpanded ? mainWindow.sidebarWidth+12 : Math.max(mainWindow.sidebarWidth+12,Math.min(mainWindow.width-width-12,editorSession.positionedManually ? editorSession.anchor.x : sourceX))
         y: mainWindow.inspectorExpanded ? 12 : Math.max(12,Math.min(mainWindow.contentItem.height-height-12,editorSession.positionedManually ? editorSession.anchor.y : sourceY))
         width: mainWindow.inspectorExpanded ? mainWindow.width-mainWindow.sidebarWidth-24 : Math.min(420*Theme.scale,mainWindow.width-mainWindow.sidebarWidth-24)
-        height: mainWindow.inspectorExpanded ? mainWindow.contentItem.height-24 : Math.min(mainWindow.contentItem.height-24,Math.max(240,inspectorPicker.active ? 520*Theme.scale : mainWindow.editorTab===1 ? subtasks.contentHeight+160 : editorFields.implicitHeight+editorHeader.implicitHeight+(editorTabs.visible ? editorTabs.implicitHeight+8 : 0)+32+(parentTaskBack.visible ? parentTaskBack.implicitHeight+4 : 0)+(editorError.visible ? editorError.implicitHeight+8 : 0)))
+        height: mainWindow.inspectorExpanded ? mainWindow.contentItem.height-24 : Math.min(mainWindow.contentItem.height-24,Math.max(240,inspectorPicker.active ? inspectorPicker.implicitHeight+editorHeader.implicitHeight+32 : mainWindow.editorTab===1 ? subtasks.contentHeight+160 : editorFields.implicitHeight+editorHeader.implicitHeight+(editorTabs.visible ? editorTabs.implicitHeight+8 : 0)+32+(parentTaskBack.visible ? parentTaskBack.implicitHeight+4 : 0)+(editorError.visible ? editorError.implicitHeight+8 : 0)))
         padding: 0
         function open() {visible=true}
         function verifyLeafDetails() {
@@ -1962,7 +1995,7 @@ ApplicationWindow {
         anchors.centerIn: parent
         title: qsTr("Daymark 将继续在托盘运行")
         width: Math.min(460,mainWindow.width-40)
-        height: Math.min(230*Theme.scale,mainWindow.contentItem.height-40)
+        height: Math.min(implicitHeight,mainWindow.contentItem.height-40)
         modal: true
         closePolicy: Popup.NoAutoClose
         contentItem: Label {wrapMode: Text.Wrap;text: qsTr("关闭主窗口后，提醒和桌面组件仍会运行。可从托盘打开主窗或退出；设置中可改为关闭即退出。")}
@@ -1974,7 +2007,7 @@ ApplicationWindow {
         anchors.centerIn: parent
         title: qsTr("将未来任务加入今天？")
         width: Math.min(460,mainWindow.width-40)
-        height: Math.min(210*Theme.scale,mainWindow.contentItem.height-40)
+        height: Math.min(implicitHeight,mainWindow.contentItem.height-40)
         modal: true
         standardButtons: Dialog.Ok|Dialog.Cancel
         contentItem: Label {wrapMode: Text.Wrap;text: qsTr("开始日期将从 %1 调整为今天，结束日期保持不变。").arg(mainWindow.todayTarget.startOn || "")}

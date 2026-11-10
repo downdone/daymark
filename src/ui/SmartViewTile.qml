@@ -6,26 +6,26 @@ import QtQuick.Layouts
 NavRow {
     id: root
     property color tint: Theme.accent
-    implicitHeight: Math.max(Theme.smartTileHeight,contentItem.implicitHeight+(Theme.compact ? 8 : 12))
-    padding: Theme.compact ? 8 : 10;leftPadding:10;rightPadding:10
+    implicitHeight: Math.max(Theme.smartTileHeight,contentItem.implicitHeight+topPadding+bottomPadding)
+    padding: Theme.compact ? 4 : 8;leftPadding:8;rightPadding:8
     Accessible.name: text+qsTr("，%1 项").arg(count)
     contentItem: ColumnLayout {
-        spacing: 4
+        spacing: 2
         RowLayout {
             Layout.fillWidth: true
             Rectangle {
-                implicitWidth: Math.min(24,20*Theme.scale);implicitHeight: implicitWidth;radius: width/2
+                implicitWidth: Math.min(28,22*Theme.scale);implicitHeight: implicitWidth;radius: width/2
                 color: root.tint
-                AppIcon {anchors.centerIn: parent;width: Math.min(20,14*Theme.scale);height: width;name: root.symbol;ink: Theme.accentText}
+                AppIcon {anchors.centerIn: parent;width: Math.min(20,13*Theme.scale);height: width;name: root.symbol;ink: Theme.accentText}
             }
             Item {Layout.fillWidth: true}
-            Label {text: root.count;font.pixelSize: Theme.headingSize;font.weight: Font.DemiBold;color: (root.selected || root.taskDropActive) ? root.tint : Theme.text}
+            Label {text: root.count;font.pixelSize: Theme.smartCountSize;font.weight: Font.Medium;color: Theme.text}
         }
-        Label {objectName:"smartNavigationTitle";text: root.text;font.pixelSize: Theme.captionSize;font.weight: root.selected ? Font.DemiBold : Font.Normal;color: (root.selected || root.taskDropActive) ? root.tint : Theme.text;Layout.fillWidth: true;elide: Text.ElideRight}
+        Label {objectName:"smartNavigationTitle";text: root.text;font.pixelSize: Theme.navigationSize;font.weight: root.selected ? Font.DemiBold : Font.Normal;color: Theme.text;Layout.fillWidth: true;elide: Text.ElideRight}
     }
     background: Rectangle {
-        radius: Theme.rowRadius
-        color: root.down ? Theme.pressed : (root.selected || root.taskDropActive) ? Theme.selected : root.hovered ? Theme.hover : Theme.grouped
+        radius: Theme.groupRadius
+        color: root.down ? Theme.pressed : root.taskDropActive ? Theme.selected : root.selected ? Theme.navigationSelection : root.hovered ? Theme.hover : Theme.smartFill
         border.color: Theme.accent;border.width: root.visualFocus || root.taskDropActive ? 1 : 0
     }
 }

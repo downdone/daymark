@@ -38,7 +38,8 @@ Control {
                 required property int index
                 Layout.fillWidth: true
                 Layout.preferredWidth: 1
-                implicitHeight: Math.max(28,Theme.bodySize+10)
+                implicitHeight: Math.max(28,contentItem.implicitHeight+topPadding+bottomPadding)
+                padding: 4
                 text: modelData
                 checked: picker.currentIndex===index
                 font.pixelSize: picker.textPixelSize

@@ -51,6 +51,9 @@ ItemDelegate {
     required property string planningState
     required property bool parentDeleted
     property bool showSeparator: true
+    property bool activeListSelection: false
+    property bool keyboardTarget: false
+    property bool detailsOpen: false
     property bool deleted: false
     property bool smartView: false
     readonly property real treeGutter: smartView || !workspace.tasks.hasHierarchy ? 0 : Theme.hierarchyGutter+Math.max(0,Theme.iconSize+12-32)
@@ -91,6 +94,7 @@ ItemDelegate {
     ].filter(value=>value.length>0).join(" · ")
     property bool selectionMode: false
     property bool selectedForBatch: false
+    readonly property bool paintsSelection: !expanded && selectedForBatch && (selectionMode || highlighted)
     property bool canMoveUp: true
     property bool canMoveDown: true
     property bool canReorder: false
@@ -255,7 +259,7 @@ ItemDelegate {
                     id:completionMark
                     anchors.horizontalCenter:parent.horizontalCenter
                     y:summary.titleCenterY-completionAction.topPadding-height/2
-                    width: Math.min(24,18*Theme.scale);height: width;radius: width/2
+                    width: Theme.completionSize;height: width;radius: width/2
                     color: (root.isDone || root.removingAfterCompletion) ? Theme.accent : "transparent"
                     border.color: (root.isDone || root.removingAfterCompletion) ? Theme.accent : Theme.secondary
                     border.width: 1.25
@@ -274,8 +278,18 @@ ItemDelegate {
             interactive: !root.selectionMode
             onSubtasksRequested: if(!root.selectionMode)root.subtaskRequested()
         }
-        AppIcon {name:"pin";visible:root.pinned;Layout.preferredWidth:14;Layout.preferredHeight:14;ink:Theme.secondary;Accessible.name:qsTr("已置顶")}
-        AppIcon {name:"flag";visible:root.important;Layout.preferredWidth:14;Layout.preferredHeight:14;ink:Theme.catalogColor("orange");Accessible.name:qsTr("特别关注")}
+        Item {
+            visible: root.pinned
+            Layout.preferredWidth: 14
+            Layout.alignment: Qt.AlignTop
+            AppIcon {name:"pin";width:parent.width;height:width;y:summary.titleCenterY-height/2;ink:Theme.secondary;Accessible.name:qsTr("已置顶")}
+        }
+        Item {
+            visible: root.important
+            Layout.preferredWidth: 14
+            Layout.alignment: Qt.AlignTop
+            AppIcon {name:"flag";width:parent.width;height:width;y:summary.titleCenterY-height/2;ink:Theme.catalogColor("orange");Accessible.name:qsTr("特别关注")}
+        }
         Item {
             opacity: root.canDrag && !root.selectionMode && (root.hovered || root.activeFocus || root.dragArmed) ? 1 : 0
             Accessible.ignored: !root.canDrag
@@ -296,10 +310,10 @@ ItemDelegate {
             id:detailsAction
             Layout.alignment:Qt.AlignTop
             objectName: "taskDetails-"+root.taskId
-            opacity: !root.selectionMode && (root.hovered || root.highlighted || root.activeFocus || activeFocus) ? 1 : 0
+            opacity: !root.selectionMode && (root.hovered || root.paintsSelection || root.detailsOpen || root.keyboardTarget || root.activeFocus || activeFocus) ? 1 : 0
             Accessible.ignored: root.selectionMode
             enabled: !root.selectionMode
-            contentItem:Item {implicitWidth:Theme.iconSize;implicitHeight:Theme.iconSize;AppIcon {name:root.deleted ? "undo" : "info";width:Theme.iconSize;height:width;x:(parent.width-width)/2;y:summary.titleCenterY-detailsAction.topPadding-height/2}}
+            contentItem:Item {implicitWidth:Theme.iconSize;implicitHeight:Theme.iconSize;AppIcon {name:root.deleted ? "undo" : "info";ink:root.detailsOpen ? Theme.accent : Theme.secondary;width:Theme.iconSize;height:width;x:(parent.width-width)/2;y:summary.titleCenterY-detailsAction.topPadding-height/2}}
             Accessible.name: (root.deleted ? qsTr("恢复任务：") : qsTr("打开任务详情："))+root.title
             hintText: root.deleted ? qsTr("恢复任务") : qsTr("编辑任务详情")
             onClicked: {if(root.deleted)root.restoreRequested();else root.editRequested()}
@@ -309,11 +323,24 @@ ItemDelegate {
         Item {id: inlineHost;Layout.fillWidth: true;Layout.leftMargin: root.treeGutter;visible: root.expanded;implicitHeight: root.inlineEditor ? root.inlineEditor.implicitHeight : 0}
     }
     background: Rectangle {
+        objectName: "taskRowSurface"
         opacity: root.dragging ? 0.5 : 1
         radius: Theme.rowRadius
-        color: root.selectionMode ? (root.selectedForBatch ? Theme.selected : root.hovered ? Theme.hover : "transparent") : root.expanded ? Theme.grouped : root.highlighted ? Theme.selected : root.hovered ? Theme.hover : "transparent"
-        border.width: root.visualFocus || root.dragArmed ? 1 : 0;border.color: Theme.accent
+        color: !root.paintsSelection ? "transparent"
+             : root.activeListSelection ? Theme.selected : Theme.inactiveSelection
+        border.width: root.dragArmed || (!root.expanded && (root.visualFocus || root.keyboardTarget)) ? 1 : 0
+        border.color: Theme.accent
         Rectangle {visible: dropZone.containsDrag && !root.dragging;height: 2;width: parent.width;anchors.top: parent.top;color: Theme.accent}
-        Rectangle {id:rowSeparator;objectName: "taskRowSeparator";visible: root.showSeparator && !root.expanded;height: 1;x: root.leftPadding+root.treeGutter+completionAction.width+Theme.listTextGap;width: Math.max(0,parent.width-x-root.rightPadding);anchors.bottom: parent.bottom;color: Theme.separator}
+        Rectangle {
+            id: rowSeparator
+            objectName: "taskRowSeparator"
+            visible: root.showSeparator && !root.paintsSelection && !root.keyboardTarget
+                     && !root.expanded && !root.dragging
+            height: 1
+            x: root.leftPadding+root.treeGutter+completionAction.width+Theme.listTextGap
+            width: Math.max(0,parent.width-x-root.rightPadding)
+            anchors.bottom: parent.bottom
+            color: Theme.taskDivider
+        }
     }
 }

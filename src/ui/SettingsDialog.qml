@@ -38,10 +38,10 @@ ApplicationWindow {
         Rectangle {width: root.sidebarWidth; height: parent.height; color: Theme.sidebar
             Rectangle {anchors.right: parent.right; width: 1; height: parent.height; color: Theme.separator}
         }
-        Label {x: 20; y: 12; text: qsTr("设置"); font.pixelSize: Theme.headingSize; font.weight: Font.DemiBold}
+        Label {x: 20; y: 12; text: qsTr("设置"); font.pixelSize: Theme.windowTitleSize; font.weight: Font.DemiBold}
         ColumnLayout {
             id:settingsHeader; x: root.sidebarWidth+16; y: 12; width: Math.max(0,root.width-x-16-54); spacing:4
-            Label {id: settingsCategoryTitle;objectName:"settingsCategoryTitle";text:root.categoryTitles[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.headingSize;font.weight:Font.DemiBold;wrapMode:Text.Wrap}
+            Label {id: settingsCategoryTitle;objectName:"settingsCategoryTitle";text:root.categoryTitles[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.windowTitleSize;font.weight:Font.DemiBold;wrapMode:Text.Wrap}
             Label {text:root.categoryDetails[root.categoryIndex];Layout.fillWidth:true;font.pixelSize:Theme.captionSize;color:Theme.secondary;wrapMode:Text.Wrap}
         }
         Loader {
@@ -146,7 +146,7 @@ ApplicationWindow {
                             }
                             Label {id:categoryLabel;text:categoryRow.modelData;Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.bodySize;font.weight:categoryRow.checked ? Font.DemiBold : Font.Normal}
                         }
-                        background:Rectangle {radius:Theme.rowRadius;color:categoryRow.down ? Theme.pressed : categoryRow.checked ? Theme.selected : categoryRow.hovered ? Theme.hover : "transparent";border.width:categoryRow.visualFocus ? 1 : 0;border.color:Theme.accent}
+                        background:Rectangle {radius:Theme.rowRadius;color:categoryRow.down ? Theme.pressed : categoryRow.checked ? Theme.navigationSelection : categoryRow.hovered ? Theme.hover : "transparent";border.width:categoryRow.visualFocus ? 1 : 0;border.color:Theme.accent}
                     }
                 }
             }

@@ -26,6 +26,7 @@ private:
     QVariantMap m_columns;
     int m_stage=0;
     int m_firstInspectorPhase=0;
+    bool m_listSurfaceHoverSent=false;
     bool m_inlineDateOpened=false;
     QElapsedTimer m_wait,m_clock,m_presentClock;
     qint64 m_panelFrameMs=-1;

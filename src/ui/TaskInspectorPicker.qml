@@ -68,10 +68,11 @@ ColumnLayout {
         id: pickerScroll
         Layout.fillWidth: true
         Layout.fillHeight: true
-        implicitHeight: 400
+        implicitHeight: pickerFields.implicitHeight+topPadding+bottomPadding
         clip: true
         contentWidth: availableWidth
         ColumnLayout {
+            id: pickerFields
             width: pickerScroll.availableWidth
             spacing: Theme.groupGap
             CalendarPicker {

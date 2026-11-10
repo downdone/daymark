@@ -18,6 +18,8 @@ private:
   TaskWorkspace &workspace;
   QQuickWindow *window;
   QPointer<QQuickItem> date, time;
+  QPointer<QObject> catalog;
+  qreal compactCatalogHeight = 0;
   int phase = 0;
 };
 } // namespace daymark

@@ -10,7 +10,7 @@ T.Button {
     hoverEnabled: true
     font.pixelSize: DesignTokens.body
     font.family: DesignTokens.fontFamily
-    font.weight: highlighted ? Font.DemiBold : Font.Normal
+    font.weight: Font.Normal
     readonly property string labelText: {
         if(!T.DialogButtonBox.buttonBox)return text
         const labels={"OK":qsTr("确认"),"Cancel":qsTr("取消"),"Close":qsTr("关闭"),"Save":qsTr("保存"),"Discard":qsTr("放弃"),"Yes":qsTr("是"),"No":qsTr("否"),"Apply":qsTr("应用")}

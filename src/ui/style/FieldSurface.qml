@@ -4,6 +4,7 @@ Rectangle {
     property bool focused: false
     property bool hovered: false
     property bool enabledField: true
+    property bool quietOutline: false
     // Inspectors opt in through their visual content root; ordinary forms keep
     // explicit field outlines. Visual ancestry also follows reparented fields.
     readonly property bool understated: {
@@ -14,7 +15,10 @@ Rectangle {
     y: DesignTokens.controlInset
     height: parent ? Math.max(0,parent.height-2*DesignTokens.controlInset) : DesignTokens.controlVisualHeight
     radius: DesignTokens.radius
-    color: !enabledField ? DesignTokens.sidebar : hovered || (understated && focused) ? DesignTokens.hover : understated ? "transparent" : DesignTokens.fieldFill
-    border.width: focused || DesignTokens.highContrast || (!understated && hovered) ? 1 : 0
-    border.color: focused ? DesignTokens.accent : hovered ? DesignTokens.secondary : DesignTokens.fieldLine
+    color: !enabledField ? DesignTokens.sidebar
+        : quietOutline ? DesignTokens.quietFieldFill
+        : hovered || (understated && focused) ? DesignTokens.hover
+        : understated ? "transparent" : DesignTokens.fieldFill
+    border.width: focused || DesignTokens.highContrast || (!understated && !quietOutline) ? 1 : 0
+    border.color: focused ? DesignTokens.accent : DesignTokens.fieldLine
 }
