@@ -1,6 +1,11 @@
 # 当前状态
 
-2026-11-10 **Daymark 2.2.7 已发布**，schema 10、HTTP JSON v1、Qt 6.10.2。
+2026-11-12 **Daymark 3.0.0 已发布**，schema 11、HTTP JSON v1、Qt 6.10.2。
+
+- 最近删除支持默认本机移除/圆形选项选择同时服务端彻底删除，确认提示按macOS Alerts收紧；本机移除不是磁盘安全擦除。官方现有服务已备份升级并公布task.purge能力。
+- 更新取消后可立即重查、每天自动检查、底部更新入口和安装运行预检已发布；分类删除造成的等价同步日志阻塞已修复，实际个人待传资料仍需用户同步。
+- 3.0.0正式Windows CTest 52/52、签名独立部署和公开实际安装/修复/迁移/卸载验收通过。schema10→11须完整安装手动升级；跨ABI在线升级不适用，旧版更新器保持拒绝保护。
+- 通知中心/业务后台/可选择统计已完成[系统设计](design/daymark-business-platform.md)，待用户评审，未启用这些新能力。
 
 - 已实施对象生命周期和隐藏图形资源优化。少量任务双窗原生单轮：30,029→17,157对象，私有工作集242.25→202.00MiB；这是本地对照，不是正式MSVC内存保证。
 - Windows主窗、设置和账号顶区与内容融合；设置→外观→显示→标题栏可即时切换Daymark/系统原生，按设备保存，保留窗口状态和草稿。
@@ -9,6 +14,6 @@
 - 使用P-256更新签名与项目自签名EXE；不属于Windows公共发行者信任，不导入根证书。
 - 新版本包含离线时间输入识别、完整Windows安装向导、首次启动锁错误分类、Mini按钮与拖动修复、导入计划生命周期与生成契约门禁。
 
-[下载 2.2.7](https://github.com/downdone/daymark/releases/tag/v2.2.7) · [发行说明](release-notes-v2.2.7.md)。当前事实、精确资产身份和证据统一见[PROGRESS](PROGRESS.md)。
+[下载 3.0.0](https://github.com/downdone/daymark/releases/tag/v3.0.0) · [发行说明](release-notes-v3.0.0.md)。当前事实、精确资产身份和证据统一见[PROGRESS](PROGRESS.md)。
 
-Linux/macOS按用户指示跳过；2h/物理多屏/DPI/读屏、Windows 11 Snap悬停、另一台机器注册现场与逐字节堆/GPU归因仍UNVERIFIED。本机历史CDN下载超时不冒充完整本地包，当前正式资产的独立Windows匿名下载/安装/升级已通过。2.1.0、2.2.0、2.2.1空Release转草稿，原标签保留，无程序资产发布。本地完整套件退出期ToolTip警告保留在PROGRESS，不宣称整个进程零警告。
+Linux/macOS按用户指示跳过；2h/物理多屏/DPI/读屏、Windows 11 Snap悬停、另一台机器注册现场与逐字节堆/GPU归因仍UNVERIFIED。3.0.0的独立Windows匿名下载/安装/迁移通过，跨ABI在线升级不适用；本机补下载超时不冒充完整本地包。2.1.0、2.2.0、2.2.1空Release转草稿，原标签保留，无程序资产发布。本地完整套件退出期ToolTip警告保留在PROGRESS，不宣称整个进程零警告。

@@ -53,6 +53,9 @@
 [Windows标题栏切换](design/windows-title-bar.md) · [小窗分类快查（设计评审）](design/widget-category-quick-find.md) · [小窗任务操作与提醒弹窗](design/widget-task-actions-and-reminder-popup.md) · [三形态统一与球/小窗动效](design/desktop-widget-modes-proposal.md) · [组件统一绘制事务](design/widget-rendering-transaction.md) · [悬停Mini球与紧凑日历](design/compact-desktop-surfaces.md) · [桌面表面精修](design/desktop-surfaces-polish.md) · [桌面层与年焦点](design/desktop-layer-and-year-focus.md) · [桌面菜单锚点](design/desktop-menu-anchoring.md) · [架构](design/architecture.md) · [模块契约](design/contracts.md)
 
 ### 3.5 可选账号与同步
+
+新增设计待评审：[Daymark业务系统、安静通知中心与可选择统计](design/daymark-business-platform.md)（通知/用户管理后台/埋点与看板；尚未实施）。
+
 [错误码与连接诊断](design/diagnostic-codes.md) · [官方账号与自定义服务](design/account-service-choice.md) · [独立账号窗口与设计评审](design/account-window.md) · [服务运行与恢复](../server/README.md) · [账号与同步](design/account-and-sync-service.md) · [工程架构](design/server-architecture.md) · [协议 v1](api/sync-v1.md) · [模块入口](design/sync-modules/README.md) · [强类型契约](design/sync-contracts/README.md) · [桌面实现契约](design/sync-client-implementation.md)
 
 ## 4. 决策记录
