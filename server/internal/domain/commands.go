@@ -77,6 +77,10 @@ type ChangeState struct {
 	Action  string `json:"action"`
 	GroupID ID     `json:"group_id"`
 }
+type PurgeTasks struct {
+	Event
+	TaskIDs []ID `json:"task_ids"`
+}
 type MoveTree struct {
 	Event
 	TaskID       ID  `json:"task_id"`
@@ -140,7 +144,7 @@ type ReplaceOrdering struct {
 	OrderedIDs []ID   `json:"ordered_ids"`
 }
 
-var CommandTypes = []string{"task.create", "task.patch", "task.change_state", "task.move_tree", "category.save", "category.relocate", "category.remove", "tag.save", "tag.remove", "recurrence.replace", "recurrence.stop", "recurrence.materialize", "ordering.replace"}
+var CommandTypes = []string{"task.purge", "task.create", "task.patch", "task.change_state", "task.move_tree", "category.save", "category.relocate", "category.remove", "tag.save", "tag.remove", "recurrence.replace", "recurrence.stop", "recurrence.materialize", "ordering.replace"}
 
 type PayloadRef struct {
 	JobID         ID     `json:"job_id"`

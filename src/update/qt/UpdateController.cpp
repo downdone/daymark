@@ -215,16 +215,41 @@ QString UpdateController::statusText() const {
         return tr("已是最新可安装版本。");
     if (state == "deferred")
         return tr("已暂缓更新检查。");
-    return tr("启动时自动检查并准备更新。");
+    return tr("每天自动检查并准备更新。");
 }
 double UpdateController::progress() const {
     auto total = m_state.value("total").toDouble();
     return total > 0 ? qBound(0., m_state.value("received").toDouble() / total, 1.) : -1.;
 }
+bool UpdateController::busy() const {
+    if (m_worker.state() != QProcess::NotRunning || m_commands>0)
+        return true;
+#ifdef Q_OS_WIN
+    const auto phase=m_state.value("state").toString();
+    if (phase!="checking" && phase!="downloading" && phase!="verifying" && phase!="staging")
+        return false;
+    const auto pid=m_state.value("owner_pid").toInteger();
+    if (pid<=0 || pid>0xffffffffLL) return false;
+    HANDLE process=OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,FALSE,DWORD(pid));
+    if (!process) return false;
+    FILETIME created, exited, kernel, user;
+    const bool live=WaitForSingleObject(process,0)==WAIT_TIMEOUT &&
+                    GetProcessTimes(process,&created,&exited,&kernel,&user);
+    CloseHandle(process);
+    return live && QString::number((quint64(created.dwHighDateTime)<<32)|created.dwLowDateTime)==
+                       m_state.value("owner_stamp").toString();
+#else
+    return false;
+#endif
+}
 void UpdateController::check(bool automatic) {
     if (!supported() || busy() || ready())
         return;
     m_localError.clear();
+    m_state.remove("error");
+    m_state["state"] = "checking";
+    m_state.remove("received");
+    m_state.remove("total");
     diagnostics::event("update", "prepare.requested", {{"automatic", automatic}});
     m_worker.setProgram(QDir(m_root).filePath("daymark-update-cli.exe"));
     QStringList args{"prepare", "--root", m_root, "--json"};
@@ -240,19 +265,25 @@ void UpdateController::command(const QStringList &args) {
     m_localError.clear();
     diagnostics::event("update", "command.requested", {{"command", args.value(0)}});
     auto *process = new QProcess(this);
+    ++m_commands;
     process->setProgram(QDir(m_root).filePath("daymark-update-cli.exe"));
     process->setArguments(args + QStringList{"--root", m_root, "--json"});
     connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
             [this, process](int, QProcess::ExitStatus) {
+                --m_commands;
                 reload();
                 process->deleteLater();
             });
     connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
         localFailure("update.start_failed");
-        if (error == QProcess::FailedToStart)
+        if (error == QProcess::FailedToStart) {
+            --m_commands;
             process->deleteLater();
+            emit changed();
+        }
     });
     process->start();
+    emit changed();
 }
 void UpdateController::cancel() { command({"cancel"}); }
 void UpdateController::cancelReady() { command({"cancel-ready"}); }
@@ -307,5 +338,12 @@ void UpdateController::runtimeReady() {
         if (automatic())
             check(true);
     });
+    auto *daily = new QTimer(this);
+    daily->setInterval(60 * 60 * 1000);
+    connect(daily, &QTimer::timeout, this, [this] {
+        if (automatic())
+            check(true);
+    });
+    daily->start();
 }
 } // namespace daymark

@@ -38,6 +38,12 @@ class Journal final {
         p.insert("pending_count", q.value(0).toInt());
         p.insert("blocked_count", q.value(1).toInt());
         q.finish();
+        q.prepare("SELECT safe_error_code FROM sync_outbox WHERE profile_id=? AND "
+                  "state='BLOCKED_VALIDATION' ORDER BY local_seq LIMIT 1");
+        q.addBindValue(p.value("profile_id").toString());
+        if (!q.exec()) return error();
+        if (q.next()) p.insert("blocked_error",q.value(0).toString());
+        q.finish();
         q.prepare("SELECT "
                   "conflict_id,conflict_group_id,entity_type,entity_id,local_json,remote_json,"
                   "remote_revision "
@@ -683,17 +689,31 @@ class Journal final {
             return error();
         return {item, {}};
     }
-    Result<QJsonObject> rebaseImport(const QJsonObject &p, const QString &mutation) const {
+    Result<QJsonObject> rebaseImport(const QJsonObject &p, const QString &mutation,
+                                    bool rejectedCategory = false) const {
         const auto pid = p.value("profile_id").toString();
         QSqlQuery q(db);
-        q.prepare("SELECT local_seq FROM sync_outbox WHERE profile_id=? AND mutation_id=? AND "
-                  "kind='IMPORT' AND state='IN_FLIGHT'");
+        q.prepare(rejectedCategory
+                      ? "SELECT local_seq FROM sync_outbox WHERE profile_id=? AND mutation_id=? AND "
+                        "kind='COMMANDS' AND state='BLOCKED_VALIDATION' AND safe_error_code='validation_failed'"
+                      : "SELECT local_seq FROM sync_outbox WHERE profile_id=? AND mutation_id=? AND "
+                        "kind='IMPORT' AND state='IN_FLIGHT'");
         q.addBindValue(pid);
         q.addBindValue(mutation);
         if (!q.exec() || !q.next())
             return {{}, failure()};
         const auto first = q.value(0).toLongLong();
         q.finish();
+        if (rejectedCategory) {
+            q.prepare("SELECT count(*) FROM sync_outbox WHERE profile_id=? AND local_seq>? "
+                      "AND state NOT IN ('ACKNOWLEDGED','SUPERSEDED') AND "
+                      "(frozen_payload IS NOT NULL OR state<>'PENDING')");
+            q.addBindValue(pid);
+            q.addBindValue(first);
+            if (!q.exec() || !q.next()) return error();
+            if (q.value(0).toInt()) return profile();
+            q.finish();
+        }
         q.prepare(
             "SELECT "
             "mutation_id,kind,intent_json,base_snapshot_json,after_snapshot_json,state,safe_error_"
@@ -711,6 +731,25 @@ class Journal final {
             rows.append(r);
         }
         q.finish();
+        if (rejectedCategory) {
+            if (rows.isEmpty()) return profile();
+            auto &row = rows.first();
+            Graph before, after;
+            const auto old = QJsonDocument::fromJson(row[3].toString().toUtf8()).object();
+            const auto latest = QJsonDocument::fromJson(row[4].toString().toUtf8()).object();
+            for (auto it=old.begin();it!=old.end();++it) before.entities.insert(it.key(),it.value().toObject());
+            for (auto it=latest.begin();it!=latest.end();++it) after.entities.insert(it.key(),it.value().toObject());
+            auto intent = QJsonDocument::fromJson(row[2].toString().toUtf8()).object();
+            const auto original = intent.value("commands").toArray();
+            const auto repaired = withoutCategoryRemovalMoves(original,before,after);
+            if (repaired.size()==original.size() || repaired.isEmpty()) return profile();
+            for (const auto &command : repaired)
+                if (!Schema::accepts("Command",command)) return profile();
+            intent.insert("commands",repaired);
+            row[2]=QString::fromUtf8(json(intent));
+            row[5]=QStringLiteral("PENDING");
+            row[6]=QVariant();
+        }
         if (!exec("UPDATE sync_outbox SET state='SUPERSEDED',echo_applied=1 WHERE profile_id=? AND "
                   "local_seq>=? AND echo_applied=0 AND state NOT IN ('ACKNOWLEDGED','SUPERSEDED')",
                   {pid, first}))
@@ -754,6 +793,17 @@ class Journal final {
             return {QJsonObject{}, {}};
         const auto pid = p.value("profile_id").toString();
         QSqlQuery q(db);
+        q.prepare("SELECT mutation_id FROM sync_outbox WHERE profile_id=? AND "
+                  "state='BLOCKED_VALIDATION' AND kind='COMMANDS' AND "
+                  "safe_error_code='validation_failed' AND echo_applied=0 ORDER BY local_seq LIMIT 1");
+        q.addBindValue(pid);
+        if (!q.exec()) return error();
+        const auto rejected = q.next() ? q.value(0).toString() : QString();
+        q.finish();
+        if (!rejected.isEmpty()) {
+            const auto repaired = rebaseImport(p,rejected,true);
+            if (!repaired.ok()) return repaired;
+        }
         q.prepare(
             "SELECT mutation_id,local_seq,intent_json,frozen_payload,kind FROM sync_outbox o WHERE "
             "profile_id=? AND state IN ('PENDING','IN_FLIGHT','RETRY_WAIT') AND not_before_ms<=? "

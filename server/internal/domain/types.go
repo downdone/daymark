@@ -190,6 +190,7 @@ type Legacy struct {
 	CanonicalJSON       string `json:"canonical_json"`
 }
 type Task struct {
+	PurgedAt           *Instant  `json:"purged_at_utc,omitempty"`
 	ID                 ID        `json:"id"`
 	Title              string    `json:"title"`
 	Notes              string    `json:"notes"`

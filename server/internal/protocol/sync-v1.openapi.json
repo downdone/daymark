@@ -4154,6 +4154,9 @@
           },
           {
             "$ref": "#/components/schemas/OrderingReplace"
+          },
+          {
+            "$ref": "#/components/schemas/TaskPurge"
           }
         ],
         "discriminator": {
@@ -4171,7 +4174,8 @@
             "recurrence.replace": "#/components/schemas/RecurrenceReplace",
             "recurrence.stop": "#/components/schemas/RecurrenceStop",
             "recurrence.materialize": "#/components/schemas/RecurrenceMaterialize",
-            "ordering.replace": "#/components/schemas/OrderingReplace"
+            "ordering.replace": "#/components/schemas/OrderingReplace",
+            "task.purge": "#/components/schemas/TaskPurge"
           }
         }
       },
@@ -4538,6 +4542,9 @@
                 "type": "null"
               }
             ]
+          },
+          "purged_at_utc": {
+            "$ref": "#/components/schemas/Instant"
           }
         },
         "required": [
@@ -6961,6 +6968,33 @@
           "protocol_version",
           "login",
           "password"
+        ],
+        "additionalProperties": false
+      },
+      "TaskPurge": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "task.purge",
+            "type": "string"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "task_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ID"
+            },
+            "minItems": 1,
+            "maxItems": 1000,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "type",
+          "event_at_utc",
+          "task_ids"
         ],
         "additionalProperties": false
       }

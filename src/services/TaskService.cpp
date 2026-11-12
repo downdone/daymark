@@ -36,7 +36,7 @@ bool QueryService::inView(const Task& input, const QString& view, const QDate& d
 {
     const auto normalized=input.schedule?std::optional<Task>(withUnifiedDates(input)):std::nullopt;
     const auto& t=normalized?*normalized:input;
-    if(t.syncRemoteDeletionPending)return false;
+    if(t.syncRemoteDeletionPending || !t.localRemovedAtUtc.isEmpty() || !t.purgedAtUtc.isEmpty())return false;
     if(view==QStringLiteral("trash"))return !t.deletedAtUtc.isEmpty();
     if(!t.deletedAtUtc.isEmpty()) return false;
     if(view==QStringLiteral("cancelled"))return t.status==QStringLiteral("CANCELLED");
@@ -414,6 +414,28 @@ Result<Task> TaskService::changeStateOne(const QString& id,qint64 version,const 
     const auto valid=validate(t);
     if(!valid.ok()) return {Task{},valid.error};
     return m_repository.update(t,version);
+}
+
+Result<void> TaskService::purge(const QList<QPair<QString,qint64>>& selection,bool server)
+{
+    if(selection.isEmpty())return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));
+    return m_repository.atomically([&] {
+        QSet<QString> ids;
+        for(const auto& [id,version]:selection) {
+            if(ids.contains(id))return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));
+            const auto current=m_repository.find(id);if(!current.ok())return Result<void>{current.error};
+            if(current.value.rowVersion!=version)return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));
+            if(current.value.deletedAtUtc.isEmpty())return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));
+            ids.insert(id);
+        }
+        const auto snapshot=m_repository.all(true);if(!snapshot.ok())return Result<void>{snapshot.error};
+        bool changed=true;while(changed){changed=false;for(const auto& task:snapshot.value)if(ids.contains(task.parentTaskId) && !ids.contains(task.id)){
+            if(task.deletedAtUtc.isEmpty())return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("actionInvalid"));
+            ids.insert(task.id);changed=true;
+        }}
+        QStringList ordered=ids.values();ordered.sort();
+        return m_repository.purge(ordered,m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),server);
+    });
 }
 
 Result<void> TaskService::batch(const QList<QPair<QString,qint64>>& selection,const QString& action,const TaskPatch& patch)

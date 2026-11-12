@@ -224,6 +224,17 @@ Json SetupManager::verifyBundle(const fs::path &source) {
       verifiedBundle(settings, fs::absolute(source).lexically_normal());
   return {{"format", 1}, {"result", "verified"}, {"files", entries.size()}};
 }
+Json SetupManager::checkIdle(const fs::path &target) {
+  const auto root = fs::absolute(target).lexically_normal();
+  location(root);
+  std::vector<std::unique_ptr<FileLock>> leases;
+  if (fs::exists(root / "bootstrap-release.json")) {
+    for (const auto *name : {"job", "prepare", "launch", "runtime"})
+      leases.push_back(
+          std::make_unique<FileLock>(root / "update-state/locks" / name, true));
+  }
+  return {{"format", 1}, {"result", "idle"}};
+}
 Json SetupManager::install(const fs::path &input, const fs::path &output) {
   const auto source = fs::absolute(input).lexically_normal(),
              root = fs::absolute(output).lexically_normal();

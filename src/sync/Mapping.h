@@ -48,7 +48,7 @@ class Mapping final {
         const auto identity = Identity::load(db, overlay);
         if (!identity.ok())
             return {{}, identity.error};
-        const auto taskResult = TaskRepository(db).all();
+        const auto taskResult = TaskRepository(db).all(true);
         if (!taskResult.ok())
             return {{}, taskResult.error};
         QHash<QString, Task> tasks;
@@ -71,6 +71,7 @@ class Mapping final {
         for (const auto &t : taskResult.value) {
             const auto raw = rawTasks.value(t.id);
             auto v = taskValue(t, raw);
+            if(!t.purgedAtUtc.isEmpty())v.insert("purged_at_utc",t.purgedAtUtc);
             if (!t.recurrenceId.isEmpty()) {
                 QString occurrence = raw.value("sync_occurrence_key").toString();
                 if (occurrence.isEmpty()) {
@@ -586,7 +587,7 @@ class Mapping final {
     }
     Result<void> applyTask(const QJsonObject &v) const {
         const auto id = v.value("id").toString();
-        const auto before = TaskRepository(db).find(id);
+        const auto before = TaskRepository(db).find(id,true);
         const auto r = v.value("reminder").toObject(), s = v.value("schedule").toObject();
         QString due, anchor, repeat = QStringLiteral("NONE"), zone = QStringLiteral("UTC"), fired;
         int every = 1, alert = -1;
@@ -694,10 +695,16 @@ class Mapping final {
         row.insert("reminder_repeat", repeat);
         row.insert("reminder_every", every);
         row.insert("reminder_zone", zone);
+        if(v.contains("purged_at_utc"))row.insert("purged_at_utc",v.value("purged_at_utc"));
         auto saved = upsert("tasks", row);
         if (!saved.ok())
             return saved;
         QSqlQuery q(db);
+        if(v.contains("purged_at_utc")) {
+            for(const auto& table:QStringList{"task_edit_history","task_reminder_history","checklist_items","reminder_execution"}) {
+                q.prepare("DELETE FROM "+table+" WHERE task_id=?");q.addBindValue(id);if(!q.exec())return writeFailure();
+            }
+        }
         for (const auto &table : {QStringLiteral("task_tags"), QStringLiteral("task_schedules")}) {
             q.prepare("DELETE FROM " + table + " WHERE task_id=?");
             q.addBindValue(id);

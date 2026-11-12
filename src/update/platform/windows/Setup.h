@@ -14,5 +14,6 @@ public:
   Json finish(const fs::path &target);
   Json sealUninstaller(const fs::path &target);
   Json verifyBundle(const fs::path &source);
+  Json checkIdle(const fs::path &target);
 };
 } // namespace daymark::update::win

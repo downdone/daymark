@@ -94,6 +94,7 @@ struct Task {
     bool evening = false;
     QString createdAtUtc, updatedAtUtc, completedAtUtc, cancelledAtUtc, deletedAtUtc;
     QString deletionGroupId,completionGroupId;
+    QString localRemovedAtUtc,purgedAtUtc;
     qint64 rowVersion = 1;
     qint64 sortOrder = 0;
     QString projectId, projectPlanning, projectStatus,areaId,headingId,projectName,projectAreaId,headingTitle;

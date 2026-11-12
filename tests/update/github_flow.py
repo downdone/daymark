@@ -262,7 +262,7 @@ def main():
         def schema_ready():
             if not (data/'daymark.sqlite').exists(): return False
             with sqlite3.connect(data/'daymark.sqlite') as db:
-                return db.execute('PRAGMA user_version').fetchone()[0] == 10
+                return db.execute('PRAGMA user_version').fetchone()[0] == 11
         wait_for(schema_ready,30,'synthetic database creation',root)
         old_modules = audit_qt_runtime(old['pid'],root/current['current'])
         with sqlite3.connect(data/'daymark.sqlite') as db:
@@ -303,7 +303,7 @@ def main():
         accepted_manifest = json.loads((root/'update-state/releases'/Path(current['current']).name/'manifest.json').read_text())
         with sqlite3.connect(data/'daymark.sqlite') as db:
             assert db.execute('PRAGMA quick_check').fetchone()[0] == 'ok'
-            assert db.execute('PRAGMA user_version').fetchone()[0] == 10
+            assert db.execute('PRAGMA user_version').fetchone()[0] == 11
             assert db.execute("SELECT title FROM tasks WHERE id='github-update-synthetic-task'").fetchone()[0] == 'Public GitHub update preservation check'
         result = dict(passed=True,repository='downdone/daymark',oldVersion=args.old_version,newVersion=args.new_version,
                       bootstrapReleaseId=release['id'],bootstrapAssetId=asset['id'],bootstrapSha256=actual,

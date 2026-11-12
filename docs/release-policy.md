@@ -59,3 +59,7 @@ Actions checkout可能在一次性runner中把事件标签落成本地轻量引�
 跨平台run步骤若使用`$RELEASE_TAG`，必须显式`shell: bash`；PowerShell应使用`$env:RELEASE_TAG`。恢复构建的归档命名/上传统一使用解析后的tag，不使用触发它的main分支名。
 
 Qt6.10.2官方SBOM默认tag/value（.spdx），JSON为可选生成结果。标签包保留四模块原始文档字节和实际扩展名，并校验SPDX结构；缺模块、损坏或目标重名仍阻止归档。恢复时打包工具从当前工作流提交单独checkout，源码/QML/LICENSE/二进制及BUILD-INFO源码SHA仍来自固定tag。依据[Qt生成器](https://github.com/qt/qtbase/blob/v6.10.2/cmake/QtPublicSbomGenerationHelpers.cmake)和[可选JSON生成操作](https://github.com/qt/qtbase/blob/v6.10.2/cmake/QtPublicSbomOpsHelpers.cmake)。
+
+### 数据格式升级的发行
+
+schema/读写ABI升级仍发布完整安装与便携包，但旧更新器必须拒绝跨ABI自动安装。此类发布的 previous_version 留空，明确记录公开自动升级不适用，不能写成升级通过；用迁移前一致备份、旧schema探针和新schema原生安装验收覆盖替代链。后续同ABI版本恢复公开升级验收。3.0.0为schema10→11的此类边界，不能伪填旧ABI绕过校验。

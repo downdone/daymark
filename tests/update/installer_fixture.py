@@ -61,6 +61,16 @@ def main():
     pid=launch()
     try:install(1)
     finally:stop_owned(root,pid)
+    # Emulate an existing schema10 profile before manual reinstall. The real new
+    # Qt app must migrate it after the signed installer has replaced the hosts.
+    import sqlite3
+    database=profile/'daymark.sqlite'
+    with sqlite3.connect(database) as db:
+        db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        db.execute("ALTER TABLE tasks DROP COLUMN purged_at_utc")
+        db.execute("ALTER TABLE tasks DROP COLUMN local_removed_at_utc")
+        db.execute("PRAGMA user_version=10")
+        db.execute("INSERT INTO tasks(id,title,created_at_utc,updated_at_utc) VALUES(?,?,?,?)",('installer-migration','Synthetic migration preservation','2026-11-10T00:00:00.000Z','2026-11-10T00:00:00.000Z'))
     before=snapshot();assert before
     (root/'personal.db').write_bytes(b'synthetic file must survive')
     install();install();assert snapshot()==before
@@ -71,11 +81,16 @@ def main():
         for backup in root.parent.glob(root.name+'.previous-*'):
             assert not list(backup.glob('versions/**/daymark.exe')),'old executable retained despite RUNNING'
         assert any((backup/'personal.db').read_bytes()==b'synthetic file must survive' for backup in root.parent.glob(root.name+'.previous-*') if (backup/'personal.db').exists())
+        with sqlite3.connect(database) as db:
+            assert db.execute('PRAGMA user_version').fetchone()[0]==11
+            assert db.execute("SELECT title FROM tasks WHERE id='installer-migration'").fetchone()[0]=='Synthetic migration preservation'
+        assert list((profile/'backups/migrations').glob('*.sqlite')),'migration backup missing'
+
     finally:stop_owned(root,pid)
     before=snapshot();(root/'personal.db').write_bytes(b'synthetic uninstall preservation')
     subprocess.run([str(root/'Uninstall.exe'),'/S'],cwd=a.work,check=True,timeout=30)
     wait_for(lambda:not (root/'daymark.exe').exists(),30)
     if integration:wait_for(lambda:read_registry() is None,30)
     assert (root/'personal.db').read_bytes()==b'synthetic uninstall preservation';assert snapshot()==before
-    print('PASS: real NSIS Unicode/space path, pinned setup/uninstaller, registration='+str(integration)+', real Qt RUNNING, busy refusal, two repairs, old-program cleanup, uninstall with data preserved')
+    print('PASS: real NSIS Unicode/space path, pinned setup/uninstaller, registration='+str(integration)+', real Qt RUNNING, busy refusal, two repairs, schema10-to-11 migration/backup, old-program cleanup, uninstall with data preserved')
 if __name__=='__main__':main()

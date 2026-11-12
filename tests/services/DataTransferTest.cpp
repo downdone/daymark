@@ -17,6 +17,98 @@ using namespace daymark;
 class DataTransferTest:public QObject {
     Q_OBJECT
 private slots:
+    void purgeChildOfExistingTombstoneStillEmitsCommand() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("purge-delta.sqlite")).ok());
+        TaskRepository repo(db.connection());SystemClock clock;TaskService service(repo,clock);
+        const auto parent=service.create("synthetic parent","anytime").value;
+        const auto child=service.createSubtask("synthetic child",parent.id).value;
+        QVERIFY(service.changeState(parent.id,parent.rowVersion,"delete").ok());
+        auto before=sync::Mapping(db.connection()).capture().value;
+        const auto at=QStringLiteral("2026-11-10T08:00:00.000Z");
+        auto mark=[&](sync::Graph& graph,const QString& id){auto e=graph.entities.value("task:"+id);auto value=e.value("value").toObject();value.insert("purged_at_utc",at);value.insert("title","[deleted]");e.insert("value",value);graph.entities.insert("task:"+id,e);};
+        mark(before,parent.id);auto after=before;mark(after,child.id);
+        const auto delta=sync::commandsBetween(before,after);QVERIFY(!delta.unsupported);QCOMPARE(delta.commands.size(),1);
+        const auto command=delta.commands.first().toObject();QCOMPARE(command.value("type").toString(),QStringLiteral("task.purge"));QCOMPARE(command.value("task_ids").toArray(),QJsonArray{child.id});
+    }
+    void syncCategoryRemovalRepairsRejectedDeletedTaskMoves() {
+        QTemporaryDir dir;
+        SqliteDatabase db;
+        QVERIFY(db.open(dir.filePath("category-retry.sqlite")).ok());
+        TaskRepository repo(db.connection());
+        SystemClock clock;
+        TaskService service(repo,clock);
+        const auto task=service.create("synthetic retained task","anytime");
+        QVERIFY(task.ok());
+        auto captured=sync::Mapping(db.connection()).capture();
+        QVERIFY(captured.ok());
+        auto before=captured.value;
+        const auto category=sync::uuid();
+        const auto taskKey="task:"+task.value.id;
+        auto entry=before.entities.value(taskKey);
+        auto value=entry.value("value").toObject();
+        value.insert("category_id",category);
+        value.insert("deleted_at_utc",sync::now());
+        entry.insert("value",value);
+        before.entities.insert(taskKey,entry);
+        auto categoryValue=QJsonObject{{"id",category},{"deleted_at_utc",QJsonValue::Null}};
+        before.entities.insert("category:"+category,sync::entity("category",categoryValue));
+        auto after=before;
+        value.insert("category_id",QJsonValue::Null);
+        entry.insert("value",value);
+        after.entities.insert(taskKey,entry);
+        categoryValue.insert("deleted_at_utc",sync::now());
+        after.entities.insert("category:"+category,sync::entity("category",categoryValue));
+        const auto delta=sync::commandsBetween(before,after);
+        QVERIFY(!delta.unsupported);
+        QCOMPARE(delta.commands.size(),1);
+        QCOMPARE(delta.commands.first().toObject().value("type").toString(),QString("category.remove"));
+
+        auto sql=[&](const QString &text,const QList<QVariant>&bindings=QList<QVariant>{}){
+            QSqlQuery q(db.connection());q.prepare(text);
+            for(const auto &binding:bindings)q.addBindValue(binding);
+            return q.exec();
+        };
+        const auto pid=sync::uuid(),epoch=sync::uuid(),dataset=sync::uuid();
+        QVERIFY(sql("INSERT INTO sync_profiles(profile_id,mode,server_origin,server_instance_id,user_id,dataset_id,data_epoch,generation,auth_state,installation_id,phase) VALUES(?,'ACCOUNT','https://example.invalid',?,?,?,?,1,'AUTHENTICATED',?,'ACTIVE')",
+                    {pid,sync::uuid(),sync::uuid(),dataset,epoch,sync::uuid()}));
+        QVERIFY(sql("INSERT INTO sync_cursor VALUES(?,?,?,0,0)",{pid,epoch,QString("cursor0")}));
+        sync::Journal journal(db.connection());
+        {
+            ScopedTransaction tx(db.connection());
+            QVERIFY(journal.record(before,after).ok());
+            auto legacy=delta.commands;
+            auto move=sync::event("task.move_tree",sync::now());
+            move.insert("task_id",task.value.id);
+            move.insert("category_id",QJsonValue::Null);
+            move.insert("parent_task_id",QJsonValue::Null);
+            legacy.append(move);
+            QVERIFY(sql("UPDATE sync_outbox SET state='BLOCKED_VALIDATION',safe_error_code='validation_failed',intent_json=?,frozen_payload=?,canonical_hash=?,preconditions_json='{}' WHERE local_seq=1",
+                        {QString::fromUtf8(sync::json({{"commands",legacy}})),QByteArray("synthetic-rejected"),
+                         QByteArray(32,'x')}));
+            auto later=after;
+            value.insert("title","later edit");
+            entry.insert("value",value);
+            later.entities.insert(taskKey,entry);
+            QVERIFY(journal.record(after,later).ok());
+            QVERIFY(tx.commit());
+        }
+        {
+            ScopedTransaction tx(db.connection());
+            const auto prepared=journal.execute("prepare",{});
+            QVERIFY2(prepared.ok(),qPrintable(prepared.error.key));
+            const auto payload=QJsonDocument::fromJson(prepared.value.value("payload").toString().toUtf8()).object();
+            QCOMPARE(payload.value("commands").toArray(),delta.commands);
+            QVERIFY(tx.commit());
+        }
+        QSqlQuery q(db.connection());
+        QVERIFY(q.exec("SELECT state,echo_applied,frozen_payload FROM sync_outbox ORDER BY local_seq"));
+        QVERIFY(q.next());QCOMPARE(q.value(0).toString(),QString("SUPERSEDED"));
+        QCOMPARE(q.value(2).toByteArray(),QByteArray("synthetic-rejected"));
+        QVERIFY(q.next());QCOMPARE(q.value(0).toString(),QString("SUPERSEDED"));
+        QVERIFY(q.next());QCOMPARE(q.value(0).toString(),QString("IN_FLIGHT"));
+        QVERIFY(q.next());QCOMPARE(q.value(0).toString(),QString("PENDING"));
+        QCOMPARE(repo.find(task.value.id).value.title,QString("synthetic retained task"));
+    }
     void syncRapidAfterCompletionKeepsDistinctIdentityAndSameActualDay() {
         QTemporaryDir dir;
         SqliteDatabase db, remote;
@@ -163,7 +255,7 @@ private slots:
     }
     void treeCohortsRoundTripAndOldJsonNormalizesWithoutPartialImport() {
         QTemporaryDir dir;SqliteDatabase source,target;QVERIFY(source.open(dir.filePath("source.sqlite")).ok());QVERIFY(target.open(dir.filePath("target.sqlite")).ok());SystemClock clock;TaskRepository repo(source.connection());TaskService service(repo,clock);const auto parent=service.create("parent","anytime");QVERIFY(parent.ok());QVERIFY(service.createSubtask("child",parent.value.id).ok());const auto removed=service.changeState(parent.value.id,parent.value.rowVersion,"delete");QVERIFY(removed.ok());
-        DataTransfer out(source),in(target);const auto path=dir.filePath("tree.json");QVERIFY(out.exportJson(path).ok());auto plan=DataTransfer::preview(path);QVERIFY(plan.ok());QCOMPARE(plan.value.document.value("schemaVersion").toInt(),10);QVERIFY(in.apply(plan.value,false).ok());TaskRepository imported(target.connection());TaskService commands(imported,clock);QCOMPARE(imported.find(parent.value.id).value.deletionGroupId,removed.value.deletionGroupId);QVERIFY(commands.changeState(parent.value.id,imported.find(parent.value.id).value.rowVersion,"restore").ok());for(const auto& task:imported.all().value)QVERIFY(task.deletedAtUtc.isEmpty());
+        DataTransfer out(source),in(target);const auto path=dir.filePath("tree.json");QVERIFY(out.exportJson(path).ok());auto plan=DataTransfer::preview(path);QVERIFY(plan.ok());QCOMPARE(plan.value.document.value("schemaVersion").toInt(),11);QVERIFY(in.apply(plan.value,false).ok());TaskRepository imported(target.connection());TaskService commands(imported,clock);QCOMPARE(imported.find(parent.value.id).value.deletionGroupId,removed.value.deletionGroupId);QVERIFY(commands.changeState(parent.value.id,imported.find(parent.value.id).value.rowVersion,"restore").ok());for(const auto& task:imported.all().value)QVERIFY(task.deletedAtUtc.isEmpty());
         const auto before=imported.all().value;auto malformed=plan.value;auto tables=malformed.document.value("tables").toObject();auto rows=tables.value("tasks").toArray();auto row=rows.last().toObject();row.insert("deleted_at_utc",QJsonValue::Null);rows[rows.size()-1]=row;tables.insert("tasks",rows);malformed.document.insert("tables",tables);QVERIFY(!in.apply(malformed,true).ok());QCOMPARE(imported.all().value,before);
         auto old=plan.value.document;old.insert("schemaVersion",8);tables=old.value("tables").toObject();rows=tables.value("tasks").toArray();for(int i=0;i<rows.size();++i){row=rows[i].toObject();row.remove("deletion_group_id");row.remove("completion_group_id");rows[i]=row;}tables.insert("tasks",rows);old.insert("tables",tables);QFile file(path);QVERIFY(file.open(QIODevice::WriteOnly));file.write(QJsonDocument(old).toJson());file.close();const auto legacy=DataTransfer::preview(path);QVERIFY(legacy.ok());QVERIFY(in.apply(legacy.value,true).ok());for(const auto& task:imported.all().value){QVERIFY(task.deletionGroupId.isEmpty());QVERIFY(!task.deletedAtUtc.isEmpty());}
     }
@@ -207,7 +299,7 @@ private slots:
         SqliteDatabase upgraded;QVERIFY(upgraded.open(path).ok());
         QCOMPARE(TaskRepository(upgraded.connection()).all().value.size(),1);
         const auto backups=QDir(dir.filePath(QStringLiteral("backups/migrations"))).entryList({QStringLiteral("*.sqlite")},QDir::Files);QCOMPARE(backups.size(),1);
-        QSqlQuery q(upgraded.connection());QVERIFY(q.exec(QStringLiteral("PRAGMA user_version")));QVERIFY(q.next());QCOMPARE(q.value(0).toInt(),10);
+        QSqlQuery q(upgraded.connection());QVERIFY(q.exec(QStringLiteral("PRAGMA user_version")));QVERIFY(q.next());QCOMPARE(q.value(0).toInt(),11);
     }
     void roundtripPreviewMergeAndRestore()
     {

@@ -74,6 +74,6 @@ struct Cancellation {
 inline constexpr std::uint64_t MaxPackage = 512ULL * 1024 * 1024;
 inline constexpr std::uint64_t MaxUnpacked = 2ULL * 1024 * 1024 * 1024;
 inline constexpr std::string_view Repository = "downdone/daymark";
-inline constexpr std::string_view DataAbi = "task-store-v10-rw1";
-inline constexpr unsigned Schema = 10;
+inline constexpr std::string_view DataAbi = "task-store-v11-rw1";
+inline constexpr unsigned Schema = 11;
 } // namespace daymark::update

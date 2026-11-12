@@ -112,6 +112,7 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(QVariantMap preferences READ preferences NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap systemAccessibility READ systemAccessibility NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap backupInfo READ backupInfo NOTIFY stateChanged)
+    Q_PROPERTY(QString databasePath READ databasePath NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap syncState READ syncState NOTIFY syncStateChanged)
     Q_PROPERTY(QString officialSyncOrigin READ officialSyncOrigin CONSTANT)
     Q_PROPERTY(bool syncApplyPaused READ syncApplyPaused WRITE setSyncApplyPaused NOTIFY syncApplyPausedChanged)
@@ -301,6 +302,7 @@ public:
     Q_INVOKABLE bool saveTaskWithDetails(const QString& id,qint64 version,const QString& title,const QString& notes,
                                         const QString& planning,const QString& start,const QString& deadline,bool focus,const QVariantMap& details);
     Q_INVOKABLE bool changeState(const QString& id,qint64 version,const QString& action);
+    Q_INVOKABLE bool purgeTasks(const QVariantList& selection,bool server);
     Q_INVOKABLE bool batchTasks(const QVariantList& selection,const QString& action,const QString& value);
     int historyDays()const{return m_historyDays;}
     void setHistoryDays(int days);

@@ -1,6 +1,7 @@
 #include "SqliteDatabase.h"
 #include "UnifiedTaskMigration.h"
 #include "migrations/010_account_sync.h"
+#include "migrations/011_task_purge.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -23,7 +24,7 @@ Result<void> SqliteDatabase::probeForUpdate(const QString& path)
         if(!db.open())result=Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("update.database_read"));
         else {
             QSqlQuery query(db);
-            if(!query.exec(QStringLiteral("PRAGMA user_version"))||!query.next()||query.value(0).toInt()!=10)result=Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("update.data_compatibility"));
+            if(!query.exec(QStringLiteral("PRAGMA user_version"))||!query.next()||(query.value(0).toInt()<10 || query.value(0).toInt()>11))result=Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("update.data_compatibility"));
             if(result.ok()&&(!query.exec(QStringLiteral("PRAGMA quick_check"))||!query.next()||query.value(0).toString()!=QStringLiteral("ok")))result=Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("update.database_read"));
             if(result.ok()&&!query.exec(QStringLiteral("SELECT id FROM tasks LIMIT 1")))result=Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("update.database_read"));
         }
@@ -46,7 +47,7 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
     QSqlQuery query(db);
     if(!query.exec(QStringLiteral("PRAGMA user_version")) || !query.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     const int version=query.value(0).toInt();query.finish();
-    constexpr int latest=10;
+    constexpr int latest=11;
     if(version>latest)return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("schemaTooNew"));
     if(version==latest)return {};
     if(version<0)return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("unknownSchema"));
@@ -61,6 +62,7 @@ Result<void> MigrationManager::initialize(QSqlDatabase& db)
     // All pending migrations commit together, so a later conversion failure also
     // rolls back earlier steps. The original WAL snapshot is kept by open().
     for(int i=version;i<latest;++i){
+        if(i==10){for(const auto& statement:taskPurgeMigration11())if(!query.exec(statement))return failed(QStringLiteral("migrationFailed"));continue;}
         if(i==9){for(const auto& statement:accountSyncMigration10())if(!query.exec(statement))return failed(QStringLiteral("migrationFailed"));if(!initializeSyncTimeZones(db))return failed(QStringLiteral("migrationFailed"));continue;}
         QFile schema(QStringLiteral(":/daymark/src/persistence/migrations/")+migrations[i]);if(!schema.open(QIODevice::ReadOnly))return failed(QStringLiteral("schemaResource"));
         for(const auto& statement:QString::fromUtf8(schema.readAll()).split(';',Qt::SkipEmptyParts))if(!statement.trimmed().isEmpty() && !query.exec(statement))return failed(QStringLiteral("migrationFailed"));
@@ -95,7 +97,7 @@ Result<void> SqliteDatabase::open(const QString& path)
         QSqlQuery version(m_db);
         if(!version.exec(QStringLiteral("PRAGMA user_version")) || !version.next())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
         const int current=version.value(0).toInt();version.finish();
-        if(current>=1 && current<=9) {
+        if(current>=1 && current<=10) {
             const auto snapshot=createSnapshot(QFileInfo(path).dir().filePath(QStringLiteral("backups/migrations")));
             if(!snapshot.ok()){m_db.close();return {snapshot.error};}
         }

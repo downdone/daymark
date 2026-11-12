@@ -325,7 +325,7 @@ ApplicationWindow {
     Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property: "interactionActive";value: !!mainWindow.taskPointerRow || mainWindow.catalogDragActive || calendarPanel.timelineDragging || taskWidget.taskDragging}
     Binding {restoreMode: Binding.RestoreNone;target: mainWindow.taskWorkspace;property:"syncApplyPaused";value:mainWindow.draftDirty || mainWindow.editorSaving || (organization.visible && organization.dirty) || mainWindow.taskWorkspace.interactionActive}
     readonly property bool editingActive: editor.visible || quickEditor.editing
-    readonly property bool transientMenuOpen: taskContextMenu.visible || libraryMenu.visible || libraryCreateMenu.visible || categoryContextMenu.visible || catalogDeleteConfirm.visible || pageMenu.visible || categorySectionMenu.visible || tagSectionMenu.visible || batchContextMenu.visible || trashContextMenu.visible
+    readonly property bool transientMenuOpen: taskContextMenu.visible || libraryMenu.visible || libraryCreateMenu.visible || categoryContextMenu.visible || catalogDeleteConfirm.visible || pageMenu.visible || categorySectionMenu.visible || tagSectionMenu.visible || batchContextMenu.visible || trashContextMenu.visible || purgeConfirm.visible
     readonly property bool toolModalOpen: inspectorPicker.active || transientMenuOpen || catalogEdit.visible || deleteParentConfirm.visible || catalogCreate.visible || quickEditor.editing || organization.modalOpen || windowSettings.visible || accountWindow.visible || dataTools.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen || timingFields.modalOpen || extraFields.parentPickerVisible || startDate.pickerVisible || deadline.pickerVisible || reminder.pickerVisible
     property string toolPage: ""
     readonly property bool toolPageVisible: toolPage.length>0
@@ -1052,6 +1052,39 @@ ApplicationWindow {
                 id:sidebarFooter
                 objectName: "sidebarFooter"
                 Layout.fillWidth: true;Layout.margins: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? 4 : 10;spacing: 2
+                ActionButton {
+                    id: updateStatus
+                    objectName: "sidebarUpdateStatus"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    visible: !mainWindow.taskWorkspace.preferences.sidebarCollapsed && !!mainWindow.updateController && mainWindow.updateController.supported===true
+                    contentAlignment: Qt.AlignLeft
+                    symbol: mainWindow.updateController && mainWindow.updateController.ready ? "reload" : "down"
+                    text: mainWindow.updateController && mainWindow.updateController.ready ? qsTr("重启更新")
+                        : mainWindow.updateController && mainWindow.updateController.busy ? qsTr("正在更新…")
+                        : qsTr("检查更新")
+                    palette.buttonText: mainWindow.updateController && mainWindow.updateController.ready ? Theme.accent : Theme.secondary
+                    Accessible.description: mainWindow.updateController ? mainWindow.updateController.statusText : ""
+                    onClicked: {
+                        if(mainWindow.updateController.ready)mainWindow.restartFromUpdateNotice()
+                        else if(mainWindow.updateController.busy)mainWindow.updateController.showUpdater()
+                        else mainWindow.updateController.check(false)
+                    }
+                    DS.ToolTip {visible:!Theme.hintsBlocked && updateStatus.hovered;text:mainWindow.updateController ? mainWindow.updateController.statusText : ""}
+                }
+                WidgetAction {
+                    objectName: "sidebarCollapsedUpdate"
+                    visible: mainWindow.taskWorkspace.preferences.sidebarCollapsed && !!mainWindow.updateController && mainWindow.updateController.supported===true
+                    Layout.alignment: Qt.AlignHCenter
+                    symbol: "reload"
+                    description: mainWindow.updateController ? mainWindow.updateController.statusText : qsTr("检查更新")
+                    checked: !!mainWindow.updateController && mainWindow.updateController.ready
+                    onClicked: {
+                        if(mainWindow.updateController.ready)mainWindow.restartFromUpdateNotice()
+                        else if(mainWindow.updateController.busy)mainWindow.updateController.showUpdater()
+                        else mainWindow.updateController.check(false)
+                    }
+                }
                 Rectangle {Layout.fillWidth: true;implicitHeight: 1;color: Theme.separator;Layout.bottomMargin: 6}
                 RowLayout {
                     visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed
@@ -1182,6 +1215,7 @@ ApplicationWindow {
                 Button {visible: mainWindow.batchMode;text: qsTr("退出多选");onClicked: mainWindow.clearTaskSelection()}
                 Label {visible: mainWindow.batchMode;text: qsTr("已选 %1 项").arg(mainWindow.batchSelection.length);color: Theme.secondary}
                 ActionButton {objectName:"batchRestoreTasks";symbol:"undo";visible:mainWindow.batchMode && mainWindow.taskWorkspace.view==="trash";text:qsTr("恢复所选任务…");enabled:mainWindow.batchSelection.length>0 && !mainWindow.taskWorkspace.busy;onClicked:mainWindow.openBatchAction(6)}
+                ActionButton {objectName:"batchPurgeTasks";symbol:"trash";visible:mainWindow.batchMode && mainWindow.taskWorkspace.view==="trash";text:qsTr("彻底删除…");palette.buttonText:Theme.danger;enabled:mainWindow.batchSelection.length>0 && !mainWindow.taskWorkspace.busy;onClicked:purgeConfirm.showSelection()}
                 ActionButton {symbol: "check";visible: mainWindow.batchMode && mainWindow.selectionHasStatus("OPEN");text: qsTr("完成");onClicked: mainWindow.openBatchAction(0)}
                 ActionButton {symbol: "undo";visible: mainWindow.batchMode && mainWindow.selectionHasStatus("COMPLETED");text: qsTr("重新打开");onClicked: mainWindow.openBatchAction(4)}
                 ActionButton {symbol: "folder";visible: mainWindow.batchMode && mainWindow.taskWorkspace.view!=="trash";text: qsTr("分类");enabled: mainWindow.batchSelection.length>0;onClicked: mainWindow.openBatchAction(1)}
@@ -1990,11 +2024,70 @@ ApplicationWindow {
         DS.MenuSeparator {}
         DS.MenuItem {objectName:"batchMenuDelete";text:qsTr("删除 %1 项任务…").arg(mainWindow.batchSelection.length);destructive:true;onTriggered:mainWindow.openBatchAction(5)}
     }
+    Dialog {
+        id: purgeConfirm;objectName:"purgeTaskDialog";parent:mainWindow.contentItem;anchors.centerIn:parent
+        property var selection: []
+        property string sourceProfile: ""
+        property bool attempted:false
+        readonly property int affectedCount:mainWindow.taskWorkspace.batchImpact(selection,"purge")
+        readonly property bool serverAvailable:mainWindow.taskWorkspace.syncState.purge_supported===true && mainWindow.taskWorkspace.syncState.authenticated===true
+        readonly property bool accountProfile:mainWindow.taskWorkspace.syncState.mode==="ACCOUNT"
+        readonly property string scopeHint:alsoServer.checked ? qsTr("会同步移除其他设备上的任务，连接后执行。") : !serverAvailable ? mainWindow.taskWorkspace.syncState.authenticated===true ? qsTr("当前服务暂不支持同步删除，服务器副本保留。") : qsTr("登录后，可选择同步删除服务器副本。") : qsTr("仅从本机列表移除，服务器副本和同步记录保留。")
+        title:qsTr("彻底删除 %1 项任务？").arg(affectedCount)
+        modal:true;closePolicy:Popup.NoAutoClose
+        width:Math.min(320*Theme.scale,parent.width-32);height:Math.min(implicitHeight,parent.height-32)
+        padding:20*Theme.scale;spacing:0;header:null;footer:null
+        background:Rectangle {color:Theme.content;radius:10*Theme.scale;antialiasing:true;border.width:1;border.color:Theme.separator}
+        function showSelection(){mainWindow.navigateSafely(function(){purgeConfirm.selection=mainWindow.batchSelection.slice();purgeConfirm.sourceProfile=mainWindow.taskWorkspace.databasePath;purgeConfirm.attempted=false;onlyDevice.checked=true;purgeConfirm.open()})}
+        onOpened:cancelPurge.forceActiveFocus()
+        Shortcut {sequence:"Escape";enabled:purgeConfirm.visible && !mainWindow.taskWorkspace.busy;onActivated:purgeConfirm.close()}
+        component ScopeRadio: RadioButton {
+            id:scopeOption
+            padding:0;spacing:8*Theme.scale
+            implicitHeight:Math.max(24*Theme.scale,contentItem.implicitHeight+4*Theme.scale)
+            contentItem:Text {text:scopeOption.text;textFormat:Text.PlainText;font:scopeOption.font;color:scopeOption.enabled?Theme.text:Theme.disabledText;leftPadding:scopeOption.indicator.width+scopeOption.spacing;wrapMode:Text.Wrap;verticalAlignment:Text.AlignVCenter}
+            indicator:Rectangle {
+                implicitWidth:14*Theme.scale;implicitHeight:14*Theme.scale
+                x:scopeOption.leftPadding;y:(scopeOption.height-height)/2;radius:width/2;antialiasing:true
+                color:Theme.content;border.width:scopeOption.activeFocus?2:1
+                border.color:scopeOption.enabled?Theme.secondary:Theme.separator
+                Rectangle {anchors.centerIn:parent;width:6*Theme.scale;height:width;radius:width/2;antialiasing:true;visible:scopeOption.checked;color:Theme.text}
+            }
+        }
+        FontMetrics {id:purgeHintMetrics;font:purgeHint.font}
+        contentItem:ScrollView {
+            id:purgeScroll;implicitHeight:purgeFields.implicitHeight;clip:true
+            ColumnLayout {
+                id:purgeFields;width:purgeScroll.availableWidth;spacing:0
+                Image {
+                    Layout.alignment:Qt.AlignHCenter;Layout.preferredWidth:Math.min(52,36*Theme.scale);Layout.preferredHeight:Layout.preferredWidth
+                    Layout.bottomMargin:10*Theme.scale
+                    source:purgeConfirm.visible ? "qrc:/daymark/icons/daymark-256.png" : ""
+                    fillMode:Image.PreserveAspectFit;smooth:true;Accessible.ignored:true
+                }
+                Label {Layout.fillWidth:true;Layout.bottomMargin:6*Theme.scale;text:purgeConfirm.title;font.pixelSize:Theme.panelTitleSize;font.weight:Font.DemiBold;horizontalAlignment:Text.AlignHCenter;wrapMode:Text.Wrap}
+                Label {Layout.fillWidth:true;Layout.bottomMargin:14*Theme.scale;text:qsTr("包括已删除的子任务。此操作不可撤销，已有备份不受影响。");horizontalAlignment:Text.AlignHCenter;wrapMode:Text.Wrap}
+                ButtonGroup {id:purgeScope}
+                ScopeRadio {id:onlyDevice;objectName:"purgeOnlyDevice";Layout.fillWidth:true;ButtonGroup.group:purgeScope;text:qsTr("仅从此设备移除");checked:true}
+                ScopeRadio {id:alsoServer;objectName:"purgeAlsoServer";Layout.fillWidth:true;ButtonGroup.group:purgeScope;text:qsTr("同时从服务器删除");enabled:purgeConfirm.serverAvailable}
+                Label {id:purgeHint;Layout.fillWidth:true;Layout.minimumHeight:2*Math.ceil(purgeHintMetrics.height);Layout.topMargin:6*Theme.scale;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary;text:purgeConfirm.scopeHint}
+                Label {Layout.fillWidth:true;Layout.topMargin:8*Theme.scale;wrapMode:Text.Wrap;color:Theme.danger;visible:purgeConfirm.attempted && text.length>0;text:mainWindow.taskWorkspace.errorText}
+                RowLayout {
+                    Layout.fillWidth:true;Layout.topMargin:16*Theme.scale;spacing:8*Theme.scale
+                    Button {id:cancelPurge;objectName:"cancelPurgeTasks";Layout.fillWidth:true;Layout.preferredWidth:1;text:qsTr("取消");enabled:!mainWindow.taskWorkspace.busy;onClicked:purgeConfirm.close()}
+                    Button {objectName:"confirmPurgeTasks";Layout.fillWidth:true;Layout.preferredWidth:1;text:alsoServer.checked || !purgeConfirm.accountProfile ? qsTr("删除") : qsTr("移除");palette.buttonText:Theme.danger;enabled:!mainWindow.taskWorkspace.busy && purgeConfirm.selection.length>0 && purgeConfirm.sourceProfile===mainWindow.taskWorkspace.databasePath && (!alsoServer.checked || purgeConfirm.serverAvailable);onClicked:{purgeConfirm.attempted=true;mainWindow.taskWorkspace.purgeTasks(purgeConfirm.selection,alsoServer.checked)}}
+                }
+            }
+        }
+        Connections {target:mainWindow.taskWorkspace;function onOperationFinished(operation,success){if(operation==="purge" && success){purgeConfirm.close();mainWindow.clearTaskSelection()}}}
+    }
     DS.Menu {
         id:trashContextMenu;objectName:"trashTaskContext"
         MenuItem {objectName:"trashMenuSummary";text:qsTr("已选 %1 项").arg(mainWindow.batchSelection.length);visible:mainWindow.batchSelection.length>1;enabled:false}
         DS.MenuSeparator {groupEnabled:mainWindow.batchSelection.length>1}
         MenuItem {objectName:"trashMenuRestore";text:mainWindow.batchSelection.length>1 ? qsTr("恢复所选 %1 项任务…").arg(mainWindow.batchSelection.length) : qsTr("恢复任务");enabled:mainWindow.batchSelection.length>0 && !mainWindow.taskWorkspace.busy;onTriggered: {if(mainWindow.batchSelection.length>1)mainWindow.openBatchAction(6);else mainWindow.taskWorkspace.batchTasks(mainWindow.batchSelection.slice(),"restore","")}}
+        DS.MenuSeparator {}
+        DS.MenuItem {objectName:"trashMenuPurge";text:qsTr("彻底删除…");destructive:true;enabled:mainWindow.batchSelection.length>0 && !mainWindow.taskWorkspace.busy;onTriggered:purgeConfirm.showSelection()}
     }
     BatchTaskDialog {id: batchDialog;parent: mainWindow.contentItem;anchors.centerIn: parent;workspace: mainWindow.taskWorkspace;onCommitted: mainWindow.clearTaskSelection()}
     DataToolsDialog { id: dataTools; parent: mainWindow.contentItem; anchors.centerIn: parent; workspace: mainWindow.taskWorkspace }

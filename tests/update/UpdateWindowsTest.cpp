@@ -14,6 +14,21 @@ int main() {
                 fs::remove_all(root, ignored);
             }
         } cleanup{root};
+        {
+            Cancellation cancellation;
+            win::Engine engine(win::Settings{root, {}}, cancellation);
+            const auto preferences=root/"update-state/preferences.json";
+            const auto now=std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            win::writeAtomic(preferences,Json{{"last_attempt",now-3600}}.dump());
+            if(engine.shouldCheck(false) || !engine.shouldCheck(true))return 21;
+            win::writeAtomic(preferences,Json{{"last_attempt",now-86401}}.dump());
+            if(!engine.shouldCheck(false))return 22;
+            win::writeAtomic(preferences,Json{{"last_attempt",now},{"cancelled_until",now+86400}}.dump());
+            if(!engine.shouldCheck(true))return 23;
+            win::writeAtomic(preferences,Json{{"rate_limit_until",now+60}}.dump());
+            if(engine.shouldCheck(true))return 24;
+        }
         const auto lockPath = root / "update-state/locks/launch";
         {
             win::FileLock first(lockPath, true);

@@ -18,7 +18,7 @@
 namespace daymark {
 namespace {
 const QStringList tables={QStringLiteral("areas"),QStringLiteral("projects"),QStringLiteral("headings"),QStringLiteral("tags"),QStringLiteral("recurrence_templates"),QStringLiteral("tasks"),QStringLiteral("checklist_items"),QStringLiteral("task_tags"),QStringLiteral("task_view_order"),QStringLiteral("events"),QStringLiteral("event_tasks"),QStringLiteral("event_reminder_history"),QStringLiteral("task_edit_history"),QStringLiteral("task_reminder_history"),QStringLiteral("task_schedules"),QStringLiteral("task_links")};
-bool supportedSchema(const QJsonObject& root){const double v=root.value(QStringLiteral("schemaVersion")).toDouble(-1);return v==1 || v==2 || v==3 || v==4 || v==5 || v==6 || v==7 || v==8 || v==9 || v==10;}
+bool supportedSchema(const QJsonObject& root){const double v=root.value(QStringLiteral("schemaVersion")).toDouble(-1);return v==1 || v==2 || v==3 || v==4 || v==5 || v==6 || v==7 || v==8 || v==9 || v==10 || v==11;}
 QJsonObject normalized(QJsonObject root) {
     if(root.value(QStringLiteral("schemaVersion")).toInt()<3){auto data=root.value(QStringLiteral("tables")).toObject();for(const auto& table:{QStringLiteral("events"),QStringLiteral("event_tasks")})if(!data.contains(table))data.insert(table,QJsonArray{});root.insert(QStringLiteral("tables"),data);}
     if(root.value(QStringLiteral("schemaVersion")).toInt()<4){auto data=root.value(QStringLiteral("tables")).toObject();data.insert(QStringLiteral("event_reminder_history"),QJsonArray{});auto rows=data.value(QStringLiteral("events")).toArray();for(int i=0;i<rows.size();++i){auto row=rows[i].toObject();row.insert(QStringLiteral("repeat_frequency"),QStringLiteral("NONE"));row.insert(QStringLiteral("repeat_interval"),1);row.insert(QStringLiteral("repeat_until"),QJsonValue(QJsonValue::Null));row.insert(QStringLiteral("alert_minutes"),-1);rows[i]=row;}data.insert(QStringLiteral("events"),rows);root.insert(QStringLiteral("tables"),data);}if(root.value(QStringLiteral("schemaVersion")).toInt()<5) {
@@ -60,7 +60,8 @@ QJsonObject normalized(QJsonObject root) {
     }
     if(root.value(QStringLiteral("schemaVersion")).toInt()<9){auto data=root.value(QStringLiteral("tables")).toObject();auto rows=data.value(QStringLiteral("tasks")).toArray();for(int i=0;i<rows.size();++i){auto row=rows[i].toObject();row.insert(QStringLiteral("deletion_group_id"),QJsonValue::Null);row.insert(QStringLiteral("completion_group_id"),QJsonValue::Null);rows[i]=row;}data.insert(QStringLiteral("tasks"),rows);root.insert(QStringLiteral("tables"),data);}
     if(root.value(QStringLiteral("schemaVersion")).toInt()<10){auto data=root.value(QStringLiteral("tables")).toObject();for(const auto& table:{QStringLiteral("tasks"),QStringLiteral("projects")}){auto rows=data.value(table).toArray();for(int i=0;i<rows.size();++i){auto row=rows[i].toObject();row.insert(QStringLiteral("sync_legacy_json"),QJsonValue::Null);if(table==QStringLiteral("tasks"))row.insert(QStringLiteral("sync_occurrence_on"),QJsonValue::Null);if(table==QStringLiteral("tasks"))row.insert(QStringLiteral("sync_occurrence_key"),QJsonValue::Null);else row.insert(QStringLiteral("color_key"),QStringLiteral("neutral"));rows[i]=row;}data.insert(table,rows);}root.insert(QStringLiteral("tables"),data);}
-    root.insert(QStringLiteral("schemaVersion"),10);return root;
+    if(root.value(QStringLiteral("schemaVersion")).toInt()<11){auto data=root.value(QStringLiteral("tables")).toObject();auto tasks=data.value(QStringLiteral("tasks")).toArray();for(int i=0;i<tasks.size();++i){auto row=tasks[i].toObject();row.insert(QStringLiteral("local_removed_at_utc"),QJsonValue::Null);row.insert(QStringLiteral("purged_at_utc"),QJsonValue::Null);tasks[i]=row;}data.insert(QStringLiteral("tasks"),tasks);root.insert(QStringLiteral("tables"),data);}
+    root.insert(QStringLiteral("schemaVersion"),11);return root;
 }
 template<class T> Result<T> invalid(){return Result<T>::failure(ErrorCode::ValidationError,QStringLiteral("importInvalid"));}
 template<class T> Result<T> ioError(){return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("transferFailed"));}
@@ -84,7 +85,7 @@ Result<QJsonObject> DataTransfer::document(QSqlDatabase db)
     QJsonObject portable{{QStringLiteral("sundayFirst"),settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool()},
         {QStringLiteral("themeMode"),qBound(0,settings.value(QStringLiteral("appearance/themeMode"),0).toInt(),2)},
         {QStringLiteral("textScale"),qBound(1.0,settings.value(QStringLiteral("appearance/textScale"),1.0).toDouble(),2.0)}};
-    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),10},
+    return {QJsonObject{{QStringLiteral("format"),QStringLiteral("daymark")},{QStringLiteral("formatVersion"),1},{QStringLiteral("schemaVersion"),11},
         {QStringLiteral("createdAtUtc"),QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{QStringLiteral("tables"),data},{QStringLiteral("settings"),portable}}, {}};
 }
 Result<void> DataTransfer::exportJson(const QString& path) const

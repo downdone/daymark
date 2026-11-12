@@ -51,7 +51,7 @@ std::wstring message(const Json &state) {
         return L"已取消更新准备。";
     if (state.contains("error"))
         return L"更新未完成，可重试或从关于页查看原因。";
-    return L"Daymark 会在启动后自动准备更新。";
+    return L"Daymark 每天自动检查并准备更新。";
 }
 void command(std::wstring_view value) {
     win::spawn(config.root / L"daymark-update-cli.exe",

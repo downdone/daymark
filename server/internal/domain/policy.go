@@ -244,6 +244,8 @@ func (p *planner) apply(cmd Command) error {
 		return nil
 	case *MoveTree:
 		return p.move(c.TaskID, c.CategoryID, c.ParentTaskID)
+	case *PurgeTasks:
+		return p.purge(c)
 	case *ChangeState:
 		return p.changeState(c)
 	case *SaveCategory:
@@ -669,6 +671,17 @@ func (p *planner) categoryDepth(id ID) (int, error) {
 	}
 }
 func (p *planner) validateTask(t *Task, before Entity) error {
+	if old, ok := before.Value.(*Task); ok && old.PurgedAt != nil && (t.PurgedAt == nil || t.DeletedAt == nil) {
+		return Invalid("/purged_at_utc")
+	}
+	if t.PurgedAt != nil {
+		if _, e := t.PurgedAt.Time(); e != nil {
+			return e
+		}
+		if t.DeletedAt == nil || t.Title != "[deleted]" || t.Notes != "" || t.Schedule != nil || t.Reminder != nil || len(t.TagIDs) > 0 || len(t.Links) > 0 || t.Legacy != nil {
+			return Invalid("/purged_at_utc")
+		}
+	}
 	if e := CheckTitle(t.Title); e != nil {
 		return e
 	}
@@ -711,6 +724,9 @@ func (p *planner) validateTask(t *Task, before Entity) error {
 		parent, e := p.task(*t.ParentTaskID)
 		if e != nil {
 			return e
+		}
+		if parent.PurgedAt != nil && t.DeletedAt == nil {
+			return Invalid("/parent_task_id")
 		}
 		if !Equal(parent.CategoryID, t.CategoryID) {
 			return Invalid("/category_id")

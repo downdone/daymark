@@ -53,8 +53,9 @@ def main():
     k.LockFileEx.argtypes=[wintypes.HANDLE,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,wintypes.DWORD,ctypes.POINTER(Overlapped)];k.CloseHandle.argtypes=[wintypes.HANDLE]
     h=k.CreateFileW(str(root/'update-state/locks/runtime'),0xC0000000,7,None,4,0x80,None);assert h!=wintypes.HANDLE(-1).value
     ov=Overlapped();assert k.LockFileEx(h,0,0,1,0,ctypes.byref(ov))
-    try:setup('install',new,30);setup('uninstall',code=30)
+    try:setup('check-idle',code=30);setup('install',new,30);setup('uninstall',code=30)
     finally:k.CloseHandle(h)
+    setup('check-idle')
     foreign=w/'foreign';foreign.mkdir();(foreign/'keep.txt').write_text('untouched')
     _winapi.CreateJunction(str(foreign),str(root/'foreign-link'))
     (root/'keep.db').write_text('keep');(root/'versions/2.0.1/daymark.exe').write_bytes(b'user modified')

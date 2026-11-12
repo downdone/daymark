@@ -15,7 +15,7 @@ const QString selectTasks = QStringLiteral(
     "t.today_focus,t.evening,t.created_at_utc,t.updated_at_utc,t.completed_at_utc,t.cancelled_at_utc,"
     "t.deleted_at_utc,t.row_version,t.sort_order,t.project_id,p.planning_state,p.status,CASE WHEN p.archived=1 THEN 'archived' ELSE p.deleted_at_utc END,"
     "t.direct_area_id,t.heading_id,p.title,t.remind_at_utc,t.reminder_fired_at_utc,o.sort_order,COALESCE(p.parent_id,p.area_id),t.recurrence_template_id,t.occurrence_on,t.instance_overridden,h.title,h.sort_order "
-    ",COALESCE(c.title,a.name),CASE WHEN c.id IS NOT NULL THEN (c.archived=1 OR c.status<>'OPEN' OR c.planning_state<>'ACTIVE' OR c.deleted_at_utc IS NOT NULL) ELSE COALESCE(a.archived,0) END,t.parent_task_id,t.pinned,t.important,pt.title,t.reminder_repeat,t.reminder_every,t.reminder_anchor_utc,t.reminder_zone,t.deletion_group_id,t.completion_group_id,t.sync_occurrence_key,t.sync_occurrence_on FROM tasks t LEFT JOIN tasks pt ON pt.id=t.parent_task_id LEFT JOIN projects p ON p.id=t.project_id LEFT JOIN projects c ON c.id=p.parent_id LEFT JOIN headings h ON h.id=t.heading_id LEFT JOIN areas a ON a.id=COALESCE(t.direct_area_id,p.area_id) LEFT JOIN task_view_order o ON o.task_id=t.id AND o.view_code='today' ");
+    ",COALESCE(c.title,a.name),CASE WHEN c.id IS NOT NULL THEN (c.archived=1 OR c.status<>'OPEN' OR c.planning_state<>'ACTIVE' OR c.deleted_at_utc IS NOT NULL) ELSE COALESCE(a.archived,0) END,t.parent_task_id,t.pinned,t.important,pt.title,t.reminder_repeat,t.reminder_every,t.reminder_anchor_utc,t.reminder_zone,t.deletion_group_id,t.completion_group_id,t.sync_occurrence_key,t.sync_occurrence_on,t.local_removed_at_utc,t.purged_at_utc FROM tasks t LEFT JOIN tasks pt ON pt.id=t.parent_task_id LEFT JOIN projects p ON p.id=t.project_id LEFT JOIN projects c ON c.id=p.parent_id LEFT JOIN headings h ON h.id=t.heading_id LEFT JOIN areas a ON a.id=COALESCE(t.direct_area_id,p.area_id) LEFT JOIN task_view_order o ON o.task_id=t.id AND o.view_code='today' ");
 std::optional<QDate> dateValue(const QVariant& value)
 { return value.isNull() ? std::nullopt : std::optional<QDate>(QDate::fromString(value.toString(), Qt::ISODate)); }
 QVariant dateSql(const std::optional<QDate>& date)
@@ -42,7 +42,7 @@ Task readTask(const QSqlQuery& q)
     t.areaArchived=q.value(33).toBool();
     t.parentTaskId=q.value(34).toString();t.pinned=q.value(35).toBool();t.important=q.value(36).toBool();t.parentTitle=q.value(37).toString();
     t.reminderRepeat=q.value(38).toString();t.reminderEvery=q.value(39).toInt();t.reminderAnchorUtc=q.value(40).toString();t.reminderZone=q.value(41).toString();t.deletionGroupId=q.value(42).toString();t.completionGroupId=q.value(43).toString();
-    t.syncOccurrenceKey=q.value(44).toString();t.syncOccurrenceOn=QDate::fromString(q.value(45).toString(),Qt::ISODate);return t;
+    t.syncOccurrenceKey=q.value(44).toString();t.syncOccurrenceOn=QDate::fromString(q.value(45).toString(),Qt::ISODate);t.localRemovedAtUtc=q.value(46).toString();t.purgedAtUtc=q.value(47).toString();return t;
 }
 
 bool loadDetails(QSqlDatabase db,QList<Task>& tasks,const QString& taskId={})
@@ -79,10 +79,10 @@ bool loadDetails(QSqlDatabase db,QList<Task>& tasks,const QString& taskId={})
 }
 }
 
-Result<QList<Task>> TaskRepository::all() const
+Result<QList<Task>> TaskRepository::all(bool includeRemoved) const
 {
     QSqlQuery query(m_db);
-    if (!query.exec(selectTasks + QStringLiteral("ORDER BY t.sort_order,t.id")))
+    if (!query.exec(selectTasks + (includeRemoved?QString():QStringLiteral("WHERE t.local_removed_at_utc IS NULL AND t.purged_at_utc IS NULL ")) + QStringLiteral("ORDER BY t.sort_order,t.id")))
         return Result<QList<Task>>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseRead"));
     QList<Task> tasks;
     while(query.next()) tasks.append(readTask(query));
@@ -91,10 +91,10 @@ Result<QList<Task>> TaskRepository::all() const
     return {tasks, {}};
 }
 
-Result<Task> TaskRepository::find(const QString& id) const
+Result<Task> TaskRepository::find(const QString& id,bool includeRemoved) const
 {
     QSqlQuery query(m_db);
-    query.prepare(selectTasks + QStringLiteral("WHERE t.id=?")); query.addBindValue(id);
+    query.prepare(selectTasks + QStringLiteral("WHERE t.id=?") + (includeRemoved?QString():QStringLiteral(" AND t.local_removed_at_utc IS NULL AND t.purged_at_utc IS NULL"))); query.addBindValue(id);
     if (!query.exec()) return Result<Task>::failure(ErrorCode::PersistenceError, QStringLiteral("databaseRead"));
     if (!query.next()) return Result<Task>::failure(ErrorCode::NotFound, QStringLiteral("notFound"));
     QList<Task> tasks{readTask(query)};query.finish();
@@ -102,9 +102,26 @@ Result<Task> TaskRepository::find(const QString& id) const
     return {tasks.first(), {}};
 }
 
+Result<void> TaskRepository::purge(const QStringList& ids,const QString& at,bool server)
+{
+    for(const auto& id:ids) {
+        QSqlQuery q(m_db);
+        q.prepare(server ? QStringLiteral("UPDATE tasks SET local_removed_at_utc=?,purged_at_utc=?,title='[deleted]',note_text='',start_on=NULL,deadline_on=NULL,remind_at_utc=NULL,reminder_fired_at_utc=NULL,reminder_anchor_utc=NULL,reminder_repeat='NONE',today_focus=0,evening=0,pinned=0,important=0,heading_id=NULL,instance_overridden=CASE WHEN recurrence_template_id IS NOT NULL THEN 1 ELSE instance_overridden END,sync_legacy_json=NULL,updated_at_utc=?,row_version=row_version+1 WHERE id=? AND deleted_at_utc IS NOT NULL") : QStringLiteral("UPDATE tasks SET local_removed_at_utc=? WHERE id=? AND deleted_at_utc IS NOT NULL"));
+        q.addBindValue(at);if(server){q.addBindValue(at);q.addBindValue(at);}q.addBindValue(id);
+        if(!q.exec() || q.numRowsAffected()!=1)return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+        if(server) {
+            for(const auto& table:QStringList{"task_tags","task_schedules","task_reminder_history","task_edit_history","checklist_items","reminder_execution"}) {
+                q.prepare("DELETE FROM "+table+" WHERE task_id=?");q.addBindValue(id);if(!q.exec())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+            }
+            q.prepare("DELETE FROM task_links WHERE source_id=?");q.addBindValue(id);if(!q.exec())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
+        }
+    }
+    return {};
+}
+
 Result<QVariantList> TaskRepository::reminderHistory() const
 {
-    QSqlQuery q(m_db);if(!q.exec(QStringLiteral("SELECT h.task_id,t.title,h.fired_at_utc,h.scheduled_at_utc FROM task_reminder_history h JOIN tasks t ON t.id=h.task_id ORDER BY h.fired_at_utc DESC,h.rowid DESC LIMIT 50")))return Result<QVariantList>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
+    QSqlQuery q(m_db);if(!q.exec(QStringLiteral("SELECT h.task_id,t.title,h.fired_at_utc,h.scheduled_at_utc FROM task_reminder_history h JOIN tasks t ON t.id=h.task_id WHERE t.local_removed_at_utc IS NULL AND t.purged_at_utc IS NULL ORDER BY h.fired_at_utc DESC,h.rowid DESC LIMIT 50")))return Result<QVariantList>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     QVariantList result;while(q.next())result.append(QVariantMap{{QStringLiteral("taskId"),q.value(0)},{QStringLiteral("title"),q.value(1)},{QStringLiteral("firedAt"),q.value(2)},{QStringLiteral("occurrenceAt"),q.value(3)}});return {result,{}};
 }
 
@@ -112,7 +129,7 @@ Result<QVariantList> TaskRepository::reminderCandidates() const
 {
     QSqlQuery q(m_db);
     // No history-page LIMIT: bursts must remain queued, even beyond 50 records.
-    if(!q.exec(QStringLiteral("SELECT h.task_id,h.fired_at_utc,h.scheduled_at_utc FROM task_reminder_history h JOIN tasks t ON t.id=h.task_id WHERE t.status='OPEN' AND t.deleted_at_utc IS NULL AND t.remind_at_utc IS NOT NULL AND t.reminder_fired_at_utc=h.fired_at_utc ORDER BY h.fired_at_utc,h.rowid")))return Result<QVariantList>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
+    if(!q.exec(QStringLiteral("SELECT h.task_id,h.fired_at_utc,h.scheduled_at_utc FROM task_reminder_history h JOIN tasks t ON t.id=h.task_id WHERE t.status='OPEN' AND t.local_removed_at_utc IS NULL AND t.purged_at_utc IS NULL AND t.deleted_at_utc IS NULL AND t.remind_at_utc IS NOT NULL AND t.reminder_fired_at_utc=h.fired_at_utc ORDER BY h.fired_at_utc,h.rowid")))return Result<QVariantList>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     QVariantList result;while(q.next())result.append(QVariantMap{{"taskId",q.value(0)},{"firedAt",q.value(1)},{"occurrenceAt",q.value(2)}});return {result,{}};
 }
 
@@ -192,7 +209,7 @@ Result<QList<Task>> TaskRepository::claimDueReminders(const QString& now)
 {
     ScopedTransaction writeScope(m_db);if(!writeScope.active())return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
     QSqlQuery q(m_db);
-    if(!q.exec(selectTasks+QStringLiteral("WHERE t.deleted_at_utc IS NULL AND COALESCE(c.archived,a.archived,0)=0 AND (c.id IS NULL OR (c.deleted_at_utc IS NULL AND c.status='OPEN' AND c.planning_state='ACTIVE')) AND COALESCE(p.archived,0)=0 AND t.status='OPEN' AND t.planning_state='ACTIVE' AND (t.project_id IS NULL OR (p.deleted_at_utc IS NULL AND p.status='OPEN' AND p.planning_state='ACTIVE')) AND t.remind_at_utc IS NOT NULL AND (t.reminder_fired_at_utc IS NULL OR t.reminder_repeat<>'NONE') ORDER BY t.remind_at_utc"))) {
+    if(!q.exec(selectTasks+QStringLiteral("WHERE t.local_removed_at_utc IS NULL AND t.purged_at_utc IS NULL AND t.deleted_at_utc IS NULL AND COALESCE(c.archived,a.archived,0)=0 AND (c.id IS NULL OR (c.deleted_at_utc IS NULL AND c.status='OPEN' AND c.planning_state='ACTIVE')) AND COALESCE(p.archived,0)=0 AND t.status='OPEN' AND t.planning_state='ACTIVE' AND (t.project_id IS NULL OR (p.deleted_at_utc IS NULL AND p.status='OPEN' AND p.planning_state='ACTIVE')) AND t.remind_at_utc IS NOT NULL AND (t.reminder_fired_at_utc IS NULL OR t.reminder_repeat<>'NONE') ORDER BY t.remind_at_utc"))) {
         writeScope.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     }
     QList<Task> due;

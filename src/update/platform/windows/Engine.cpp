@@ -349,7 +349,7 @@ bool Engine::shouldCheck(bool manual) const {
     auto time = now();
     const auto deadline = p.value(manual ? "rate_limit_until" : "not_before", std::int64_t(0));
     return time >= deadline &&
-           time - p.value("last_attempt", std::int64_t(0)) >= (manual ? 60 : 600);
+           (manual || time - p.value("last_attempt", std::int64_t(0)) >= 86400);
 }
 void Engine::setAuto(bool enabled) {
     FileLock lock(settings.root / "update-state/locks/state", true);

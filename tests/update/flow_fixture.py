@@ -167,7 +167,7 @@ def main():
             import sqlite3
             def schema_ready():
                 with sqlite3.connect(data/'daymark.sqlite') as db:
-                    return db.execute('PRAGMA user_version').fetchone()[0]==10
+                    return db.execute('PRAGMA user_version').fetchone()[0]==11
             wait_for(schema_ready,30)
             with sqlite3.connect(data/'daymark.sqlite') as db:
                 db.execute("INSERT INTO tasks(id,title,created_at_utc,updated_at_utc) VALUES(?,?,?,?)",('update-flow-synthetic-task','Synthetic update preservation check','2026-11-05T00:00:00.000Z','2026-11-05T00:00:00.000Z'))
@@ -216,7 +216,7 @@ def main():
                 manifest_path.write_text(json.dumps(altered,separators=(',',':')),encoding='utf-8');run([cli,'sign',key/'private.json',manifest_path]);refresh_inventory()
                 rejected(20,'update.archive_unsafe')
             zip_path.write_bytes(baseline_zip);manifest_path.write_bytes(baseline_manifest);signature_path.write_bytes(baseline_signature)
-            future=json.loads(baseline_manifest);future['data']['schema']=11
+            future=json.loads(baseline_manifest);future['data']['schema']+=1
             manifest_path.write_text(json.dumps(future),encoding='utf-8');run([cli,'sign',key/'private.json',manifest_path]);refresh_inventory();rejected(21,'update.data_compatibility')
             manifest_path.write_bytes(baseline_manifest);signature_path.write_bytes(baseline_signature);refresh_inventory()
             # Inventory changed during negative cases; prime the restored asset
@@ -321,7 +321,7 @@ def main():
             import sqlite3
             with sqlite3.connect(data/'daymark.sqlite') as db:
                 assert db.execute('PRAGMA quick_check').fetchone()[0]=='ok'
-                assert db.execute('PRAGMA user_version').fetchone()[0]==10
+                assert db.execute('PRAGMA user_version').fetchone()[0]==11
                 assert db.execute("SELECT title FROM tasks WHERE id='update-flow-synthetic-task'").fetchone()[0]=='Synthetic update preservation check'
         print('PASS: signed Windows flow; live old process -> loopback discovery/download -> side-by-side prepare -> authenticated restart -> durable commit/RUNNING -> old binary cleanup'+(' -> actual Qt application/SQLite' if real else ' (synthetic native payload)'),flush=True)
     except BaseException:

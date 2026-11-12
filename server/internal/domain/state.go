@@ -12,8 +12,10 @@ func (p *planner) changeState(c *ChangeState) error {
 			return Invalid("/task_ids")
 		}
 		selected[id] = true
-		if _, e := p.task(id); e != nil {
+		if t, e := p.task(id); e != nil {
 			return e
+		} else if t.PurgedAt != nil {
+			return Invalid("/task_ids")
 		}
 	}
 	roots := []ID{}
@@ -75,6 +77,9 @@ func (p *planner) changeState(c *ChangeState) error {
 			group = root.DeletionGroupID
 		}
 		for _, t := range members {
+			if t.PurgedAt != nil {
+				continue
+			}
 			if t.ID != root.ID {
 				if c.Action == "cancel" {
 					continue

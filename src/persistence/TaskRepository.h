@@ -10,8 +10,9 @@ namespace daymark {
 class TaskRepository final {
 public:
     explicit TaskRepository(QSqlDatabase db) : m_db(std::move(db)) {}
-    Result<QList<Task>> all() const;
-    Result<Task> find(const QString& id) const;
+    Result<QList<Task>> all(bool includeRemoved=false) const;
+    Result<Task> find(const QString& id,bool includeRemoved=false) const;
+    Result<void> purge(const QStringList& ids,const QString& at,bool server);
     Result<QVariantList> reminderHistory() const;
     Result<QVariantList> reminderCandidates() const;
     Result<QVariantList> editHistory(const QString& id) const;

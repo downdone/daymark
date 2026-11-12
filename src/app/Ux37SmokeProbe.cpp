@@ -50,7 +50,11 @@ void Ux37SmokeProbe::hover(QQuickItem* item) {
 void Ux37SmokeProbe::key(QQuickItem* target,int code,Qt::KeyboardModifiers modifiers) {
     for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,code,modifiers);QCoreApplication::sendEvent(target,&event);}
 }
-bool Ux37SmokeProbe::capture(const QString& name) const {return m_screenshot.isEmpty() || m_window->grabWindow().save(m_screenshot+".ux37-"+name+".png");}
+bool Ux37SmokeProbe::capture(const QString& name) const {
+    const auto filter=qEnvironmentVariable("DAYMARK_SMOKE_CAPTURE_FILTER");
+    if(!filter.isEmpty() && name!=QStringLiteral("failure") && !name.startsWith(filter))return true;
+    return m_screenshot.isEmpty() || m_window->grabWindow().save(m_screenshot+".ux37-"+name+".png");
+}
 QString Ux37SmokeProbe::advance() {
     if(m_workspace.busy())return {};
     if(m_wait.elapsed()<140)return {};
@@ -239,7 +243,20 @@ QString Ux37SmokeProbe::advance() {
     if(m_stage==120){if(!find("trashTaskContext")->property("visible").toBool() || count()!=m_ids.size())return fail("trash keyboard collection menu");click(qobject_cast<QQuickItem*>(find("trashMenuRestore")));}
     if(m_stage==121){click(qobject_cast<QQuickItem*>(find("applyBatchSelection")));}
     if(m_stage==122){if(m_workspace.tasks()->rowCount()!=0 || count()!=0 || find("batchTaskDialog")->property("visible").toBool() || !m_workspace.errorText().isEmpty())return fail("restore collection commits then clears selected identities");QMetaObject::invokeMethod(m_window,"changeView",Q_ARG(QVariant,QVariant("inbox")));}
-    if(m_stage==123){if(m_workspace.tasks()->rowCount()!=m_ids.size())return fail("restored identities return to list");return "DONE";}
+    if(m_stage==123){if(m_workspace.tasks()->rowCount()!=m_ids.size())return fail("restored identities return to list");const auto selected=m_workspace.tasks()->selectionEntries(0,m_workspace.tasks()->rowCount()-1);if(!m_workspace.batchTasks(selected,"delete",{}))return fail("purge fixture");}
+    if(m_stage==124){QMetaObject::invokeMethod(m_window,"changeView",Q_ARG(QVariant,QVariant("trash")));}
+    if(m_stage==125){click(row(0),Qt::NoModifier,Qt::RightButton);}
+    if(m_stage==126){click(qobject_cast<QQuickItem*>(find("trashMenuPurge")));}
+    if(m_stage==127){if(!find("purgeTaskDialog")->property("visible").toBool() || !find("purgeOnlyDevice")->property("checked").toBool() || find("purgeAlsoServer")->property("enabled").toBool() || !capture("purge-confirm"))return fail("purge scope/cancel default");windowKey(Qt::Key_Escape);}
+    if(m_stage==128){if(find("purgeTaskDialog")->property("visible").toBool() || m_workspace.tasks()->rowCount()!=m_ids.size())return fail("purge cancel wrote data");m_columns["purgeState"]=m_workspace.syncState();m_workspace.setSyncState({{"mode","ACCOUNT"},{"authenticated",true},{"purge_supported",true}});click(row(0),Qt::NoModifier,Qt::RightButton);}
+    if(m_stage==129){click(qobject_cast<QQuickItem*>(find("trashMenuPurge")));}
+    if(m_stage==130){auto* option=qobject_cast<QQuickItem*>(find("purgeAlsoServer"));if(!option || !option->isEnabled())return fail("server scope capability");m_columns["purgeExtent"]=QSizeF(find("purgeTaskDialog")->property("width").toReal(),find("purgeTaskDialog")->property("height").toReal());option->forceActiveFocus();key(option,Qt::Key_Space);}
+    if(m_stage==131){if(m_columns.value("purgeExtent").toSizeF()!=QSizeF(find("purgeTaskDialog")->property("width").toReal(),find("purgeTaskDialog")->property("height").toReal()))return fail("scope selection moved alert buttons");if(!find("purgeAlsoServer")->property("checked").toBool() || find("purgeOnlyDevice")->property("checked").toBool() || !capture("purge-server-scope-synthetic"))return fail("server radio keyboard exclusivity");windowKey(Qt::Key_Escape);m_workspace.setSyncState(m_columns.value("purgeState").toMap());m_workspace.setThemeMode(2);m_workspace.setTextScale(2);m_window->resize(980,760);}
+    if(m_stage==132){invoke(find("purgeTaskDialog"),"showSelection");}
+    if(m_stage==133){auto* dialog=find("purgeTaskDialog");if(!dialog->property("visible").toBool() || !find("purgeOnlyDevice")->property("checked").toBool() || dialog->property("width").toReal()>m_window->width()-32 || dialog->property("height").toReal()>m_window->height()-32 || !capture("purge-dark-200"))return fail("purge dark 200 layout/reset");windowKey(Qt::Key_Escape);m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_window->resize(1280,800);}
+    if(m_stage==134){invoke(find("purgeTaskDialog"),"showSelection");}
+    if(m_stage==135){click(qobject_cast<QQuickItem*>(find("confirmPurgeTasks")));}
+    if(m_stage==136){if(find("purgeTaskDialog")->property("visible").toBool() || m_workspace.taskIndex(m_ids[0])>=0 || m_workspace.tasks()->rowCount()>=m_ids.size() || !m_workspace.errorText().isEmpty())return fail("purge confirms exact task");return "DONE";}
     }
     qInfo()<<"UX37 scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};
 }

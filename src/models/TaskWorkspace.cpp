@@ -821,8 +821,14 @@ int TaskWorkspace::batchImpact(const QVariantList& selection,const QString& acti
             }
         }
     }
-    if(action==QStringLiteral("complete") || action==QStringLiteral("project") || action==QStringLiteral("delete")){bool changed=true;while(changed){changed=false;for(const auto& task:m_cache)if(task.deletedAtUtc.isEmpty() && ids.contains(task.parentTaskId) && !ids.contains(task.id)){ids.insert(task.id);changed=true;}}}
+    if(action==QStringLiteral("complete") || action==QStringLiteral("project") || action==QStringLiteral("delete") || action==QStringLiteral("purge")){bool changed=true;while(changed){changed=false;for(const auto& task:m_cache)if((action==QStringLiteral("purge") || task.deletedAtUtc.isEmpty()) && ids.contains(task.parentTaskId) && !ids.contains(task.id)){ids.insert(task.id);changed=true;}}}
     return ids.size();
+}
+bool TaskWorkspace::purgeTasks(const QVariantList& selection,bool server)
+{
+    if(server && (!m_syncState.value("authenticated").toBool() || !m_syncState.value("purge_supported").toBool())){m_error={ErrorCode::ValidationError,QStringLiteral("syncProtocolMismatch")};emit stateChanged();return false;}
+    QList<QPair<QString,qint64>> items;for(const auto& v:selection){const auto entry=v.toMap();items.append({entry.value("taskId").toString(),entry.value("rowVersion").toLongLong()});}
+    return runCatalog([items,server](TaskWorker& worker){const auto profile=sync::Journal(worker.database.connection()).profile();if(!profile.ok())return Result<void>{profile.error};return worker.service->purge(items,server || profile.value.value("mode")!="ACCOUNT");},QStringLiteral("purge"),[this]{m_lastDeleted.clear();m_lastBatchDeleted.clear();m_undoTimer.stop();emit stateChanged();});
 }
 bool TaskWorkspace::batchTasks(const QVariantList& selection,const QString& action,const QString& value)
 {

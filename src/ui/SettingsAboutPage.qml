@@ -47,7 +47,7 @@ ColumnLayout {
                 Button {Layout.fillWidth:true;Layout.minimumWidth:0;text:qsTr("取消准备");visible:page.updateController && page.updateController.busy;onClicked:page.updateController.cancel()}
                 Button {Layout.fillWidth:true;Layout.minimumWidth:0;text:qsTr("取消待应用更新");visible:page.updateController && page.updateController.ready && !page.updateController.busy;onClicked:page.updateController.cancelReady()}
             }
-            CheckBox {Layout.fillWidth:true;Layout.minimumWidth:0;text:qsTr("启动时自动检查并准备更新");enabled:page.updateController && page.updateController.supported;checked:page.updateController ? page.updateController.automatic : true;onToggled:if(page.updateController && checked!==page.updateController.automatic)page.updateController.automatic=checked}
+            CheckBox {Layout.fillWidth:true;Layout.minimumWidth:0;text:qsTr("每天自动检查并准备更新");enabled:page.updateController && page.updateController.supported;checked:page.updateController ? page.updateController.automatic : true;onToggled:if(page.updateController && checked!==page.updateController.automatic)page.updateController.automatic=checked}
         }
     }
     SettingsGroup {

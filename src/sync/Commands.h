@@ -11,6 +11,32 @@ inline QJsonObject facts(QJsonObject value) {
     value.remove("updated_at_utc");
     return value;
 }
+inline QJsonArray withoutCategoryRemovalMoves(const QJsonArray &commands,
+                                             const Graph &before, const Graph &after) {
+    QSet<QString> removed;
+    for (const auto &value : commands) {
+        const auto command = value.toObject();
+        if (command.value("type") == "category.remove")
+            removed.insert(command.value("category_id").toString());
+    }
+    QJsonArray result;
+    for (const auto &value : commands) {
+        const auto command = value.toObject();
+        const auto key = "task:" + command.value("task_id").toString();
+        const auto old = before.entities.value(key).value("value").toObject();
+        const auto current = after.entities.value(key).value("value").toObject();
+        // category.remove already clears membership, including deleted tasks.
+        // An explicit parent change remains a separate move.
+        if (command.value("type") == "task.move_tree" && !old.isEmpty() && !current.isEmpty() &&
+            removed.contains(old.value("category_id").toString()) &&
+            command.value("category_id").isNull() && current.value("category_id").isNull() &&
+            command.value("parent_task_id") == old.value("parent_task_id") &&
+            current.value("parent_task_id") == old.value("parent_task_id"))
+            continue;
+        result.append(value);
+    }
+    return result;
+}
 // Derive only the closed command union. A non-representable legacy change is
 // retained in a blocked journal entry; it never becomes a generic remote upsert.
 inline CommandDelta commandsBetween(const Graph &before, const Graph &after) {
@@ -137,6 +163,14 @@ inline CommandDelta commandsBetween(const Graph &before, const Graph &after) {
             c.insert("ordered_ids", v.value("ordered_ids"));
             orders.append(c);
         } else if (type == "task") {
+            if(!v.value("purged_at_utc").isUndefined() && v.value("purged_at_utc")!=was.value("purged_at_utc")){
+                const auto parentKey="task:"+v.value("parent_task_id").toString();
+                const auto parent=after.entities.value(parentKey).value("value").toObject();
+                const auto oldParent=before.entities.value(parentKey).value("value").toObject();
+                const bool parentChanged=parent.value("purged_at_utc")!=oldParent.value("purged_at_utc");
+                if(!parentChanged || parent.value("purged_at_utc").isUndefined() || parent.value("purged_at_utc")!=v.value("purged_at_utc")){auto c=event("task.purge",v.value("purged_at_utc").toString());c.insert("task_ids",QJsonArray{id});states.append(c);}
+                continue;
+            }
             if (old.isEmpty()) {
                 if (!v.value("recurrence_id").isNull()) {
                     const auto rule =
@@ -310,7 +344,7 @@ inline CommandDelta commandsBetween(const Graph &before, const Graph &after) {
                           earlyStates, sourcePatches, rules, otherPatches, lateStates, orders})
         for (const auto &c : a)
             result.append(c);
-    out.commands = result;
+    out.commands = withoutCategoryRemovalMoves(result, before, after);
     for (const auto &c : out.commands)
         if (!Schema::accepts("Command", c))
             out.unsupported = true;

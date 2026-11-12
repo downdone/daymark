@@ -406,6 +406,7 @@ QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *ac
         if (!engine) return fail("QML engine missing");
         QQmlComponent component(engine);
         component.setData("import QtQuick\nQtObject { property bool ready: true; property bool busy: false; "
+                          "property bool supported: true; property string statusText: 'Ready to restart'; "
                           "property string availableVersion: '9.9.9'; property int restartCount: 0; "
                           "signal updateReady(); signal changed(); function restart() { ++restartCount } }", {});
         updateStub = component.create(engine->rootContext());
@@ -423,6 +424,10 @@ QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *ac
         if (!notice || !surface || !body || !input->hasActiveFocus() ||
             surface->property("color") == window->color() || !body->property("text").toString().contains("9.9.9"))
             return fail("notice lacks distinct surface/version or stole input focus");
+        auto *updateEntry=qobject_cast<QQuickItem*>(find(window,"sidebarUpdateStatus"));
+        if (!updateEntry || !updateEntry->isVisible() ||
+            updateEntry->mapToScene({updateEntry->width(),0}).x()>window->property("sidebarWidth").toReal())
+            return fail("bottom update status entry is missing or outside navigation");
         const QRectF bounds(notice->mapToScene({0,0}), notice->size());
         const auto *header = qobject_cast<QQuickItem *>(find(window, "integratedHeader"));
         const auto *footer = qobject_cast<QQuickItem *>(find(window, "pageFooter"));

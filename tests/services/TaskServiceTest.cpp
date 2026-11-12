@@ -108,6 +108,37 @@ private slots:
         const auto trash=QueryService::select(deleted,"trash",today);QCOMPARE(trash.size(),4);for(const auto& task:trash)if(task.id==child.id)QCOMPARE(task.listDepth,0);
         QCOMPARE(input,original);
     }
+    void purgeScopesAreAtomicAndTerminal() {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("purge.sqlite")).ok());
+        TaskRepository repo(db.connection());FixedClock clock;TaskService service(repo,clock);
+        const auto parent=service.create("parent secret","anytime").value;
+        const auto child=service.createSubtask("child secret",parent.id).value;
+        const auto other=service.create("local secret","anytime").value;
+        QVERIFY(!service.purge({{parent.id,parent.rowVersion}},true).ok());
+        QVERIFY(service.batch({{parent.id,parent.rowVersion},{other.id,other.rowVersion}},"delete").ok());
+        QSqlQuery legacyHeading(db.connection());
+        QVERIFY(legacyHeading.exec("INSERT INTO projects(id,title,created_at_utc,updated_at_utc) VALUES('11111111-1111-4111-8111-111111111111','synthetic category','2026-10-22T08:00:00.000Z','2026-10-22T08:00:00.000Z')"));
+        QVERIFY(legacyHeading.exec("INSERT INTO headings(id,project_id,title,created_at_utc,updated_at_utc) VALUES('22222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111','synthetic heading','2026-10-22T08:00:00.000Z','2026-10-22T08:00:00.000Z')"));
+        legacyHeading.prepare("UPDATE tasks SET project_id='11111111-1111-4111-8111-111111111111',heading_id='22222222-2222-4222-8222-222222222222' WHERE id=? OR id=?");legacyHeading.addBindValue(parent.id);legacyHeading.addBindValue(child.id);QVERIFY(legacyHeading.exec());
+        const auto deleted=repo.all().value;
+        const auto root=repo.find(parent.id).value;
+        QCOMPARE(service.purge({{parent.id,root.rowVersion+1}},true).error.key,QStringLiteral("conflict"));
+        QCOMPARE(repo.all().value,deleted);
+        QSqlQuery q(db.connection());
+        QVERIFY(q.exec(QStringLiteral("CREATE TRIGGER reject_purge BEFORE UPDATE OF purged_at_utc ON tasks WHEN OLD.id='%1' BEGIN SELECT RAISE(ABORT,'injected'); END").arg(child.id)));
+        QVERIFY(!service.purge({{parent.id,root.rowVersion}},true).ok());QCOMPARE(repo.all().value,deleted);
+        QVERIFY(q.exec("DROP TRIGGER reject_purge"));
+        const auto originalOther=repo.find(other.id).value;
+        q.prepare("INSERT INTO task_reminder_history(id,task_id,scheduled_at_utc,fired_at_utc) VALUES('purge-history',?,'2026-10-22T08:00:00.000Z','2026-10-22T08:00:00.000Z')");q.addBindValue(other.id);QVERIFY(q.exec());QCOMPARE(repo.reminderHistory().value.size(),1);
+        QVERIFY(service.purge({{other.id,originalOther.rowVersion}},false).ok());
+        QVERIFY(repo.reminderHistory().value.isEmpty());
+        QVERIFY(!repo.find(other.id).ok());const auto hidden=repo.find(other.id,true).value;
+        QCOMPARE(hidden.title,originalOther.title);QVERIFY(hidden.purgedAtUtc.isEmpty());QVERIFY(!hidden.localRemovedAtUtc.isEmpty());
+        QVERIFY(service.purge({{parent.id,root.rowVersion},{child.id,repo.find(child.id).value.rowVersion}},true).ok());
+        QVERIFY(repo.all().value.isEmpty());QCOMPARE(repo.all(true).value.size(),3);
+        for(const auto& id:{parent.id,child.id}){const auto tombstone=repo.find(id,true).value;QCOMPARE(tombstone.title,QStringLiteral("[deleted]"));QVERIFY(!tombstone.purgedAtUtc.isEmpty());QVERIFY(tombstone.headingId.isEmpty());QVERIFY(!service.changeState(id,tombstone.rowVersion,"restore").ok());}
+        QVERIFY(db.checkIntegrity().ok());
+    }
     void batchRestoreIsAtomicAndPreservesOlderDeletions() {
         QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("batch-restore.sqlite")).ok());
         TaskRepository repo(db.connection());FixedClock clock;TaskService service(repo,clock);

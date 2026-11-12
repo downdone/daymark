@@ -28,6 +28,7 @@ VIAddVersionKey "LegalCopyright" "Daymark Contributors"
 !insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_COMPONENTS
+!define MUI_PAGE_CUSTOMFUNCTION_PRE CheckRunning
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !define MUI_UNCONFIRMPAGE_TEXT_TOP "将删除 Daymark 程序与快捷方式。个人任务、账号资料以及您添加或修改的文件会保留。请先从托盘退出 Daymark。"
@@ -54,6 +55,20 @@ Function .onInit
   ReadRegStr $ExistingRoot HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Daymark" "InstallLocation"
   ${If} $ExistingRoot != ""
     StrCpy $INSTDIR $ExistingRoot
+  ${EndIf}
+FunctionEnd
+Function CheckRunning
+  InitPluginsDir
+  SetOutPath "$PLUGINSDIR"
+  File /oname=setup-helper.exe "${HELPER_FILE}"
+  nsExec::ExecToStack '"$PLUGINSDIR\setup-helper.exe" check-idle --root "$INSTDIR"'
+  Pop $0
+  Pop $1
+  ${If} $0 != "0"
+    IfSilent +2
+    MessageBox MB_ICONSTOP|MB_OK "Daymark 或更新器正在使用此安装目录，或目录暂不可访问。请从托盘退出 Daymark，等待更新操作结束后重试。$\r$\n$\r$\n详情：$1"
+    SetErrorLevel 1
+    Abort
   ${EndIf}
 FunctionEnd
 Section "Daymark（必需）" SecCore

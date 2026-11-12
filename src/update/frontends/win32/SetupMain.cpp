@@ -41,7 +41,9 @@ int wmain(int argc, wchar_t **argv) {
 #endif
     win::SetupManager manager(settings);
     Json result;
-    if (command == "verify-bundle" && options.contains("--source"))
+    if (command == "check-idle" && !options.contains("--source"))
+      result = manager.checkIdle(settings.root);
+    else if (command == "verify-bundle" && options.contains("--source"))
       result = manager.verifyBundle(options["--source"]);
     else if (command == "install" && options.contains("--source"))
       result = manager.install(options["--source"], settings.root);

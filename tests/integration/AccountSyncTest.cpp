@@ -360,6 +360,12 @@ int run() {
     if (!a.changeState(lastBulk, t.value("rowVersion").toLongLong(), "restore") || !idle(a) ||
         !settle(a) || !settle(b) || b.task(child).isEmpty())
         return failed("same cohort restore", &a, &b);
+    // Removing a category must also work when some members are soft-deleted.
+    // The server category command clears those memberships itself.
+    const auto deletedChild = a.task(child);
+    if (!a.changeState(child, deletedChild.value("rowVersion").toLongLong(), "delete") ||
+        !idle(a) || !settle(a) || !settle(b))
+        return failed("deleted category member fixture", &a, &b);
     auto categoryVersion = qint64(0), tagVersion = qint64(0);
     for (const auto &entry : a.catalog()) {
         const auto item = entry.toMap();
@@ -375,6 +381,16 @@ int run() {
     a.setView("all");
     if (!idle(a) || a.task(lastBulk).isEmpty() || b.task(lastBulk).isEmpty())
         return failed("task preserved after category removal", &a, &b);
+    // The task(id) editor API deliberately excludes deleted rows; read the trash model.
+    a.setView("trash");b.setView("trash");
+    if(!idle(a) || !idle(b))return failed("purge trash model",&a,&b);
+    auto trashEntry=[](TaskWorkspace& w,const QString& key){for(const auto& item:w.tasks()->items())if(item.id==key)return TaskListModel::taskMap(item);return QVariantMap{};};
+    auto removedChild=trashEntry(a,child);
+    if(removedChild.isEmpty() || !a.purgeTasks({QVariantMap{{"taskId",child},{"rowVersion",removedChild.value("rowVersion")}}},false) || !idle(a) || !settle(a) || !settle(b) || !trashEntry(a,child).isEmpty() || trashEntry(b,child).isEmpty())
+        return failed("device-only purge remains local",&a,&b);
+    auto remoteChild=trashEntry(b,child);
+    if(!b.purgeTasks({QVariantMap{{"taskId",child},{"rowVersion",remoteChild.value("rowVersion")}}},true) || !idle(b) || !settle(b) || !settle(a) || !trashEntry(a,child).isEmpty() || !trashEntry(b,child).isEmpty())
+        return failed("server purge propagates irreversibly",&a,&b);
     a.syncLogout();
     if (!until([&] { return !a.syncState().value("busy").toBool(); }))
         return failed("before account switch");

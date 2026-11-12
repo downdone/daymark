@@ -22,7 +22,7 @@ class UpdateController final : public QObject {
     ~UpdateController() override;
     bool supported() const { return !m_root.isEmpty(); }
     bool ready() const { return m_state.value("ready").toBool(); }
-    bool busy() const { return m_worker.state() != QProcess::NotRunning; }
+    bool busy() const;
     bool automatic() const { return m_state.value("auto_update").toBool(true); }
     QString statusText() const;
     QString availableVersion() const { return m_state.value("version").toString(); }
@@ -52,6 +52,7 @@ class UpdateController final : public QObject {
     QProcess m_worker;
     QFileSystemWatcher m_watch;
     QLocalServer m_control;
+    int m_commands = 0;
     bool m_verification = false, m_restart = false, m_restartQueued = false, m_started = false;
 };
 } // namespace daymark

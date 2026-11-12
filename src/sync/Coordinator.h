@@ -172,6 +172,7 @@ class Coordinator final : public QObject {
         state.insert("diagnostic_code",support);
         state.insert("diagnostic",diagnostic.toVariantMap());
         state.insert("authenticated", authenticated);
+        state.insert("purge_supported",authenticated && capabilities.value("command_types").toArray().contains("task.purge"));
         state.insert("profiles", index.entries().toVariantList());
         state.insert("status", message.isEmpty() ? (authenticated ? tr("已连接，修改将自动同步")
                                                     : profile.value("mode") == "ACCOUNT"
@@ -247,6 +248,7 @@ class Coordinator final : public QObject {
                 return;
             }
             tokens = pair.toObject();
+            request("GET","/v1/capabilities",{},"Capabilities",[this](Response r){if(r.ok()){capabilities=r.object;publish();}},false);
             authenticated = true;
             busy = true;
             publish();
@@ -894,11 +896,11 @@ class Coordinator final : public QObject {
             profile = p.value;
             busy = false;
             failures = 0;
-            safeCode.clear();
+            safeCode = profile.value("blocked_error").toString();
             message = !profile.value("conflicts").toArray().isEmpty()
                           ? tr("有修改冲突，请选择保留的版本。")
                       : profile.value("blocked_count").toInt() > 0
-                          ? tr("有修改需要更新客户端后同步。内容已保留，可先在“数据与备份”中导出。")
+                          ? tr("有修改未通过同步校验，内容保留在此设备。可查看错误详情或导出备份。")
                       : profile.value("pending_count").toInt() > 0
                           ? tr("仍有修改尚未同步，原内容保留在此设备。")
                           : tr("已同步");

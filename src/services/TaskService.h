@@ -31,6 +31,7 @@ public:
     Result<Task> changeState(const QString& id, qint64 version, const QString& action);
     Result<Task> moveToView(const QString& id,qint64 version,const QString& view,const QDate& start={});
     Result<void> batch(const QList<QPair<QString,qint64>>& selection,const QString& action,const TaskPatch& patch={});
+    Result<void> purge(const QList<QPair<QString,qint64>>& selection,bool server);
 private:
     Result<void> synchronizeTime(Task& task,const Task& before,const TaskPatch& patch) const;
     Result<Task> editOne(const QString& id,qint64 version,const TaskPatch& patch);
