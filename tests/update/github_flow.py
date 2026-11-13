@@ -137,6 +137,8 @@ def main():
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--old-version', default=os.environ.get('DAYMARK_UPDATE_PUBLIC_OLD_VERSION','2.1.1'))
     parser.add_argument('--new-version', default=os.environ.get('DAYMARK_UPDATE_PUBLIC_NEW_VERSION','2.2.2'))
+    parser.add_argument('--expect-toolchain-bridge',action='store_true',
+                        help='Verify safe old-toolchain refusal; does not claim an automatic upgrade')
     parser.add_argument('--wait-for-target-seconds',type=int,default=0,
                         help='Wait for public target assets before launching Qt; never changes updater state')
     parser.add_argument('--export-artifacts',type=Path,
@@ -245,6 +247,36 @@ def main():
         print('Waiting for complete signed public target assets; updater state untouched',flush=True)
         time.sleep(30)
     target_wait_seconds = time.monotonic()-target_wait_started
+    if args.expect_toolchain_bridge:
+        # No Qt launch, fixture trust or API override: the shipped old CLI must
+        # validate the real public signature and refuse the unknown capability.
+        assert public_json('https://api.github.com/repos/downdone/daymark/releases/latest')['id']==target['id'],'bridge target must be latest'
+        run([root/'daymark-update-cli.exe','initialize','--root',root,'--json'],environment=runtime_environment)
+        committed=(root/'current.json').read_bytes()
+        before=hashlib.sha256(payloads[0].read_bytes()).hexdigest()
+        checked=subprocess.run([str(root/'daymark-update-cli.exe'),'check','--root',str(root),'--json'],
+                               capture_output=True,text=True,encoding='utf-8',timeout=90,env=runtime_environment)
+        records=[json.loads(line) for line in checked.stdout.splitlines() if line.startswith('{')]
+        assert checked.returncode==21 and records,('unexpected bridge result',checked.returncode,checked.stdout)
+        error=records[-1]
+        assert error.get('error')=='update.unsupported_capability',error
+        assert (root/'current.json').read_bytes()==committed
+        assert hashlib.sha256(payloads[0].read_bytes()).hexdigest()==before
+        assert not (root/'update-state/prepared-update.json').exists()
+        assert len(list((root/'versions').glob('*/daymark.exe')))==1
+        assert public_json('https://api.github.com/repos/downdone/daymark/releases/latest')['id']==target['id'],'latest changed during bridge verification'
+        result=dict(passed=True,oldVersion=args.old_version,newVersion=args.new_version,
+                    bootstrapReleaseId=release['id'],bootstrapAssetId=asset['id'],bootstrapSha256=actual,
+                    targetReleaseId=target['id'],anonymousGitHub=True,productionEnvironmentIsolated=True,
+                    productionCompiledTrust=True,fixtureOverrides=False,compatibilityRejected=True,
+                    manualFullInstallRequired=True,automaticUpgrade=False,error=error['error'],
+                    committedInstallationPreserved=True,seconds=round(time.monotonic()-started,3))
+        (args.work/'report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+        if args.export_artifacts:
+            (args.export_artifacts/'report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+        print('PASS: public toolchain bridge safely requires full installation; automatic upgrade not applicable',flush=True)
+        print(json.dumps(result),flush=True)
+        return
     qt_started = time.monotonic()
     data = args.work/'synthetic-data'
     processes = []

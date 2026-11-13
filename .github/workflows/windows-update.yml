@@ -14,6 +14,11 @@ on:
         description: Previously published managed version (without v); empty for the first managed release
         required: false
         type: string
+      expect_toolchain_bridge:
+        description: Verify safe old-toolchain rejection instead of an automatic upgrade; requires full installation
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 concurrency:
@@ -241,3 +246,4 @@ jobs:
     with:
       old_version: ${{ inputs.previous_version }}
       new_version: ${{ inputs.tag }}
+      expect_toolchain_bridge: ${{ inputs.expect_toolchain_bridge }}

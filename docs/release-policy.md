@@ -63,3 +63,5 @@ Qt6.10.2官方SBOM默认tag/value（.spdx），JSON为可选生成结果。标�
 ### 数据格式升级的发行
 
 schema/读写ABI升级仍发布完整安装与便携包，但旧更新器必须拒绝跨ABI自动安装。此类发布的 previous_version 留空，明确记录公开自动升级不适用，不能写成升级通过；用迁移前一致备份、旧schema探针和新schema原生安装验收覆盖替代链。后续同ABI版本恢复公开升级验收。3.0.0为schema10→11的此类边界，不能伪填旧ABI绕过校验。
+
+原生工具链首次接入时同样不得伪称旧宿主已有分派能力。3.1.0保留schema11，设置`previous_version=3.0.2`、`expect_toolchain_bridge=true`：沿公开验证工作流运行实际旧生产CLI，验证真实GitHub签名后拒绝未知必要能力、current/旧程序未变且未准备新版本；同时公开安装链验证完整安装。报告明确`automaticUpgrade=false`，不是自动升级PASS。此模式须发行说明明确手动完整安装边界；以后兼容版本默认false，继续原Qt保存/重启/提交/清理的完整公网链。

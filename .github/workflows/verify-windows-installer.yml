@@ -81,12 +81,14 @@ jobs:
           $signature=./scripts/Verify-WindowsExecutable.ps1 -Executable $artifact -CertificateSha256 $policy.certificate_sha256 | ConvertFrom-Json
           if ([Diagnostics.FileVersionInfo]::GetVersionInfo($artifact).ProductVersion -cne $version) { throw 'Installer version mismatch' }
           $env:DAYMARK_INSTALLER_ARTIFACT=$artifact
+          $env:DAYMARK_INSTALLER_INTERACTIVE_CLOSE='1'
           & ./build/installer-test/test_installer_flow.exe -o "$PWD/build/public-installer-proof/qt-test.log,txt" *> build/public-installer-proof/installer-test.log
           $result=$LASTEXITCODE
           $testLog=[IO.File]::ReadAllText("$PWD/build/public-installer-proof/qt-test.log")
           Write-Output $testLog
           if ($result -ne 0) { throw 'Actual public installer acceptance failed' }
           if ($testLog -notmatch 'PASS: real NSIS Unicode/space path' -or $testLog -notmatch 'Totals: 3 passed, 0 failed, 0 skipped') { throw 'Missing actual installer completion evidence' }
+          if ($testLog -notmatch 'PASS: real NSIS running-app cancel, application retained' -or $testLog -notmatch 'PASS: real NSIS running-app force close and repair') { throw 'Missing real interactive installer confirmation evidence' }
           [ordered]@{format=1;passed=$true;version=$version;source_revision=$env:DAYMARK_INSTALLER_SOURCE;
             installer_sha256=(Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash.ToLowerInvariant();
             test_log_sha256=(Get-FileHash -LiteralPath "$PWD/build/public-installer-proof/qt-test.log" -Algorithm SHA256).Hash.ToLowerInvariant();

@@ -75,7 +75,8 @@ def main():
                         '--output', str(installer)], check=True, timeout=360)
         proof = source / 'build/installer-publication-proof'
         proof.mkdir(parents=True, exist_ok=True)
-        environment = dict(os.environ, DAYMARK_INSTALLER_ARTIFACT=str(installer))
+        environment = dict(os.environ, DAYMARK_INSTALLER_ARTIFACT=str(installer),
+                           DAYMARK_INSTALLER_INTERACTIVE_CLOSE='1')
         test_log = proof / 'qt-test.log'
         acceptance = subprocess.run([str(args.installer_test.resolve()), '-o', str(test_log) + ',txt'], env=environment,
                                     capture_output=True, timeout=270)
@@ -83,6 +84,10 @@ def main():
         acceptance.check_returncode()
         if not test_log.is_file() or b'PASS: real NSIS Unicode/space path' not in test_log.read_bytes():
             raise ValueError('installer acceptance did not produce its completion evidence')
+        for marker in (b'PASS: real NSIS running-app cancel, application retained',
+                       b'PASS: real NSIS running-app force close and repair'):
+            if marker not in test_log.read_bytes():
+                raise ValueError('interactive installer confirmation evidence missing')
         checksum = hashlib.sha256(installer.read_bytes()).hexdigest()
         (proof / 'report.json').write_text(json.dumps(dict(format=1, passed=True,
             source_revision=args.source, version=version, installer_sha256=checksum,

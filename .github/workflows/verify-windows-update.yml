@@ -2,6 +2,10 @@ name: Verify public Windows update
 on:
   workflow_call:
     inputs:
+      expect_toolchain_bridge:
+        required: false
+        default: false
+        type: boolean
       old_version:
         required: true
         type: string
@@ -10,6 +14,11 @@ on:
         type: string
   workflow_dispatch:
     inputs:
+      expect_toolchain_bridge:
+        description: Check the full-install toolchain bridge and safe rejection
+        required: false
+        default: false
+        type: boolean
       old_version:
         description: Existing public managed version to upgrade
         required: true
@@ -42,6 +51,7 @@ jobs:
         env:
           OLD_VERSION: ${{ inputs.old_version }}
           NEW_VERSION: ${{ inputs.new_version }}
+          EXPECT_TOOLCHAIN_BRIDGE: ${{ inputs.expect_toolchain_bridge }}
         run: |
           $old = $env:OLD_VERSION
           $new = $env:NEW_VERSION -creplace '^v', ''
@@ -49,14 +59,20 @@ jobs:
           if ($old -cnotmatch $stable -or $new -cnotmatch $stable) { throw 'Stable version identities required' }
           New-Item -ItemType Directory -Path build -Force | Out-Null
           $work = Join-Path $env:RUNNER_TEMP ('daymark-public-update-' + [guid]::NewGuid())
+          $mode=@()
+          if ($env:EXPECT_TOOLCHAIN_BRIDGE -eq 'true') { $mode=@('--expect-toolchain-bridge') }
           python -u tests/update/github_flow.py --work $work --old-version $old --new-version $new `
-            --wait-for-target-seconds 120 --export-artifacts "$PWD/build/public-update-proof" *> build/public-update-live.log
+            --wait-for-target-seconds 120 --export-artifacts "$PWD/build/public-update-proof" @mode *> build/public-update-live.log
           $result = $LASTEXITCODE
           Get-Content build/public-update-live.log
           if ($result -ne 0) { exit $result }
           $report = Get-Content build/public-update-proof/report.json -Raw | ConvertFrom-Json
           if ($report.oldVersion -cne $old -or $report.newVersion -cne $new) { throw 'Public test version identities mismatch' }
-          if (!$report.passed -or !$report.anonymousGitHub -or !$report.productionEnvironmentIsolated -or
+          if ($env:EXPECT_TOOLCHAIN_BRIDGE -eq 'true') {
+            if (!$report.passed -or !$report.anonymousGitHub -or !$report.productionEnvironmentIsolated -or
+                !$report.compatibilityRejected -or !$report.manualFullInstallRequired -or $report.automaticUpgrade -or
+                $report.error -cne 'update.unsupported_capability' -or !$report.committedInstallationPreserved -or $report.fixtureOverrides) { throw 'Public compatibility bridge report incomplete' }
+          } elseif (!$report.passed -or !$report.anonymousGitHub -or !$report.productionEnvironmentIsolated -or
               !$report.qtSaveQuitRestart -or !$report.durableCommitAndRunning -or !$report.oldExecutableDeleted -or
               !$report.syntheticSqlitePreserved -or $report.fixtureOverrides) { throw 'Actual public flow report incomplete' }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
