@@ -19,6 +19,9 @@ if($LASTEXITCODE -ne 0 -or $source -cnotmatch '^[a-f0-9]{40}$'){throw 'Source re
 & git -C $repo diff --quiet HEAD -- src cmake CMakeLists.txt assets/icons assets/brand/current config/update-public-keys.json config/authenticode-policy.json packaging scripts third_party
 if($LASTEXITCODE -ne 0){throw 'Commit implementation and packaging inputs before building a candidate.'}
 $version=(Select-String -Path (Join-Path $repo 'CMakeLists.txt') -Pattern 'set\(DAYMARK_VERSION "([^"]+)"\)').Matches[0].Groups[1].Value
+$schemaMatch=[regex]::Match([IO.File]::ReadAllText((Join-Path $repo 'src/update/sdk/Update.h')),'inline constexpr unsigned Schema = ([0-9]+);')
+if(!$schemaMatch.Success){throw 'Current update data schema unavailable.'}
+$schemaVersion=[int]$schemaMatch.Groups[1].Value
 Import-Module (Join-Path $PSScriptRoot 'PackageValidation.psm1') -Force
 $inventory=(& ctest --test-dir $build --show-only=json-v1) | ConvertFrom-Json
 if($LASTEXITCODE -ne 0){throw 'CTest inventory unavailable.'}
@@ -49,7 +52,7 @@ Copy-Item -LiteralPath (Join-Path $repo 'packaging/licenses/NSIS-COPYING.txt') -
 & python (Join-Path $PSScriptRoot 'copy-qt-sbom.py') --qt-root $qt --destination (Join-Path $payload 'qt-sbom') --version 6.10.2
 if($LASTEXITCODE -ne 0){throw 'Qt SBOM failed.'}
 [IO.File]::WriteAllText((Join-Path $payload 'qt.conf'),"[Paths]`nPrefix=.`nPlugins=.`nQmlImports=qml`n",[Text.Encoding]::ASCII)
-$info=[ordered]@{version=$version;sourceRevision=$source;qt='6.10.2';runtime='mingw131';schemaVersion=10;scope='local installer candidate';signed=$false;localPreview=$true;cleanMachine=$false;fullTestGatePassed=$true;ctestCount=$summary.total;ctestReportSha256=(Get-FileHash $CTestReport).Hash.ToLowerInvariant()}
+$info=[ordered]@{version=$version;sourceRevision=$source;qt='6.10.2';runtime='mingw131';schemaVersion=$schemaVersion;scope='local installer candidate';signed=$false;localPreview=$true;cleanMachine=$false;fullTestGatePassed=$true;ctestCount=$summary.total;ctestReportSha256=(Get-FileHash $CTestReport).Hash.ToLowerInvariant()}
 $info | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $payload 'BUILD-INFO.json') -Encoding utf8
 $metadata=Get-Content -LiteralPath (Join-Path $VaultDirectory 'metadata.json') -Raw | ConvertFrom-Json
 & (Join-Path $PSScriptRoot 'Sign-WindowsCandidate.ps1') -Directory $candidate -CertificateThumbprint $metadata.certificateThumbprint -CertificateSha256 $metadata.certificateSha256 -SignTool $SignTool
