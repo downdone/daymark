@@ -240,8 +240,11 @@ Release verifyRelease(std::string raw, std::string signature, const std::vector<
         if (field(p, name).size() != 64 || unhex(field(p, name)).size() != 32)
             fail("update.invalid_manifest");
     if (m.contains("required_capabilities") &&
-        (!m["required_capabilities"].is_array() || !m["required_capabilities"].empty()))
-        fail("update.unsupported_capability", 21);
+        !m["required_capabilities"].is_array())
+        fail("update.unsupported_capability",21);
+    if(m.contains("required_capabilities"))for(const auto& capability:m["required_capabilities"])
+        if(!capability.is_string() || capability.get<std::string>()!="native-toolchain-v1")
+            fail("update.unsupported_capability",21);
     return {std::move(m), std::move(raw), std::move(signature), version};
 }
 void checkCompatibility(const Release &r, const Version &installed, std::string_view runtime,

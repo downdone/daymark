@@ -49,6 +49,7 @@ Daymark/
   versions/<version-source12>/     # 各版本主程序+Qt DLL/插件/许可
   current.json
   update-state/
+    tools/<version-key>/           # 版本原生工具及已签名seed/索引；随current选择
     locks/                         # prepare / launch / runtime / state
     preferences.json
     prepared-update.json           # 最多一个Ready
@@ -59,7 +60,7 @@ Daymark/
   .staging/<transaction-id>/
 ```
 
-下载缓存与worker私有副本放当前用户私有缓存，实际路径由平台端获得，不写死用户目录。跨卷缓存与安装暂存分别预检空间；最终版本目录提交始终在安装卷。根引导层三份exe在首期不在线替换；新包仍带完整根文件供手动安装，在线仅取签名允许的新payload。协议升级提示手动引导包。
+下载缓存与worker私有副本放当前用户私有缓存，实际路径由平台端获得，不写死用户目录。跨卷缓存与安装暂存分别预检空间；最终版本目录提交始终在安装卷。UPD-09将[原生工具链](../update-toolchain-and-settings.md)与payload一同暂存：根入口保留为固定信任/分派内核，当前CLI/GUI从current对应的tools版本读取，先验签seed/索引及工具散列，不原地替换运行中的EXE。旧根尚无分派能力的3.0.2首次接入需完整安装一次；后续兼容工具变更可在线更新。内核协议/签名算法或数据schema/读写ABI破坏性升级仍须独立兼容桥接/迁移设计，不能借自更新绕过保护。
 
 | 数据 | 唯一写入者/串行规则 |
 |---|---|

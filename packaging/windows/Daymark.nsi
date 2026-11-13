@@ -21,7 +21,7 @@ VIAddVersionKey "LegalCopyright" "Daymark Contributors"
 !define MUI_UNICON "${APP_ICON}"
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "安装 Daymark"
-!define MUI_WELCOMEPAGE_TEXT "任务与时间，清晰有序。$\r$\n$\r$\n安装到当前用户，无需管理员权限。更新将继续使用内置签名校验。$\r$\n$\r$\n重新安装前，请先从托盘退出 Daymark。个人任务和账号资料会保留。"
+!define MUI_WELCOMEPAGE_TEXT "任务与时间，清晰有序。$\r$\n$\r$\n安装到当前用户，无需管理员权限。更新将继续使用内置签名校验。$\r$\n$\r$\n如 Daymark 正在运行，将询问是否强制关闭后继续。个人任务和账号资料会保留，请先保存正在编辑的内容。"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\daymark.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "运行 Daymark"
 !insertmacro MUI_PAGE_WELCOME
@@ -64,6 +64,17 @@ Function CheckRunning
   nsExec::ExecToStack '"$PLUGINSDIR\setup-helper.exe" check-idle --root "$INSTDIR"'
   Pop $0
   Pop $1
+  ${If} $0 == "30"
+    IfSilent running_error
+    nsExec::ExecToStack '"$PLUGINSDIR\setup-helper.exe" confirm-close-running --root "$INSTDIR" --parent-window "$HWNDPARENT"'
+    Pop $0
+    Pop $1
+    ${If} $0 == "50"
+      SetErrorLevel 1
+      Quit
+    ${EndIf}
+  ${EndIf}
+  running_error:
   ${If} $0 != "0"
     IfSilent +2
     MessageBox MB_ICONSTOP|MB_OK "Daymark 或更新器正在使用此安装目录，或目录暂不可访问。请从托盘退出 Daymark，等待更新操作结束后重试。$\r$\n$\r$\n详情：$1"
@@ -78,6 +89,7 @@ Section "Daymark（必需）" SecCore
   File /r "${BUNDLE_DIR}\*"
   SetOutPath "$PLUGINSDIR"
   File /oname=setup-helper.exe "${HELPER_FILE}"
+  Call CheckRunning
   DetailPrint "校验签名并安装程序…"
   nsExec::ExecToStack '"$PLUGINSDIR\setup-helper.exe" install --source "$PLUGINSDIR\bundle" --root "$INSTDIR"'
   Pop $0

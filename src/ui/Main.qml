@@ -1052,39 +1052,6 @@ ApplicationWindow {
                 id:sidebarFooter
                 objectName: "sidebarFooter"
                 Layout.fillWidth: true;Layout.margins: mainWindow.taskWorkspace.preferences.sidebarCollapsed ? 4 : 10;spacing: 2
-                ActionButton {
-                    id: updateStatus
-                    objectName: "sidebarUpdateStatus"
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    visible: !mainWindow.taskWorkspace.preferences.sidebarCollapsed && !!mainWindow.updateController && mainWindow.updateController.supported===true
-                    contentAlignment: Qt.AlignLeft
-                    symbol: mainWindow.updateController && mainWindow.updateController.ready ? "reload" : "down"
-                    text: mainWindow.updateController && mainWindow.updateController.ready ? qsTr("重启更新")
-                        : mainWindow.updateController && mainWindow.updateController.busy ? qsTr("正在更新…")
-                        : qsTr("检查更新")
-                    palette.buttonText: mainWindow.updateController && mainWindow.updateController.ready ? Theme.accent : Theme.secondary
-                    Accessible.description: mainWindow.updateController ? mainWindow.updateController.statusText : ""
-                    onClicked: {
-                        if(mainWindow.updateController.ready)mainWindow.restartFromUpdateNotice()
-                        else if(mainWindow.updateController.busy)mainWindow.updateController.showUpdater()
-                        else mainWindow.updateController.check(false)
-                    }
-                    DS.ToolTip {visible:!Theme.hintsBlocked && updateStatus.hovered;text:mainWindow.updateController ? mainWindow.updateController.statusText : ""}
-                }
-                WidgetAction {
-                    objectName: "sidebarCollapsedUpdate"
-                    visible: mainWindow.taskWorkspace.preferences.sidebarCollapsed && !!mainWindow.updateController && mainWindow.updateController.supported===true
-                    Layout.alignment: Qt.AlignHCenter
-                    symbol: "reload"
-                    description: mainWindow.updateController ? mainWindow.updateController.statusText : qsTr("检查更新")
-                    checked: !!mainWindow.updateController && mainWindow.updateController.ready
-                    onClicked: {
-                        if(mainWindow.updateController.ready)mainWindow.restartFromUpdateNotice()
-                        else if(mainWindow.updateController.busy)mainWindow.updateController.showUpdater()
-                        else mainWindow.updateController.check(false)
-                    }
-                }
                 Rectangle {Layout.fillWidth: true;implicitHeight: 1;color: Theme.separator;Layout.bottomMargin: 6}
                 RowLayout {
                     visible:!mainWindow.taskWorkspace.preferences.sidebarCollapsed
@@ -1889,7 +1856,7 @@ ApplicationWindow {
         transientParent: mainWindow
         onDataRequested: {windowSettings.close();mainWindow.openTool("data")}
         onHelpRequested: {windowSettings.close();helpPanel.open()}
-        onQuitRequested: {windowSettings.close();mainWindow.forceQuit=true;mainWindow.close()}
+        onAccountRequested: {windowSettings.close();mainWindow.openTool("account")}
         onCalendarVisibilityRequested: function(visible){if(visible)mainWindow.taskWorkspace.setPreference("desktopCalendarVisible",true);else desktopCalendar.close()}
         workspace: mainWindow.taskWorkspace
         widgetController: mainWindow.widgetController

@@ -1,6 +1,7 @@
 #include "update/platform/windows/Setup.h"
 #include <iostream>
 #include <map>
+#include <commctrl.h>
 int wmain(int argc, wchar_t **argv) {
   using namespace daymark::update;
   try {
@@ -10,9 +11,9 @@ int wmain(int argc, wchar_t **argv) {
     std::map<std::string, std::wstring> options;
     for (int i = 2; i < argc; ++i) {
       const auto key = win::utf8(argv[i]);
-      if (key != "--root" && key != "--source"
+      if (key != "--root" && key != "--source" && key != "--parent-window"
 #ifdef DAYMARK_UPDATE_FIXTURE
-          && key != "--fixture-trust" && key != "--fixture-failure"
+          && key != "--fixture-trust" && key != "--fixture-failure" && key != "--fixture-confirm"
 #endif
       )
         fail("update.invalid_arguments", 2);
@@ -43,6 +44,33 @@ int wmain(int argc, wchar_t **argv) {
     Json result;
     if (command == "check-idle" && !options.contains("--source"))
       result = manager.checkIdle(settings.root);
+    else if (command == "confirm-close-running" && !options.contains("--source"))
+      result = manager.closeRunning(settings.root, [&](unsigned) {
+#ifdef DAYMARK_UPDATE_FIXTURE
+        if (options.contains("--fixture-confirm"))
+          return options["--fixture-confirm"] == L"yes";
+#endif
+        const TASKDIALOG_BUTTON buttons[] = {{101, L"强制关闭并继续"}, {IDCANCEL, L"取消安装"}};
+        TASKDIALOGCONFIG dialog{};
+        dialog.cbSize = sizeof(dialog);
+        if(options.contains("--parent-window")){
+          const auto handle=std::stoull(options["--parent-window"],nullptr,0);
+          dialog.hwndParent=reinterpret_cast<HWND>(static_cast<std::uintptr_t>(handle));
+          if(!IsWindow(dialog.hwndParent))fail("setup.confirmation_failed",30);
+        }
+        dialog.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_SIZE_TO_CONTENT;
+        dialog.pszWindowTitle = L"Daymark 安装";
+        dialog.pszMainIcon = TD_WARNING_ICON;
+        dialog.pszMainInstruction = L"Daymark 正在运行";
+        dialog.pszContent = L"强制关闭可能丢失尚未保存的编辑。\n是否关闭此安装目录中的 Daymark，然后继续安装？";
+        dialog.cButtons = 2;
+        dialog.pButtons = buttons;
+        dialog.nDefaultButton = IDCANCEL;
+        int selected = IDCANCEL;
+        if (FAILED(TaskDialogIndirect(&dialog, &selected, nullptr, nullptr)))
+          fail("setup.confirmation_failed", 30);
+        return selected == 101;
+      });
     else if (command == "verify-bundle" && options.contains("--source"))
       result = manager.verifyBundle(options["--source"]);
     else if (command == "install" && options.contains("--source"))

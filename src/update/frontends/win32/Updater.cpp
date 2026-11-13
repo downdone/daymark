@@ -1,4 +1,5 @@
 #include "update/platform/windows/Engine.h"
+#include "update/platform/windows/HostSettings.h"
 #include <commctrl.h>
 #include <memory>
 
@@ -135,7 +136,8 @@ LRESULT CALLBACK windowProcedure(HWND window, UINT msg, WPARAM wp, LPARAM lp) {
 } // namespace
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     try {
-        config = {win::executable().parent_path(), win::compiledKeys()};
+        config = win::hostSettings(win::installRoot(win::executable()));
+        if(const auto exit=win::forwardNative(config,"daymark-updater.exe",{}))return static_cast<int>(*exit);
         engine = std::make_unique<win::Engine>(config, cancel);
         INITCOMMONCONTROLSEX controls{sizeof(controls), ICC_PROGRESS_CLASS};
         InitCommonControlsEx(&controls);

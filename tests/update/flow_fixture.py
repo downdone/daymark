@@ -73,10 +73,13 @@ def main():
     parser=argparse.ArgumentParser()
     for name in ('work','bin','repo'):
         parser.add_argument('--'+name,type=Path,required=True)
+    parser.add_argument('--old-version',default='2.0.0')
+    parser.add_argument('--new-version',default='2.0.1')
     parser.add_argument('--old-payload',type=Path)
     parser.add_argument('--new-payload',type=Path)
     args=parser.parse_args();args.work.mkdir(parents=True,exist_ok=True)
     real=bool(args.old_payload)
+    old_version,new_version=args.old_version,args.new_version
     cli=args.bin/'daymark-update-cli.exe'
     runtime=json.loads(run([cli,'capabilities']))['runtime']
     fixture_cli=args.bin/'test_update_cli.exe'
@@ -94,7 +97,7 @@ def main():
         def do_GET(self):
             path=self.path.split('?')[0]
             if path=='/releases':
-                body=json.dumps([{'id':123,'tag_name':'v2.0.1','draft':False,'prerelease':False}]).encode()
+                body=json.dumps([{'id':123,'tag_name':'v'+new_version,'draft':False,'prerelease':False}]).encode()
             elif path=='/releases/123/assets':
                 body=json.dumps(inventory).encode()
             elif path.startswith('/releases/assets/'):
@@ -125,29 +128,38 @@ def main():
     processes=[]
     root=args.work/'installation'
     try:
-        for version,payload_input,source in [('2.0.0',args.old_payload,'1'*40),('2.0.1',args.new_payload,'2'*40)]:
+        for version,payload_input,source in [(old_version,args.old_payload,'1'*40),(new_version,args.new_payload,'2'*40)]:
             payload=args.work/('payload-'+version)
             if payload_input:
                 shutil.copytree(payload_input,payload)
             else:
-                payload.mkdir();shutil.copy2(args.bin/('test_update_payload_old.exe' if version=='2.0.0' else 'test_update_payload_new.exe'),payload/'daymark.exe')
+                payload.mkdir();shutil.copy2(args.bin/('test_update_payload_old.exe' if version==old_version else 'test_update_payload_new.exe'),payload/'daymark.exe')
             (payload/'preserve-indexed.txt').write_text('original signed file',encoding='utf-8')
-            command=[sys.executable,args.repo/'scripts/package-update.py','--payload',payload,'--launcher',args.bin/'test_update_bootstrap.exe','--updater',args.bin/'daymark-updater.exe','--cli',fixture_cli,'--key',key/'private.json','--output',args.work/('release-'+version),'--version',version,'--source',source,'--runtime',runtime,'--runtime-min','bundled','--min-windows-build','19045','--release-id','123','--asset-id','1003','--local-fixture']
-            if version=='2.0.0':
+            version_cli=args.work/('native-'+version+'.exe')
+            shutil.copy2(fixture_cli,version_cli)
+            with version_cli.open('ab') as stream:stream.write(('native toolchain '+version).encode())
+            command=[sys.executable,args.repo/'scripts/package-update.py','--payload',payload,'--launcher',args.bin/'test_update_bootstrap.exe','--updater',args.bin/'test_update_observer.exe','--cli',version_cli,'--key',key/'private.json','--output',args.work/('release-'+version),'--version',version,'--source',source,'--runtime',runtime,'--runtime-min','bundled','--min-windows-build','19045','--release-id','123','--asset-id','1003','--local-fixture']
+            if version==old_version:
                 command+=['--extract',root]
             run(command,timeout=90)
-        new=args.work/'release-2.0.1'
-        for id_,name in [('1001','update-windows-x64.json'),('1002','update-windows-x64.json.sig'),('1003','Daymark-2.0.1-windows-x64.zip')]:
+        new=args.work/('release-'+new_version)
+        for id_,name in [('1001','update-windows-x64.json'),('1002','update-windows-x64.json.sig'),('1003',f'Daymark-{new_version}-windows-x64.zip')]:
             path=new/name;assets[id_]=path
             inventory.append({'id':int(id_),'name':name,'size':path.stat().st_size,'state':'uploaded','digest':'sha256:'+hashlib.sha256(path.read_bytes()).hexdigest()})
         fixture_config=dict(public,api=api)
         if os.environ.get('DAYMARK_UPDATE_CRASH_POINT'):
             fixture_config['crash_at']=os.environ['DAYMARK_UPDATE_CRASH_POINT']
         (root/'update-fixture.json').write_text(json.dumps(fixture_config),encoding='utf-8')
+        # Model an already-versioned baseline, including in the actual Qt path.
+        seed=json.loads((root/'bootstrap-release.json').read_text())
+        initial_tools=root/'update-state/tools'/seed['payload_dir'].split('/')[1]
+        initial_tools.mkdir(parents=True)
+        for name in ('daymark.exe','daymark-update-cli.exe','daymark-updater.exe','FILES.json','bootstrap-release.json','bootstrap-release.json.sig'):
+            shutil.copy2(root/name,initial_tools/name)
         data=args.work/'synthetic-data'
         def seed_partial():
             manifest=json.loads((new/'update-windows-x64.json').read_text());package=manifest['package']
-            cache=root/'update-state/downloads'/('2.0.1-'+'2'*12);cache.mkdir(parents=True,exist_ok=True)
+            cache=root/'update-state/downloads'/(new_version+'-'+'2'*12);cache.mkdir(parents=True,exist_ok=True)
             raw=assets['1003'].read_bytes()
             (cache/'package.zip').unlink(missing_ok=True)
             (cache/'package.zip.part').write_bytes(raw[:4096])
@@ -158,7 +170,7 @@ def main():
             def old_instance():
                 for path in (root/'update-state/instances').glob('*.json'):
                     value=json.loads(path.read_text())
-                    if value.get('version')=='2.0.0':
+                    if value.get('version')==old_version:
                         return value
             old_identity=wait_for(old_instance,30)
             old_pid=old_identity['pid'];processes.append(old_pid)
@@ -186,7 +198,7 @@ def main():
             first_identity=wait_for(first_start)
             processes.append(first_identity['pid'])
             initial=json.loads((root/'current.json').read_text())
-            assert initial['version']=='2.0.0' and initial['generation']==1
+            assert initial['version']==old_version and initial['generation']==1
             (root/f"fixture-exit-{first_identity['pid']}").touch()
             wait_for(lambda:process_exited(first_identity['pid']))
             print('PASS: fresh signed ZIP root launcher initializes and starts payload without CLI pre-initialize',flush=True)
@@ -211,7 +223,7 @@ def main():
             for unsafe in ('../escape.exe','payload.dll:stream','CON.txt'):
                 zip_path.write_bytes(baseline_zip)
                 with zipfile.ZipFile(zip_path,'a') as archive:
-                    archive.writestr('Daymark-2.0.1-windows-x64/'+unsafe,b'unsafe')
+                    archive.writestr(f'Daymark-{new_version}-windows-x64/'+unsafe,b'unsafe')
                 altered=json.loads(baseline_manifest);package=altered['package'];package['sha256']=hashlib.sha256(zip_path.read_bytes()).hexdigest();package['size']=zip_path.stat().st_size;package['file_count']+=1;package['unpacked_size']+=6
                 manifest_path.write_text(json.dumps(altered,separators=(',',':')),encoding='utf-8');run([cli,'sign',key/'private.json',manifest_path]);refresh_inventory()
                 rejected(20,'update.archive_unsafe')
@@ -310,13 +322,62 @@ def main():
         wait_for(lambda:json.loads((root/'update-state/journal.json').read_text()).get('phase')=='cleaned',45)
         journal=json.loads((root/'update-state/journal.json').read_text());processes.append(journal['new_pid'])
         new_current=json.loads((root/'current.json').read_text())
-        assert new_current['version']=='2.0.1'
+        assert new_current['version']==new_version
         assert new_current['previous'] is None
         assert not old.exists(),'old binary must be removed after RUNNING'
         assert unknown.read_text(encoding='utf-8')=='user-owned unknown file'
         assert modified.read_text(encoding='utf-8')=='user-modified signed file'
         assert (root/new_current['current']/'daymark.exe').exists()
         assert not (root/'update-state/prepared-update.json').exists()
+        tools=root/'update-state/tools'/new_current['current'].split('/')[1]
+        assert (tools/'update-licenses/miniz/LICENSE').read_bytes()==(args.repo/'third_party/update/miniz/LICENSE').read_bytes()
+        capabilities=json.loads(run([root/'daymark-update-cli.exe','capabilities','--root',root]))
+        assert capabilities['toolchain_protocol']==1 and capabilities['versioned_host'] is True
+        assert json.loads(run([root/'daymark-update-cli.exe','status','--root',root,'--json']))['ready'] is False
+        assert (tools/'daymark-update-cli.exe').read_bytes()!=(root/'daymark-update-cli.exe').read_bytes()
+        if not real:
+            selected=tools/'daymark-update-cli.exe';original=selected.read_bytes()
+            # Even with a valid current pointer, an altered native host must not run.
+            selected.write_bytes(b'altered native updater')
+            run([root/'daymark-update-cli.exe','capabilities','--root',root],expected=20)
+            selected.write_bytes(original)
+            metadata=tools/'bootstrap-release.json';signed=metadata.read_bytes()
+            metadata.write_bytes(signed+b' ')
+            run([root/'daymark-update-cli.exe','capabilities','--root',root],expected=20)
+            metadata.write_bytes(signed)
+            assert json.loads(run([root/'daymark-update-cli.exe','capabilities','--root',root]))['versioned_host']
+        # The fixed GUI entry must launch the newly selected observer and exit.
+        launch=subprocess.run([str(root/'daymark-updater.exe')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=5)
+        assert launch.returncode==0
+        user=ctypes.WinDLL('user32',use_last_error=True);kernel=ctypes.WinDLL('kernel32',use_last_error=True)
+        user.GetWindowThreadProcessId.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.DWORD)]
+        user.GetClassNameW.argtypes=[wintypes.HWND,wintypes.LPWSTR,ctypes.c_int]
+        user.PostMessageW.argtypes=[wintypes.HWND,wintypes.UINT,wintypes.WPARAM,wintypes.LPARAM]
+        kernel.OpenProcess.argtypes=[wintypes.DWORD,wintypes.BOOL,wintypes.DWORD];kernel.OpenProcess.restype=wintypes.HANDLE
+        kernel.QueryFullProcessImageNameW.argtypes=[wintypes.HANDLE,wintypes.DWORD,wintypes.LPWSTR,ctypes.POINTER(wintypes.DWORD)]
+        kernel.CloseHandle.argtypes=[wintypes.HANDLE]
+        callback=ctypes.WINFUNCTYPE(wintypes.BOOL,wintypes.HWND,wintypes.LPARAM)
+        def selected_gui():
+            found=[]
+            @callback
+            def visit(hwnd,_):
+                name=ctypes.create_unicode_buffer(128);user.GetClassNameW(hwnd,name,128)
+                if name.value!='DaymarkUpdater':return True
+                pid=wintypes.DWORD();user.GetWindowThreadProcessId(hwnd,ctypes.byref(pid))
+                handle=kernel.OpenProcess(0x1000,False,pid.value)
+                if not handle:return True
+                try:
+                    path=ctypes.create_unicode_buffer(32768);size=wintypes.DWORD(32768)
+                    if kernel.QueryFullProcessImageNameW(handle,0,path,ctypes.byref(size)) and Path(path.value).resolve()==(tools/'daymark-updater.exe').resolve():found.append((hwnd,pid.value))
+                finally:kernel.CloseHandle(handle)
+                return True
+            user.EnumWindows(visit,0)
+            return found[0] if found else None
+        hwnd,pid=wait_for(selected_gui,5);processes.append(pid)
+        assert user.PostMessageW(hwnd,0x10,0,0)
+        wait_for(lambda:process_exited(pid),5)
+        assert not process_exited(journal['new_pid'])
+        print('PASS: signed versioned updater selected after commit, JSON forwarding, modified host/metadata refused, versioned native GUI launched/closed independently',flush=True)
         if real:
             import sqlite3
             with sqlite3.connect(data/'daymark.sqlite') as db:

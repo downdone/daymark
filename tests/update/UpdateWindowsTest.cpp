@@ -133,6 +133,34 @@ int main() {
         if(win::read(logs/"keep.txt")!="user-owned")return 10;
         auto secret = win::generatePrivate();
         auto key = win::publicKey(secret, "unit-test-only");
+        const auto installation=root/"signed-native-tools";
+        win::Settings toolSettings{installation,{key}};
+        auto makeTools=[&](const fs::path& directory,const std::string& version){
+            const auto payload="versions/"+version+"-aaaaaaaaaaaa";
+            win::writeAtomic(directory/"daymark-update-cli.exe","signed CLI "+version);
+            const auto image=directory/"daymark-update-cli.exe";
+            const auto index=Json{{"format",1},{"files",Json::array({Json{{"path","daymark-update-cli.exe"},{"size",fs::file_size(image)},{"sha256",win::fileHash(image)}}})}}.dump();
+            win::writeAtomic(directory/"FILES.json",index);
+            const auto seed=Json{{"format",1},{"repository",Repository},{"version",version},{"payload_dir",payload},{"files_index_sha256",hex(win::sha256(index))}}.dump();
+            win::writeAtomic(directory/"bootstrap-release.json",seed);
+            win::writeAtomic(directory/"bootstrap-release.json.sig",win::sign(seed,secret,key.id,"Daymark.BootstrapPayload.v1"));
+            win::writeAtomic(installation/"current.json",Json{{"format",1},{"status","committed"},{"version",version},{"current",payload}}.dump());
+        };
+        makeTools(installation,"1.0.0");
+        if(win::nativeTool(toolSettings,"daymark-update-cli.exe")!=installation/"daymark-update-cli.exe")return 31;
+        for(const auto* version:{"1.0.1","1.0.2"}){
+            const auto folder=installation/"update-state/tools"/(std::string(version)+"-aaaaaaaaaaaa");
+            makeTools(folder,version);
+            if(win::nativeTool(toolSettings,"daymark-update-cli.exe")!=folder/"daymark-update-cli.exe")return 32;
+        }
+        const auto selected=installation/"update-state/tools/1.0.2-aaaaaaaaaaaa/daymark-update-cli.exe";
+        win::writeAtomic(selected,"tampered CLI");
+        bool invalid=false;
+        try{win::nativeTool(toolSettings,"daymark-update-cli.exe");}catch(const Failure& e){invalid=e.key=="update.hash_mismatch";}
+        if(!invalid)return 33;
+        win::writeAtomic(installation/"current.json",Json{{"format",1},{"status","committed"},{"version","1.0.3"},{"current","versions/../unsigned"}}.dump());
+        invalid=false;try{win::nativeTool(toolSettings,"daymark-update-cli.exe");}catch(const Failure&){invalid=true;}
+        if(!invalid)return 34;
         std::string body = "{\"format\":1,\"payload\":\"synthetic\"}";
         auto signature = win::sign(body, secret, key.id, "Daymark.BootstrapPayload.v1");
         auto verified = win::verifySignature(body, signature, {key}, "Daymark.BootstrapPayload.v1");

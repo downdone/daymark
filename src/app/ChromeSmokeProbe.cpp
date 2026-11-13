@@ -24,8 +24,12 @@ QObject *ChromeSmokeProbe::find(QObject *root, const QString &name) const {
         if (!object || seen.contains(object))
             continue;
         seen.insert(object);
-        if (object->objectName() == name)
-            return object;
+        if (object->objectName() == name) {
+            // Lazy pages may leave QObject children awaiting deferred deletion.
+            // Detached visual items are not controls in any presented window.
+            const auto *item=qobject_cast<QQuickItem *>(object);
+            if(!item || item->window())return object;
+        }
         pending.append(object->children());
         if (auto *item = qobject_cast<QQuickItem *>(object))
             for (auto *child : item->childItems())
@@ -358,7 +362,7 @@ QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *ac
                 settings->resize(group % 2 ? 640 : 860, 680);
                 QMetaObject::invokeMethod(settings, "open");
             }
-            QMetaObject::invokeMethod(settings, "activateVerificationCategory", Q_ARG(QVariant, QVariant(category)));
+            QMetaObject::invokeMethod(settings, "setVerificationCategory", Q_ARG(QVariant, QVariant(category)));
         } else {
             const auto result = compareLayout(settings, {"settingsIntegratedHeader", "settingsCategories", "settingsScroll"}, category == 0);
             if (!result.isEmpty()) return result;
@@ -433,10 +437,8 @@ QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *ac
         if (!notice || !surface || !body || !input->hasActiveFocus() ||
             surface->property("color") == window->color() || !body->property("text").toString().contains("9.9.9"))
             return fail("notice lacks distinct surface/version or stole input focus");
-        auto *updateEntry=qobject_cast<QQuickItem*>(find(window,"sidebarUpdateStatus"));
-        if (!updateEntry || !updateEntry->isVisible() ||
-            updateEntry->mapToScene({updateEntry->width(),0}).x()>window->property("sidebarWidth").toReal())
-            return fail("bottom update status entry is missing or outside navigation");
+        if (find(window,"sidebarUpdateStatus") || find(window,"sidebarCollapsedUpdate"))
+            return fail("updates must be owned by Settings, not the main sidebar");
         const QRectF bounds(notice->mapToScene({0,0}), notice->size());
         const auto *header = qobject_cast<QQuickItem *>(find(window, "integratedHeader"));
         const auto *footer = qobject_cast<QQuickItem *>(find(window, "pageFooter"));
@@ -521,19 +523,38 @@ QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *ac
                 settings->resize(group%2 ? 640 : 860,680);
                 QMetaObject::invokeMethod(settings,"open");
             }
-            QMetaObject::invokeMethod(settings,"activateVerificationCategory",Q_ARG(QVariant,QVariant(category)));
+            QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(category)));
         } else {
             QVariant result;
             QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,result));
             const auto layout=compareLayout(settings,{"settingsIntegratedHeader","settingsCategories","settingsScroll"},sample%2==0);
             if(result!="PASS" || !layout.isEmpty())return fail("six-section settings layout: "+result.toString()+layout);
-            if(category==4 && (!find(settings,"recognizeTaskTimePreference") || !find(settings,"systemRemindersPreference") || find(settings,"backupDaysPicker")))return fail("task/reminder ownership");
+            if(category==4 && (!find(settings,"recognizeTaskTimePreference") || !find(settings,"systemRemindersPreference") || find(settings,"backupDaysPicker")))return fail(QString("task/reminder ownership category=%1 recognize=%2 system=%3 backup=%4").arg(settings->property("categoryIndex").toInt()).arg(bool(find(settings,"recognizeTaskTimePreference"))).arg(bool(find(settings,"systemRemindersPreference"))).arg(bool(find(settings,"backupDaysPicker"))));
             if(category==5 && (!find(settings,"backupDaysPicker") || !find(settings,"telemetryConsentPreference") || !find(settings,"settingsOpenLogs") || find(settings,"systemRemindersPreference")))return fail("data/privacy ownership");
             if(!capture(settings,QString(".settings-%1-%2.png").arg(category==4?"tasks":"data").arg(group)))return fail("six-section settings capture");
         }
-    } else if (phase == 161) {
+    } else if (phase >= 161 && phase <= 168) {
+        const int group=(phase-161)/2;
+        if ((phase-161)%2==0) {
+            workspace.setTextScale(group>=2 ? 2 : 1);
+            workspace.setThemeMode(group%2 ? 2 : 1);
+            settings->resize(group%2 ? 640 : 860,680);
+            QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(6)));
+            QMetaObject::invokeMethod(settings,"open");
+        } else {
+            QVariant result;
+            QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,result));
+            if(result!="PASS" || !find(settings,"settingsManageAccount") || !find(settings,"settingsSyncStatus") || find(settings,"checkUpdates"))return fail("account settings ownership or layout");
+            if(!capture(settings,QString(".settings-account-%1.png").arg(group)))return fail("account settings capture");
+        }
+    } else if (phase == 169) {
+        if(!pressKey(qobject_cast<QQuickItem*>(find(settings,"settingsManageAccount"))))return fail("account settings keyboard entry");
+    } else if (phase == 170) {
+        if(settings->isVisible() || !account->isVisible() || !find(account,"syncLogin"))return fail("account settings routes to existing login window");
+        QMetaObject::invokeMethod(account,"close");
+    } else if (phase == 171) {
         QMetaObject::invokeMethod(settings,"close");
-        qInfo() << "PASS: CHROME02 40 main views, 24 settings category combinations, account axes and update UI (synthetic controller)";
+        qInfo() << "PASS: CHROME02 40 main views, 28 settings category combinations, account axes and update UI (synthetic controller)";
         return "DONE";
     }
     return {};

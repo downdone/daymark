@@ -15,7 +15,7 @@ ApplicationWindow {
         }
     }
     objectName: "settingsDialog"
-    signal quitRequested()
+    signal accountRequested()
     signal dataRequested()
     signal helpRequested()
     signal calendarVisibilityRequested(bool visible)
@@ -38,13 +38,14 @@ ApplicationWindow {
             id: settingsDescriptionMetrics
             visible: false
             width: settingsHeader.width
-            readonly property real reservedHeight: Math.max(appearanceMeasure.implicitHeight,widgetMeasure.implicitHeight,generalMeasure.implicitHeight,aboutMeasure.implicitHeight,tasksMeasure.implicitHeight,dataMeasure.implicitHeight)
+            readonly property real reservedHeight: Math.max(appearanceMeasure.implicitHeight,widgetMeasure.implicitHeight,generalMeasure.implicitHeight,aboutMeasure.implicitHeight,tasksMeasure.implicitHeight,dataMeasure.implicitHeight,accountMeasure.implicitHeight)
             Text {id: appearanceMeasure; width: parent.width; text: root.categoryDetails[0];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
             Text {id: widgetMeasure; width: parent.width; text: root.categoryDetails[1];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
             Text {id: generalMeasure; width: parent.width; text: root.categoryDetails[2];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
             Text {id: aboutMeasure; width: parent.width; text: root.categoryDetails[3];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
             Text {id: tasksMeasure; width: parent.width; text: root.categoryDetails[4];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
             Text {id: dataMeasure; width: parent.width; text: root.categoryDetails[5];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
+            Text {id: accountMeasure; width: parent.width; text: root.categoryDetails[6];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
         }
         Rectangle {anchors.fill: parent; color: Theme.grouped}
         Rectangle {width: root.sidebarWidth; height: parent.height; color: Theme.sidebar
@@ -71,11 +72,11 @@ ApplicationWindow {
     required property StartupController startupController
     // Stable category IDs are independent from sidebar row order.
     property int categoryIndex: 2
-    readonly property var categoryOrder:[2,4,1,0,5,3]
-    readonly property var categoryTitles:[qsTr("外观"),qsTr("桌面组件"),qsTr("常规"),qsTr("关于与帮助"),qsTr("任务与提醒"),qsTr("数据与隐私")]
-    readonly property var categorySymbols:["eye","window","settings","info","bell","backup"]
-    readonly property var categoryDetails:[qsTr("主题、文字与辅助功能"),qsTr("任务组件与桌面日历"),qsTr("启动、关闭与系统托盘"),qsTr("版本、更新与使用帮助"),qsTr("快速添加与到期提醒"),qsTr("备份、使用统计与本机日志")]
-    property var categoryScroll:[0,0,0,0,0,0]
+    readonly property var categoryOrder:[2,6,4,1,0,5,3]
+    readonly property var categoryTitles:[qsTr("外观"),qsTr("桌面组件"),qsTr("常规"),qsTr("关于与帮助"),qsTr("任务与提醒"),qsTr("数据与隐私"),qsTr("账号与同步")]
+    readonly property var categorySymbols:["eye","window","settings","info","bell","backup","account"]
+    readonly property var categoryDetails:[qsTr("主题、文字与辅助功能"),qsTr("任务组件与桌面日历"),qsTr("启动、关闭与系统托盘"),qsTr("版本、更新与使用帮助"),qsTr("快速添加与到期提醒"),qsTr("备份、使用统计与本机日志"),qsTr("账号、设备资料与同步状态")]
+    property var categoryScroll:[0,0,0,0,0,0,0]
     property bool restoringScroll:false
     readonly property real sidebarWidth:Math.min(220,176*Theme.scale)
     readonly property real availableWidth:width-sidebarWidth-32
@@ -104,7 +105,7 @@ ApplicationWindow {
     }
     function navigateCategory(index){setVerificationCategory(index);Qt.callLater(focusCategory)}
     function verifyCategory() {
-        const selected=[appearance.item,widgetOptions.item,general.item,about.item,tasks.item,dataPrivacy.item][categoryIndex] as Item
+        const selected=[appearance.item,widgetOptions.item,general.item,about.item,tasks.item,dataPrivacy.item,account.item][categoryIndex] as Item
         if(categoryIndex<0 || !selected || !selected.visible || selected.width<=0 || selected.height<=0)return "category content missing"
         if(sidebar.width<148 || settingsHeader.height>=root.height || body.height<80 || contentPane.x<sidebar.width-1)return "split settings navigation clipped"
         if(categoryIndex===4 && !(tasks.item as TaskPageContent).systemReminderVisible)return "system reminder preference missing"
@@ -249,6 +250,7 @@ ApplicationWindow {
                 Loader {id:general;visible:active;active:root.visible && root.categoryIndex===2;Layout.fillWidth:true;sourceComponent:GeneralPageContent {}}
                 Loader {id:tasks;visible:active;active:root.visible && root.categoryIndex===4;Layout.fillWidth:true;sourceComponent:TaskPageContent {}}
                 Loader {id:dataPrivacy;visible:active;active:root.visible && root.categoryIndex===5;Layout.fillWidth:true;sourceComponent:DataPrivacyPageContent {}}
+                Loader {id:account;visible:active;active:root.visible && root.categoryIndex===6;Layout.fillWidth:true;sourceComponent:AccountPageContent {}}
                 Loader {id:about;visible:active;active:root.visible && root.categoryIndex===3;Layout.fillWidth:true;sourceComponent:SettingsAboutPage {id:aboutPage;updateController:root.updateController;Layout.fillWidth:true;onHelpRequested:root.helpRequested()}}
                 }
             }
@@ -313,10 +315,25 @@ ApplicationWindow {
                         SettingsToggle {separator:false;text:qsTr("关闭主窗口到托盘");enabled:root.widgetController.trayAvailable;checked:root.widgetController.closeToTray;onClicked:root.widgetController.setCloseToTray(checked)}
                     }
         Label {visible:root.startupController.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.startupController.errorText}
+
+    }
+    component AccountPageContent:ColumnLayout {
+        id:accountPage
+        readonly property var accountState:root.workspace.syncState
+        readonly property bool connected:!!accountState.authenticated
+        Layout.fillWidth:true;spacing:Theme.blockGap
         SettingsGroup {
-                        detail:root.widgetController.trayAvailable ? qsTr("托盘可打开主窗口、恢复穿透或彻底退出。") : qsTr("系统托盘不可用；关闭主窗口将退出，穿透已禁用。")
-                        SettingsLink {separator:false;destructive:true;symbol:"close";text:qsTr("退出 Daymark");onClicked:root.quitRequested()}
-                    }
+            heading:qsTr("账号")
+            detail:accountPage.connected ? qsTr("任务先保存在此设备，再同步到当前账号服务。") : qsTr("未登录时仅保存在此设备，登录后可在设备间同步。")
+            SettingsRow {label:qsTr("当前账号"); Label {objectName:"settingsAccountIdentity";Layout.fillWidth:true;wrapMode:Text.Wrap;font.weight:Font.DemiBold;text:accountPage.connected ? (accountPage.accountState.login_label || qsTr("已登录")) : qsTr("尚未登录")}}
+            SettingsLink {objectName:"settingsManageAccount";separator:false;symbol:"account";text:accountPage.connected ? qsTr("管理账号与设备资料…") : qsTr("登录或创建账号…");onClicked:root.accountRequested()}
+        }
+        SettingsGroup {
+            heading:qsTr("同步")
+            SettingsRow {label:qsTr("状态"); Label {objectName:"settingsSyncStatus";Layout.fillWidth:true;wrapMode:Text.Wrap;text:accountPage.accountState.status || qsTr("仅存储在此设备");color:accountPage.accountState.safe_error_code ? Theme.danger : Theme.secondary;Accessible.name:text}}
+            Label {visible:(accountPage.accountState.pending_count || 0)>0;Layout.fillWidth:true;Layout.leftMargin:12;Layout.rightMargin:12;wrapMode:Text.Wrap;text:qsTr("%1 组修改保留在此设备，等待同步。").arg(accountPage.accountState.pending_count || 0);color:Theme.secondary}
+            SettingsLink {objectName:"settingsSyncNow";separator:false;symbol:"reset";text:accountPage.accountState.busy ? qsTr("正在同步…") : qsTr("立即同步");enabled:accountPage.connected && !accountPage.accountState.busy;onClicked:root.workspace.syncNow()}
+        }
     }
     component TaskPageContent:ColumnLayout {
         id:tasksPage;readonly property bool systemReminderVisible:systemReminders.visible && systemReminders.width>0

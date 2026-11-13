@@ -129,9 +129,18 @@ bool StartupUpdateGate::acquire(const QString &handoff, const QString &version) 
                 QString::number((quint64(created.dwHighDateTime) << 32) | created.dwLowDateTime);
             const auto actual =
                 QFileInfo(QString::fromWCharArray(workerImage, size)).canonicalFilePath();
+            QString versionedWorker;
+            QFile active(QDir(d->root).filePath("current.json"));
+            if(active.open(QIODevice::ReadOnly)){
+                const auto selected=QJsonDocument::fromJson(active.read(65536)).object();
+                const auto payload=selected.value("current").toString();
+                const auto key=payload.mid(9);
+                if(payload.startsWith("versions/") && !key.isEmpty() && !key.contains('/') && !key.contains('\\') && !key.contains(".."))
+                    versionedWorker=QFileInfo(QDir(d->root).filePath("update-state/tools/"+key+"/daymark-update-cli.exe")).canonicalFilePath();
+            }
+            const auto rootWorker=QFileInfo(QDir(d->root).filePath("daymark-update-cli.exe")).canonicalFilePath();
             if (stamp != d->context.value("worker_stamp").toString() ||
-                actual !=
-                    QFileInfo(QDir(d->root).filePath("daymark-update-cli.exe")).canonicalFilePath())
+                actual.isEmpty() || (actual!=rootWorker && (versionedWorker.isEmpty() || actual!=versionedWorker)))
                 throw std::runtime_error("update.process_identity");
             auto hello = QJsonObject{
                 {"type", "HELLO"}, {"nonce", d->context.value("nonce")}, {"version", version}};

@@ -1,6 +1,7 @@
 #include "update/platform/windows/Engine.h"
 #include "update/platform/windows/HostSettings.h"
 #include <shellapi.h>
+#include <algorithm>
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     using namespace daymark::update;
     fs::path root;
@@ -23,7 +24,15 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         }
         LocalFree(values);
         Cancellation cancel;
-        win::Engine engine(win::hostSettings(root), cancel);
+        auto settings=win::hostSettings(root);
+        if(fs::exists(root/"current.json") && win::nativeTool(settings,"daymark-update-cli.exe").parent_path()!=root &&
+           std::find(arguments.begin(),arguments.end(),L"--version")==arguments.end() &&
+           std::find(arguments.begin(),arguments.end(),L"--help")==arguments.end()){
+            std::vector<std::wstring> forwarded{L"launch",L"--root",root.native()};
+            forwarded.insert(forwarded.end(),arguments.begin(),arguments.end());
+            if(const auto exit=win::forwardNative(settings,"daymark-update-cli.exe",forwarded))return static_cast<int>(*exit);
+        }
+        win::Engine engine(settings, cancel);
         engine.launch(arguments);
         return 0;
     } catch (const Failure &e) {

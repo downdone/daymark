@@ -6,6 +6,7 @@
 #include <memory>
 #include <set>
 #include <shlobj.h>
+#include <tlhelp32.h>
 
 namespace daymark::update::win {
 std::string setupDiagnosticCode(std::string_view key) {
@@ -234,6 +235,95 @@ Json SetupManager::checkIdle(const fs::path &target) {
           std::make_unique<FileLock>(root / "update-state/locks" / name, true));
   }
   return {{"format", 1}, {"result", "idle"}};
+}
+Json SetupManager::closeRunning(const fs::path &target,
+                                const std::function<bool(unsigned)> &confirm) {
+  const auto root = fs::absolute(target).lexically_normal();
+  location(root);
+  if (!fs::exists(root / "bootstrap-release.json"))
+    return checkIdle(root);
+  // Never terminate a prepare/apply worker. Keep new launches outside the
+  // confirmation/termination interval; install() independently rechecks leases.
+  FileLock job(root / "update-state/locks/job", true);
+  FileLock prepare(root / "update-state/locks/prepare", true);
+  FileLock launch(root / "update-state/locks/launch", true);
+  Cancellation cancellation;
+  Engine installed(at(settings, root), cancellation);
+  const auto files = installed.ownedFiles();
+  std::set<std::wstring> images;
+  for (const auto &entry : files) {
+    const auto path = inside(root, entry.path);
+    if (path.filename() == L"daymark.exe" || path.filename() == L"daymark-updater.exe")
+      images.insert(normalized(path));
+  }
+  auto reject = [](DWORD code) {
+    Failure error("setup.close_failed", 30);
+    error.platformError = code;
+    throw error;
+  };
+  auto user = [&](HANDLE process) {
+    HANDLE raw = nullptr;
+    if (!OpenProcessToken(process, TOKEN_QUERY, &raw)) reject(GetLastError());
+    Handle token(raw);
+    DWORD bytes = 0;
+    GetTokenInformation(token.value, TokenUser, nullptr, 0, &bytes);
+    if (!bytes || bytes > 65536) reject(GetLastError());
+    Bytes result(bytes);
+    if (!GetTokenInformation(token.value, TokenUser, result.data(), bytes, &bytes))
+      reject(GetLastError());
+    return result;
+  };
+  const auto owner = user(GetCurrentProcess());
+  Handle snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0));
+  if (!snapshot) reject(GetLastError());
+  std::vector<Handle> processes;
+  PROCESSENTRY32W item{};
+  item.dwSize = sizeof(item);
+  if (!Process32FirstW(snapshot.value, &item)) reject(GetLastError());
+  do {
+    if (item.th32ProcessID == GetCurrentProcessId()) continue;
+    Handle query(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE,
+                              FALSE, item.th32ProcessID));
+    if (!query) continue;
+    wchar_t image[32768]{};
+    DWORD length = 32768;
+    if (!QueryFullProcessImageNameW(query.value, 0, image, &length) ||
+        !images.contains(normalized(fs::path(std::wstring(image, length))))) continue;
+    const auto other = user(query.value);
+    if (!EqualSid(reinterpret_cast<const TOKEN_USER *>(owner.data())->User.Sid,
+                  reinterpret_cast<const TOKEN_USER *>(other.data())->User.Sid))
+      fail("setup.other_user_running", 30);
+    Handle process(OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION |
+                               SYNCHRONIZE, FALSE, item.th32ProcessID));
+    if (!process) {
+      if (WaitForSingleObject(query.value, 0) == WAIT_OBJECT_0) continue;
+      reject(GetLastError());
+    }
+    if (processStamp(query.value) != processStamp(process.value))
+      fail("update.process_identity", 30);
+    if (WaitForSingleObject(process.value, 0) == WAIT_TIMEOUT)
+      processes.push_back(std::move(process));
+    if (processes.size() > 64) fail("setup.close_failed", 30);
+  } while (Process32NextW(snapshot.value, &item));
+  if (GetLastError() != ERROR_NO_MORE_FILES) reject(GetLastError());
+  if (!processes.empty()) {
+    if (!confirm || !confirm(static_cast<unsigned>(processes.size())))
+      fail("setup.cancelled", 50);
+    const auto deadline = GetTickCount64() + 5000;
+    for (auto &process : processes) {
+      if (WaitForSingleObject(process.value, 0) == WAIT_OBJECT_0) continue;
+      if (!TerminateProcess(process.value, 0) &&
+          WaitForSingleObject(process.value, 0) != WAIT_OBJECT_0) reject(GetLastError());
+    }
+    for (auto &process : processes) {
+      const auto now = GetTickCount64();
+      if (WaitForSingleObject(process.value, now < deadline ? DWORD(deadline-now) : 0)
+          != WAIT_OBJECT_0) fail("setup.close_failed", 30);
+    }
+    logEvent(root, {{"event", "setup.forced_close"}, {"count", processes.size()}});
+  }
+  FileLock idle(root / "update-state/locks/runtime", true);
+  return {{"format", 1}, {"result", "idle"}, {"closed", processes.size()}};
 }
 Json SetupManager::install(const fs::path &input, const fs::path &output) {
   const auto source = fs::absolute(input).lexically_normal(),

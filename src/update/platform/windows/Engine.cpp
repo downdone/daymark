@@ -167,9 +167,86 @@ std::vector<TrustKey> compiledKeys() {
 }
 fs::path installRoot(const fs::path &exe) {
     auto folder = fs::absolute(exe).parent_path();
+    if (folder.parent_path().filename() == "tools" &&
+        folder.parent_path().parent_path().filename() == "update-state")
+        return folder.parent_path().parent_path().parent_path();
     if (folder.parent_path().filename() == "versions")
         return folder.parent_path().parent_path();
     return folder;
+}
+fs::path nativeTool(const Settings &settings, std::string_view role) {
+    if (role != "daymark-update-cli.exe" && role != "daymark-updater.exe")
+        fail("update.invalid_arguments", 2);
+    const auto root = settings.root;
+    const auto fallback = root / wide(role);
+    if (!fs::exists(root / "bootstrap-release.json") || !fs::exists(root / "current.json"))
+        return fallback;
+    const auto active = parseJson(read(root / "current.json"));
+    if (number(active,"format",1)!=1 || field(active,"status")!="committed")
+        fail("update.recovery_required",41);
+    const auto payload = field(active,"current");
+    if (!safeRelative(payload) || !payload.starts_with("versions/") ||
+        payload.substr(9).find('/')!=std::string::npos)
+        fail("update.recovery_required",41);
+    const auto tools = inside(root,"update-state/tools/"+payload.substr(9));
+    auto base = tools;
+    if (!fs::exists(tools)) base=root;
+    const auto seed=verifySignature(read(base/"bootstrap-release.json"),
+        read(base/"bootstrap-release.json.sig",4096),settings.keys,"Daymark.BootstrapPayload.v1");
+    if (number(seed,"format",1)!=1 || field(seed,"repository")!=Repository ||
+        field(seed,"payload_dir")!=payload || field(seed,"version")!=field(active,"version"))
+        fail("update.recovery_required",41);
+    const auto index=read(base/"FILES.json",8*1024*1024);
+    if(hex(sha256(index))!=field(seed,"files_index_sha256"))fail("update.hash_mismatch");
+    const auto files=fileIndex(index);
+    const auto path=inside(base,role);
+    const auto found=std::find_if(files.begin(),files.end(),[&](const auto& f){return f.path==role;});
+    if(found==files.end() || !fs::is_regular_file(path) || fs::file_size(path)!=found->size || fileHash(path)!=found->sha256)
+        fail("update.hash_mismatch");
+    return path;
+}
+std::optional<DWORD> forwardNative(const Settings &settings, std::string_view role,
+                                   const std::vector<std::wstring> &arguments) {
+    if (!fs::exists(settings.root/"bootstrap-release.json")) return {};
+    const auto target=nativeTool(settings,role);
+    if(fs::equivalent(target,executable()))return {};
+    if(role=="daymark-updater.exe"){
+        spawn(target,arguments,false);
+        return 0;
+    }
+    std::wstring command=quote(target.native());
+    for(const auto& arg:arguments)command+=L" "+quote(arg);
+    // Preserve CLI JSON output without inheriting any installation/lease handles.
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes),nullptr,TRUE};
+    Handle output, error;
+    auto copyStream=[&](DWORD which,Handle& result){
+        HANDLE copy=nullptr;auto source=GetStdHandle(which);
+        if(source && source!=INVALID_HANDLE_VALUE &&
+           DuplicateHandle(GetCurrentProcess(),source,GetCurrentProcess(),&copy,0,TRUE,DUPLICATE_SAME_ACCESS))result=Handle(copy);
+        else result=Handle(CreateFileW(L"NUL",GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,&attributes,OPEN_EXISTING,0,nullptr));
+        if(!result)fail("update.start_failed",40);
+    };
+    copyStream(STD_OUTPUT_HANDLE,output);copyStream(STD_ERROR_HANDLE,error);
+    HANDLE inherited[]{output.value,error.value};
+    SIZE_T bytes=0;InitializeProcThreadAttributeList(nullptr,1,0,&bytes);
+    Bytes storage(bytes);auto* list=reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(storage.data());
+    if(!InitializeProcThreadAttributeList(list,1,0,&bytes))fail("update.start_failed",40);
+    if(!UpdateProcThreadAttribute(list,0,PROC_THREAD_ATTRIBUTE_HANDLE_LIST,inherited,sizeof(inherited),nullptr,nullptr)){
+        DeleteProcThreadAttributeList(list);fail("update.start_failed",40);
+    }
+    STARTUPINFOEXW startup{};startup.StartupInfo.cb=sizeof(startup);
+    startup.StartupInfo.dwFlags=STARTF_USESTDHANDLES|STARTF_USESHOWWINDOW;
+    startup.StartupInfo.wShowWindow=role=="daymark-updater.exe"?SW_SHOWNORMAL:SW_HIDE;
+    startup.StartupInfo.hStdOutput=output.value;startup.StartupInfo.hStdError=error.value;
+    startup.lpAttributeList=list;PROCESS_INFORMATION process{};
+    auto ok=CreateProcessW(target.c_str(),command.data(),nullptr,nullptr,TRUE,
+        EXTENDED_STARTUPINFO_PRESENT|CREATE_NO_WINDOW,nullptr,settings.root.c_str(),&startup.StartupInfo,&process);
+    DeleteProcThreadAttributeList(list);
+    if(!ok)fail("update.start_failed",40);
+    Handle child(process.hProcess),thread(process.hThread);
+    if(WaitForSingleObject(child.value,INFINITE)!=WAIT_OBJECT_0)fail("update.start_failed",40);
+    DWORD exit=40;if(!GetExitCodeProcess(child.value,&exit))fail("update.start_failed",40);
+    return exit;
 }
 bool requestRestart(const fs::path &root) {
     try {
@@ -292,6 +369,24 @@ std::vector<FileEntry> Engine::ownedFiles() const {
         try {const auto description=descriptor(relative,false,false);auto entries=fileIndex(field(description,"index_raw",8*1024*1024));
             for(auto& entry:entries)if(entry.path.starts_with(relative+"/"))result.push_back(std::move(entry));
         }catch(const Failure&){/* Unknown/untrusted directories are never owned by this installation. */}
+    }
+    const auto tools=settings.root/"update-state/tools";
+    if(fs::exists(tools))for(const auto& directory:fs::directory_iterator(tools)){
+        try{
+            noLinks(directory.path());
+            if(!directory.is_directory())continue;
+            const auto metadata=verifySignature(read(directory.path()/"bootstrap-release.json"),
+                read(directory.path()/"bootstrap-release.json.sig",4096),settings.keys,"Daymark.BootstrapPayload.v1");
+            if(field(metadata,"repository")!=Repository || field(metadata,"payload_dir")!="versions/"+utf8(directory.path().filename().native()))continue;
+            const auto raw=read(directory.path()/"FILES.json",8*1024*1024);
+            if(hex(sha256(raw))!=field(metadata,"files_index_sha256"))continue;
+            const auto prefix="update-state/tools/"+utf8(directory.path().filename().native())+"/";
+            for(const auto& entry:fileIndex(raw))if(entry.path=="daymark.exe" || entry.path=="daymark-update-cli.exe" || entry.path=="daymark-updater.exe" || entry.path=="daymark-setup-helper.exe" || entry.path.starts_with("update-licenses/"))
+                result.push_back({prefix+entry.path,entry.sha256,entry.size});
+            for(const auto* name:{"bootstrap-release.json","bootstrap-release.json.sig","FILES.json"}){
+                const auto path=directory.path()/name;result.push_back({prefix+name,fileHash(path),fs::file_size(path)});
+            }
+        }catch(const Failure&){/* Untrusted tool directories are never owned. */}
     }
     return result;
 }
@@ -670,6 +765,41 @@ void Engine::stage(const Release &r, const fs::path &archivePath) {
         writeAtomic(save / "manifest.json", r.raw);
         writeAtomic(save / "manifest.json.sig", r.signature);
         writeAtomic(save / "FILES.json", index);
+        // Keep complete signed native tools beside this immutable application
+        // version. current.json selects both, so prepare never changes the host.
+        const auto tools=inside(settings.root,"update-state/tools/"+versionKey(r.manifest));
+        if(!fs::exists(tools)){
+            const auto sourceTools=inside(staging,"native-tools");
+            fs::create_directories(sourceTools);
+            for(const auto* name:{"daymark.exe","daymark-update-cli.exe","daymark-updater.exe","daymark-setup-helper.exe"}){
+                const auto source=inside(staging,name);
+                if(!fs::is_regular_file(source)){
+                    if(std::string_view(name)=="daymark-setup-helper.exe")continue;
+                    fail("update.invalid_file_index");
+                }
+                fs::copy_file(source,sourceTools/name);
+            }
+            for(const auto& entry:files)if(entry.path.starts_with("update-licenses/")){
+                const auto target=inside(sourceTools,entry.path);
+                fs::create_directories(target.parent_path());
+                fs::copy_file(inside(staging,entry.path),target);
+            }
+            writeAtomic(sourceTools/"bootstrap-release.json",seedRaw);
+            writeAtomic(sourceTools/"bootstrap-release.json.sig",seedSig);
+            writeAtomic(sourceTools/"FILES.json",index);
+            fs::create_directories(tools.parent_path());
+            fs::rename(sourceTools,tools);
+        }
+        // Verify reuse, including a partial/tampered directory from a previous
+        // interrupted preparation, before making any Ready receipt visible.
+        if(read(tools/"bootstrap-release.json")!=seedRaw || read(tools/"bootstrap-release.json.sig",4096)!=seedSig ||
+           read(tools/"FILES.json",8*1024*1024)!=index)fail("update.hash_mismatch");
+        for(const auto* name:{"daymark-update-cli.exe","daymark-updater.exe"}){
+            const auto path=inside(tools,name);
+            if(fileHash(path)!=indexedHash(files,name))fail("update.hash_mismatch");
+        }
+        for(const auto& entry:files)if(entry.path.starts_with("update-licenses/"))
+            if(fileHash(inside(tools,entry.path))!=entry.sha256)fail("update.hash_mismatch");
         if (!existing)
             fs::rename(inside(staging, relative), destination);
         auto old = current();
@@ -999,6 +1129,34 @@ void Engine::cleanOld(const Json &input) {
     const auto previous = field(journal, "old");
     if (previous == field(active, "current"))
         fail("update.recovery_required", 41);
+    // Keep the current and immediately preceding toolchain. Older signed
+    // program files are removable only if unchanged; open GUIs are deferred.
+    const auto toolRoot=settings.root/"update-state/tools";
+    if(fs::exists(toolRoot))for(const auto& directory:fs::directory_iterator(toolRoot)){
+        try{
+            noLinks(directory.path());if(!directory.is_directory())continue;
+            const auto payload="versions/"+utf8(directory.path().filename().native());
+            if(payload==previous || payload==field(active,"current"))continue;
+            const auto seed=verifySignature(read(directory.path()/"bootstrap-release.json"),
+                read(directory.path()/"bootstrap-release.json.sig",4096),settings.keys,"Daymark.BootstrapPayload.v1");
+            const auto raw=read(directory.path()/"FILES.json",8*1024*1024);
+            if(field(seed,"repository")!=Repository || field(seed,"payload_dir")!=payload || hex(sha256(raw))!=field(seed,"files_index_sha256"))continue;
+            bool preserved=false;
+            std::set<fs::path,std::greater<fs::path>> emptyDirectories;
+            for(const auto& entry:fileIndex(raw))if(entry.path=="daymark.exe" || entry.path=="daymark-update-cli.exe" || entry.path=="daymark-updater.exe" || entry.path=="daymark-setup-helper.exe" || entry.path.starts_with("update-licenses/")){
+                const auto path=inside(directory.path(),entry.path);
+                if(!fs::exists(path))continue;
+                if(fileHash(path)!=entry.sha256){preserved=true;continue;}
+                std::error_code ec;fs::remove(path,ec);if(ec)preserved=true;
+                for(auto parent=path.parent_path();parent!=directory.path();parent=parent.parent_path())emptyDirectories.insert(parent);
+            }
+            if(!preserved){
+                for(const auto& path:emptyDirectories){std::error_code ignored;fs::remove(path,ignored);}
+                for(const auto* name:{"FILES.json","bootstrap-release.json.sig","bootstrap-release.json"})removeFile(directory.path()/name);
+                std::error_code ignored;fs::remove(directory.path(),ignored);
+            }
+        }catch(const std::exception&){logEvent(settings.root,{{"event","toolchain.cleanup_deferred"}});}
+    }
     auto oldDescriptor = descriptor(previous, false, false);
     auto files = fileIndex(oldDescriptor.at("index_raw").get<std::string>());
     // Never roll back once deletion begins. Keep a new-version recovery pointer first.

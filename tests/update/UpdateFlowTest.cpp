@@ -155,6 +155,9 @@ class UpdateFlowTest final : public QObject {
         } else if (qEnvironmentVariableIsSet("DAYMARK_UPDATE_REAL_OLD"))
             args << "--old-payload" << qEnvironmentVariable("DAYMARK_UPDATE_REAL_OLD")
                  << "--new-payload" << qEnvironmentVariable("DAYMARK_UPDATE_REAL_NEW");
+        if(!publicGitHub && qEnvironmentVariableIsSet("DAYMARK_UPDATE_OLD_VERSION"))
+            args << "--old-version" << qEnvironmentVariable("DAYMARK_UPDATE_OLD_VERSION")
+                 << "--new-version" << qEnvironmentVariable("DAYMARK_UPDATE_NEW_VERSION");
         QByteArray output;
         if (publicGitHub) {
             connect(&process, &QProcess::readyReadStandardOutput, &process, [&] {

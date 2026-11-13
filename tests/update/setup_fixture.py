@@ -56,6 +56,90 @@ def main():
     try:setup('check-idle',code=30);setup('install',new,30);setup('uninstall',code=30)
     finally:k.CloseHandle(h)
     setup('check-idle')
+    # Termination is scoped to verified images in this installation, not names.
+    from flow_fixture import wait_for
+    parallel=w/'parallel installation'
+    run([helper,'install','--root',parallel,'--source',new,'--fixture-trust',trust])
+    current_image=root/'versions/2.0.1/daymark.exe'
+    peer=subprocess.Popen([str(parallel/'versions/2.0.1/daymark.exe')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    application=subprocess.Popen([str(current_image)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    try:
+        wait_for(lambda:(root/f'fixture-running-{application.pid}.json').exists())
+        wait_for(lambda:(parallel/f'fixture-running-{peer.pid}.json').exists())
+        setup('confirm-close-running',code=50,extra=('--fixture-confirm','no'))
+        assert application.poll() is None and peer.poll() is None
+        # Exercise the actual native confirmation and its default Cancel route.
+        dialog=subprocess.Popen([str(helper),'confirm-close-running','--root',str(root),'--fixture-trust',str(trust)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,creationflags=subprocess.CREATE_NO_WINDOW)
+        u=ctypes.WinDLL('user32',use_last_error=True)
+        u.GetWindowThreadProcessId.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.DWORD)]
+        u.PostMessageW.argtypes=[wintypes.HWND,wintypes.UINT,wintypes.WPARAM,wintypes.LPARAM]
+        u.GetWindowRect.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.RECT)]
+        u.IsWindowVisible.argtypes=[wintypes.HWND]
+        u.GetClassNameW.argtypes=[wintypes.HWND,wintypes.LPWSTR,ctypes.c_int]
+        u.GetDlgItem.argtypes=[wintypes.HWND,ctypes.c_int];u.GetDlgItem.restype=wintypes.HWND
+        callback=ctypes.WINFUNCTYPE(wintypes.BOOL,wintypes.HWND,wintypes.LPARAM)
+        def own_dialog():
+            found=[]
+            @callback
+            def visit(hwnd,_):
+                owner=wintypes.DWORD();u.GetWindowThreadProcessId(hwnd,ctypes.byref(owner))
+                name=ctypes.create_unicode_buffer(128);u.GetClassNameW(hwnd,name,128)
+                rect=wintypes.RECT()
+                if owner.value==dialog.pid and name.value=='#32770' and u.IsWindowVisible(hwnd) and u.GetWindowRect(hwnd,ctypes.byref(rect)) and rect.right>rect.left and rect.bottom>rect.top:found.append(hwnd)
+                return True
+            u.EnumWindows(visit,0)
+            return found[0] if found else None
+        try:
+            hwnd=wait_for(own_dialog,5)
+            import os
+            proof=os.environ.get('DAYMARK_SETUP_UI_PROOF')
+            if proof:
+                from PIL import Image
+                import struct
+                u.SetThreadDpiAwarenessContext.argtypes=[wintypes.HANDLE];u.SetThreadDpiAwarenessContext.restype=wintypes.HANDLE
+                previous_dpi=u.SetThreadDpiAwarenessContext(ctypes.c_void_p(-4))
+                rect=wintypes.RECT();assert u.GetWindowRect(hwnd,ctypes.byref(rect))
+                width,height=rect.right-rect.left,rect.bottom-rect.top
+                g=ctypes.WinDLL('gdi32',use_last_error=True)
+                g.CreateCompatibleDC.argtypes=[wintypes.HDC];g.CreateCompatibleDC.restype=wintypes.HDC
+                g.CreateDIBSection.argtypes=[wintypes.HDC,ctypes.c_void_p,wintypes.UINT,ctypes.POINTER(ctypes.c_void_p),wintypes.HANDLE,wintypes.DWORD];g.CreateDIBSection.restype=wintypes.HANDLE
+                g.SelectObject.argtypes=[wintypes.HDC,wintypes.HANDLE];g.SelectObject.restype=wintypes.HANDLE
+                g.DeleteObject.argtypes=[wintypes.HANDLE];g.DeleteDC.argtypes=[wintypes.HDC]
+                u.PrintWindow.argtypes=[wintypes.HWND,wintypes.HDC,wintypes.UINT]
+                dc=g.CreateCompatibleDC(None);assert dc
+                bitmap=None;previous=None
+                try:
+                    info=ctypes.create_string_buffer(struct.pack('<IiiHHIIiiII',40,width,-height,1,32,0,width*height*4,0,0,0,0))
+                    pixels=ctypes.c_void_p()
+                    bitmap=g.CreateDIBSection(dc,info,0,ctypes.byref(pixels),None,0);assert bitmap and pixels.value
+                    previous=g.SelectObject(dc,bitmap)
+                    assert u.PrintWindow(hwnd,dc,2)
+                    Image.frombytes('RGB',(width,height),ctypes.string_at(pixels,width*height*4),'raw','BGRX').save(proof)
+                finally:
+                    if previous:g.SelectObject(dc,previous)
+                    if bitmap:g.DeleteObject(bitmap)
+                    g.DeleteDC(dc)
+                    if previous_dpi:u.SetThreadDpiAwarenessContext(previous_dpi)
+            assert u.PostMessageW(hwnd,0x111,2,0)
+            output,_=dialog.communicate(timeout=5)
+            assert dialog.returncode==50,output
+        finally:
+            if dialog.poll() is None:dialog.kill();dialog.wait()
+        assert application.poll() is None and peer.poll() is None
+        job=k.CreateFileW(str(root/'update-state/locks/job'),0xC0000000,7,None,4,0x80,None)
+        assert job!=wintypes.HANDLE(-1).value
+        held=Overlapped();assert k.LockFileEx(job,0,0,1,0,ctypes.byref(held))
+        try:setup('confirm-close-running',code=30,extra=('--fixture-confirm','yes'));assert application.poll() is None
+        finally:k.CloseHandle(job)
+        result=json.loads(setup('confirm-close-running',extra=('--fixture-confirm','yes')))
+        assert result['closed']==1
+        application.wait(timeout=5);assert peer.poll() is None
+        setup('install',new)
+        assert json.loads((root/'current.json').read_text())['version']=='2.0.1'
+        print('PASS: real native Cancel, confirmed exact-install force close, other installation preserved, active transaction refusal and repair',flush=True)
+    finally:
+        for child in (application,peer):
+            if child.poll() is None:child.kill();child.wait()
     foreign=w/'foreign';foreign.mkdir();(foreign/'keep.txt').write_text('untouched')
     _winapi.CreateJunction(str(foreign),str(root/'foreign-link'))
     (root/'keep.db').write_text('keep');(root/'versions/2.0.1/daymark.exe').write_bytes(b'user modified')

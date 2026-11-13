@@ -62,18 +62,6 @@ int wmain(int argc, wchar_t **argv) {
                          "<file>, sign <private-key.json> <manifest> [domain]\n";
             return 0;
         }
-        if (command == "capabilities") {
-            std::cout << Json{{"format", 1},
-                              {"platform", "windows-x64"},
-                              {"runtime", runtimeFamily()},
-                              {"bootstrap_protocol", 1},
-                              {"os_build", win::osBuild()},
-                              {"qt_required", false},
-                              {"trust_configured", !win::compiledKeys().empty()}}
-                             .dump()
-                      << '\n';
-            return 0;
-        }
         if (command == "hash" && argc == 3) {
             std::cout << win::fileHash(fs::path(argv[2])) << '\n';
             return 0;
@@ -140,6 +128,17 @@ int wmain(int argc, wchar_t **argv) {
             settings.keys = {{field(trust, "key_id"), unhex(field(trust, "public_xy"))}};
         }
 #endif
+        std::vector<std::wstring> forwarded;
+        for(int i=1;i<argc;++i)forwarded.emplace_back(argv[i]);
+        if(const auto exit=win::forwardNative(settings,"daymark-update-cli.exe",forwarded))return static_cast<int>(*exit);
+        if(command=="capabilities"){
+            std::cout<<Json{{"format",1},{"platform","windows-x64"},{"runtime",runtimeFamily()},
+                {"bootstrap_protocol",1},{"toolchain_protocol",1},
+                {"versioned_host",win::executable().parent_path().parent_path().filename()=="tools"},
+                {"os_build",win::osBuild()},{"qt_required",false},
+                {"trust_configured",!win::compiledKeys().empty()}}.dump()<<'\n';
+            return 0;
+        }
         explicitOld = options.contains("--old-pid");
         win::Engine engine(settings, cancellation, [](const Json &event) {
             std::cout << event.dump() << '\n' << std::flush;

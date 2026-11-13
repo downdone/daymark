@@ -60,6 +60,9 @@ class Engine {
     const Settings &configuration() const { return settings; }
 };
 std::vector<TrustKey> compiledKeys();
+fs::path nativeTool(const Settings &, std::string_view role);
+std::optional<DWORD> forwardNative(const Settings &, std::string_view role,
+                                   const std::vector<std::wstring> &arguments);
 fs::path installRoot(const fs::path &executablePath);
 bool requestRestart(const fs::path &root);
 } // namespace daymark::update::win
