@@ -236,6 +236,17 @@ jobs:
           cat "$log"
           python3 scripts/report-ctest-failures.py "$report" "$log" || true
           exit $status
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: windows-candidate-test-evidence
+          path: |
+            build/ctest-report.xml
+            build/ctest-console.log
+            build/release/Testing/Temporary/LastTest.log
+            build/release/*-results.txt
+          if-no-files-found: ignore
+          retention-days: 7
       - name: QML lint
         run: cmake --build build/release --config Release --target daymark_qmllint daymark_style_qmllint
       # Windows: windeployqt against the MSVC kit produces the portable ZIP.

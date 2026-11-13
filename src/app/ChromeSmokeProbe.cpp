@@ -110,11 +110,20 @@ QString ChromeSmokeProbe::advance() {
             return fail("editor input");
         title->setProperty("text", "Synthetic unsaved caption draft");
         QMetaObject::invokeMethod(title, "textEdited");
+        // Settings now opens on General. Select the stable Appearance ID
+        // before opening: sidebar delegates do not exist until then.
+        if (!QMetaObject::invokeMethod(settings, "setVerificationCategory",
+                                      Q_ARG(QVariant, QVariant(0))))
+            return fail("appearance category selection");
         QMetaObject::invokeMethod(settings, "open");
     } else if (phase == 2) {
         auto *picker = find(settings, "titleBarModePicker");
-        if (!picker || !retained() || !capture(settings, ".settings-light.png"))
-            return fail("settings entry or initial draft");
+        if (settings->property("categoryIndex").toInt() != 0 || !picker)
+            return fail("appearance title-bar controls missing");
+        if (!retained())
+            return fail("initial task draft not retained");
+        if (!capture(settings, ".settings-light.png"))
+            return fail("initial settings capture");
         QMetaObject::invokeMethod(picker, "activateForVerification",
                                   Q_ARG(QVariant, QVariant(1)));
     } else if (phase == 3) {

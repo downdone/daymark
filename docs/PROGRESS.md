@@ -10,6 +10,10 @@
 
 3.0.1本地Release构建PASS；相关CTest **5/5 PASS，92.54秒**：原生`title_bar_layout`20.79秒（六分类×四组布局，24组）、`desktop_surfaces`56.61秒（实际键盘/备份保存/帮助与数据路由/滚动恢复）、`time_input_ui`3.14秒、`account_access`11.63秒、`telemetry_privacy`0.34秒。实际浅色100%任务/数据页及深色200%六分类截图已复审，状态与滚动可达，见`build/settings301-focused.log`、`settings301-focused.xml`及title-layout-preview.settings-*.png。Go完整测试/vet、诊断/协议生成、文档链接、UI字体/图标词表与源码隐私PASS；发布元数据15项在正常临时目录权限下PASS（沙箱最初拒绝git init/临时清理，未改测试）。旧色值审计脚本不支持既有toggleThumb常量表达式，未作为新颜色通过证据；本次不改配色。检查发现重试图标名称不在字库，已复用reset；时间预览bold写法改等价Font.Bold。为捕获原生更新测试失败，增加其文件日志输出，不改预算/断言。下一步固定源码和3.0.1标签，运行一次正式Windows候选、签名/安装与3.0.0公开升级验收。未完成发行，不把本地通过写成公开通过。
 
+正式3.0.1源码`3ad1668ca2012b4231915ec31324634ffe885356`及注释标签`daaaeefb78a127efd1650bc973d1b82621019192`已推送。账号与同步CI `43341395521`、源码发布`43341395702`、主分支检查`43341395635`通过；Windows候选`43341395717`编译通过，完整CTest **51/53 PASS，489.15秒**，`title_bar_ui`和`single_instance`失败，未进入签名/二进制发布。标题栏在本机原样复现：设置默认改常规后，旧探针未选择外观就查找惰性标题栏控件；修正为显式选择稳定Appearance ID。单实例在本机原样4/4及CTest通过，CI首轮未捕获Qt断言，原因尚未确定；补充显式stdout/文件输出和失败时上传测试证据，不放宽预算/断言。已公开3.0.1保持源码快照，修复后的新发行号待用户确认，不覆盖标签。
+
+本地修正验证：第一版尝试打开后点击侧栏时，委托尚未创建，选择没有生效；改为打开前通过现有选择函数设置稳定ID，同时拆分控件/草稿/截图失败信息。Release增量构建PASS；原生`title_bar_ui`6.83秒、`title_bar_layout`21.14秒和`single_instance`0.17秒，最终 **3/3 PASS，28.16秒**；`build/settings301-probe-final.log`、`settings301-probe-final.xml`及`single-instance-results.txt`。初次本地复现及未生效的中间修正日志保留。本地单实例4/4不是CI失败根因证据，需新候选的明确日志继续验证。GitHub未盲目重跑，签名/安装/升级流程尚未启动。
+
 ## BIZ-01 / TEL-01 本地功能与Windows验证完成
 
 用户确认产品埋点暂不采用OpenTelemetry，沿独立HTTP JSON，保留事件/队列/传输边界，不安装SDK/Collector。按[系统设计](design/daymark-business-platform.md)、[ADR-036](ADR/036-business-admin-and-telemetry.md)单代理实施与自审；[业务运维与隐私指南](../server/BUSINESS.md)、[独立OpenAPI](api/business-v1.openapi.json)已补齐。此分片完成时未部署/推送/发布，管理/统计服务配置默认false，客户端默认OFF，未开启生产采集。通知中心现已取消，原型和设计切片清理见上节。
