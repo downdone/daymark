@@ -54,7 +54,7 @@ HIG用户控制、明确危险动作、渐进呈现及UX-09/11/13：确认写清
 
 ## 12 交付
 
-先设置入口与用户链，再安装确认与SDK/原生测试，最后版本工具链与真实更新集成。每片构建/受影响测试，完成后文档记录；本轮用户未指定新发行号，不覆盖3.0.2或自动推送发布。功能完成不等于公开安装包已更新。
+先设置入口与用户链，再安装确认与SDK/原生测试，最后版本工具链与真实更新集成。每片构建/受影响测试，完成后文档记录；设计实施阶段未要求新发行，不自动推送发布。用户随后明确授权发布，现以3.1.0交付；不覆盖3.0.2，正式结果及首次完整安装边界见PROGRESS。功能完成与公开安装包验证仍分别记录。
 
 依据：[Microsoft TaskDialogIndirect](https://learn.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-taskdialogindirect)规定对话框所有者和取消结果；[TerminateProcess](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess)为异步终止，因此必须持句柄等待退出；[进程权限](https://learn.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights)采用最小查询/同步/终止权限，不请求全权限或提权。
 

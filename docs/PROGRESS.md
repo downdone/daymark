@@ -1,12 +1,30 @@
 # Daymark 当前进度
 
-更新：2026-11-13。**3.0.2 已发布 / schema11 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-13。**3.1.0 已发布 / schema11 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## 3.1.0 发布进行中
+## 3.1.0 正式发行完成
 
-用户要求发布UPD-09。按SemVer兼容功能递增为3.1.0，旧3.0.2/tag/资产不覆盖；仅Windows正式Qt6.10.2/MSVC。计划：受影响本地构建与元数据/隐私预检→main与注释标签原子推送→单份完整Windows候选→受保护签名/独立部署/真实交互安装→公开安装与旧3.0.2工具链安全拒绝验收。新增工具链必需能力导致旧更新器须完整安装一次，公开自动升级为不适用，不伪称升级通过；增加显式bridge验收模式，仅验证生产旧CLI签名后unsupported_capability/提交和旧程序零修改，无fixture/API/信任覆盖。后续兼容发行默认仍走原真实Qt在线更新链。正式安装前与公开安装都开启实际取消/确认验收，未动watchdog、断言或信任边界。无关build-request/品牌草案不提交，不部署生产后台或采集。
+用户要求发布UPD-09。按SemVer兼容功能递增为3.1.0，旧3.0.2/tag/资产不覆盖；仅Windows正式Qt6.10.2/MSVC。源码`9d329184985d9961e8397c0ba1e43e3d0dca8a21`与注释标签对象`0705954ccea9e06933e8628d5510846643d5834a`已原子推送main/v3.1.0；主分支检查`43399252117`、源码发布`43399252412`、实际Qt↔Go TLS双设备同步`43399252456`全部通过。版本/源码隐私及29项发布守卫、YAML/PowerShell脚本语法通过；发行说明首次缺精确托管范围标记时由守卫拒绝，补齐明确文字后通过，未放宽守卫。下载证据命令曾被PowerShell包装器吞掉-D，改用--dir后下载成功，不是构建/测试重跑。
+
+- 本地3.1.0 Release构建PASS；更新SDK/原生密码校验2/2 PASS（1.16秒）及更新链/安装事务/七分类布局3/3 PASS（56.76秒）。未重复本地完整长链。
+- [唯一正式Windows候选43399252469](https://github.com/downdone/daymark/actions/runs/43399252469)：开源Qt6.10.2/MSVC2022编译、完整CTest **53/53 PASS、零失败/跳过，488.23秒**、QML lint、许可/CRT与候选打包全部通过。独立下载JUnit与控制台日志核验，不用作业状态代替测试总数。
+- [受保护发行43402696606](https://github.com/downdone/daymark/actions/runs/43402696606)：五宿主固定指纹签名、独立无Qt SDK部署、安装器生成/验签/交互验收及发布全部通过。实际版本3.1.0、两个可见窗口且QML warnings=false；平台HyperVMonitor几何警告保留，不宣称整个进程零警告。发行前真实安装3/3 PASS，80.480秒。
+- 同一发行自动并行的**公开安装3/3 PASS，84.900秒**：匿名下载、PE版本和固定pin签名、真实取消保留进程/提交、确认强制关闭并修复、Unicode/空格目录、隔离Qt运行库、静默拒绝、两次修复、schema10→11备份迁移、旧程序清理、卸载保留合成资料，零失败/跳过、无临时目录清理警告。
+- **公开3.0.2→3.1.0工具链桥接拒绝PASS，8.557秒**：实际旧生产CLI读取匿名GitHub及编译信任，验签后返回`update.unsupported_capability`，current/旧程序保持原状且未准备新程序；fixtureOverrides=false。**automaticUpgrade=false：本次须完整安装一次，不是自动升级成功**。3.1.0后的兼容工具变更沿版本工具链交付，后续默认继续原真实Qt保存/重启/提交/清理验收。正式与公开安装均显式启用实际取消/确认测试，未动watchdog、断言或信任边界。
+
+[Release 444025280](https://github.com/downdone/daymark/releases/tag/v3.1.0)已作为最新正式版公开，7个资产全部上传；公开安装实测散列与发布报告/API一致：
+
+| 资产 | ID / 字节 | SHA256 |
+|---|---|---|
+| Daymark-3.1.0-windows-x64-setup.exe | 743095745 / 43843304 | `1def50182783236357f4e7718ba9f093865482cd9413bfebb72d2d83d2aeda8a` |
+| Daymark-3.1.0-windows-x64.zip | 743095736 / 44742751 | `ae2b597e1921e7ff511a9653d6ea5f27839d325347414cbe11e36e16dfde63b1` |
+| update-windows-x64.json | 743096006 / 926 | `5447277125c13fcc6df0118b70c91f5a928d25e028fbbcd8ffea2b3eaa63c2ba` |
+
+证据保留于本机忽略目录`build/release310-evidence/`、`release310-ci-evidence/`、`release310-publish-evidence/`与`release310-public-installer-proof/`。Linux/macOS按用户要求跳过；物理混合DPI/读屏/最低Windows及长时实机仍UNVERIFIED。无关build-request/品牌草案不提交，不部署或启用生产后台/采集，不操作实际用户任务和进程。项目自签名不建立Windows公共发行者信任，不导入Root证书。
 
 ## UPD-09 安装关闭确认、版本工具链与设置入口
+
+以下为实现与本地验证阶段记录；现已随上方3.1.0正式发行，实施期未发布/未推送边界不代表当前发行状态。
 
 用户要求运行中安装可确认强杀、更新器随在线更新升级，并移除主窗更新入口/常规退出组、设置增加账号。按[十二项设计及单代理自审](design/update-toolchain-and-settings.md)分片实施。自动审批最初拒绝原生分派/启动边界变更；用户随后明确授权本方案实现与测试，阻断已解除。未操作实际用户进程/任务，不部署后台、不启用采集、不自动发行或修改3.0.2资产。
 
