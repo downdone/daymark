@@ -1,6 +1,17 @@
 {
   "modules": [
     {
+      "module": "github.com/boombuler/barcode",
+      "version": "v1.0.1-0.20190219062509-6c824513bacc",
+      "sum": "h1:biVzkmvwrH8WK8raXaxBx6fRVTlJILwEwQGL1I/ByEI=",
+      "notices": [
+        {
+          "file": "licenses/github.com_boombuler_barcode_v1.0.1-0.20190219062509-6c824513bacc/LICENSE",
+          "sha256": "36d2e94c565d51a5146d729e6be6a3d26168d473d97c94011b13700e82c622e4"
+        }
+      ]
+    },
+    {
       "module": "github.com/dustin/go-humanize",
       "version": "v1.1.0",
       "sum": "h1:dbKTrvD0klcbBV/h4AWJdMuZogJACoMlvWIWZ5b2xWg=",
@@ -41,6 +52,21 @@
         {
           "file": "licenses/github.com_ncruces_go-strftime_v1.1.0/LICENSE",
           "sha256": "38ae43959daf953a393a585b2988672cb65a5a541aca0d0be5e72595a0a16883"
+        }
+      ]
+    },
+    {
+      "module": "github.com/pquerna/otp",
+      "version": "v1.5.0",
+      "sum": "h1:NMMR+WrmaqXU4EzdGJEE1aUUI0AMRzsp96fFFWNPwxs=",
+      "notices": [
+        {
+          "file": "licenses/github.com_pquerna_otp_v1.5.0/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "file": "licenses/github.com_pquerna_otp_v1.5.0/NOTICE",
+          "sha256": "6aa75b508da9d9d1686352aa5f36bb5f926958c826cfccdf64ad721de4d125c1"
         }
       ]
     },

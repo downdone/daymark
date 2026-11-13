@@ -1,0 +1,3607 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Daymark business and consent telemetry",
+    "version": "1.0.0",
+    "description": "Independent Daymark product-event transport. No OpenTelemetry SDK/OTLP/Collector. Task synchronization v1 is unchanged. Admin login is an HTML same-origin password + MFA flow; no bearer-to-admin conversion. Announcements are managed in the admin portal; no notification-center or desktop delivery API."
+  },
+  "paths": {
+    "/admin/api/v1/users": {
+      "get": {
+        "operationId": "adminUsers",
+        "responses": {
+          "200": {
+            "description": "Paginated basic account metadata; no task content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Users"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "DISABLED",
+                "DELETING",
+                "DELETED"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/admin/api/v1/users/{id}/status": {
+      "post": {
+        "operationId": "adminUserStatus",
+        "responses": {
+          "200": {
+            "description": "CAS and audit committed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact configured public origin"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token rendered by same-origin admin page"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/users/{id}/revoke-sessions": {
+      "post": {
+        "operationId": "adminRevokeSessions",
+        "responses": {
+          "200": {
+            "description": "Idempotent revocation and audit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact configured public origin"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token rendered by same-origin admin page"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/admins/{id}": {
+      "post": {
+        "operationId": "adminPermissions",
+        "responses": {
+          "200": {
+            "description": "Owner-only role/status CAS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact configured public origin"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token rendered by same-origin admin page"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/notices": {
+      "get": {
+        "operationId": "adminNotices",
+        "responses": {
+          "200": {
+            "description": "Paged notice metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Notices"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "adminCreateNotice",
+        "responses": {
+          "201": {
+            "description": "Draft created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact configured public origin"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token rendered by same-origin admin page"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/notices/{id}": {
+      "patch": {
+        "operationId": "adminEditNotice",
+        "responses": {
+          "200": {
+            "description": "Draft CAS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact configured public origin"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token rendered by same-origin admin page"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/notices/{id}/publish": {
+      "post": {
+        "operationId": "adminPublishNotice",
+        "responses": {
+          "200": {
+            "description": "Published or scheduled admin announcement; no desktop delivery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact configured public origin"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token rendered by same-origin admin page"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/notices/{id}/revoke": {
+      "post": {
+        "operationId": "adminRevokeNotice",
+        "responses": {
+          "200": {
+            "description": "Terminal revocation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact configured public origin"
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Session-bound token rendered by same-origin admin page"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/metrics": {
+      "get": {
+        "operationId": "adminMetrics",
+        "responses": {
+          "200": {
+            "description": "Opted-in aggregate cohort; small cohorts suppressed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90,
+              "default": 7
+            }
+          }
+        ]
+      }
+    },
+    "/telemetry/v1/consent": {
+      "get": {
+        "operationId": "telemetryConsent",
+        "responses": {
+          "200": {
+            "description": "Current device consent; no write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Consent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "telemetryChangeConsent",
+        "responses": {
+          "200": {
+            "description": "CAS epoch and idempotent receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Consent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentChange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/telemetry/v1/batches": {
+      "post": {
+        "operationId": "telemetryIngest",
+        "responses": {
+          "202": {
+            "description": "Durable idempotent acknowledgement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "desktopBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Batch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/admins": {
+      "get": {
+        "operationId": "adminAdmins",
+        "responses": {
+          "200": {
+            "description": "Basic administrator metadata only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Admins"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ]
+      }
+    },
+    "/admin/api/v1/audit": {
+      "get": {
+        "operationId": "adminAudits",
+        "responses": {
+          "200": {
+            "description": "Descending audit cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audits"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "description": "Delay in seconds; manual retry also respects it"
+              }
+            }
+          },
+          "500": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed diagnostic code; no submitted values echoed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "x-error-status-map": {
+    "401": [
+      "admin_session_expired",
+      "admin_mfa_invalid",
+      "admin_mfa_replayed",
+      "admin_reauthentication_required"
+    ],
+    "403": [
+      "admin_forbidden",
+      "admin_last_owner",
+      "telemetry_consent_required"
+    ],
+    "409": [
+      "admin_conflict",
+      "telemetry_consent_conflict",
+      "telemetry_batch_conflict"
+    ],
+    "422": [
+      "telemetry_consent_invalid",
+      "telemetry_event_invalid"
+    ],
+    "503": [
+      "telemetry_busy",
+      "telemetry_storage_failed"
+    ]
+  },
+  "x-limits": {
+    "page": 50,
+    "body_bytes": 262144,
+    "batch_bytes": 32768,
+    "events_per_batch": 32,
+    "subject_daily_events": 2000,
+    "small_cohort": 10
+  },
+  "x-event-catalog": {
+    "app.startup": {
+      "duration_bucket": [
+        "lt_250ms",
+        "250_500ms",
+        "500_1000ms",
+        "1000_2000ms",
+        "ge_2000ms"
+      ]
+    },
+    "surface.used": {
+      "surface": [
+        "main",
+        "widget",
+        "mini",
+        "ball"
+      ]
+    },
+    "update.outcome": {
+      "outcome": [
+        "ready",
+        "updated",
+        "cancelled",
+        "failed"
+      ],
+      "diagnostic_code": "optional stable Sxxx-Cxxx"
+    },
+    "performance.sample": {
+      "memory_bucket": [
+        "lt_64MiB",
+        "64_128MiB",
+        "128_256MiB",
+        "256_512MiB",
+        "ge_512MiB"
+      ]
+    }
+  },
+  "components": {
+    "schemas": {
+      "ConsentChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_id",
+          "expected_epoch",
+          "enabled",
+          "policy_version"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expected_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740990
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "policy_version": {
+            "const": 1
+          }
+        }
+      },
+      "Consent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject_id",
+          "epoch",
+          "enabled",
+          "policy_version",
+          "needs_confirmation"
+        ],
+        "properties": {
+          "subject_id": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "policy_version": {
+            "type": "integer"
+          },
+          "needs_confirmation": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Event": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "const": "app.startup"
+              },
+              "version": {
+                "const": 1
+              },
+              "occurred_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "app_version": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,3})$"
+                  },
+                  "os": {
+                    "type": "string",
+                    "enum": [
+                      "windows",
+                      "macos",
+                      "linux"
+                    ]
+                  },
+                  "duration_bucket": {
+                    "type": "string",
+                    "enum": [
+                      "lt_250ms",
+                      "250_500ms",
+                      "500_1000ms",
+                      "1000_2000ms",
+                      "ge_2000ms"
+                    ]
+                  }
+                },
+                "required": [
+                  "app_version",
+                  "os",
+                  "duration_bucket"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "version",
+              "occurred_at",
+              "properties"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "const": "surface.used"
+              },
+              "version": {
+                "const": 1
+              },
+              "occurred_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "app_version": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,3})$"
+                  },
+                  "os": {
+                    "type": "string",
+                    "enum": [
+                      "windows",
+                      "macos",
+                      "linux"
+                    ]
+                  },
+                  "surface": {
+                    "type": "string",
+                    "enum": [
+                      "main",
+                      "widget",
+                      "mini",
+                      "ball"
+                    ]
+                  }
+                },
+                "required": [
+                  "app_version",
+                  "os",
+                  "surface"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "version",
+              "occurred_at",
+              "properties"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "const": "update.outcome"
+              },
+              "version": {
+                "const": 1
+              },
+              "occurred_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "app_version": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,3})$"
+                  },
+                  "os": {
+                    "type": "string",
+                    "enum": [
+                      "windows",
+                      "macos",
+                      "linux"
+                    ]
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "updated",
+                      "cancelled",
+                      "failed"
+                    ]
+                  },
+                  "diagnostic_code": {
+                    "type": "string",
+                    "pattern": "^S[0-9]{3}-C[0-9]{3}$"
+                  }
+                },
+                "required": [
+                  "app_version",
+                  "os",
+                  "outcome"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "version",
+              "occurred_at",
+              "properties"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "const": "performance.sample"
+              },
+              "version": {
+                "const": 1
+              },
+              "occurred_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "app_version": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,3})$"
+                  },
+                  "os": {
+                    "type": "string",
+                    "enum": [
+                      "windows",
+                      "macos",
+                      "linux"
+                    ]
+                  },
+                  "memory_bucket": {
+                    "type": "string",
+                    "enum": [
+                      "lt_64MiB",
+                      "64_128MiB",
+                      "128_256MiB",
+                      "256_512MiB",
+                      "ge_512MiB"
+                    ]
+                  }
+                },
+                "required": [
+                  "app_version",
+                  "os",
+                  "memory_bucket"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "version",
+              "occurred_at",
+              "properties"
+            ]
+          }
+        ]
+      },
+      "Batch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "batch_id",
+          "consent_epoch",
+          "schema_version",
+          "events"
+        ],
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "consent_epoch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "schema_version": {
+            "const": 1
+          },
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "const": 1
+          },
+          "code": {
+            "type": "string"
+          },
+          "module": {
+            "const": "business"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "version",
+          "code",
+          "module",
+          "request_id"
+        ]
+      },
+      "Receipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ]
+      },
+      "BatchReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accepted": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32
+          }
+        },
+        "required": [
+          "batch_id",
+          "accepted"
+        ]
+      },
+      "UserCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "security",
+              "user_request",
+              "policy",
+              "maintenance"
+            ]
+          }
+        },
+        "required": [
+          "operation_id",
+          "version",
+          "status",
+          "reason"
+        ]
+      },
+      "RevokeCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "security",
+              "user_request",
+              "policy",
+              "maintenance"
+            ]
+          }
+        },
+        "required": [
+          "operation_id",
+          "version",
+          "reason"
+        ]
+      },
+      "AdminCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "owner",
+                "support",
+                "publisher",
+                "analyst",
+                "auditor"
+              ]
+            }
+          }
+        },
+        "required": [
+          "operation_id",
+          "version",
+          "status",
+          "roles"
+        ]
+      },
+      "NoticeCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "none",
+              "open_account",
+              "check_update",
+              "release_notes"
+            ]
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "all",
+              "windows",
+              "macos"
+            ]
+          },
+          "min_version": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "max_version": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "targets": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "publish_ms": {
+            "type": "integer"
+          },
+          "expire_ms": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operation_id",
+          "title",
+          "action",
+          "platform"
+        ]
+      },
+      "VersionCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "operation_id",
+          "version"
+        ]
+      },
+      "Admin": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "login": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "owner",
+                "support",
+                "publisher",
+                "analyst",
+                "auditor"
+              ]
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_ms": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "login",
+          "roles",
+          "status",
+          "version",
+          "created_ms"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "login": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED",
+              "DELETING",
+              "DELETED"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_ms": {
+            "type": "integer"
+          },
+          "sessions": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "login",
+          "status",
+          "version",
+          "created_ms",
+          "sessions"
+        ]
+      },
+      "Notice": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "none",
+              "open_account",
+              "check_update",
+              "release_notes"
+            ]
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "all",
+              "windows",
+              "macos"
+            ]
+          },
+          "min_version": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "max_version": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "targets": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "publish_ms": {
+            "type": "integer"
+          },
+          "expire_ms": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "scheduled",
+              "published",
+              "revoked"
+            ]
+          },
+          "updated_ms": {
+            "type": "integer"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "version",
+          "title",
+          "body",
+          "action",
+          "platform",
+          "min_version",
+          "max_version",
+          "targets",
+          "publish_ms",
+          "expire_ms",
+          "id",
+          "state",
+          "updated_ms",
+          "created_by"
+        ]
+      },
+      "Audit": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "actor": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "at_ms": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "actor",
+          "action",
+          "target",
+          "reason",
+          "request_id",
+          "at_ms"
+        ]
+      },
+      "Metric": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "name": {
+            "type": "string"
+          },
+          "dimension": {
+            "type": "string",
+            "description": "Canonical JSON containing only allowed dimensions"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "devices": {
+            "type": "integer",
+            "minimum": 10
+          }
+        },
+        "required": [
+          "day",
+          "name",
+          "dimension",
+          "count",
+          "devices"
+        ]
+      },
+      "Report": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "policy_version": {
+            "const": 1
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90
+          },
+          "sample_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 10
+          },
+          "suppressed": {
+            "type": "boolean"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "rows": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/Metric"
+            }
+          }
+        },
+        "required": [
+          "policy_version",
+          "days",
+          "sample_size",
+          "suppressed",
+          "truncated",
+          "rows"
+        ]
+      },
+      "MetricsResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "const": false
+              }
+            },
+            "required": [
+              "enabled"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "const": true
+              },
+              "report": {
+                "$ref": "#/components/schemas/Report"
+              },
+              "service": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "requests": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "failures": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "uptime_seconds": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "requests",
+                  "failures",
+                  "uptime_seconds"
+                ]
+              }
+            },
+            "required": [
+              "enabled",
+              "report",
+              "service"
+            ]
+          }
+        ]
+      },
+      "Users": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "Admins": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Admin"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "Notices": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notice"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "Audits": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Audit"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "adminSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "daymark_admin"
+      },
+      "desktopBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "x-admin-session": {
+    "hours": 8,
+    "write_mfa_minutes": 15,
+    "csrf": "Origin and session-bound token",
+    "roles": [
+      "owner",
+      "support",
+      "publisher",
+      "analyst",
+      "auditor"
+    ]
+  }
+}

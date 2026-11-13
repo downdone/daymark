@@ -65,7 +65,7 @@ Control {
             contentWidth:availableWidth
             ColumnLayout {
                 id:fields;width:parent.width;spacing:8
-                Label {text:qsTr("本条任务的时间");font.bold:true;Layout.fillWidth:true;wrapMode:Text.Wrap}
+                Label {text:qsTr("本条任务的时间");font.weight:Font.Bold;Layout.fillWidth:true;wrapMode:Text.Wrap}
                 ComboBox {id:target;objectName:root.objectPrefix+"timeTarget";Layout.fillWidth:true;model:[qsTr("计划日期"),qsTr("截止日期")];Accessible.name:qsTr("时间含义");onActivated:if(currentIndex===1)remind.checked=false}
                 DateField {id:date;objectName:root.objectPrefix+"timeDate";Layout.fillWidth:true;workspace:root.workspace;dateLabel:qsTr("任务日期");allowClear:false}
                 CheckBox {id:remind;objectName:root.objectPrefix+"timeRemind";text:qsTr("到时提醒");enabled:target.currentIndex===0;Layout.fillWidth:true}

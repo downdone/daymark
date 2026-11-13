@@ -13,15 +13,16 @@ import (
 )
 
 type Account struct {
-	Store    ports.Store
-	Auth     *Auth
-	Clock    ports.Clock
-	Ledger   ports.Ledger
-	Files    ports.Artifacts
-	workerID string
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-	OnError  func(error)
+	Store          ports.Store
+	Auth           *Auth
+	Clock          ports.Clock
+	Ledger         ports.Ledger
+	Files          ports.Artifacts
+	workerID       string
+	cancel         context.CancelFunc
+	wg             sync.WaitGroup
+	OnError        func(error)
+	EraseAuxiliary func(context.Context, domain.ID) error
 }
 type DeletionIntent struct {
 	ProtocolVersion int            `json:"protocol_version"`
@@ -373,6 +374,36 @@ func (a *Account) erase(ctx context.Context, job domain.Job, meta deletionMetada
 			return e
 		}
 	}
+	// Commit the durable cleanup intent with the business erasure first. Never
+	// report COMPLETED while an independently stored telemetry subject remains.
+	_, e = a.Store.Update(ctx, func(tx ports.Tx) error {
+		fresh, err := tx.Job(ctx, job.ID)
+		if err != nil {
+			return err
+		}
+		if fresh == nil || fresh.Attempt != job.Attempt || fresh.State != "PUBLISHING" {
+			return domain.Fail("lost_lease")
+		}
+		current, err := tx.Deletion(ctx, d.OperationID)
+		if err != nil {
+			return err
+		}
+		if current.State != "LEDGER_CONFIRMED" {
+			return domain.Fail("job_state_conflict")
+		}
+		if err = tx.PurgeUserJobs(ctx, meta.UserID, job.ID); err != nil {
+			return err
+		}
+		return tx.EraseAccount(ctx, meta.UserID, a.Clock.Now().UnixMilli())
+	})
+	if e != nil {
+		return e
+	}
+	if a.EraseAuxiliary != nil {
+		if e = a.EraseAuxiliary(ctx, meta.UserID); e != nil {
+			return domain.Wrap("temporarily_unavailable", e)
+		}
+	}
 	_, e = a.Store.Update(ctx, func(tx ports.Tx) error {
 		fresh, e := tx.Job(ctx, job.ID)
 		if e != nil {
@@ -387,12 +418,6 @@ func (a *Account) erase(ctx context.Context, job domain.Job, meta deletionMetada
 		}
 		if current.State != "LEDGER_CONFIRMED" {
 			return domain.Fail("job_state_conflict")
-		}
-		if e = tx.PurgeUserJobs(ctx, meta.UserID, job.ID); e != nil {
-			return e
-		}
-		if e = tx.EraseAccount(ctx, meta.UserID, a.Clock.Now().UnixMilli()); e != nil {
-			return e
 		}
 		current.State = "COMPLETED"
 		current.UpdatedMS = a.Clock.Now().UnixMilli()

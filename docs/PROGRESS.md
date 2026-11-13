@@ -1,10 +1,33 @@
 # Daymark 当前进度
 
-更新：2026-11-12。**3.0.0 已发布 / schema11 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-13。**3.0.0 已发布 / schema11 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## BIZ-01 / NC-01 / TEL-01 系统设计，待用户评审
+## SET-02 / 3.0.1 设置重组与发布；NC-01取消
 
-用户要求通知中心、业务后台（用户管理/发布通知）、客户端埋点与看板，先按新增能力流程设计。完整十二项、自审问题和分片队列见[系统设计](design/daymark-business-platform.md)。通知中心以“几乎无感”为硬约束：日常无弹窗/抢焦点/声音/红数字角标，小窗/Mini/球不加常驻消息；及时错误与任务提醒保留。复用Go模块化单体，业务/统计双SQLite隔离写负载、HTTP独立版本契约、Qt按需模型；管理独立身份/MFA/权限/审计。客户端统计默认OFF，主动同意、字段白名单、零内容采集、撤回与删除闭环。仅完成设计和单代理自审；未实施、未创建管理员、未启用采集或部署这些新能力。新增文档验证只做链接/格式/契约一致性检查，不把下方3.0.0测试写成这些设计的实现通过。
+用户明确取消通知中心：移除现行设计的客户端通知模块/接口/表、原型及实施切片，保留后台公告管理、任务提醒、更新和账号状态反馈。随后要求重新梳理设置系统、完成新菜单并发布；已有v3.0.0不可复用，用户确认本次3.0.1。先盘点所有偏好及入口、按职责设计/自审，再实现和验证；当前进行中，不改既有发布资产、不启用生产后台/采集。设置重组不改变偏好key或任务schema，重点防止旧探针/入口误路由、偏好丢失及200%可达性回归。
+
+设计与单代理自审见[SET-02](design/settings-information-architecture.md)。六个一级区按常规、任务与提醒、桌面组件、外观、数据与隐私、关于与帮助排序；分类稳定身份与行号分开，原0～3保留、追加4～5。时间识别/提醒集中、数据/统计/日志集中、帮助归关于；形态/背景与窗口/主题分别分组。只活动页创建，偏好key/值不变；账号仍独立。通知原型文件已删除，当前设计不保留客户端通知投递、已读或缓存待办。
+
+3.0.1本地Release构建PASS；相关CTest **5/5 PASS，92.54秒**：原生`title_bar_layout`20.79秒（六分类×四组布局，24组）、`desktop_surfaces`56.61秒（实际键盘/备份保存/帮助与数据路由/滚动恢复）、`time_input_ui`3.14秒、`account_access`11.63秒、`telemetry_privacy`0.34秒。实际浅色100%任务/数据页及深色200%六分类截图已复审，状态与滚动可达，见`build/settings301-focused.log`、`settings301-focused.xml`及title-layout-preview.settings-*.png。Go完整测试/vet、诊断/协议生成、文档链接、UI字体/图标词表与源码隐私PASS；发布元数据15项在正常临时目录权限下PASS（沙箱最初拒绝git init/临时清理，未改测试）。旧色值审计脚本不支持既有toggleThumb常量表达式，未作为新颜色通过证据；本次不改配色。检查发现重试图标名称不在字库，已复用reset；时间预览bold写法改等价Font.Bold。为捕获原生更新测试失败，增加其文件日志输出，不改预算/断言。下一步固定源码和3.0.1标签，运行一次正式Windows候选、签名/安装与3.0.0公开升级验收。未完成发行，不把本地通过写成公开通过。
+
+## BIZ-01 / TEL-01 本地功能与Windows验证完成
+
+用户确认产品埋点暂不采用OpenTelemetry，沿独立HTTP JSON，保留事件/队列/传输边界，不安装SDK/Collector。按[系统设计](design/daymark-business-platform.md)、[ADR-036](ADR/036-business-admin-and-telemetry.md)单代理实施与自审；[业务运维与隐私指南](../server/BUSINESS.md)、[独立OpenAPI](api/business-v1.openapi.json)已补齐。此分片完成时未部署/推送/发布，管理/统计服务配置默认false，客户端默认OFF，未开启生产采集。通知中心现已取消，原型和设计切片清理见上节。
+
+已实现：独立管理员口令/TOTP/一次性恢复码、停服CLI创建与恢复、角色/CAS/近期MFA/审计；基础用户检索、停用/恢复/撤销会话；公告草稿、受众/有效期、预览发布/定时/撤回。管理仓储端口复用原业务写者并追加migration4，任务schema11和同步DTO不变。客户端强类型埋点、独立有界SQLite队列、持久许可/撤回、账号/服务隔离、默认关闭零统计请求；服务端独立统计写者、白名单/去重/限额/保留/删除、低样本抑制与聚合图表。复用客户端线程/调度，不新增统计常驻服务。统计当前实际采集更新候选就绪，尚未接入所有更新终态，不宣称完整更新成功率。
+
+自审/验证修复：真实浏览器发现`no-referrer`使POST的Origin变为null，改same-origin且继续严格CSRF；本机撤回写入失败保留用户意图；手动重试仍遵守Retry-After；恢复管理员保留角色、轮换所有凭据；公告撤回按撤回时间保留，草稿不会因expire_ms=0被立即清掉；后台密钥/统计库不可用仅关闭相应入口，核心任务继续。账号删除在统计清理失败时保持待完成，跨库意图可重放；没有假称跨库原子事务。收尾初始化闭包返回值编译错误已修正并重新通过服务端检查。
+
+本轮真实证据（2026-11-12，本机合成临时资料）：
+
+- Go完整`go test ./...`、`go vet ./...`、`go mod verify` PASS；管理/MFA/恢复不提权/CAS/审计回滚、业务保留、统计撤回/删除故障、协议schema与HTTP响应均有覆盖。普通Go测试会明确跳过需Qt环境的联调，另按下一项执行。15个选定模块许可/校验和检查PASS。
+- Qt6.10.2 Windows Release构建PASS。真实Qt↔Go受信HTTPS双设备最终PASS **62.186秒**（Qt链61.84秒），覆盖默认零统计请求、主动许可、批次发送、撤回和关闭后零发送，以及原有离线/账号隔离/冲突/1000任务导入；日志`build/business-qt-go-final.log`。
+- 完整CTest首轮**52/53 PASS，490.92秒**。唯一`update_windows_flow`失败当时GUI测试未捕获具体断言，不能声称已定位原因；签名子事务日志成功。随后带明确文本输出复核原生子项4/4，最终完整该测试**5/5 PASS，18.608秒**，未改超时或更新实现；保留首次`build/business-ctest.log`和`business-full-tests.xml`，复核见`build/business-update-flow-reviewed.txt`。不把复核写成首轮全通过。
+- 原生设置最终`title_bar_layout` PASS **19.22秒**；实际截图审查浅色100%采集说明在开关前、未登录禁用、深色200%长状态/重试焦点与滚动可达。截图`build/windows-release/title-layout-preview.telemetry-settings-*.png`，日志`build/business-privacy-ui-test.log`。合成错误状态不冒称远端成功。
+- 实际本机Go服务+独立Chrome：MFA登录、Cookie、公告创建/预览/发布、10台合成设备图表、320～1280布局、深色、200%等效视口及Tab导航PASS；`build/business-browser-final.log`与`build/business-*.png`。OpenAPI、诊断生成、许可证、源码隐私及Markdown链接检查PASS。
+- 实际维护CLI与临时服务：移走合成目录的admin.key后，管理503、核心readiness和任务能力接口200；还原托管密钥后`--recover-admin`成功轮换凭据，身份ID保持。`build/business-maintenance-result.log` PASS，未操作真实密钥或账号。
+
+边界：macOS/Linux桌面、本轮生产部署、真实用户统计和长期容量/物理读屏/多屏未验证。开发Qt工具的License Service锁警告保留，未绕过许可；正式发行仍须现有开源Qt CI门禁。本地实现不代替生产准入或发布。
 
 ## TRASH-01 最近删除的移除与永久删除（3.0.0已发布）
 

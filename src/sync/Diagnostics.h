@@ -53,6 +53,20 @@ inline QString serverDiagnostic(const QString& key) {
         {QStringLiteral("storage_full"),QStringLiteral("S403")},
         {QStringLiteral("storage_io"),QStringLiteral("S404")},
         {QStringLiteral("internal_error"),QStringLiteral("S901")},
+        {QStringLiteral("admin_session_expired"),QStringLiteral("S501")},
+        {QStringLiteral("admin_mfa_invalid"),QStringLiteral("S502")},
+        {QStringLiteral("admin_mfa_replayed"),QStringLiteral("S503")},
+        {QStringLiteral("admin_reauthentication_required"),QStringLiteral("S504")},
+        {QStringLiteral("admin_forbidden"),QStringLiteral("S505")},
+        {QStringLiteral("admin_last_owner"),QStringLiteral("S506")},
+        {QStringLiteral("admin_conflict"),QStringLiteral("S507")},
+        {QStringLiteral("telemetry_consent_required"),QStringLiteral("S601")},
+        {QStringLiteral("telemetry_consent_conflict"),QStringLiteral("S602")},
+        {QStringLiteral("telemetry_batch_conflict"),QStringLiteral("S603")},
+        {QStringLiteral("telemetry_consent_invalid"),QStringLiteral("S604")},
+        {QStringLiteral("telemetry_event_invalid"),QStringLiteral("S605")},
+        {QStringLiteral("telemetry_busy"),QStringLiteral("S606")},
+        {QStringLiteral("telemetry_storage_failed"),QStringLiteral("S607")},
     };
     return codes.value(key,QStringLiteral("S999"));
 }
@@ -117,6 +131,9 @@ inline QString clientDiagnostic(const QString& key) {
         {QStringLiteral("windowChromeUnavailable"),QStringLiteral("C901")},
         {QStringLiteral("windowChromeSettingsFailed"),QStringLiteral("C902")},
         {QStringLiteral("windowChromeNativeFailed"),QStringLiteral("C903")},
+        {QStringLiteral("telemetryLocalStorageFailed"),QStringLiteral("C601")},
+        {QStringLiteral("telemetryProtocolMismatch"),QStringLiteral("C602")},
+        {QStringLiteral("telemetryConsentPending"),QStringLiteral("C603")},
     };
     return codes.value(key,QStringLiteral("C999"));
 }

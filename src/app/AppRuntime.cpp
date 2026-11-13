@@ -18,6 +18,8 @@
 #include "persistence/SqliteDatabase.h"
 #include "sync/Coordinator.h"
 #include "diagnostics/RuntimeLog.h"
+#include "platform/common/TelemetryMetrics.h"
+#include <QElapsedTimer>
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -61,6 +63,7 @@ void activateSmokeWindow(QQuickWindow* window)
 
 bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QString& screenshotPath,int soakSeconds,const QString& soakReport,const QString& smokeProfile,StartupUpdateGate* updateGate)
 {
+    auto firstFrameClock=std::make_shared<QElapsedTimer>();firstFrameClock->start();
     const bool restricted=updateGate && updateGate->restricted();
     QString directory=dataDirectory;
     if(smokeTest) {
@@ -123,6 +126,11 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
     }
 
     auto* mainWindow=qobject_cast<QQuickWindow*>(m_engine.rootObjects().first());
+    QObject::connect(mainWindow,&QQuickWindow::frameSwapped,&m_engine,[this,firstFrameClock]{if(m_telemetryStartupMS<0){m_telemetryStartupMS=firstFrameClock->elapsed();if(m_sync)m_sync->setTelemetryStartupMeasurement(m_telemetryStartupMS);}});
+    QObject::connect(mainWindow,&QWindow::visibleChanged,&m_engine,[this](bool visible){if(visible && m_sync)m_sync->recordTelemetry(telemetry::Event::surfaceUsed(telemetry::Surface::Main));});
+    auto lastSurface=std::make_shared<int>(-1);
+    QObject::connect(&m_widget,&WidgetViewModel::stateChanged,&m_engine,[this,lastSurface]{const int form=m_widget.initialVisible()?m_widget.effectiveForm():-1;if(form!=*lastSurface){*lastSurface=form;if(m_sync && form>=0)m_sync->recordTelemetry(telemetry::Event::surfaceUsed(form==WidgetPresentation::Panel?telemetry::Surface::Widget:form==WidgetPresentation::Mini?telemetry::Surface::Mini:telemetry::Surface::Ball));}});
+    QObject::connect(m_updates.get(),&UpdateController::updateReady,&m_engine,[this]{if(m_sync)m_sync->recordTelemetry(telemetry::Event::updateResult(telemetry::UpdateOutcome::Ready));});
     if(!restricted && !smokeTest && updateGate){
         auto recorded=std::make_shared<bool>(false);
         QObject::connect(mainWindow,&QQuickWindow::frameSwapped,&m_engine,[this,updateGate,recorded]{if(!*recorded && m_workspace.ready() && !m_workspace.busy())*recorded=updateGate->running();},Qt::QueuedConnection);
@@ -178,6 +186,8 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         if(smokeProfile!=QStringLiteral("update-preflight")){
             m_syncCredentials=std::make_unique<SystemSyncCredentials>();
             m_sync=std::make_unique<sync::Coordinator>(m_workspace,directory,*m_syncCredentials);
+            m_sync->setTelemetryMemorySampler([]{return telemetryPrivateCommittedBytes();});
+            if(m_telemetryStartupMS>=0)m_sync->setTelemetryStartupMeasurement(m_telemetryStartupMS);
         }
     };
     if(!restricted)startWorkspace();

@@ -5,6 +5,7 @@
 #include "ProfileIndex.h"
 #include "Diagnostics.h"
 #include "NetworkDiagnostics.h"
+#include "telemetry/Controller.h"
 #include <QCryptographicHash>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -25,6 +26,7 @@ struct Response {
     QJsonObject object;
     QString code;
     QString requestId;
+    qint64 retryAfterMs=0;
     bool ok() const {
         return status >= 200 && status < 300 && code.isEmpty();
     }
@@ -46,6 +48,17 @@ class Coordinator final : public QObject {
             device.sync();
         }
         timer.setSingleShot(true);
+        statistics=std::make_unique<telemetry::Controller>(workspace,
+            [this](const QByteArray& method,const QString& path,const QJsonObject& body,telemetry::Controller::Done done){
+                if(busy || active || !authenticated)return false;
+                busy=true;timer.stop();cycleTime.start();
+                request(method,path,body.isEmpty()?QByteArray():json(body),{},[this,done=std::move(done)](Response response){
+                    busy=false;QJsonParseError error;const auto document=QJsonDocument::fromJson(response.bytes,&error);
+                    telemetry::Reply reply{response.status,document.object(),response.code,response.retryAfterMs};
+                    if(reply.code.isEmpty() && (error.error!=QJsonParseError::NoError || !document.isObject()))reply.code="telemetryProtocolMismatch";
+                    done(reply);if(authenticated && !busy)timer.start(200);
+                });return true;
+            },[this]{if(active && activePath.startsWith("/telemetry/"))active->abort();},this);
         connect(&timer, &QTimer::timeout, this, [this] { cycle(); });
         connect(&workspace, &TaskWorkspace::syncActionRequested, this,
                 [this](const QString &action, const QVariantMap &values) {
@@ -57,6 +70,10 @@ class Coordinator final : public QObject {
                         probe(values.value("origin").toString());
                     else if (action == "logout")
                         logout();
+                    else if (action == "telemetry")
+                        statistics->setEnabled(values.value("enabled").toBool(),values.value("saved").toBool());
+                    else if (action == "telemetry_retry")
+                        statistics->retry();
                     else if (action == "rebuild")
                         rebuild();
                     else if (action == "open_profile")
@@ -113,6 +130,9 @@ class Coordinator final : public QObject {
     void setTlsConfiguration(const QSslConfiguration &configuration) {
         tls = configuration;
     }
+    void recordTelemetry(const telemetry::Event& event){statistics->record(event);}
+    void setTelemetryMemorySampler(std::function<std::optional<qint64>()> sampler){statistics->setMemorySampler(std::move(sampler));}
+    void setTelemetryStartupMeasurement(qint64 ms){statistics->setStartupMeasurement(ms);}
     static Result<QString> origin(const QString &text) {
         QUrl url(text.trimmed(), QUrl::StrictMode);
         if (!url.isValid() || url.host().isEmpty() || !url.userInfo().isEmpty() ||
@@ -134,6 +154,7 @@ class Coordinator final : public QObject {
     SyncCredentialStore &credentials;
     QNetworkAccessManager network;
     QPointer<QNetworkReply> active;
+    QString activePath;
     QTimer timer;
     ProfileIndex index;
     QSslConfiguration tls = QSslConfiguration::defaultConfiguration();
@@ -144,6 +165,7 @@ class Coordinator final : public QObject {
     quint64 serial = 0;
     int failures = 0;
     QElapsedTimer cycleTime;
+    std::unique_ptr<telemetry::Controller> statistics;
     using Done = std::function<void(Response)>;
     QString base() const {
         return QStringLiteral("/v1/datasets/") + profile.value("dataset_id").toString();
@@ -188,6 +210,8 @@ class Coordinator final : public QObject {
             state.insert("status",text);
         }
         workspace.setSyncState(state);
+        auto context=credentialBinding();context.insert("database",workspace.databasePath());context.insert("data_epoch",profile.value("data_epoch"));
+        statistics->bind(authenticated?QString::fromLatin1(QCryptographicHash::hash(json(context),QCryptographicHash::Sha256).toHex()):QString(),authenticated);
     }
     void db(const QString &op, QJsonObject input, std::function<void(Result<QJsonObject>)> done) {
         const auto fence = serial;
@@ -276,7 +300,9 @@ class Coordinator final : public QObject {
                          QNetworkRequest::ManualRedirectPolicy);
         req.setAttribute(QNetworkRequest::CookieLoadControlAttribute, QNetworkRequest::Manual);
         req.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
-        req.setTransferTimeout(path == "/v1/auth/logout" ? 1000 : 15000);
+        const bool telemetryCall=path.startsWith("/telemetry/");
+        const int requestBudget=path == "/v1/auth/logout" ? 1000 : telemetryCall ? 3000 : 15000;
+        req.setTransferTimeout(requestBudget);
         req.setRawHeader("X-Daymark-DTO-Version", "1");
         req.setRawHeader("Accept", "application/json");
         const auto clientRequestId=uuid();
@@ -292,9 +318,10 @@ class Coordinator final : public QObject {
         if (!chunkHash.isEmpty())
             req.setRawHeader("X-Chunk-SHA256", chunkHash);
         auto *reply = network.sendCustomRequest(req, method, data);
+        if(telemetryCall)QTimer::singleShot(4000,reply,[reply]{if(reply->isRunning())reply->abort();});
         diagnostics::event("network","request.started",{{"request_id",clientRequestId},
-            {"operation",path=="/v1/capabilities"?"capabilities":path=="/v1/auth/register"?"register":path=="/v1/auth/login"?"login":"sync"},
-            {"inactivity_timeout_ms",path=="/v1/auth/logout"?1000:15000}});
+            {"operation",telemetryCall?"telemetry":path=="/v1/capabilities"?"capabilities":path=="/v1/auth/register"?"register":path=="/v1/auth/login"?"login":"sync"},
+            {"inactivity_timeout_ms",requestBudget}});
         auto elapsed=std::make_shared<QElapsedTimer>();elapsed->start();
         auto stage=std::make_shared<QString>(QStringLiteral("resolving_or_proxy"));
         auto tlsErrors=std::make_shared<QList<QSslError>>();
@@ -303,11 +330,12 @@ class Coordinator final : public QObject {
         connect(reply,&QNetworkReply::encrypted,this,[stage]{*stage=QStringLiteral("tls_established");});
         connect(reply,&QNetworkReply::requestSent,this,[stage]{*stage=QStringLiteral("waiting_response");});
         active = reply;
+        activePath=path;
         const auto fence = serial;
         auto bytes = std::make_shared<QByteArray>();
         auto tooLarge = std::make_shared<bool>(false);
-        connect(reply, &QNetworkReply::readyRead, this, [reply, bytes, tooLarge] {
-            if (bytes->size() + reply->bytesAvailable() > 64 * 1024 * 1024) {
+        connect(reply, &QNetworkReply::readyRead, this, [reply, bytes, tooLarge,telemetryCall] {
+            if (bytes->size() + reply->bytesAvailable() > (telemetryCall?65536:64 * 1024 * 1024)) {
                 *tooLarge = true;
                 reply->abort();
                 return;
@@ -316,23 +344,27 @@ class Coordinator final : public QObject {
         });
         connect(reply, &QNetworkReply::finished, this,
                 [this, reply, bytes, tooLarge, fence, method, path, data, schema,
-                 done = std::move(done), authorized, retried, chunkHash, elapsed, stage, clientRequestId,tlsErrors]() mutable {
+                 done = std::move(done), authorized, retried, chunkHash, elapsed, stage, clientRequestId,tlsErrors,requestBudget]() mutable {
                     *bytes += reply->readAll();
                     Response result;
                     result.status =
                         reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
                     result.bytes = *bytes;
+                    bool delayOk=false;const auto delay=QString::fromLatin1(reply->rawHeader("Retry-After")).toLongLong(&delayOk);
+                    if(delayOk && delay>0)result.retryAfterMs=qMin<qint64>(delay,86400)*1000;
                     const auto responseId=QString::fromLatin1(reply->rawHeader("X-Request-ID"));
                     result.requestId=identifier(responseId)?responseId:clientRequestId;
-                    if (active == reply)
+                    if (active == reply){
                         active = nullptr;
+                        activePath.clear();
+                    }
                     const auto networkError = reply->error();
                     QStringList secrets;
                     if(path.startsWith("/v1/auth/")){
                         const auto body=QJsonDocument::fromJson(data).object();
                         for(const auto& field:QStringList{"login","password","old_password","new_password","access_token","refresh_token"})if(body.value(field).isString())secrets.append(body.value(field).toString());
                     }
-                    const auto lowLevel=networkEvidence(networkError,reply->errorString(),*tlsErrors,server,result.status,path=="/v1/auth/logout"?1000:15000,secrets);
+                    const auto lowLevel=networkEvidence(networkError,reply->errorString(),*tlsErrors,server,result.status,requestBudget,secrets);
                     reply->deleteLater();
                     if (fence != serial)
                         return;
@@ -358,9 +390,13 @@ class Coordinator final : public QObject {
                         }
                     }
                     if (result.status >= 400) {
-                        auto problem = Schema::decode("Problem", result.bytes, 1024 * 1024);
-                        result.code = problem.ok() ? problem.value.value("code").toString()
-                                                   : QStringLiteral("syncProtocolMismatch");
+                        if(path.startsWith("/telemetry/")){
+                            const auto key=QJsonDocument::fromJson(result.bytes).object().value("code").toString();
+                            result.code=serverDiagnostic(key)!=QStringLiteral("S999")?key:QStringLiteral("telemetryProtocolMismatch");
+                        }else{
+                            auto problem = Schema::decode("Problem", result.bytes, 1024 * 1024);
+                            result.code = problem.ok() ? problem.value.value("code").toString() : QStringLiteral("syncProtocolMismatch");
+                        }
                     } else if (result.code.isEmpty() && !schema.isEmpty()) {
                         auto decoded = Schema::decode(schema, result.bytes);
                         if (!decoded.ok())
@@ -368,6 +404,7 @@ class Coordinator final : public QObject {
                         else
                             result.object = decoded.value;
                     }
+                    const auto taskDiagnostic=diagnostic;
                     diagnostic={{"request_id",result.requestId},{"stage",*stage},{"elapsed_ms",elapsed->elapsed()},
                                 {"http_status",result.status},{"error_key",result.code},
                                 {"app_version",QCoreApplication::applicationVersion()},{"qt_version",QString::fromLatin1(qVersion())},{"tls_backend",QSslSocket::activeBackend()},
@@ -376,6 +413,7 @@ class Coordinator final : public QObject {
                     diagnostic.insert("endpoint_fingerprint",QString::fromLatin1(QCryptographicHash::hash(server.toUtf8(),QCryptographicHash::Sha256).toHex().left(16)));
                     diagnostic.insert("diagnostic_code",result.code.isEmpty()?QString():diagnosticCode(result.code));
                     diagnostics::event("network","request.finished",diagnostic,result.ok()?QStringLiteral("info"):QStringLiteral("warning"));
+                    if(path.startsWith("/telemetry/"))diagnostic=taskDiagnostic;
                     if (result.status == 401 && authorized && !retried && !tokens.isEmpty()) {
                         refresh([this, method, path, data, schema, done, chunkHash] {
                             request(method, path, data, schema, done, true, true, chunkHash);
@@ -906,6 +944,7 @@ class Coordinator final : public QObject {
                           : tr("已同步");
             publish();
             timer.start(30000);
+            statistics->pulse();
         });
     }
     void pull(std::function<void()> done) {

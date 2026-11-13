@@ -38,11 +38,13 @@ ApplicationWindow {
             id: settingsDescriptionMetrics
             visible: false
             width: settingsHeader.width
-            readonly property real reservedHeight: Math.max(appearanceMeasure.implicitHeight,widgetMeasure.implicitHeight,generalMeasure.implicitHeight,aboutMeasure.implicitHeight)
+            readonly property real reservedHeight: Math.max(appearanceMeasure.implicitHeight,widgetMeasure.implicitHeight,generalMeasure.implicitHeight,aboutMeasure.implicitHeight,tasksMeasure.implicitHeight,dataMeasure.implicitHeight)
             Text {id: appearanceMeasure; width: parent.width; text: root.categoryDetails[0];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
             Text {id: widgetMeasure; width: parent.width; text: root.categoryDetails[1];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
             Text {id: generalMeasure; width: parent.width; text: root.categoryDetails[2];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
             Text {id: aboutMeasure; width: parent.width; text: root.categoryDetails[3];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
+            Text {id: tasksMeasure; width: parent.width; text: root.categoryDetails[4];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
+            Text {id: dataMeasure; width: parent.width; text: root.categoryDetails[5];font.family: Theme.fontFamily;font.pixelSize: Theme.captionSize;wrapMode: Text.Wrap;textFormat: Text.PlainText}
         }
         Rectangle {anchors.fill: parent; color: Theme.grouped}
         Rectangle {width: root.sidebarWidth; height: parent.height; color: Theme.sidebar
@@ -67,11 +69,13 @@ ApplicationWindow {
     property var updateController: null
     required property WidgetViewModel widgetController
     required property StartupController startupController
-    property int categoryIndex: 0
-    readonly property var categoryTitles:[qsTr("外观"),qsTr("桌面组件"),qsTr("通用"),qsTr("关于")]
-    readonly property var categorySymbols:["eye","window","settings","info"]
-    readonly property var categoryDetails:[qsTr("主题、文字与辅助功能"),qsTr("任务小窗、迷你条与桌面日历"),qsTr("启动、提醒与备份"),qsTr("版本与交流反馈")]
-    property var categoryScroll:[0,0,0,0]
+    // Stable category IDs are independent from sidebar row order.
+    property int categoryIndex: 2
+    readonly property var categoryOrder:[2,4,1,0,5,3]
+    readonly property var categoryTitles:[qsTr("外观"),qsTr("桌面组件"),qsTr("常规"),qsTr("关于与帮助"),qsTr("任务与提醒"),qsTr("数据与隐私")]
+    readonly property var categorySymbols:["eye","window","settings","info","bell","backup"]
+    readonly property var categoryDetails:[qsTr("主题、文字与辅助功能"),qsTr("任务组件与桌面日历"),qsTr("启动、关闭与系统托盘"),qsTr("版本、更新与使用帮助"),qsTr("快速添加与到期提醒"),qsTr("备份、使用统计与本机日志")]
+    property var categoryScroll:[0,0,0,0,0,0]
     property bool restoringScroll:false
     readonly property real sidebarWidth:Math.min(220,176*Theme.scale)
     readonly property real availableWidth:width-sidebarWidth-32
@@ -87,23 +91,24 @@ ApplicationWindow {
     function open(){x=Math.max(Screen.virtualX,Math.min(transientParent ? transientParent.x+(transientParent.width-width)/2 : x,Screen.virtualX+Screen.width-width));y=Math.max(Screen.virtualY,Math.min(transientParent ? transientParent.y+(transientParent.height-height)/2 : y,Screen.virtualY+Screen.height-height));restoringScroll=true;setVisible(true);requestActivate()}
     function close(){const view=viewport(),saved=categoryScroll.slice();if(view)saved[categoryIndex]=view.contentY;categoryScroll=saved;hide();if(transientParent)transientParent.requestActivate()}
     function viewport(){return body.contentItem as Flickable}
-    function focusCategory(){const row=categories.itemAtIndex(categoryIndex) as Button;if(row)row.forceActiveFocus()}
-    function setVerificationCategory(index) {
-        const next=Math.max(0,Math.min(3,index));if(next===categoryIndex)return
+    function focusCategory(){const index=categoryOrder.indexOf(categoryIndex);categories.positionViewAtIndex(index,ListView.Contain);const row=categories.itemAtIndex(index) as Button;if(row)row.forceActiveFocus()}
+    function setVerificationCategory(index) { selectCategory(index) }
+    function selectCategory(index) {
+        const next=Number(index);if(categoryOrder.indexOf(next)<0 || next===categoryIndex)return
         const view=viewport(),saved=categoryScroll.slice();if(view)saved[categoryIndex]=view.contentY;categoryScroll=saved
         restoringScroll=true;categoryIndex=next
     }
     function showOverview(){focusCategory()}
     function activateVerificationCategory(index) {
-        const row=categories.itemAtIndex(index) as Button;if(!row)return false;row.clicked();return true
+        const rowIndex=categoryOrder.indexOf(index);categories.positionViewAtIndex(rowIndex,ListView.Contain);const row=categories.itemAtIndex(rowIndex) as Button;if(!row)return false;row.clicked();return true
     }
     function navigateCategory(index){setVerificationCategory(index);Qt.callLater(focusCategory)}
     function verifyCategory() {
-        const selected=(categoryIndex===0 ? appearance.item : categoryIndex===1 ? widgetOptions.item : categoryIndex===2 ? general.item : about.item) as Item
+        const selected=[appearance.item,widgetOptions.item,general.item,about.item,tasks.item,dataPrivacy.item][categoryIndex] as Item
         if(categoryIndex<0 || !selected || !selected.visible || selected.width<=0 || selected.height<=0)return "category content missing"
         if(sidebar.width<148 || settingsHeader.height>=root.height || body.height<80 || contentPane.x<sidebar.width-1)return "split settings navigation clipped"
-        if(categoryIndex===2 && !(general.item as GeneralPageContent).systemReminderVisible)return "system reminder preference missing"
-        for(let i=0;i<4;++i){const row=categories.itemAtIndex(i) as Button;if(!row || row.checked!==(i===categoryIndex))return "settings sidebar selection mismatch"}
+        if(categoryIndex===4 && !(tasks.item as TaskPageContent).systemReminderVisible)return "system reminder preference missing"
+        for(let i=0;i<categoryOrder.length;++i){const row=categories.itemAtIndex(i) as Button;if(!row || row.checked!==(categoryOrder[i]===categoryIndex))return "settings sidebar selection mismatch"}
         return "PASS"
     }
     function reveal(item) {
@@ -133,28 +138,28 @@ ApplicationWindow {
                 anchors.fill:parent;anchors.margins:12;spacing:12
                 ListView {
                     id:categories;objectName:"settingsCategories";Layout.fillWidth:true;Layout.fillHeight:true;clip:true;spacing:4
-                    model:root.categoryTitles;currentIndex:root.categoryIndex;boundsBehavior:Flickable.StopAtBounds
+                    model:root.categoryOrder;currentIndex:root.categoryOrder.indexOf(root.categoryIndex);boundsBehavior:Flickable.StopAtBounds
                     delegate:Button {
                         id:categoryRow
                         required property int index
-                        required property string modelData
-                        objectName:"settingsCategory-"+index;width:categories.width
-                        text:modelData;checkable:true;autoExclusive:true;checked:root.categoryIndex===index;activeFocusOnTab:checked
+                        required property int modelData
+                        objectName:"settingsCategory-"+modelData;width:categories.width
+                        text:root.categoryTitles[modelData];checkable:true;autoExclusive:true;checked:root.categoryIndex===modelData;activeFocusOnTab:checked
                         implicitHeight:Math.max(36,categoryLabel.implicitHeight+14);padding:8
-                        Accessible.name:modelData;Accessible.description:root.categoryDetails[index]
-                        onClicked:root.setVerificationCategory(index)
+                        Accessible.name:text;Accessible.description:root.categoryDetails[modelData]
+                        onClicked:root.selectCategory(modelData)
                         Keys.onPressed:function(event){
-                            if(event.key===Qt.Key_Up){root.navigateCategory(Math.max(0,root.categoryIndex-1));event.accepted=true}
-                            else if(event.key===Qt.Key_Down){root.navigateCategory(Math.min(3,root.categoryIndex+1));event.accepted=true}
-                            else if(event.key===Qt.Key_Home){root.navigateCategory(0);event.accepted=true}
-                            else if(event.key===Qt.Key_End){root.navigateCategory(3);event.accepted=true}
+                            if(event.key===Qt.Key_Up){root.navigateCategory(root.categoryOrder[Math.max(0,index-1)]);event.accepted=true}
+                            else if(event.key===Qt.Key_Down){root.navigateCategory(root.categoryOrder[Math.min(root.categoryOrder.length-1,index+1)]);event.accepted=true}
+                            else if(event.key===Qt.Key_Home){root.navigateCategory(root.categoryOrder[0]);event.accepted=true}
+                            else if(event.key===Qt.Key_End){root.navigateCategory(root.categoryOrder[root.categoryOrder.length-1]);event.accepted=true}
                         }
                         contentItem:RowLayout {
                             spacing:8
                             Rectangle {Layout.preferredWidth:24;Layout.preferredHeight:24;radius:Theme.controlRadius;color:Theme.highContrast ? Theme.hover : Qt.rgba(categoryIcon.ink.r,categoryIcon.ink.g,categoryIcon.ink.b,Theme.dark ? 0.2 : 0.1)
-                                AppIcon {id:categoryIcon;anchors.centerIn:parent;width:16;height:16;name:root.categorySymbols[categoryRow.index];ink:categoryRow.index===0 ? Theme.accent : categoryRow.index===1 ? Theme.success : categoryRow.index===2 ? Theme.secondary : Theme.catalogColor("purple")}
+                                AppIcon {id:categoryIcon;anchors.centerIn:parent;width:16;height:16;name:root.categorySymbols[categoryRow.modelData];ink:categoryRow.modelData===0 ? Theme.accent : categoryRow.modelData===1 ? Theme.success : categoryRow.modelData===2 ? Theme.secondary : Theme.catalogColor("purple")}
                             }
-                            Label {id:categoryLabel;text:categoryRow.modelData;Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.bodySize;font.weight:categoryRow.checked ? Font.DemiBold : Font.Normal}
+                            Label {id:categoryLabel;text:categoryRow.text;Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.bodySize;font.weight:categoryRow.checked ? Font.DemiBold : Font.Normal}
                         }
                         background:Rectangle {radius:Theme.rowRadius;color:categoryRow.down ? Theme.pressed : categoryRow.checked ? Theme.navigationSelection : categoryRow.hovered ? Theme.hover : "transparent";border.width:categoryRow.visualFocus ? 1 : 0;border.color:Theme.accent}
                     }
@@ -172,7 +177,7 @@ ApplicationWindow {
                 Loader {id:widgetOptions;visible:active;active:root.visible && root.categoryIndex===1;Layout.fillWidth:true;sourceComponent:ColumnLayout {
                     id:widgetOptionsPage;Layout.fillWidth:true;spacing:Theme.blockGap
                     SettingsGroup {
-                        heading:qsTr("任务组件 · 显示")
+                        heading:qsTr("组件与形态")
                         SettingsToggle {text:qsTr("显示任务组件");checked:root.widgetController.visible;onClicked:root.widgetController.setVisible(checked)}
                         SettingsToggle {objectName:"widgetPanelEnabled";text:qsTr("启用小窗");checked:((root.widgetController.enabledForms & 1)!==0);onClicked:root.widgetController.setFormEnabled(0,checked)}
                         SettingsToggle {objectName:"widgetMiniEnabled";text:qsTr("启用 Mini 条");checked:((root.widgetController.enabledForms & 2)!==0);onClicked:root.widgetController.setFormEnabled(1,checked)}
@@ -191,10 +196,12 @@ ApplicationWindow {
                         }
                         Label {visible:root.widgetController.formCount===0;text:qsTr("未启用任何形态，组件已隐藏");Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.secondary}
                         SettingsLink {visible:root.widgetController.formCount===0;symbol:"reset";text:qsTr("恢复默认形态");onClicked:{root.widgetController.setFormEnabled(0,true);root.widgetController.setFormEnabled(1,true);root.widgetController.selectForm(0)}}
+                    }
+                    SettingsGroup {
+                        heading:qsTr("背景与收展")
                         SettingsToggle {objectName:"widgetSolidBackgroundSetting";text:qsTr("使用不透明背景");enabled:!Theme.highContrast;checked:root.workspace.preferences.solidWidget;onClicked:root.workspace.setPreference("solidWidget",checked)}
-                        SettingsToggle {objectName:"miniAutoCollapseSetting";text:qsTr("球与 Mini 条自动收展");enabled:((root.widgetController.enabledForms & 2)!==0) && ((root.widgetController.enabledForms & 4)!==0);checked:root.widgetController.miniAutoCollapse;onClicked:root.widgetController.setAutoCompact(checked)}
                         SettingsRow {
-                            objectName:"widgetOpacitySetting";label:qsTr("背景透明度");separator:false
+                            objectName:"widgetOpacitySetting";label:qsTr("背景透明度");separator:true
                             enabled:!Theme.highContrast && !root.workspace.preferences.solidWidget
                             RowLayout {
                                 Layout.fillWidth:true
@@ -202,9 +209,10 @@ ApplicationWindow {
                                 Label {text:Math.round(root.widgetController.backgroundOpacity*100)+"%";font.pixelSize:Theme.captionSize;Layout.minimumWidth:42}
                             }
                         }
+                        SettingsToggle {objectName:"miniAutoCollapseSetting";separator:false;text:qsTr("球与 Mini 条自动收展");enabled:((root.widgetController.enabledForms & 2)!==0) && ((root.widgetController.enabledForms & 4)!==0);checked:root.widgetController.miniAutoCollapse;onClicked:root.widgetController.setAutoCompact(checked)}
                     }
                     SettingsGroup {
-                        heading:qsTr("任务组件 · 分类检索")
+                        heading:qsTr("分类检索")
                         detail:qsTr("小窗标题下的“分类”入口始终可用；今天入口不受此范围影响。")
                         SettingsRow {
                             label:qsTr("分类任务范围")
@@ -213,7 +221,7 @@ ApplicationWindow {
                         SettingsToggle {objectName:"widgetShowShortcutsSetting";separator:false;text:qsTr("显示常用分类");checked:root.workspace.widgetShowShortcuts;onClicked:root.workspace.setWidgetShowShortcuts(checked)}
                       }
                       SettingsGroup {
-                        heading:qsTr("任务组件 · 窗口与交互")
+                        heading:qsTr("层级与交互")
                         detail:qsTr("鼠标穿透可从托盘或这里关闭；重启后恢复为可点击。")
                         SettingsRow {
                             label:qsTr("窗口层级")
@@ -239,7 +247,9 @@ ApplicationWindow {
                     }
                 }}
                 Loader {id:general;visible:active;active:root.visible && root.categoryIndex===2;Layout.fillWidth:true;sourceComponent:GeneralPageContent {}}
-                Loader {id:about;visible:active;active:root.visible && root.categoryIndex===3;Layout.fillWidth:true;sourceComponent:SettingsAboutPage {id:aboutPage;updateController:root.updateController;Layout.fillWidth:true;onOpenLogsRequested:aboutPage.diagnosticError=root.workspace.openDiagnosticLogs()?"":qsTr("无法打开日志目录，请检查本地目录权限。")}}
+                Loader {id:tasks;visible:active;active:root.visible && root.categoryIndex===4;Layout.fillWidth:true;sourceComponent:TaskPageContent {}}
+                Loader {id:dataPrivacy;visible:active;active:root.visible && root.categoryIndex===5;Layout.fillWidth:true;sourceComponent:DataPrivacyPageContent {}}
+                Loader {id:about;visible:active;active:root.visible && root.categoryIndex===3;Layout.fillWidth:true;sourceComponent:SettingsAboutPage {id:aboutPage;updateController:root.updateController;Layout.fillWidth:true;onHelpRequested:root.helpRequested()}}
                 }
             }
             Label {visible:root.widgetController.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.widgetController.errorText}
@@ -255,18 +265,8 @@ ApplicationWindow {
     component AppearancePageContent:ColumnLayout {
                     id:appearancePage;Layout.fillWidth:true;spacing:Theme.blockGap
                     SettingsGroup {
-                        heading:qsTr("显示")
-                        SettingsRow {
-                            visible: root.windowChrome.supported
-                            label: qsTr("标题栏")
-                            SegmentedPicker {
-                                objectName: "titleBarModePicker"
-                                model: [qsTr("Daymark"), qsTr("系统原生")]
-                                selectionIsExternal: true
-                                currentIndex: root.windowChrome.mode === 1 ? 0 : 1
-                                onActivated: function(index) {root.windowChrome.requestMode(index === 0 ? 1 : 0)}
-                            }
-                        }
+                        heading:qsTr("主题与显示")
+
                         SettingsRow {
                             label:qsTr("主题")
                             SegmentedPicker {objectName:"themeModePicker";model:[qsTr("系统"),qsTr("浅色"),qsTr("深色")];selectionIsExternal:true;currentIndex:root.workspace.themeMode;onActivated:function(index){root.workspace.themeMode=index}}
@@ -282,6 +282,21 @@ ApplicationWindow {
                         SettingsToggle {separator:false;text:qsTr("紧凑界面");Accessible.description:qsTr("统一导航、列表、表单、菜单和桌面组件的间距，不改变文字大小");checked:root.workspace.preferences.compact;onClicked:root.workspace.setPreference("compact",checked)}
                     }
                     SettingsGroup {
+                        heading:qsTr("窗口")
+                        visible:root.windowChrome.supported
+                        SettingsRow {
+                            visible: root.windowChrome.supported
+                            separator:false;label: qsTr("标题栏")
+                            SegmentedPicker {
+                                objectName: "titleBarModePicker"
+                                model: [qsTr("Daymark"), qsTr("系统原生")]
+                                selectionIsExternal: true
+                                currentIndex: root.windowChrome.mode === 1 ? 0 : 1
+                                onActivated: function(index) {root.windowChrome.requestMode(index === 0 ? 1 : 0)}
+                            }
+                        }
+                    }
+                    SettingsGroup {
                         heading:qsTr("辅助功能")
                         detail:Theme.highContrast ? qsTr("增强文字及边界对比，桌面组件使用实色背景；关闭后恢复原透明度。") : ""
                         SettingsToggle {text:qsTr("跟随系统");checked:root.workspace.preferences.followSystemAccessibility;onClicked:root.workspace.setPreference("followSystemAccessibility",checked)}
@@ -290,21 +305,23 @@ ApplicationWindow {
                     }
                 }
     component GeneralPageContent:ColumnLayout {
-                    id:generalPage;readonly property bool systemReminderVisible:systemReminders.visible && systemReminders.width>0;Layout.fillWidth:true;spacing:Theme.blockGap
-                    SettingsGroup {
+        Layout.fillWidth:true;spacing:Theme.blockGap
+        SettingsGroup {
                         heading:qsTr("启动与关闭")
                         detail:root.startupController.supported ? qsTr("移动程序后需重新开启开机启动。") : qsTr("当前平台暂不支持开机启动。")
                         SettingsToggle {text:qsTr("开机启动（当前用户）");enabled:root.startupController.supported;checked:root.startupController.enabled;onClicked:root.startupController.setEnabled(checked)}
                         SettingsToggle {separator:false;text:qsTr("关闭主窗口到托盘");enabled:root.widgetController.trayAvailable;checked:root.widgetController.closeToTray;onClicked:root.widgetController.setCloseToTray(checked)}
                     }
-                    Label {visible:root.startupController.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.startupController.errorText}
-                    SettingsGroup {
-                        heading:qsTr("提醒")
-                        detail:qsTr("应用运行时显示到期弹窗，可完成或延后；系统通知另受系统权限控制。")
-                        SettingsToggle {objectName:"reminderPopupsPreference";text:qsTr("到期弹窗");checked:root.workspace.preferences.reminderPopups;onClicked:root.workspace.setPreference("reminderPopups",checked)}
-                        SettingsToggle {separator:false;id:systemReminders;objectName:"systemRemindersPreference";text:qsTr("系统通知");checked:root.workspace.preferences.systemReminders;onClicked:root.workspace.setPreference("systemReminders",checked)}
+        Label {visible:root.startupController.errorText.length>0;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.startupController.errorText}
+        SettingsGroup {
+                        detail:root.widgetController.trayAvailable ? qsTr("托盘可打开主窗口、恢复穿透或彻底退出。") : qsTr("系统托盘不可用；关闭主窗口将退出，穿透已禁用。")
+                        SettingsLink {separator:false;destructive:true;symbol:"close";text:qsTr("退出 Daymark");onClicked:root.quitRequested()}
                     }
-                    SettingsGroup {
+    }
+    component TaskPageContent:ColumnLayout {
+        id:tasksPage;readonly property bool systemReminderVisible:systemReminders.visible && systemReminders.width>0
+        Layout.fillWidth:true;spacing:Theme.blockGap
+        SettingsGroup {
                         heading:qsTr("快速添加")
                         detail:qsTr("识别标题中的明确日期和时刻，保存时添加安排或提醒；原始标题保留。")
                         SettingsToggle {objectName:"recognizeTaskTimePreference";text:qsTr("识别日期和时间");checked:root.workspace.preferences.recognizeTaskTime;onClicked:root.workspace.setPreference("recognizeTaskTime",checked)}
@@ -315,22 +332,49 @@ ApplicationWindow {
                             TimeField {objectName:"recognitionReminderTimePreference";Layout.fillWidth:true;text:root.workspace.preferences.recognitionReminderTime;timeLabel:qsTr("日期任务默认提醒时刻");onTimeChosen:root.workspace.setPreference("recognitionReminderTime",text);onEditingFinished:if(!root.workspace.setPreference("recognitionReminderTime",text))text=root.workspace.preferences.recognitionReminderTime}
                         }
                     }
-                    SettingsGroup {
-                        heading:qsTr("备份与数据")
+        SettingsGroup {
+                        heading:qsTr("提醒")
+                        detail:qsTr("应用运行时显示到期弹窗，可完成或延后；系统通知另受系统权限控制。")
+                        SettingsToggle {objectName:"reminderPopupsPreference";text:qsTr("到期弹窗");checked:root.workspace.preferences.reminderPopups;onClicked:root.workspace.setPreference("reminderPopups",checked)}
+                        SettingsToggle {separator:false;id:systemReminders;objectName:"systemRemindersPreference";text:qsTr("系统通知");checked:root.workspace.preferences.systemReminders;onClicked:root.workspace.setPreference("systemReminders",checked)}
+                    }
+    }
+    component DataPrivacyPageContent:ColumnLayout {
+        id:dataPrivacyPage;property string diagnosticError:""
+        Layout.fillWidth:true;spacing:Theme.blockGap
+        SettingsGroup {
+                        heading:qsTr("备份与迁移")
                         detail:qsTr("启动时检查，保留最近7份一致性快照。")
                         SettingsRow {
                             label:qsTr("备份周期")
                             SettingsComboBox {objectName:"backupDaysPicker";Layout.fillWidth:true;Accessible.name:qsTr("自动备份周期");model:[qsTr("每天"),qsTr("每7天"),qsTr("每30天")];currentIndex:[1,7,30].indexOf(root.workspace.preferences.backupDays);onActivated:root.workspace.setPreference("backupDays",[1,7,30][currentIndex])}
                         }
-                        SettingsLink {separator:false;objectName:"settingsData";symbol:"backup";text:qsTr("数据与备份");onClicked:root.dataRequested()}
+                        SettingsLink {separator:false;objectName:"settingsData";symbol:"backup";text:qsTr("导入、导出与备份");onClicked:root.dataRequested()}
                     }
-                    SettingsGroup {
-                        heading:qsTr("帮助与说明")
-                        SettingsLink {separator:false;objectName:"settingsHelp";symbol:"info";text:qsTr("使用提示");onClicked:root.helpRequested()}
+        SettingsGroup {
+                        objectName:"telemetryPrivacyGroup"
+                        heading:qsTr("使用统计")
+                        Label {
+                            objectName:"telemetryPrivacyDescription"
+                            Layout.fillWidth:true;Layout.leftMargin:12;Layout.rightMargin:12;Layout.topMargin:10;Layout.bottomMargin:8
+                            text:qsTr("自愿分享应用版本、使用的界面和性能区间，不含任务、分类、标签或输入内容。仅发往当前账号服务，并关联账号和设备以支持撤回。原始记录保留7天，汇总保留90天；关闭后停止发送并请求清理。")
+                            font.pixelSize:Theme.captionSize;color:Theme.secondary;wrapMode:Text.Wrap;textFormat:Text.PlainText
+                        }
+                        SettingsToggle {
+                            objectName:"telemetryConsentPreference"
+                            text:qsTr("分享使用情况与性能统计")
+                            enabled:root.workspace.syncState.authenticated
+                            checked:root.workspace.telemetryState.enabled
+                            onClicked:root.workspace.setTelemetryEnabled(checked)
+                        }
+                        Label {objectName:"telemetryConsentStatus";Layout.fillWidth:true;Layout.leftMargin:12;Layout.rightMargin:12;Layout.bottomMargin:10;text:root.workspace.telemetryState.status;font.pixelSize:Theme.captionSize;color:Theme.secondary;wrapMode:Text.Wrap;textFormat:Text.PlainText}
+                        SettingsLink {objectName:"telemetryConsentRetry";visible:(root.workspace.telemetryState.error_key || "").length>0;enabled:!root.workspace.telemetryState.busy;separator:false;text:qsTr("重试连接");symbol:"reset";onClicked:root.workspace.retryTelemetry()}
                     }
-                    SettingsGroup {
-                        detail:root.widgetController.trayAvailable ? qsTr("托盘可打开主窗口、恢复穿透或彻底退出。") : qsTr("系统托盘不可用；关闭主窗口将退出，穿透已禁用。")
-                        SettingsLink {separator:false;destructive:true;symbol:"close";text:qsTr("退出 Daymark");onClicked:root.quitRequested()}
-                    }
-                }
+        SettingsGroup {
+            heading:qsTr("本机日志")
+            detail:qsTr("日志只保存在此设备，自动轮换，不会自动上传；与自愿分享的使用统计独立。")
+            SettingsLink {objectName:"settingsOpenLogs";separator:false;disclosure:false;symbol:"folder";text:qsTr("打开日志目录");onClicked:dataPrivacyPage.diagnosticError=root.workspace.openDiagnosticLogs()?"":qsTr("无法打开日志目录，请检查本地目录权限。")}
+            Label {visible:dataPrivacyPage.diagnosticError.length>0;Layout.fillWidth:true;Layout.leftMargin:12;Layout.rightMargin:12;wrapMode:Text.Wrap;text:dataPrivacyPage.diagnosticError;color:Theme.danger}
+        }
+    }
 }

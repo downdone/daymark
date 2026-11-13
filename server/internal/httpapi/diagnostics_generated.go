@@ -99,6 +99,34 @@ func serverDiagnostic(code string) string {
 		return "S404"
 	case "internal_error":
 		return "S901"
+	case "admin_session_expired":
+		return "S501"
+	case "admin_mfa_invalid":
+		return "S502"
+	case "admin_mfa_replayed":
+		return "S503"
+	case "admin_reauthentication_required":
+		return "S504"
+	case "admin_forbidden":
+		return "S505"
+	case "admin_last_owner":
+		return "S506"
+	case "admin_conflict":
+		return "S507"
+	case "telemetry_consent_required":
+		return "S601"
+	case "telemetry_consent_conflict":
+		return "S602"
+	case "telemetry_batch_conflict":
+		return "S603"
+	case "telemetry_consent_invalid":
+		return "S604"
+	case "telemetry_event_invalid":
+		return "S605"
+	case "telemetry_busy":
+		return "S606"
+	case "telemetry_storage_failed":
+		return "S607"
 	default:
 		return "S999"
 	}

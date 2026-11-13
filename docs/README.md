@@ -41,6 +41,8 @@
 ### 3.1 界面与视觉
 [界面焕新设计稿](design/daymark-interface-refresh.md) · [焕新技术设计与全局评审](design/daymark-interface-refresh-technical.md)
 
+[设置系统六分类重组](design/settings-information-architecture.md)：职责、选项归属、排序、稳定身份与完整用户链。
+
 [品牌接入契约](design/brand-identity-integration.md) · [现行母版](../assets/brand/current/README.md) · [完整VI与PDF](../resource/VI/README.md) · [UI/UX 设计基准](design/ui-baseline.md) · [验收与迁移](design/ui-acceptance.md) · [官方调研](design/ui-research.md) · [全局视觉系统](design/global-visual-system.md) · [排版与比例留白](design/typography-and-proportional-spacing.md) · [空间稳定与滚动槽](design/stable-layout-and-scroll.md) · [提示与垂直节奏](design/tooltip-and-layout-rhythm.md) · [全菜单](design/menu-system-review.md) · [侧栏与字标](design/sidebar-and-wordmark.md) · [两栏设置](design/settings-split-navigation.md) · [详情尺寸](design/inspector-size-control.md)
 
 ### 3.2 任务与列表
@@ -54,13 +56,13 @@
 
 ### 3.5 可选账号与同步
 
-新增设计待评审：[Daymark业务系统、安静通知中心与可选择统计](design/daymark-business-platform.md)（通知/用户管理后台/埋点与看板；尚未实施）。
+新增能力：[Daymark业务后台与可选择统计](design/daymark-business-platform.md)，[业务运维与统计指南](../server/BUSINESS.md)；通知中心已取消并移出路线图，真实状态见PROGRESS。
 
 [错误码与连接诊断](design/diagnostic-codes.md) · [官方账号与自定义服务](design/account-service-choice.md) · [独立账号窗口与设计评审](design/account-window.md) · [服务运行与恢复](../server/README.md) · [账号与同步](design/account-and-sync-service.md) · [工程架构](design/server-architecture.md) · [协议 v1](api/sync-v1.md) · [模块入口](design/sync-modules/README.md) · [强类型契约](design/sync-contracts/README.md) · [桌面实现契约](design/sync-client-implementation.md)
 
 ## 4. 决策记录
 
-[ADR 索引](ADR/README.md)：007～034，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
+[ADR 索引](ADR/README.md)：007～036，含状态（现行/部分取代/已被取代/提案）。ADR-001～006 原文见[技术基线](02_TECHNICAL_DESIGN.md) §1。
 
 ## 5. 交付与运维
 

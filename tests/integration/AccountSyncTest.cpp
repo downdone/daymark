@@ -160,6 +160,25 @@ int run() {
     b.syncRegister(url, login, password);
     if (!settle(b) || b.task(id).value("title") != "合成离线任务")
         return failed("second device snapshot", &a, &b);
+    if(qEnvironmentVariableIntValue("DAYMARK_SYNC_E2E_TELEMETRY")==1){
+        QCoreApplication::setApplicationVersion(QStringLiteral("0.0.0"));
+        int telemetryRequests=0,batches=0;
+        auto connection=QObject::connect(coordinatorA.findChild<QNetworkAccessManager*>(),&QNetworkAccessManager::finished,QCoreApplication::instance(),[&](QNetworkReply* reply){if(reply->url().path().startsWith("/telemetry/")){++telemetryRequests;if(reply->url().path().endsWith("/batches") && reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==202)++batches;}});
+        a.syncNow();if(!settle(a) || telemetryRequests!=0 || a.telemetryState().value("enabled").toBool())return failed("default-off telemetry must make zero requests",&a);
+        a.setTelemetryEnabled(true);
+        if(!until([&]{return a.telemetryState().value("collecting").toBool()&&!a.telemetryState().value("busy").toBool();}))return failed("telemetry explicit consent confirmation",&a);
+        if(b.telemetryState().value("enabled").toBool())return failed("telemetry consent must be per device",&a,&b);
+        coordinatorA.recordTelemetry(telemetry::Event::surfaceUsed(telemetry::Surface::Mini));
+        if(!until([&]{return !a.telemetryState().value("busy").toBool();}))return failed("telemetry queue worker",&a);
+        a.retryTelemetry();
+        if(!until([&]{return batches>0;}))return failed("real Qt telemetry batch delivery",&a);
+        a.setTelemetryEnabled(false);
+        if(!until([&]{return !a.telemetryState().value("enabled").toBool()&&!a.telemetryState().value("busy").toBool()&&a.telemetryState().value("status").toString().contains(QStringLiteral("已关闭"));}))return failed("telemetry withdrawal acknowledged",&a);
+        const auto stopped=telemetryRequests;
+        coordinatorA.recordTelemetry(telemetry::Event::surfaceUsed(telemetry::Surface::Ball));a.retryTelemetry();
+        if(!until([&]{return !a.telemetryState().value("busy").toBool();}) || telemetryRequests!=stopped)return failed("disabled telemetry must stop sending",&a);
+        QObject::disconnect(connection);
+    }
     auto t = a.task(id);
     if (!a.saveTask(id, t.value("rowVersion").toLongLong(), "第一设备修改", "", "ACTIVE", "", "",
                     false) ||

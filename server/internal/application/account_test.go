@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"daymark.local/server/internal/business"
 	"daymark.local/server/internal/domain"
 	"daymark.local/server/internal/maintenance"
 	"daymark.local/server/internal/ports"
@@ -125,5 +126,67 @@ func TestDeletionLedgerFailureStaysDisabledAndRecovers(t *testing.T) {
 	s, e = a.Status(t.Context(), intent.Token, op)
 	if e != nil || s.State != "COMPLETED" {
 		t.Fatal(s, e)
+	}
+}
+
+func TestAuxiliaryErasureMustFinishBeforeAccountDeletionCompletes(t *testing.T) {
+	f, x := transferFixture(t)
+	ledger, e := maintenance.OpenLedger(t.TempDir(), bytes.Repeat([]byte{7}, 32), nil, true)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer ledger.Close()
+	a, e := NewAccount(t.Context(), f.db, f.auth, f.clock, ledger, x.Files)
+	if e != nil {
+		t.Fatal(e)
+	}
+	fail := true
+	calls := 0
+	a.EraseAuxiliary = func(_ context.Context, user domain.ID) error {
+		calls++
+		if user != f.scope.Principal.UserID {
+			t.Fatal("wrong erasure owner")
+		}
+		if fail {
+			return domain.Fail("telemetry_storage_failed")
+		}
+		return nil
+	}
+	op := domain.StableID("auxiliary-delete")
+	intent, e := a.Prepare(t.Context(), f.scope.Principal, []byte("synthetic-password"), op)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = a.Confirm(t.Context(), intent.Token, op); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = a.RunOne(t.Context()); domain.Code(e) != "temporarily_unavailable" {
+		t.Fatal(e)
+	}
+	s, e := a.Status(t.Context(), intent.Token, op)
+	if e != nil || s.State == "COMPLETED" {
+		t.Fatal(s, e)
+	}
+	e = f.db.ViewBusiness(t.Context(), func(tx ports.BusinessTx) error {
+		rows, e := tx.CleanupQueue(t.Context(), 32)
+		if len(rows) != 1 || rows[0].UserID != f.scope.Principal.UserID {
+			t.Fatal("durable cleanup intent missing", rows)
+		}
+		return e
+	})
+	if e != nil {
+		t.Fatal(e)
+	}
+	fail = false
+	f.clock.value = f.clock.value.Add(6 * time.Second)
+	if ran, e := a.RunOne(t.Context()); e != nil || !ran {
+		t.Fatal(ran, e)
+	}
+	s, e = a.Status(t.Context(), intent.Token, op)
+	if e != nil || s.State != "COMPLETED" || calls < 2 {
+		t.Fatal(s, calls, e)
+	}
+	if _, e = business.CleanupOnePage(t.Context(), f.db, nil); e != nil {
+		t.Fatal(e)
 	}
 }

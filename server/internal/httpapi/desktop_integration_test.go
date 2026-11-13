@@ -16,10 +16,12 @@ import (
 
 	"daymark.local/server/internal/application"
 	"daymark.local/server/internal/artifact"
+	"daymark.local/server/internal/businessweb"
 	"daymark.local/server/internal/domain"
 	"daymark.local/server/internal/ports"
 	"daymark.local/server/internal/protocol"
 	"daymark.local/server/internal/storage"
+	"daymark.local/server/internal/telemetry"
 )
 
 // The Qt executable is an explicit integration prerequisite, never a mock
@@ -72,6 +74,16 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 	handler.RegistrationEnabled = true
 	handler.AttachTransfer(transfer)
 	router := handler.Router()
+	metrics, e := telemetry.Open(filepath.Join(root, "metrics"), clock)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer metrics.Close()
+	businessHandler, e := businessweb.New(nil, metrics, auth, clock, "https://localhost", false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	router = businessHandler.Wrap(router)
 	var staged atomic.Int32
 	var rebased atomic.Bool
 	var droppedPush, droppedLogout atomic.Bool
@@ -190,7 +202,7 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 	command := exec.CommandContext(ctx, executable, arguments...)
 	command.WaitDelay = 5 * time.Second
 	graphPath := filepath.Join(root, "client-graph.json")
-	command.Env = append(os.Environ(), "QT_QPA_PLATFORM=offscreen", "DAYMARK_SYNC_E2E_URL="+server.URL, "DAYMARK_SYNC_E2E_PASSWORD="+password, "DAYMARK_SYNC_E2E_CA="+ca, "DAYMARK_SYNC_E2E_GRAPH_PATH="+graphPath)
+	command.Env = append(os.Environ(), "QT_QPA_PLATFORM=offscreen", "DAYMARK_SYNC_E2E_TELEMETRY=1", "DAYMARK_SYNC_E2E_URL="+server.URL, "DAYMARK_SYNC_E2E_PASSWORD="+password, "DAYMARK_SYNC_E2E_CA="+ca, "DAYMARK_SYNC_E2E_GRAPH_PATH="+graphPath)
 	output, e := command.CombinedOutput()
 	if e != nil {
 		t.Fatalf("Qt integration failed: %v\n%s", e, output)

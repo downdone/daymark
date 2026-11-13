@@ -50,6 +50,7 @@ private:
     bool m_verificationCompleted=false;
     int m_verificationPhase=0;
     int m_startupExitCode = 1;
+    qint64 m_telemetryStartupMS=-1;
 };
 
 } // namespace daymark

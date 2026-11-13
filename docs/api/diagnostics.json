@@ -48,7 +48,21 @@
     "storage_corrupt": "S402",
     "storage_full": "S403",
     "storage_io": "S404",
-    "internal_error": "S901"
+    "internal_error": "S901",
+    "admin_session_expired": "S501",
+    "admin_mfa_invalid": "S502",
+    "admin_mfa_replayed": "S503",
+    "admin_reauthentication_required": "S504",
+    "admin_forbidden": "S505",
+    "admin_last_owner": "S506",
+    "admin_conflict": "S507",
+    "telemetry_consent_required": "S601",
+    "telemetry_consent_conflict": "S602",
+    "telemetry_batch_conflict": "S603",
+    "telemetry_consent_invalid": "S604",
+    "telemetry_event_invalid": "S605",
+    "telemetry_busy": "S606",
+    "telemetry_storage_failed": "S607"
   },
   "client": {
     "syncNetworkError": "C101",
@@ -109,6 +123,9 @@
     "setup.update_dependency": "C850",
     "windowChromeUnavailable": "C901",
     "windowChromeSettingsFailed": "C902",
-    "windowChromeNativeFailed": "C903"
+    "windowChromeNativeFailed": "C903",
+    "telemetryLocalStorageFailed": "C601",
+    "telemetryProtocolMismatch": "C602",
+    "telemetryConsentPending": "C603"
   }
 }

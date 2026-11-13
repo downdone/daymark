@@ -16,6 +16,8 @@ import (
 )
 
 type Config struct {
+	AdminEnabled         bool   `json:"admin_enabled"`
+	TelemetryEnabled     bool   `json:"telemetry_enabled"`
 	RegistrationEnabled  bool   `json:"registration_enabled"`
 	DataDir              string `json:"data_dir"`
 	Listen               string `json:"listen"`

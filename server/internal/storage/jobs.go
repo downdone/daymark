@@ -172,6 +172,9 @@ func (t *transaction) CancelIntents(ctx context.Context, id domain.ID, now int64
 	return t.exec(ctx, "UPDATE account_deletions SET state='CANCELLED',updated_ms=? WHERE user_id=? AND state='INTENT'", now, id)
 }
 func (t *transaction) EraseAccount(ctx context.Context, id domain.ID, now int64) error {
+	if e := t.exec(ctx, "INSERT INTO business_cleanup(user_id,at_ms) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET at_ms=excluded.at_ms", id, now); e != nil {
+		return e
+	}
 	// Foreign keys remain enabled. All mutual task/rule references are deferred.
 	ds, e := t.Datasets(ctx, id)
 	if e != nil {

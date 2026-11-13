@@ -2,6 +2,8 @@
 
 可选的 Go 单体 + SQLite 服务。桌面未登录时只操作本地库；登录后仍先写本地，再通过持久化队列同步。HTTP/JSON v1 使用[唯一 OpenAPI 契约](../docs/api/sync-v1.openapi.json)，13 种业务命令与领域层独立，当前不引入 gRPC。实现及验证状态见[进度](../docs/PROGRESS.md)。
 
+独立管理后台、公告维护及默认关闭的产品统计见[业务运维指南](BUSINESS.md)。`admin_enabled`/`telemetry_enabled`默认false；独立通知中心已取消，不改变桌面已有更新或任务提醒。
+
 ## 构建与测试
 
 需要 Go 1.27.0；SQLite 驱动不需要 CGo。以下命令在 `server` 目录执行。

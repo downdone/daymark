@@ -114,6 +114,7 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(QVariantMap backupInfo READ backupInfo NOTIFY stateChanged)
     Q_PROPERTY(QString databasePath READ databasePath NOTIFY stateChanged)
     Q_PROPERTY(QVariantMap syncState READ syncState NOTIFY syncStateChanged)
+    Q_PROPERTY(QVariantMap telemetryState READ telemetryState NOTIFY telemetryStateChanged)
     Q_PROPERTY(QString officialSyncOrigin READ officialSyncOrigin CONSTANT)
     Q_PROPERTY(bool syncApplyPaused READ syncApplyPaused WRITE setSyncApplyPaused NOTIFY syncApplyPausedChanged)
 public:
@@ -122,6 +123,11 @@ public:
     void start(const QString& databasePath);
     QString databasePath() const {return m_path;}
     QVariantMap syncState() const {return m_syncState;}
+    QVariantMap telemetryState() const {return m_telemetryState;}
+    void setTelemetryState(const QVariantMap& state){if(m_telemetryState==state)return;m_telemetryState=state;emit telemetryStateChanged();}
+    void telemetryExecute(const QString& binding,const QString& operation,const QJsonObject& input,std::function<void(Result<QJsonObject>)> completed);
+    Q_INVOKABLE void setTelemetryEnabled(bool enabled){if(enabled&&!m_syncState.value("authenticated").toBool())return;const bool saved=setPreference(QStringLiteral("telemetryEnabled"),enabled);if(!enabled || saved)emit syncActionRequested(QStringLiteral("telemetry"),{{"enabled",enabled},{"saved",saved}});}
+    Q_INVOKABLE void retryTelemetry(){emit syncActionRequested(QStringLiteral("telemetry_retry"),{});}
     QString officialSyncOrigin() const;
     bool syncApplyPaused()const{return m_syncApplyPaused;}
     void setSyncApplyPaused(bool paused){if(m_syncApplyPaused==paused)return;m_syncApplyPaused=paused;emit syncApplyPausedChanged();}
@@ -332,6 +338,7 @@ signals:
     void widgetContextChanging();
     void widgetCategoryRangeRequested(bool enabled);
     void syncStateChanged();
+    void telemetryStateChanged();
     void syncApplyPausedChanged();
     void syncActionRequested(const QString& action,const QVariantMap& values);
     void stateChanged();
@@ -346,6 +353,7 @@ signals:
     void reminderAlertsChanged();
 private:
     QVariantMap m_syncState{{"phase",QStringLiteral("GUEST")},{"status",QStringLiteral("仅存储在此设备")},{"authenticated",false},{"busy",false}};
+    QVariantMap m_telemetryState{{"enabled",false},{"collecting",false},{"busy",false},{"status",QStringLiteral("登录后可选择参与，当前不采集。")}};
     bool m_syncApplyPaused=false;
     QVariantList m_taskEditHistory;
     QVariantList m_lastBatchDeleted;
@@ -416,7 +424,7 @@ private:
     QVariantMap m_reminderPresentation;
     QTimer m_reminderTimer;
     QVariantMap m_viewCounts;
-    QVariantMap m_preferences{{"recognizeTaskTime",true},{"recognitionDateReminder",false},{"recognitionReminderTime","09:00"},{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"reminderPopups",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarPinned",false},{"desktopCalendarOpacity",90}};
+    QVariantMap m_preferences{{"telemetryEnabled",false},{"recognizeTaskTime",true},{"recognitionDateReminder",false},{"recognitionReminderTime","09:00"},{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"reminderPopups",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarPinned",false},{"desktopCalendarOpacity",90}};
     QTimer m_searchTimer,m_dateTimer,m_midnightTimer,m_undoTimer,m_maintenanceTimer;
     bool applyCalendarLayer(bool desktop,bool topmost);
     QPointer<QWindow> m_calendarWindow;

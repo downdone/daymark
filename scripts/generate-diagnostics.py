@@ -10,7 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def outputs():
     registry = json.loads((ROOT / 'docs/api/diagnostics.json').read_text(encoding='utf-8'))
     spec = json.loads((ROOT / 'docs/api/sync-v1.openapi.json').read_text(encoding='utf-8'))
-    assert set(registry['server']) == {key for values in spec['x-error-status-map'].values() for key in values}
+    business = json.loads((ROOT / 'docs/api/business-v1.openapi.json').read_text(encoding='utf-8'))
+    statuses = {key: int(status) for doc in (spec, business) for status, keys in doc['x-error-status-map'].items() for key in keys}
+    assert set(registry['server']) == set(statuses)
     for side, prefix in [('server', 'S'), ('client', 'C')]:
         values = list(registry[side].values())
         assert len(set(values)) == len(values)
@@ -30,7 +32,13 @@ def outputs():
     for key, value in registry['server'].items():
         go += [f'\tcase "{key}":', f'\t\treturn "{value}"']
     go += ['\tdefault:', '\t\treturn "S999"', '\t}', '}', '']
-    return {'src/sync/Diagnostics.h': '\n'.join(qt), 'server/internal/httpapi/diagnostics_generated.go': '\n'.join(go)}
+    shared = [line.replace('package httpapi', 'package diagnostics').replace('func serverDiagnostic(', 'func Code(') for line in go]
+    shared += ['func Status(code string) int {', '\tswitch code {']
+    for key, status in statuses.items():
+        shared += [f'\tcase "{key}":', f'\t\treturn {status}']
+    shared += ['\tdefault:', '\t\treturn 500', '\t}', '}', '']
+    return {'src/sync/Diagnostics.h': '\n'.join(qt), 'server/internal/httpapi/diagnostics_generated.go': '\n'.join(go),
+            'server/internal/diagnostics/codes_generated.go': '\n'.join(shared)}
 
 
 if __name__ == '__main__':
@@ -42,5 +50,6 @@ if __name__ == '__main__':
         if args.check:
             assert path.read_text(encoding='utf-8') == value, name + ' drifted'
         else:
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(value, encoding='utf-8', newline='\n')
     print('PASS: stable server/client diagnostic registry and generated copies')

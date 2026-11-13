@@ -466,7 +466,65 @@ QString ChromeSmokeProbe::advanceLayout(QQuickWindow *settings, QQuickWindow *ac
             return fail("restart intent must be delivered exactly once and release notice");
         window->setProperty("updateController", QVariant::fromValue<QObject *>(nullptr));
         delete updateStub.data();
-        qInfo() << "PASS: CHROME02 40 main views, 16 settings categories, account axes and notification UI (synthetic controller)";
+        workspace.setTextScale(1);
+        workspace.setThemeMode(1);
+        workspace.setPreference("highContrast",false);
+        QMetaObject::invokeMethod(settings,"setVerificationCategory",Q_ARG(QVariant,QVariant(5)));
+        QMetaObject::invokeMethod(settings,"open");
+    } else if (phase == 141) {
+        auto *toggle=qobject_cast<QQuickItem*>(find(settings,"telemetryConsentPreference"));
+        auto *status=find(settings,"telemetryConsentStatus");
+        if(!toggle || !status || toggle->isEnabled() || toggle->property("checked").toBool() ||
+           !status->property("text").toString().contains(QStringLiteral("当前不采集")))
+            return fail("guest telemetry must remain disabled and explained");
+        auto *group=qobject_cast<QQuickItem*>(find(settings,"telemetryPrivacyGroup"));
+        auto *description=find(settings,"telemetryPrivacyDescription");
+        if(!group || !description || !description->property("text").toString().contains(QStringLiteral("关联账号和设备")))
+            return fail("telemetry purpose and association must precede consent");
+        QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(group)));
+    } else if (phase == 142) {
+        if(!capture(settings,".telemetry-settings-light.png"))return fail("telemetry settings capture failed");
+        workspace.setTextScale(2);
+        workspace.setThemeMode(2);
+        // Synthetic presentation state only; no account or consent is created.
+        workspace.setTelemetryState({{"enabled",false},{"collecting",false},{"busy",false},
+            {"status",QStringLiteral("本机已停止，服务端撤回待连接完成。暂未完成，可稍后重试（S607-C000）。")},
+            {"error_key",QStringLiteral("telemetry_storage_failed")}});
+    } else if (phase == 143) {
+        auto *retry=qobject_cast<QQuickItem*>(find(settings,"telemetryConsentRetry"));
+        if(!retry || !retry->isVisible())return fail("telemetry recovery action missing");
+        retry->forceActiveFocus();
+        QMetaObject::invokeMethod(settings,"reveal",Q_ARG(QVariant,QVariant::fromValue(retry)));
+    } else if (phase == 144) {
+        auto *retry=qobject_cast<QQuickItem*>(find(settings,"telemetryConsentRetry"));
+        const auto bounds=QRectF(retry->mapToScene({0,0}),retry->size());
+        if(!retry->hasActiveFocus() || bounds.top()<0 || bounds.bottom()>settings->height()-40 ||
+           bounds.right()>settings->width() || !capture(settings,".telemetry-settings-dark-200.png"))
+            return fail("telemetry retry clipped at large text");
+        QMetaObject::invokeMethod(settings,"close");
+    } else if (phase >= 145 && phase <= 160) {
+        const int sample=(phase-145)/2, group=sample/2, category=sample%2 ? 5 : 4;
+        if ((phase-145)%2==0) {
+            if (sample%2==0) {
+                workspace.setTextScale(group>=2 ? 2 : 1);
+                workspace.setThemeMode(group%2 ? 2 : 1);
+                if(!controller.requestMode(group%2 ? 0 : 1))return fail("settings extra mode setup");
+                settings->resize(group%2 ? 640 : 860,680);
+                QMetaObject::invokeMethod(settings,"open");
+            }
+            QMetaObject::invokeMethod(settings,"activateVerificationCategory",Q_ARG(QVariant,QVariant(category)));
+        } else {
+            QVariant result;
+            QMetaObject::invokeMethod(settings,"verifyCategory",Q_RETURN_ARG(QVariant,result));
+            const auto layout=compareLayout(settings,{"settingsIntegratedHeader","settingsCategories","settingsScroll"},sample%2==0);
+            if(result!="PASS" || !layout.isEmpty())return fail("six-section settings layout: "+result.toString()+layout);
+            if(category==4 && (!find(settings,"recognizeTaskTimePreference") || !find(settings,"systemRemindersPreference") || find(settings,"backupDaysPicker")))return fail("task/reminder ownership");
+            if(category==5 && (!find(settings,"backupDaysPicker") || !find(settings,"telemetryConsentPreference") || !find(settings,"settingsOpenLogs") || find(settings,"systemRemindersPreference")))return fail("data/privacy ownership");
+            if(!capture(settings,QString(".settings-%1-%2.png").arg(category==4?"tasks":"data").arg(group)))return fail("six-section settings capture");
+        }
+    } else if (phase == 161) {
+        QMetaObject::invokeMethod(settings,"close");
+        qInfo() << "PASS: CHROME02 40 main views, 24 settings category combinations, account axes and update UI (synthetic controller)";
         return "DONE";
     }
     return {};

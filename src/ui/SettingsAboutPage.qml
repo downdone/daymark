@@ -10,8 +10,7 @@ ColumnLayout {
     spacing: Theme.blockGap
     property string copiedContact: ""
     property var updateController: null
-    signal openLogsRequested()
-    property string diagnosticError:""
+    signal helpRequested()
     function copyContact(field, name) {
         field.selectAll()
         field.copy()
@@ -51,14 +50,9 @@ ColumnLayout {
         }
     }
     SettingsGroup {
-        heading: qsTr("诊断与日志")
-        ColumnLayout {
-            Layout.fillWidth:true;Layout.minimumWidth:0;Layout.margins:16;spacing:Theme.fieldGap
-            Label {text:qsTr("日志仅保存在此设备，自动轮换，不会自动上传。");Layout.fillWidth:true;Layout.minimumWidth:0;wrapMode:Text.Wrap;color:Theme.secondary}
-            Button {objectName:"aboutOpenLogs";text:qsTr("打开日志目录");onClicked:page.openLogsRequested()}
-            Label {visible:page.diagnosticError.length>0;Layout.fillWidth:true;Layout.minimumWidth:0;wrapMode:Text.Wrap;text:page.diagnosticError;color:Theme.danger}
-        }
-    }
+                        heading:qsTr("帮助与说明")
+                        SettingsLink {separator:false;objectName:"settingsHelp";symbol:"info";text:qsTr("使用提示");onClicked:page.helpRequested()}
+                    }
     SettingsGroup {
         heading: qsTr("交流与反馈")
         SettingsRow {

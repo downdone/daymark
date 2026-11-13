@@ -33,3 +33,5 @@ ADR-001～006 的原文在[原始 TDD](../02_TECHNICAL_DESIGN.md) §1。后续�
 | 032 | [批准A母版与跨平台品牌资源](032-approved-a-brand-assets.md) | 现行 |
 | 033 | [GitHub 资源与 Windows 便携在线更新](033-github-windows-update.md) | Windows已实现；自签名策略及公开发行验证见当前进度 |
 | 034 | [离线时间识别与新建草稿边界](034-offline-task-time-recognition.md) | 现行 |
+| 035 | [Windows安装向导复用更新SDK](035-native-windows-installer.md) | 现行 |
+| 036 | [业务后台与许可统计](036-business-admin-and-telemetry.md) | 管理和采集默认关闭；通知中心已取消 |

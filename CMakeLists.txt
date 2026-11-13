@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 3.0.0 LANGUAGES CXX)
-set(DAYMARK_VERSION "3.0.0")
+project(Daymark VERSION 3.0.1 LANGUAGES CXX)
+set(DAYMARK_VERSION "3.0.1")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -40,6 +40,7 @@ qt_add_qml_module(daymark_style STATIC URI DaymarkStyle VERSION 6.0
 target_link_libraries(daymark_style PUBLIC Qt6::Quick Qt6::QuickControls2)
 
 add_library(daymark_core STATIC
+    src/telemetry/Telemetry.h src/telemetry/Telemetry.cpp
     src/diagnostics/RuntimeLog.h src/diagnostics/RuntimeLog.cpp
     src/domain/CalendarEvent.h src/persistence/EventRepository.h src/persistence/EventRepository.cpp src/services/EventService.h src/services/EventService.cpp
     src/platform/common/AccessibilityPreferences.h src/platform/common/AccessibilityPreferences.cpp
@@ -179,7 +180,7 @@ if(BUILD_TESTING)
         target_link_libraries(test_update_flow PRIVATE Qt6::Core Qt6::Test)
         target_compile_definitions(test_update_flow PRIVATE DAYMARK_TEST_PYTHON="${Python3_EXECUTABLE}" DAYMARK_UPDATE_FLOW_SCRIPT="${CMAKE_CURRENT_SOURCE_DIR}/tests/update/flow_fixture.py" DAYMARK_TEST_REPO="${CMAKE_CURRENT_SOURCE_DIR}")
         add_dependencies(test_update_flow daymark-update-cli daymark-updater test_update_cli test_update_bootstrap test_update_payload_old test_update_payload_new)
-        add_test(NAME update_windows_flow COMMAND test_update_flow -o -,txt)
+        add_test(NAME update_windows_flow COMMAND test_update_flow -o -,txt -o update-flow-results.txt,txt)
         set_tests_properties(update_windows_flow PROPERTIES TIMEOUT 180 LABELS "update;windows;integration")
         qt_add_executable(test_setup_flow tests/update/SetupFlowTest.cpp)
         set_target_properties(test_setup_flow PROPERTIES WIN32_EXECUTABLE FALSE)
@@ -199,6 +200,11 @@ if(BUILD_TESTING)
         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/OfficialServiceConfigTest.cmake)
     set_tests_properties(official_service_config PROPERTIES LABELS "package" TIMEOUT 30)
     find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Test)
+    qt_add_executable(test_telemetry tests/integration/TelemetryTest.cpp)
+    target_link_libraries(test_telemetry PRIVATE daymark_core Qt6::Test)
+    qt_add_resources(test_telemetry telemetry_contract PREFIX "/contracts" BASE docs/api FILES docs/api/business-v1.openapi.json)
+    add_test(NAME telemetry_privacy COMMAND test_telemetry)
+    set_tests_properties(telemetry_privacy PROPERTIES LABELS "integration;fast" TIMEOUT 20)
     qt_add_executable(test_runtime_log tests/integration/RuntimeLogTest.cpp)
     target_link_libraries(test_runtime_log PRIVATE daymark_core Qt6::Network Qt6::Test)
     add_test(NAME runtime_diagnostics COMMAND test_runtime_log)

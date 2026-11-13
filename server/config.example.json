@@ -4,6 +4,8 @@
   "public_origin": "https://sync.example.com",
   "development": false,
   "registration_enabled": true,
+  "admin_enabled": false,
+  "telemetry_enabled": false,
   "writer_queue": 32,
   "read_pool": 4,
   "request_timeout_ms": 10000,

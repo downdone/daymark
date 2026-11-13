@@ -6,5 +6,7 @@
 *.md whitespace=-blank-at-eol
 # Preserve upstream notice bytes (their checksums are recorded in modules.json).
 server/licenses/** whitespace=-blank-at-eof
+# Keep this upstream NOTICE byte-identical, including its trailing space.
+server/licenses/github.com_pquerna_otp_v1.5.0/NOTICE -text -whitespace
 # Vendored update sources/notices are hash-pinned upstream bytes, including whitespace.
 third_party/update/** -text -whitespace

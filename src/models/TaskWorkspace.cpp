@@ -1,6 +1,7 @@
 #include "ReminderPresentation.h"
 #include <QScreen>
 #include "TaskWorkspace.h"
+#include "telemetry/Telemetry.h"
 #include "OfficialServiceConfig.h"
 #include "platform/common/QtWindowPlatform.h"
 #include "services/ReminderSchedule.h"
@@ -251,6 +252,7 @@ void TaskWorkspace::start(const QString& path) {
     m_sundayFirst=settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool();
     m_themeMode=qBound(0,settings.value(QStringLiteral("appearance/themeMode"),0).toInt(),2);
     m_textScale=qBound(1.0,settings.value(QStringLiteral("appearance/textScale"),1.0).toDouble(),2.0);
+    m_preferences[QStringLiteral("telemetryEnabled")]=false; // Consent never inherits another profile's fallback.
     for(auto it=m_preferences.begin();it!=m_preferences.end();++it) {
         const auto stored=settings.value(QStringLiteral("preferences/")+it.key(),it.value());
         if(it.key()==QStringLiteral("backupDays")){const int days=stored.toInt();if(days==1 || days==7 || days==30)it.value()=days;}
@@ -363,6 +365,15 @@ void TaskWorkspace::switchSyncDatabase(const QString& path,std::function<void(Re
         auto tasks=worker->load(path);const auto loadError=tasks.error;if(!tasks.ok())tasks=worker->load(previous);
         const auto catalog=tasks.ok()?worker->catalog->all():Result<QList<CatalogItem>>{};const auto rules=tasks.ok()?worker->recurrence->all():Result<QList<RecurrenceRule>>{};
         if(self)QMetaObject::invokeMethod(self.data(),[self,path,previous,tasks,catalog,rules,loadError,completed]{if(!self)return;self->m_busy=false;self->m_ready=tasks.ok() && catalog.ok() && rules.ok();self->m_path=loadError.code==ErrorCode::None?path:previous;self->loadReminderPresentation();self->loadWidgetBrowsePreferences();if(self->m_ready){self->m_cache=tasks.value;self->m_catalog=catalog.value;self->m_rules=rules.value;self->refresh();}self->m_error=loadError;emit self->stateChanged();completed(Result<void>{loadError});if(self->m_ready)self->maintain();},Qt::QueuedConnection);
+    },Qt::QueuedConnection);
+}
+void TaskWorkspace::telemetryExecute(const QString& binding,const QString& operation,const QJsonObject& input,std::function<void(Result<QJsonObject>)> completed)
+{
+    if(!m_ready){completed(Result<QJsonObject>::failure(ErrorCode::Cancelled,QStringLiteral("syncWorkspaceNotReady")));return;}
+    const auto file=telemetry::Queue::path(m_path,binding);QPointer<TaskWorkspace> self(this);
+    QMetaObject::invokeMethod(m_worker,[self,file,binding,operation,input,completed=std::move(completed)]{
+        const auto result=telemetry::Queue::execute(file,binding,operation,input);
+        if(self)QMetaObject::invokeMethod(self.data(),[self,result,completed]{if(self)completed(result);},Qt::QueuedConnection);
     },Qt::QueuedConnection);
 }
 void TaskWorkspace::syncExecute(const QString& operation,const QJsonObject& input,std::function<void(Result<QJsonObject>)> completed)
