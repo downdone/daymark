@@ -72,7 +72,15 @@ def main():
             current=(root/'current.json').read_bytes()
             for confirm in (False,True):
                 repair_with_running_app(a.artifact,root,a.work,pid,confirm)
-                assert (root/'current.json').read_bytes()==current
+                installed=(root/'current.json').read_bytes()
+                if not confirm:
+                    assert installed==current,'cancel changed the committed installation'
+                else:
+                    # A completed repair creates a fresh installation identity.
+                    # Its signed payload/version/runtime and commit facts stay.
+                    previous,actual=json.loads(current),json.loads(installed)
+                    assert actual['install_id'] and actual['install_id']!=previous['install_id']
+                    assert {k:v for k,v in actual.items() if k!='install_id'}=={k:v for k,v in previous.items() if k!='install_id'}
                 with sqlite3.connect(database) as db:
                     assert db.execute('PRAGMA quick_check').fetchone()[0]=='ok'
                     assert db.execute("SELECT title FROM tasks WHERE id='force-close-preservation'").fetchone()[0]=='Synthetic force-close preservation'
@@ -108,5 +116,22 @@ def main():
     wait_for(lambda:not (root/'daymark.exe').exists(),30)
     if integration:wait_for(lambda:read_registry() is None,30)
     assert (root/'personal.db').read_bytes()==b'synthetic uninstall preservation';assert snapshot()==before
+    # NSIS's initial uninstaller process exits before its extracted copy. Wait
+    # for its setup/runtime handles to close before QTemporaryDir removes work.
+    import ctypes
+    from ctypes import wintypes
+    kernel=ctypes.WinDLL('kernel32',use_last_error=True)
+    kernel.CreateFileW.argtypes=[wintypes.LPCWSTR,wintypes.DWORD,wintypes.DWORD,ctypes.c_void_p,wintypes.DWORD,wintypes.DWORD,wintypes.HANDLE]
+    kernel.CreateFileW.restype=wintypes.HANDLE;kernel.CloseHandle.argtypes=[wintypes.HANDLE]
+    def released():
+        for lock in [root.parent/('.'+root.name+'.daymark-setup.lock'),*(root/'update-state/locks').glob('*')]:
+            if not lock.is_file():continue
+            handle=kernel.CreateFileW(str(lock),0x80000000,0,None,3,0x80,None)
+            if handle==wintypes.HANDLE(-1).value:
+                if ctypes.get_last_error() in (2,3):continue
+                return False
+            kernel.CloseHandle(handle)
+        return True
+    wait_for(released,5)
     print('PASS: real NSIS Unicode/space path, pinned setup/uninstaller, registration='+str(integration)+', real Qt RUNNING, busy refusal, two repairs, schema10-to-11 migration/backup, old-program cleanup, uninstall with data preserved')
 if __name__=='__main__':main()

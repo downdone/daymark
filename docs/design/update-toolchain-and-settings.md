@@ -46,6 +46,8 @@ HIG用户控制、明确危险动作、渐进呈现及UX-09/11/13：确认写清
 
 真实临时签名bundle：运行中拒绝、取消零杀、确认终止、同名不同目录保留、活动job拒绝、结束后修复/数据保留。版本工具A→B→C、根入口分派、CLI/GUI身份、篡改/丢失拒绝、提交前失败旧工具保留、提交后故障恢复及清理。Qt设置原生键盘/七分类/账号管理入口/更新单一归属、无退出组/主侧栏按钮。所有资料临时合成；macOS/Linux跳过，物理读屏/DPI另记UNVERIFIED。
 
+实际NSIS验收沿`test_installer_flow`已有新装/修复/迁移/卸载链，Windows设置`DAYMARK_INSTALLER_ARTIFACT`为签名候选，再设置`DAYMARK_INSTALLER_INTERACTIVE_CLOSE=1`启用真实向导取消/确认路径。此模式要求没有现存Daymark卸载注册，强制`/NOINTEGRATION`并用QTemporaryDir；完成页取消运行勾选，只由夹具使用显式合成data-dir启动。校验取消时原进程存活、确认后结束及修复成功、两次操作后SQLite quick_check和合成任务均保留。不在macOS提供等价命令，未实现对应安装器。该选项是本地集成验收开关，不是生产强杀绕过参数。
+
 ## 11 自审
 
 通过后按切片实施。修订：不能把所有占用统一当作可强杀应用；不能原地替换正在运行的更新器；不能用工具升级绕过schema/ABI；不能假称旧客户端已具新协议。固定入口仍是信任/分派小内核，其协议或密码算法破坏性变化须兼容桥接或完整安装，不能承诺无限自升级。单代理自审，非独立评审。
@@ -55,3 +57,5 @@ HIG用户控制、明确危险动作、渐进呈现及UX-09/11/13：确认写清
 先设置入口与用户链，再安装确认与SDK/原生测试，最后版本工具链与真实更新集成。每片构建/受影响测试，完成后文档记录；本轮用户未指定新发行号，不覆盖3.0.2或自动推送发布。功能完成不等于公开安装包已更新。
 
 依据：[Microsoft TaskDialogIndirect](https://learn.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-taskdialogindirect)规定对话框所有者和取消结果；[TerminateProcess](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess)为异步终止，因此必须持句柄等待退出；[进程权限](https://learn.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights)采用最小查询/同步/终止权限，不请求全权限或提权。
+
+集成验收依据：[TDM_CLICK_BUTTON](https://learn.microsoft.com/en-us/windows/win32/controls/tdm-click-button)用于TaskDialog自定义按钮；[BM_CLICK](https://learn.microsoft.com/en-us/windows/win32/controls/bm-click)说明未激活对话框可能不响应模拟点击，因此后台QA发向自身向导的BN_CLICKED，不抢用户焦点。[NSIS3.13安装线程](https://github.com/NSIS-Dev/nsis/blob/v313/Source/exehead/Ui.c)与[nsExec等待实现](https://github.com/NSIS-Dev/nsis/blob/v313/Contrib/nsExec/nsexec.c)分别支持安装工作线程和同步等待边界的评审。

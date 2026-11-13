@@ -75,7 +75,9 @@ def repair_with_running_app(artifact, root, work, pid, confirm):
                 assert not process_exited(pid), 'application exited before confirmation'
                 # Custom TaskDialog button ID 101; IDCANCEL=2. The helper owns
                 # the dialog and NSIS wizard is its validated owner HWND.
-                assert user.PostMessageW(dialogs[0], 0x111, 101 if confirm else 2, 0)
+                # Use TaskDialog's documented message for custom buttons;
+                # WM_COMMAND only reliably handles the built-in Cancel route.
+                assert user.PostMessageW(dialogs[0], 0x466, 101 if confirm else 2, 0)  # TDM_CLICK_BUTTON
                 answered = True
             elif user.IsWindowEnabled(wizard) and (not answered or (confirm and process_exited(pid))):
                 next_button = user.GetDlgItem(wizard, 1)
@@ -91,10 +93,13 @@ def repair_with_running_app(artifact, root, work, pid, confirm):
                 # settling after Next; using that changing text as a page key
                 # would click the same page twice, unlike a user's navigation.
                 page = tuple(h for h, _, cls in controls if cls == '#32770')
-                if next_button and user.IsWindowEnabled(next_button) and page != last_page:
+                if page and next_button and label(next_button) and user.IsWindowEnabled(next_button) and page != last_page:
                     observed.append(label(next_button))
                     last_page = page
-                    assert user.PostMessageW(next_button, 0xF5, 0, 0)  # BM_CLICK
+                    # BM_CLICK may be ignored when another app owns activation.
+                    # Deliver the button's BN_CLICKED to this owned wizard;
+                    # desktop focus is neither required nor stolen by QA.
+                    assert user.PostMessageW(wizard, 0x111, 1, next_button)
             time.sleep(.05)
         assert child.poll() is not None, ('wizard deadline', observed, children(wizard))
         assert answered, ('no native running confirmation', observed)

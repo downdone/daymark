@@ -9,18 +9,20 @@
 已实现：
 
 - 设置新增稳定ID6账号与同步页：身份、同步状态/待传数量、立即同步及进入既有账号窗口；七分类/共享行控件、单活动Loader、键盘与滚动保持。移除普通/折叠侧栏更新按钮，更新仍在关于与帮助；删除常规的退出整组及信号，原托盘退出/关闭保存保护不变。
-- NSIS交互预检及实际安装前检查；目标应用运行时，静态原生helper通过TaskDialog询问，取消默认/Esc/关闭返回取消。确认后仅结束同安装可信索引的应用/空闲GUI、同用户、持有映像/创建时间校验的进程句柄，并等待退出；job/prepare/launch活动事务拒绝，SDK安装时再次取租约。静默不弹窗/不强杀，取消零结束。新增C816～C819稳定诊断，保留底层错误。
+- NSIS安装工作线程的解包前预检及SDK事务复检；目标应用运行时，静态原生helper通过TaskDialog询问，取消默认/Esc/关闭返回取消。确认后仅结束同安装可信索引的应用/空闲GUI、同用户、持有映像/创建时间校验的进程句柄，并等待退出；job/prepare/launch活动事务拒绝，SDK安装时再次取租约。静默不弹窗/不强杀，取消零结束。新增C816～C819稳定诊断，保留底层错误。
 - 固定根入口分派到`update-state/tools/<version-key>`，先验P-256种子签名、索引及EXE散列；CLI保留JSON stdout且只继承两只输出句柄，GUI转交即退出。准备同时验证不可变工具和payload，current共用提交；工具不原地覆盖，保留当前/上一套，历史清理只移除可信且未修改文件，占用延后。Qt交接仍验证管道/PID/创建时间并匹配当前选定CLI映像；不放宽数据schema11/ABI。native-toolchain-v1是显式必需能力，旧3.0.2首次接入需完整安装一次，之后兼容工具变更在线升级；不承诺密码算法/内核破坏性升级无需桥接。
 
 本地Qt6.10.2/MinGW Release构建、QML lint、字体/图标词表、诊断/107schema生成、原生宿主OS导入审计及14项发布守卫通过。后续生成项目自签名NSIS3.13本地候选，未导入Root信任；本地包与正式MSVC发布验收分开。
 
-真实安装向导验收进行中：初轮夹具用变化的文字识别页面导致重复点击，改为内部页窗口身份，并在模态期间禁止底层点击；第二轮暴露实际NSIS问题：页面PRE在UI线程同步nsExec等待helper，而有向导owner的TaskDialog创建需要父线程处理消息，互等且弹窗未呈现。已将预检移到安装工作线程、bundle解包前执行，SDK最终租约检查仍保留；将重建签名安装包验证。新增可选`DAYMARK_INSTALLER_INTERACTIVE_CLOSE=1`真实向导验收，QTemporaryDir合成任务/明确取消运行复选框、不注册快捷方式；首轮创建的测试注册/链接按精确目标清理。失败日志`build/upd09-installer-flow.txt`与`upd09-installer-flow-final.txt`保留，未延长预算、未冒称真实安装链通过。
+真实安装向导补验：初轮夹具用变化的文字识别页面导致重复点击，改为内部页窗口身份，并在模态期间禁止底层点击；第二轮暴露实际NSIS问题：页面PRE在UI线程同步nsExec等待helper，而有向导owner的TaskDialog创建需要父线程处理消息，互等且弹窗未呈现。预检移到安装工作线程、bundle解包前执行后，真实取消路径通过；SDK最终租约检查仍保留。随后修正夹具自定义按钮需用TDM_CLICK_BUTTON，以及修复安装会合法生成新install_id的过严断言（仍要求其他所有提交字段相同、取消字节零修改）。新增可选`DAYMARK_INSTALLER_INTERACTIVE_CLOSE=1`真实向导验收，QTemporaryDir合成任务/明确取消运行复选框、不注册快捷方式；首轮创建的测试注册/链接按精确目标清理。失败日志`build/upd09-installer-flow.txt`、`upd09-installer-flow-final.txt`、`upd09-installer-worker-flow.txt`、`upd09-installer-complete.txt`保留，没有延长预算。
+
+签名安装包绑定源码`ea136cde0801d477c76703777d23c5b6d8e17777`，本地`build/upd09-installer-worker/Daymark-3.0.2-windows-x64-setup-local.exe`，SHA256 `e21d87c46138cbea14fab1ca20b72b9e1412823d6ce8dbe2a59b5607a721e5aa`。最终真实完整NSIS验收 **3/3 PASS，47.312秒**（`build/upd09-installer-final-proof.txt`）：默认取消保留进程/提交，确认关闭后修复完成，Unicode/空格目录、固定pin签名及卸载器、隔离运行库Qt启动、合成任务quick_check/内容保留、静默占用拒绝、两次修复、schema10→11备份迁移、旧程序清理和卸载保留资料，临时目录无清理警告。先前48.894秒PASS曾有仅剩租约文件的清理警告；补充卸载提取子进程释放句柄的有界等待，期间后台欢迎页BM_CLICK失效（`upd09-installer-clean.txt`）后，改为仅发向本次向导的BN_CLICKED、不抢桌面焦点，最终通过。旧失败/警告日志均保留，未扩大预算。包仍是MinGW本地候选，非替换正式3.0.2。
 
 分层证据：原生Setup SDK/CNG事务及实际TaskDialog取消通过；确认结束目标实例，另一安装继续运行，活动job拒绝，关闭后修复成功，原有回滚/恢复/资料保留均保留。CNG模块验证根回退、A→B→C工具选择、篡改和上跳拒绝。原生更新链验证字节不同的新CLI被选中、JSON转发、EXE/元数据篡改拒绝、版本原生GUI打开/关闭且应用继续运行。真实Qt/SQLite临时包3.0.2→**测试专用3.0.3**链通过；仓库版本保持3.0.2，不是新发行。最终含版本GUI及许可文件的Qt链复核见下一段。
 
 探针修正记录：首轮相关8项7/8，Setup失败为截图夹具的Win32句柄类型/窗口呈现读取问题，修正后原生TaskDialog与进程链通过；绘制证据改用目标窗口PrintWindow并在测试线程适配DPI，避免桌面遮挡或裁剪。七分类布局后续失败category4中recog/system/backup都被找到，实际是已脱离窗口的退休Loader对象，不是页面同时呈现；只定位仍附着窗口的视觉项后布局及键盘账号路由通过21.36秒。测试版Qt版本参数首次因PowerShell引号、夹具动态路径连接优先级失败，分别修正参数/括号；未改预算或关键断言。首次失败日志均保留于`build/upd09-*`，不伪造首次全通过。
 
-完整本地CTest **53/53 PASS，470.88秒**，见`build/upd09-full.log`和`build/windows-release/upd09-full.xml`。收尾评审补充版本工具的update-licenses复制/校验及可信清理后，重建并重验受影响原生更新/安装/CNG **3/3 PASS，12.07秒**（`upd09-native-final.log`/`upd09-native-final.xml`）；再跑实际Qt/SQLite、签名工具/原生GUI/许可链 **PASS，11.89秒**（`upd09-real-complete.log`/`upd09-real-complete.xml`）。完整53项是许可补充前通过，补充后按影响范围回归，没有重复无关长链，也没有将不同阶段冒称同一次全通过。实际原生确认截图`build/upd09-close-confirm.png`、七分类账号截图`build/windows-release/title-layout-preview.settings-account-*.png`已审查。源码与文档已本地完成，未推送/打tag/发布；当前3.0.2资源不变。Linux/macOS按用户要求跳过，物理读屏/混合DPI及实际新NSIS安装器、正式MSVC发布仍UNVERIFIED。
+完整本地CTest **53/53 PASS，470.88秒**，见`build/upd09-full.log`和`build/windows-release/upd09-full.xml`。收尾评审补充版本工具的update-licenses复制/校验及可信清理后，重建并重验受影响原生更新/安装/CNG **3/3 PASS，12.07秒**（`upd09-native-final.log`/`upd09-native-final.xml`）；再跑实际Qt/SQLite、签名工具/原生GUI/许可链 **PASS，11.89秒**（`upd09-real-complete.log`/`upd09-real-complete.xml`）。完整53项是许可补充前通过，补充后按影响范围回归，没有重复无关长链，也没有将不同阶段冒称同一次全通过。实际原生确认截图`build/upd09-close-confirm.png`、七分类账号截图`build/windows-release/title-layout-preview.settings-account-*.png`已审查。源码与文档已本地完成，未推送/打tag/发布；当前3.0.2资源不变。Linux/macOS按用户要求跳过，物理读屏/混合DPI与正式MSVC新发行仍UNVERIFIED；本机新NSIS真实链结果见上文。
 
 ## 3.0.2 正式发行完成
 
