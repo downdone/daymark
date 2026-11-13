@@ -1,10 +1,25 @@
 # Daymark 当前进度
 
-更新：2026-11-13。**3.0.0 已发布 / schema11 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
+更新：2026-11-13。**3.0.2 已发布 / schema11 / HTTP JSON v1 / Qt6.10.2**。当前状态只维护在本页；原始过程、失败及修复保留于[历史记录](PROGRESS-HISTORY.md)。
 
-## 3.0.2 正式发行进行中
+## 3.0.2 正式发行完成
 
-用户确认修复后的完整版本改为3.0.2。保留3.0.1源码标签；已验证的探针修正及证据上传改动随新标签交付，不覆盖旧源码或程序资产。需求SET-02/BIZ-01/TEL-01及通知中心取消范围保持不变，任务schema11/同步协议不变，不部署或启用生产后台/采集。本轮按既有发布流程执行元数据/隐私检查、一次正式Windows候选完整CTest/QML lint、签名部署和公开安装及3.0.0→3.0.2真实更新。单实例CI首轮原因未定，保留原失败并通过新日志验证；不盲目重跑或放宽预算。最终发行证据完成后补录。
+用户确认完整发行改为3.0.2；3.0.1保留源码快照及失败记录，不覆盖旧标签/资产。SET-02设置六分类、BIZ-01业务后台及TEL-01可选择统计随本次源码交付，通知中心已取消。任务schema11/同步协议不变；没有部署或启用生产后台/采集，客户端统计默认OFF。
+
+- 正式源码 `8e9e35b3ee3246c4df1e8ffa0480aff5f391681c`，注释标签对象 `c737671da9074be52b7bd0bbd45b7b1f6a8cdbdb`。主分支检查 `43348266101`、源码发布 `43348265584`、账号与同步 `43348265906` 均通过，包含真实Qt↔Go TLS双设备联调。
+- [Windows候选43348265632](https://github.com/downdone/daymark/actions/runs/43348265632) Qt6.10.2开源Kit/MSVC2022编译、完整CTest **53/53 PASS，503.69秒**、QML lint、许可/CRT与打包守卫通过。标题栏UI6.62秒、单实例0.11秒；明确日志为单实例4/4、0失败/跳过。上一候选单实例的首次失败未再出现，原始原因仍未确定，不能声称修正其底层实现。未放宽预算/断言。
+- [受保护发行43351405604](https://github.com/downdone/daymark/actions/runs/43351405604) 签名、独立Windows部署、安装包生成及发布全部通过。清除开发Qt路径后启动两个实际窗口，版本3.0.2、QML warnings=false；原生平台几何警告保留，不宣称整个进程零警告。
+- 同一发行自动并行的**公开安装验收PASS，46.832秒，3/3**：匿名下载安装包、固定指纹验签、Unicode/空格路径、真实Qt启动、忙碌拒绝、两次修复、schema10→11备份迁移、旧程序清理、卸载保留资料。**公开3.0.0→3.0.2升级PASS，17.446秒**：正式编译信任/匿名GitHub、自动准备、Qt保存退出/重启、持久提交/运行、新旧运行库审计、旧程序删除、未知/已修改文件及合成SQLite保留，fixtureOverrides=false。使用临时合成资料，未操作真实任务库。
+
+[Release 443722342](https://github.com/downdone/daymark/releases/tag/v3.0.2)共7个正式资产：安装EXE、便携ZIP、两份单包SHA256、汇总校验、更新清单及独立签名。公开安装报告的散列、更新报告的目标asset/source与API身份一致：
+
+| 资产 | ID / 字节 | SHA256 |
+|---|---|---|
+| Daymark-3.0.2-windows-x64-setup.exe | 741944735 / 43753288 | `b01df2f34673ae8167c644c28cff79bd593924a7c9faea3f35ed52da41b78fd7` |
+| Daymark-3.0.2-windows-x64.zip | 741944730 / 44651520 | `8e88455e3a130f37302b9e47c07a3b5edfc1bbb75509457c0fb36fd239ab99ec` |
+| update-windows-x64.json | 741944795 / 878 | `2ef4433a41fba44037b992caabe68c452e86b537bfe08dd2390f3881c90f44c5` |
+
+已保存本机忽略证据：`build/settings302-ci-evidence/`、`settings302-deployment-proof/`、`settings302-public-installer-proof/`、`settings302-public-update-proof/`和`settings302-release-assets.json`。所有发布程序沿用户授权项目自签名，不建立Windows公共发布者信任。macOS/Linux按用户要求跳过；物理混合DPI/读屏/最低Windows实机及长期容量仍UNVERIFIED。本轮发行没有恢复通知中心、自动启用采集、部署业务后台或提交无关草案/build-request。
 
 ## SET-02 / 3.0.1 设置重组与发布；NC-01取消
 

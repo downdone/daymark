@@ -59,7 +59,7 @@ SettingsDialog负责导航、标题、滚动恢复/焦点与页面装配；常�
 
 复用Qt用户链：六分类在浅深、窄宽、100/200%和标题栏模式切换下的稳定布局；键盘顺序/Home/End/Esc、重开滚动；任务识别/系统提醒、备份周期保存、数据工具/帮助跳转、统计默认关闭/重试与日志可达。默认/禁用状态通过实际QML控件验证，许可/任务规则仍由原组件及Qt↔Go链负责。
 
-开发先构建和相关`title_bar_layout`、`desktop_surfaces`、`telemetry_privacy`/工作区用户链；候选按既有正式Windows CI完整CTest/QML lint、签名/安装/公开升级验收，不重复无关长链或改超时掩盖问题。macOS/Linux按用户指示跳过；物理DPI/读屏不由截图冒称。
+开发先构建和相关`title_bar_ui`、`title_bar_layout`、`desktop_surfaces`、`telemetry_privacy`/工作区用户链；候选按既有正式Windows CI完整CTest/QML lint、签名/安装/公开升级验收，不重复无关长链或改超时掩盖问题。macOS/Linux按用户指示跳过；物理DPI/读屏不由截图冒称。
 
 ## 11 自审与准入
 
