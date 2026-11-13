@@ -9,8 +9,10 @@ def read_registry():
     except FileNotFoundError:return None
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--artifact',type=Path,required=True);p.add_argument('--work',type=Path,required=True);p.add_argument('--repo',type=Path,required=True);a=p.parse_args()
-    root=a.work/'安装目录 with spaces';profile=a.work/'isolated-profile';integration=read_registry() is None
+    p=argparse.ArgumentParser();p.add_argument('--artifact',type=Path,required=True);p.add_argument('--work',type=Path,required=True);p.add_argument('--repo',type=Path,required=True);p.add_argument('--interactive-close',action='store_true');a=p.parse_args()
+    # Interactive repair must never be redirected to a real registered install.
+    if a.interactive_close:assert read_registry() is None,'interactive test requires no existing Daymark registration'
+    root=a.work/'安装目录 with spaces';profile=a.work/'isolated-profile';integration=read_registry() is None and not a.interactive_close
     def install(expected=0):
         # NSIS requires /D as an unquoted, final command-line tail.
         command='"'+str(a.artifact.resolve())+'" /S '+('' if integration else '/NOINTEGRATION ')+'/D='+str(root)
@@ -59,7 +61,21 @@ def main():
     pin=json.loads((a.repo/'config/authenticode-policy.json').read_text())['certificate_sha256']
     subprocess.run(['pwsh','-NoProfile','-File',str(a.repo/'scripts/Verify-WindowsExecutable.ps1'),'-Executable',str(root/'Uninstall.exe'),'-CertificateSha256',pin],check=True,timeout=30)
     pid=launch()
-    try:install(1)
+    try:
+        install(1)
+        if a.interactive_close:
+            import sqlite3
+            from installer_ui_fixture import repair_with_running_app
+            database=profile/'daymark.sqlite'
+            with sqlite3.connect(database) as db:
+                db.execute("INSERT INTO tasks(id,title,created_at_utc,updated_at_utc) VALUES(?,?,?,?)",('force-close-preservation','Synthetic force-close preservation','2026-11-13T00:00:00.000Z','2026-11-13T00:00:00.000Z'))
+            current=(root/'current.json').read_bytes()
+            for confirm in (False,True):
+                repair_with_running_app(a.artifact,root,a.work,pid,confirm)
+                assert (root/'current.json').read_bytes()==current
+                with sqlite3.connect(database) as db:
+                    assert db.execute('PRAGMA quick_check').fetchone()[0]=='ok'
+                    assert db.execute("SELECT title FROM tasks WHERE id='force-close-preservation'").fetchone()[0]=='Synthetic force-close preservation'
     finally:stop_owned(root,pid)
     # Emulate an existing schema10 profile before manual reinstall. The real new
     # Qt app must migrate it after the signed installer has replaced the hosts.

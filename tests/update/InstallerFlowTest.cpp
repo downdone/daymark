@@ -1,4 +1,5 @@
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QTemporaryDir>
 #include <QtTest>
 class InstallerFlowTest final : public QObject {
@@ -11,11 +12,16 @@ private slots:
     QTemporaryDir work;
     QVERIFY(work.isValid());
     QProcess process;
+    auto environment = QProcessEnvironment::systemEnvironment();
+    environment.insert("PYTHONIOENCODING", "utf-8");
+    process.setProcessEnvironment(environment);
     process.setProcessChannelMode(QProcess::MergedChannels);
-    process.start(QStringLiteral(DAYMARK_TEST_PYTHON),
-                  {QStringLiteral(DAYMARK_INSTALLER_FLOW_SCRIPT), "--artifact",
+    QStringList arguments{QStringLiteral(DAYMARK_INSTALLER_FLOW_SCRIPT), "--artifact",
                    artifact, "--work", work.path(), "--repo",
-                   QStringLiteral(DAYMARK_TEST_REPO)});
+                   QStringLiteral(DAYMARK_TEST_REPO)};
+    if (qEnvironmentVariable("DAYMARK_INSTALLER_INTERACTIVE_CLOSE") == "1")
+      arguments.append("--interactive-close");
+    process.start(QStringLiteral(DAYMARK_TEST_PYTHON), arguments);
     QVERIFY(process.waitForStarted());
     const bool finished = process.waitForFinished(240000);
     const auto output = process.readAll();

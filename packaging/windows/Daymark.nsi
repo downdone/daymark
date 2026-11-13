@@ -28,7 +28,6 @@ VIAddVersionKey "LegalCopyright" "Daymark Contributors"
 !insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_COMPONENTS
-!define MUI_PAGE_CUSTOMFUNCTION_PRE CheckRunning
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !define MUI_UNCONFIRMPAGE_TEXT_TOP "将删除 Daymark 程序与快捷方式。个人任务、账号资料以及您添加或修改的文件会保留。请先从托盘退出 Daymark。"
@@ -84,12 +83,16 @@ Function CheckRunning
 FunctionEnd
 Section "Daymark（必需）" SecCore
   SectionIn RO
+  ; Sections run on the install worker. A page PRE callback runs on the UI
+  ; thread: nsExec waits without pumping messages, so a helper-owned TaskDialog
+  ; with the wizard as owner would deadlock while enabling/disabling its owner.
+  ; Check before extracting the bundle; the SDK rechecks leases at commit.
+  Call CheckRunning
   InitPluginsDir
   SetOutPath "$PLUGINSDIR\bundle"
   File /r "${BUNDLE_DIR}\*"
   SetOutPath "$PLUGINSDIR"
   File /oname=setup-helper.exe "${HELPER_FILE}"
-  Call CheckRunning
   DetailPrint "校验签名并安装程序…"
   nsExec::ExecToStack '"$PLUGINSDIR\setup-helper.exe" install --source "$PLUGINSDIR\bundle" --root "$INSTDIR"'
   Pop $0
