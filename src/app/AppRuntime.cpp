@@ -4,6 +4,7 @@
 #include "Ux37SmokeProbe.h"
 #include "Ux38SmokeProbe.h"
 #include "TimeInputSmokeProbe.h"
+#include "WidgetWorkflowProbe.h"
 #include "WidgetPointerSmokeProbe.h"
 #include "ObjectAuditProbe.h"
 #include "PickerLifecycleProbe.h"
@@ -293,6 +294,12 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
         auto* timer=new QTimer(&m_engine);timer->setInterval(250);
         QObject::connect(timer,&QTimer::timeout,&m_engine,[this,test,timer]{const auto result=test->advance();if(result.isEmpty())return;timer->stop();if(result=="DONE"){m_verificationCompleted=true;qInfo()<<"PASS: WID08 actual QML Mini click and pointer routing";QCoreApplication::exit(m_qmlWarnings?3:0);}else{qCritical()<<result;QCoreApplication::exit(3);}});
         timer->start();QTimer::singleShot(10000,&m_engine,[]{QCoreApplication::exit(3);});return true;
+    }
+    if(smokeTest && smokeProfile==QStringLiteral("widget-workflow")) {
+        auto test=std::make_shared<WidgetWorkflowProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath);
+        auto* timer=new QTimer(&m_engine);timer->setInterval(200);
+        QObject::connect(timer,&QTimer::timeout,&m_engine,[this,test,timer]{const auto result=test->advance();if(result.isEmpty())return;timer->stop();if(result=="DONE"){m_verificationCompleted=true;qInfo()<<"PASS: unified widget workflows";QCoreApplication::exit(m_qmlWarnings?3:0);}else{qCritical()<<result;QCoreApplication::exit(3);}});
+        timer->start();QTimer::singleShot(25000,&m_engine,[]{QCoreApplication::exit(3);});return true;
     }
     if(smokeTest && smokeProfile==QStringLiteral("time-input")) {
         auto test=std::make_shared<TimeInputSmokeProbe>(m_workspace,m_widget,mainWindow,widgetWindow,screenshotPath);
@@ -1485,15 +1492,13 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     else if(phase==92){
                         auto* tasks=widget->findChild<QQuickItem*>(QStringLiteral("widgetTasks"));
                         auto* collapse=widget->findChild<QQuickItem*>(QStringLiteral("widgetCollapse"));
-                        auto* pin=widget->findChild<QQuickItem*>(QStringLiteral("widgetPin"));
+                        auto* normal=widget->findChild<QObject*>(QStringLiteral("widgetNormalLayer"));
+                        auto* topmost=widget->findChild<QObject*>(QStringLiteral("widgetTopmostLayer"));
                         const bool wasPinned=m_widget.alwaysOnTop();
-                        if(!pin || pin->width()<32 || pin->height()<32 || pin->mapToScene(QPointF(0,0)).x()<0
-                           || pin->mapToScene(QPointF(pin->width(),pin->height())).x()>widget->width()
-                           || pin->mapToScene(QPointF(pin->width(),pin->height())).y()>widget->height()
-                           || pin->property("checked").toBool()!=wasPinned
-                           || !QMetaObject::invokeMethod(pin,"clicked") || m_widget.alwaysOnTop()==wasPinned
-                           || pin->property("checked").toBool()!=m_widget.alwaysOnTop()
-                           || !QMetaObject::invokeMethod(pin,"clicked") || m_widget.alwaysOnTop()!=wasPinned){fail("floating pin toggle and state");return;}
+                        if(!normal || !topmost || topmost->property("checked").toBool()!=wasPinned
+                           || !QMetaObject::invokeMethod(wasPinned?normal:topmost,"triggered") || m_widget.alwaysOnTop()==wasPinned
+                           || topmost->property("checked").toBool()!=m_widget.alwaysOnTop()
+                           || !QMetaObject::invokeMethod(wasPinned?topmost:normal,"triggered") || m_widget.alwaysOnTop()!=wasPinned){fail("floating layer menu toggle and state");return;}
                         if(!tasks || tasks->height()<120 || !collapse || collapse->height()<32 || collapse->height()>40 || collapse->mapToScene(QPointF(collapse->width(),0)).x()>widget->width() || !widgetCapture(QStringLiteral("compact-widget-200")) || !QMetaObject::invokeMethod(collapse,"clicked")){fail("compact large widget layout");return;}
                     } else if(phase==93){
                         auto* expand=widget->findChild<QQuickItem*>(QStringLiteral("widgetMiniSummary"));

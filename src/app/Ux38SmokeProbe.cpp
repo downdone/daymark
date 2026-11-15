@@ -253,10 +253,10 @@ QString Ux38SmokeProbe::advance() {
         return m_stage==257 ? "DONE" : QString();
     }
     if(m_stage<=74){
-    if(m_stage==0){m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",false);m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_workspace.setView("today");m_workspace.setPreference("desktopCalendarVisible",true);m_controller.setMini(false);m_controller.setVisible(true);m_widget->resize(340,360);}
+    if(m_stage==0){m_workspace.setWidgetShowShortcuts(false);m_controller.setPanelSidebarWidth(0);m_workspace.setPreference("followSystemAccessibility",false);m_workspace.setPreference("reduceMotion",false);m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_workspace.setView("today");m_workspace.setPreference("desktopCalendarVisible",true);m_controller.setMini(false);m_controller.setVisible(true);m_widget->resize(340,360);}
     if(m_stage==1){if(!calendar->isVisible() || !m_widget->isVisible() || !layout() || list->property("interactive").toBool() || !capture(m_widget,"empty"))return fail("empty state and coexistence");m_workspace.createForTime(QStringLiteral("讨论方案与下一步安排"),m_workspace.dateOffset(0),540);}
     if(m_stage==2){if(m_workspace.todayTasks()->rowCount()!=1)return fail("today fixture");m_task=m_workspace.todayTasks()->items().first().id;m_workspace.createSubtask(QStringLiteral("准备评审材料"),m_task);}
-    if(m_stage==3){auto* row=find(m_widget,"widgetTask-"+m_task);if(!row || row->property("summary").toString().isEmpty() || row->property("subtaskTotal").toInt()!=1 || !layout() || !capture(m_widget,"today-light") || !capture(calendar,"calendar-light"))return fail("shared schedule and relationship");click("widgetPin");}
+    if(m_stage==3){auto* row=find(m_widget,"widgetTask-"+m_task);if(!row || row->property("summary").toString().isEmpty() || row->property("subtaskTotal").toInt()!=1 || !layout() || !capture(m_widget,"today-light") || !capture(calendar,"calendar-light"))return fail("shared schedule and relationship");QMetaObject::invokeMethod(find(m_widget,"widgetNormalLayer"),"triggered");}
     if(m_stage==4){if(m_controller.alwaysOnTop())return fail("unpin");m_widgetModeGeometry=m_widget->geometry();m_widgetModeCollapse=qobject_cast<QQuickItem*>(find(m_widget,"widgetCollapse"))->mapToScene(QPointF());m_widgetModeMore=qobject_cast<QQuickItem*>(find(m_widget,"widgetMore"))->mapToScene(QPointF());click("widgetCollapse");}
     if(m_stage==5){if(!m_controller.mini() || !layout() || !capture(m_widget,"mini-light"))return fail("mini summary");const auto more=qobject_cast<QQuickItem*>(find(m_widget,"miniMore"))->mapToScene(QPointF());if(m_controller.miniRect().width()!=m_controller.miniWidth() || m_widget->position()!=m_widgetModeGeometry.topLeft() || QLineF(more,m_widgetModeMore).length()>1 || !find(m_widget,"widgetMiniGrip"))return fail("Mini independent width and dedicated drag slot");click("widgetMiniSummary");}
     if(m_stage==6){if(m_controller.mini() || m_controller.panelRect().size()!=QSize(340,360))return fail("single click restores floating geometry");m_controller.setLocked(true);m_controller.setMini(true);}
@@ -318,9 +318,9 @@ QString Ux38SmokeProbe::advance() {
     if(m_stage==36){if(find(m_widget,"widgetMiniTitle")->property("truncated").toBool())return fail("short mini tooltip fixture");hover(m_widget,"widgetMiniSummary");}
     if(m_stage==37){if(m_wait.elapsed()<750)return {};if(hint(m_widget).value("visible").toBool())return fail("complete mini title repeats tooltip");hover(m_widget,"miniMore");}
     if(m_stage==38){if(m_wait.elapsed()<750)return {};if(hint(find(m_widget,"miniMore")).value("visible").toBool())return fail("obvious expand arrow tooltip");expandWithKey(Qt::Key_Return);}
-    if(m_stage==39){hover(m_widget,"widgetPin");}
-    if(m_stage==40){if(m_wait.elapsed()<750)return {};auto* pin=qobject_cast<QQuickItem*>(find(m_widget,"widgetPin"));const auto help=hint(pin);if(!help.value("visible").toBool())return fail("necessary pin action hint absent");if(QRectF(0,0,pin->width(),pin->height()).intersects(QRectF(help.value("x").toDouble(),help.value("y").toDouble(),help.value("width").toDouble(),help.value("height").toDouble())))return fail("tooltip overlaps source operation");for(const auto& name:{"widgetMore","miniMore"})if(find(m_widget,name)->property("hintEnabled").toBool())return fail("standard action tooltip admitted");if(find(m_main,"pageOptionsAction")->property("hintEnabled").toBool())return fail("options menu tooltip admitted");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
-    if(m_stage==41){if(hint(find(m_widget,"widgetPin")).value("visible").toBool())return fail("menu did not dismiss current tooltip");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_workspace.saveCatalog({{"kind","project"},{"title","123"}});}
+    if(m_stage==39){hover(m_widget,"widgetMore");}
+    if(m_stage==40){if(m_wait.elapsed()<750)return {};if(find(m_widget,"widgetPin"))return fail("infrequent layer control returned to header");if(!find(m_widget,"widgetNormalLayer") || !find(m_widget,"widgetTopmostLayer"))return fail("window layer menu routes missing");for(const auto& name:{"widgetMore","miniMore"})if(find(m_widget,name)->property("hintEnabled").toBool())return fail("standard action tooltip admitted");if(find(m_main,"pageOptionsAction")->property("hintEnabled").toBool())return fail("options menu tooltip admitted");QMetaObject::invokeMethod(m_widget,"openVerificationMenu");}
+    if(m_stage==41){if(hint(find(m_widget,"widgetMore")).value("visible").toBool())return fail("obvious menu tooltip admitted");QMetaObject::invokeMethod(m_widget,"closeVerificationMenu");m_workspace.saveCatalog({{"kind","project"},{"title","123"}});}
     if(m_stage==42){m_workspace.saveCatalog({{"kind","project"},{"title",QStringLiteral("这是需要截断显示并且应该恢复完整名称的分类验收")}});}
     if(m_stage==43){for(const auto& value:m_workspace.categoryTree()){const auto row=value.toMap();if(row.value("title")=="123")m_shortCategory=row.value("id").toString();else if(row.value("title").toString().startsWith(QStringLiteral("这是需要截断")))m_longCategory=row.value("id").toString();}if(m_shortCategory.isEmpty() || m_longCategory.isEmpty())return fail("catalog hint fixtures");m_main->requestActivate();m_main->grabWindow();capture(m_main,"category-hints");hover(find(m_main,"categoryNav-"+m_shortCategory),"navigationLabel");}
     if(m_stage==44){if(m_wait.elapsed()<750)return {};if(hint(find(m_main,"categoryNav-"+m_shortCategory)).value("visible").toBool())return fail("short category repeats visible name");m_main->grabWindow();auto* row=find(m_main,"categoryNav-"+m_longCategory);auto* label=find(row,"navigationLabel");if(!label->property("truncated").toBool()){if(m_wait.elapsed()<1800)return {};qCritical()<<"Long hint geometry"<<label->property("width")<<label->property("text")<<label->property("visible")<<label->property("contentWidth")<<m_main->size();capture(m_main,"category-failure");return fail("long category fixture not truncated");}hover(row,"navigationLabel");}
@@ -1209,7 +1209,7 @@ QString Ux38SmokeProbe::advanceCategories()
         if(m_categoryOther.isEmpty() || !m_workspace.setWidgetContext(m_categoryChild) || !m_workspace.createWidgetTask(QStringLiteral("后续方案"),m_categoryChild,false,m_workspace.widgetProfileToken()))return fail("unscheduled category task");
     }
     if(m_stage==264){if(m_workspace.widgetTasks()->rowCount()!=1)return fail("unscheduled task projection");m_categoryCreated=m_workspace.widgetTasks()->taskIdAt(0);if(!m_workspace.createWidgetTask(QStringLiteral("当天交付"),m_categoryChild,true,m_workspace.widgetProfileToken()))return fail("today category task");}
-    if(m_stage==265){if(!m_workspace.setWidgetContext("today"))return fail("Today entry fixture");m_widget->grabWindow();m_categoryHost=m_widget->geometry();click("widgetCategoryButton");}
+    if(m_stage==265){if(!m_workspace.setWidgetContext("today"))return fail("Today entry fixture");m_widget->grabWindow();m_categoryHost=m_widget->geometry();click(m_controller.panelSidebarWidth()>0?"widgetRailCategories":"widgetCategoryButton");}
     if(m_stage==266){
         auto* page=qobject_cast<QQuickItem*>(find(m_widget,"widgetCategoryPage"));
         if(!page || !page->isVisible() || find(m_widget,"widgetTasks")->property("enabled").toBool() || m_widget->geometry()!=m_categoryHost)return fail("same-window opaque picker and stable geometry");
@@ -1226,7 +1226,7 @@ QString Ux38SmokeProbe::advanceCategories()
         if(m_workspace.widgetContext()!="today" || !input->property("text").toString().isEmpty())return fail("save old draft before changing context");
         const auto choices=m_workspace.eventTaskChoices(QStringLiteral("切换前输入"));if(choices.size()!=1)return fail("draft created once");const auto task=m_workspace.task(choices.first().toMap().value("taskId").toString());
         if(task.value("projectId").toString()!=m_categoryChild.mid(8) || !task.value("startOn").toString().isEmpty())return fail("draft keeps original ownership and date");
-        input->setProperty("text",QString(513,QLatin1Char('x')));click("widgetCategoryButton");search->setProperty("text",QStringLiteral("生活安排"));
+        input->setProperty("text",QString(513,QLatin1Char('x')));click(m_controller.panelSidebarWidth()>0?"widgetRailCategories":"widgetCategoryButton");search->setProperty("text",QStringLiteral("生活安排"));
     }
     if(m_stage==270){click("widgetCategoryChoice-"+m_categoryOther);}
     if(m_stage==271){
@@ -1245,7 +1245,7 @@ QString Ux38SmokeProbe::advanceCategories()
     }
     if(m_stage==275){
         if(m_workspace.widgetCategoryToday() || m_workspace.widgetTasks()->rowCount()!=3)return fail("settings keyboard selects all unfinished");
-        auto* settings=find(m_main,"settingsDialog");if(!capture(qobject_cast<QQuickWindow*>(settings),"categories-setting"))return fail("category setting capture");QMetaObject::invokeMethod(settings,"close");m_main->hide();m_widget->requestActivate();click("widgetCategoryButton");search->setProperty("text",QStringLiteral("生活安排"));
+        auto* settings=find(m_main,"settingsDialog");if(!capture(qobject_cast<QQuickWindow*>(settings),"categories-setting"))return fail("category setting capture");QMetaObject::invokeMethod(settings,"close");m_main->hide();m_widget->requestActivate();click(m_controller.panelSidebarWidth()>0?"widgetRailCategories":"widgetCategoryButton");search->setProperty("text",QStringLiteral("生活安排"));
     }
     if(m_stage==276){if(!m_widget->property("categoryPickerOpen").toBool())return fail("picker remains open after settings dismissal");click("widgetCategoryPin-"+m_categoryOther);}
     if(m_stage==277){
@@ -1278,7 +1278,7 @@ QString Ux38SmokeProbe::advanceCategories()
         if(m_workspace.widgetContext()!=m_categoryChild || m_controller.selectedForm()!=1 || (m_controller.enabledForms()&1)!=0)return fail("compact selection preserves disabled Panel");
         m_controller.setFormEnabled(0,true);m_controller.selectForm(0);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_widget->resize(260,760);m_widget->requestActivate();
     }
-    if(m_stage==283){if(!layout() || !capture(m_widget,"categories-panel-dark-200"))return fail("narrow large-text category panel");click("widgetCategoryButton");}
+    if(m_stage==283){if(!layout() || !capture(m_widget,"categories-panel-dark-200"))return fail("narrow large-text category panel");click(m_controller.panelSidebarWidth()>0?"widgetRailCategories":"widgetCategoryButton");}
     if(m_stage==284){
         auto* item=qobject_cast<QQuickItem*>(search);if(!m_widget->property("categoryPickerOpen").toBool() || !item->isVisible() || item->width()<80 || !capture(m_widget,"categories-picker-dark-200"))return fail("narrow large-text picker and search remain usable");
         m_workspace.setWidgetShowShortcuts(false);m_widget->requestActivate();item->forceActiveFocus(Qt::ShortcutFocusReason);key(m_widget,Qt::Key_Escape);

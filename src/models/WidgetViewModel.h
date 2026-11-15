@@ -20,6 +20,7 @@ class WidgetViewModel final : public QObject {
     QML_ELEMENT
     QML_UNCREATABLE("Owned by AppRuntime")
     Q_PROPERTY(QRect panelRect READ panelRect NOTIFY stateChanged)
+    Q_PROPERTY(int panelSidebarWidth READ panelSidebarWidth NOTIFY stateChanged)
     Q_PROPERTY(QRect miniRect READ miniRect NOTIFY stateChanged)
     Q_PROPERTY(QRect ballRect READ ballRect NOTIFY stateChanged)
     Q_PROPERTY(bool ready READ ready NOTIFY stateChanged)
@@ -56,6 +57,7 @@ public:
     explicit WidgetViewModel(IWindowPlatform& platform, QObject* parent = nullptr);
     bool attachWindow(QWindow* window);
     QRect panelRect() const {return m_layout.forms[0];}
+    int panelSidebarWidth() const {return qMax(0,formSize(0).width()-m_floatingSize.expandedTo(m_panelMinimum).width());}
     QRect miniRect() const {return m_layout.forms[1];}
     QRect ballRect() const {return m_layout.forms[2];}
     bool ready() const { return !m_window.isNull(); }
@@ -104,6 +106,7 @@ public:
     Q_INVOKABLE void finishTransition(int id);
     Q_INVOKABLE void presentTransition(int id);
     Q_INVOKABLE void setPanelMinimumSize(int width,int height);
+    Q_INVOKABLE void setPanelSidebarWidth(int width);
     Q_INVOKABLE void resizePanel(const QPointF& globalPosition);
     Q_INVOKABLE void setRevealRegion(const QRect& rectangle, double radius = 22);
     Q_INVOKABLE void finishMove();
@@ -146,6 +149,7 @@ private:
     IWindowPlatform& m_platform;
     QPointer<QWindow> m_window;
     QSize m_floatingSize{340, 190},m_panelMinimum{260,190};
+    int m_panelSidebarWidth=0;
     WidgetCanvasLayout m_layout;
     std::shared_ptr<WidgetFrameFence> m_frameFence;
     int m_surfaceEpoch=0;

@@ -45,6 +45,31 @@ public:
 class WidgetWindowTest : public QObject {
     Q_OBJECT
 private slots:
+    void categoryRailToggleCapturesPendingUserResize() {
+        QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;window.setGeometry(100,100,340,400);
+        QVERIFY(model.attachWindow(&window));model.enableVisualTransitions();model.setPanelSidebarWidth(104);
+        const auto body=model.panelRect().width()-model.panelSidebarWidth();
+        window.resize(window.width()+40,window.height());
+        model.setPanelSidebarWidth(0);
+        QCOMPARE(model.panelRect().width(),body+40);
+    }
+    void categoryRailKeepsBodySizeAndSurvivesGeometryCapture() {
+        QTemporaryDir dir;RejectingPlatform platform;WidgetViewModel model(platform);
+        QWindow window;window.setGeometry(100,100,340,400);
+        model.configureSettings(dir.filePath("widget.ini"));
+        QVERIFY(model.attachWindow(&window));model.enableVisualTransitions();
+        const auto body=model.panelRect().size();const auto mini=model.miniRect().size();
+        model.setPanelSidebarWidth(104);
+        QCOMPARE(model.panelRect().size(),body+QSize(104,0));
+        QCOMPARE(model.miniRect().size(),mini);
+        model.saveSettings();
+        QSettings settings(dir.filePath("widget.ini"),QSettings::IniFormat);
+        QCOMPARE(settings.value("widget/v2/panelSize").toSize(),body);
+        for(int i=0;i<3;++i){model.setPanelSidebarWidth(0);QCOMPARE(model.panelRect().size(),body);model.setPanelSidebarWidth(104);}
+        model.setPanelSidebarWidth(0);QCOMPARE(model.panelRect().size(),body);
+        platform.rejectResize=true;model.setPanelSidebarWidth(104);
+        QCOMPARE(model.panelSidebarWidth(),0);QCOMPARE(model.panelRect().size(),body);
+    }
     void pointerMoveKeepsLayerAndFinishesWhenLocked() {
         QWindow window;QtWindowPlatform platform;WidgetViewModel model(platform);model.attachWindow(&window);model.setVisible(true);
         QVERIFY(model.setAlwaysOnTop(true));const auto origin=window.position();

@@ -1,4 +1,3 @@
-#include "ReminderPresentation.h"
 #include <QScreen>
 #include "TaskWorkspace.h"
 #include "telemetry/Telemetry.h"
@@ -12,6 +11,7 @@
 #include "persistence/SqliteDatabase.h"
 #include "persistence/TaskRepository.h"
 #include "services/TaskService.h"
+#include "services/ActivityExtraction.h"
 #include "services/CalendarService.h"
 #include "services/EventService.h"
 #include "services/RecurrenceService.h"
@@ -628,6 +628,40 @@ bool TaskWorkspace::createWidgetTask(const QString& title,const QString& context
     const auto options=recognitionOptions(m_preferences);
     return runTask(QStringLiteral("widgetCreate"),[title,context,todayOnly,options,ignoreTime,manual=selected.value](TaskWorker& w){return w.service->createFromInput(title,context,options,ignoreTime,todayOnly && context!=QStringLiteral("today")?w.clock.localToday():QDate(),manual);});
 }
+QVariantMap TaskWorkspace::previewActivityInput(const QString& text) const
+{
+    const auto result=ActivityExtraction::preview(text,m_clock.nowUtc(),QTimeZone::systemTimeZone());
+    return {{"format",1},{"source",QStringLiteral("offline")},{"valid",result.ok()},{"candidates",result.value},{"error",result.ok()?QString():tr("请输入1至8192字、最多32段的活动文本。")}};
+}
+bool TaskWorkspace::createActivityTasks(const QVariantList& candidates,const QString& context,const QString& profileToken)
+{
+    if(profileToken!=m_widgetProfileToken || !m_ready || candidates.isEmpty() || candidates.size()>32){
+        m_error={ErrorCode::ValidationError,QStringLiteral("taskInputInvalid")};emit stateChanged();return false;
+    }
+    if(context!=QStringLiteral("inbox") && context!=QStringLiteral("today") && std::none_of(m_widgetCatalog.cbegin(),m_widgetCatalog.cend(),[&](const QVariant& value){return value.toMap().value("key")==context;})){
+        m_widgetNotice=tr("输入所属分类已不可用，内容尚未保存。");emit widgetBrowseChanged();return false;
+    }
+    QList<QPair<QString,TaskPatch>> commands;
+    const auto base=TaskService::draftForScope(context==QStringLiteral("today")?QStringLiteral("inbox"):context,m_today);
+    for(const auto& value:candidates){
+        const auto item=value.toMap();if(!item.value("selected").toBool())continue;
+        if(!item.value("issue").toString().isEmpty()){m_error={ErrorCode::ValidationError,QStringLiteral("timeInputNeedsChoice")};emit stateChanged();return false;}
+        const auto start=item.value("startOn").toString(),end=item.value("endOn").toString();
+        QVariantMap details{{"projectId",base.projectId},{"areaId",base.areaId}};
+        const auto startTime=item.value("startTime").toString(),endTime=item.value("endTime").toString();
+        if(!end.isEmpty() || !startTime.isEmpty() || !endTime.isEmpty())details["schedule"]=QVariantMap{{"allDay",startTime.isEmpty() && endTime.isEmpty()},{"startDate",start},{"endDate",end.isEmpty()?start:end},{"startTime",startTime},{"endTime",endTime},{"zone",systemTimeZone()},{"alertMinutes",-1}};
+        const auto title=item.value("title").toString(),notes=item.value("notes").toString();
+        if(title.trimmed().isEmpty() || title.toUcs4().size()>512){m_error={ErrorCode::ValidationError,QStringLiteral("titleInvalid")};emit stateChanged();return false;}
+        TaskPatch patch;
+        if(!prepareTaskPatch({},title,notes,QStringLiteral("ACTIVE"),start,item.value("deadlineOn").toString(),false,details,patch))return false;
+        commands.append({title,patch});
+    }
+    if(commands.isEmpty())return false;
+    return runCatalog([commands](TaskWorker& worker){return worker.repository->atomically([&]{
+        for(const auto& command:commands){const auto created=worker.service->createWithDetails(command.first,command.second);if(!created.ok())return Result<void>{created.error};}
+        return Result<void>{};
+    });},QStringLiteral("activityCreate"));
+}
 bool TaskWorkspace::canDropWidgetTask(const QString& source,const QString& target) const
 {
     if(widgetTaskIndex(source)<0 || widgetTaskIndex(target)<0)return false;
@@ -682,35 +716,6 @@ bool TaskWorkspace::moveTodayTask(const QString& id,int direction)
     return false;
 }
 
-QRect TaskWorkspace::reminderPopupArea() const
-{
-    const auto* screen=QGuiApplication::primaryScreen();return screen?screen->availableGeometry():QRect(0,0,800,600);
-}
-void TaskWorkspace::loadReminderPresentation()
-{
-    m_reminderCandidates.clear();m_reminderPresentation.clear();
-    QSettings settings(m_path+QStringLiteral(".reminders.ini"),QSettings::IniFormat);
-    const auto state=settings.value(QStringLiteral("presentation")).toMap();const auto since=m_clock.nowUtc().addDays(-30);
-    for(auto it=state.cbegin();it!=state.cend();++it)if(QDateTime::fromString(it.value().toMap().value("updatedAt").toString(),Qt::ISODateWithMs)>=since)m_reminderPresentation.insert(it.key(),it.value());
-    refreshReminderAlerts();
-}
-void TaskWorkspace::refreshReminderAlerts()
-{
-    const auto pending=m_ready && m_preferences.value(QStringLiteral("reminderPopups")).toBool()?ReminderPresentation::pendingUsing(m_reminderCandidates,[this](const QString& id){return cachedTask(id);},m_reminderPresentation,m_clock.nowUtc()):QVariantList{};
-    if(pending!=m_reminderAlerts){m_reminderAlerts=pending;emit reminderAlertsChanged();}
-}
-bool TaskWorkspace::acknowledgeReminder(const QString& key,int delayMinutes)
-{
-    if(!m_ready || (delayMinutes!=0 && delayMinutes!=10))return false;
-    const auto found=std::find_if(m_reminderAlerts.cbegin(),m_reminderAlerts.cend(),[&](const QVariant& v){return v.toMap().value("key")==key;});
-    if(found==m_reminderAlerts.cend())return false;
-    const auto now=m_clock.nowUtc();auto next=m_reminderPresentation;
-    next.insert(key,QVariantMap{{"dismissed",delayMinutes==0},{"until",delayMinutes?now.addSecs(delayMinutes*60).toString(Qt::ISODateWithMs):QString()},{"updatedAt",now.toString(Qt::ISODateWithMs)}});
-    QSettings settings(m_path+QStringLiteral(".reminders.ini"),QSettings::IniFormat);
-    settings.setValue(QStringLiteral("presentation"),next);settings.sync();
-    if(settings.status()!=QSettings::NoError){settingsFailed();return false;}
-    m_reminderPresentation=next;refreshReminderAlerts();return true;
-}
 QVariantMap TaskWorkspace::listDraft() const
 {
     return TaskListModel::taskMap(TaskService::draftForScope(m_scope,m_today));
@@ -900,6 +905,7 @@ bool TaskWorkspace::verifyStorage()
 void TaskWorkspace::clearError(){m_error={};m_info.clear();emit stateChanged();}
 QString TaskWorkspace::errorText() const
 {
+    if(m_error.key==QStringLiteral("taskInputInvalid"))return tr("提取输入无效或资料已切换，原文已保留。请返回原资料，或重新预览1至8192字、最多32段的文本。 ");
     if(m_error.key==QStringLiteral("timeInputNeedsChoice"))return tr("时间未能确定，输入已保留。请修改时间，或点“忽略”后保存原文。");
     if(m_error.key==QStringLiteral("timeOverrideInvalid"))return tr("时间选择无效，请重新选择日期和时间。");
     if(m_error.key==QStringLiteral("timeReminderInvalid"))return tr("提醒时间已过或在该时区不存在，请重新选择。");

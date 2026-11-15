@@ -98,6 +98,8 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(QVariantList notifications READ notifications NOTIFY stateChanged)
     Q_PROPERTY(QVariantList reminderAlerts READ reminderAlerts NOTIFY reminderAlertsChanged)
     Q_PROPERTY(int pendingReminderCount READ pendingReminderCount NOTIFY reminderAlertsChanged)
+    Q_PROPERTY(bool canUndoReminder READ canUndoReminder NOTIFY reminderAlertsChanged)
+    Q_PROPERTY(bool reminderInboxActive READ reminderInboxActive WRITE setReminderInboxActive NOTIFY reminderInboxActiveChanged)
     Q_PROPERTY(QString importSummary READ importSummary NOTIFY stateChanged)
     Q_PROPERTY(int themeMode READ themeMode WRITE setThemeMode NOTIFY stateChanged)
     Q_PROPERTY(double textScale READ textScale WRITE setTextScale NOTIFY stateChanged)
@@ -168,6 +170,8 @@ public:
     Q_INVOKABLE bool moveWidgetShortcut(const QString& key,int direction);
     Q_INVOKABLE bool retryWidgetBrowsePreferences();
     Q_INVOKABLE bool createWidgetTask(const QString& title,const QString& context,bool todayOnly,const QString& profileToken,bool ignoreTime=false,const QVariantMap& timing={});
+    Q_INVOKABLE QVariantMap previewActivityInput(const QString& text) const;
+    Q_INVOKABLE bool createActivityTasks(const QVariantList& candidates,const QString& context,const QString& profileToken);
     Q_INVOKABLE int widgetTaskIndex(const QString& id) const {return int(m_widgetRows.value(id,-1));}
     Q_INVOKABLE bool canDropWidgetTask(const QString& source,const QString& target) const;
     Q_INVOKABLE bool dropWidgetTask(const QString& source,const QString& target);
@@ -297,9 +301,14 @@ public:
     Q_INVOKABLE bool dropTodayTask(const QString& source,const QString& target);
     Q_INVOKABLE bool canMoveTodayTask(const QString& id,int direction) const;
     Q_INVOKABLE bool moveTodayTask(const QString& id,int direction);
-    QVariantList reminderAlerts() const {return m_reminderAlerts.mid(0,10);}
+    QVariantList reminderAlerts() const {return m_reminderAlerts;}
     int pendingReminderCount() const {return m_reminderAlerts.size();}
+    bool canUndoReminder() const {return !m_reminderUndoKey.isEmpty();}
+    bool reminderInboxActive() const {return m_reminderInboxActive;}
+    void setReminderInboxActive(bool active){if(m_reminderInboxActive==active)return;m_reminderInboxActive=active;emit reminderInboxActiveChanged();}
+    Q_INVOKABLE void prepareReminderInbox(){emit reminderInboxOpening();}
     Q_INVOKABLE bool acknowledgeReminder(const QString& key,int delayMinutes=0);
+    Q_INVOKABLE bool undoReminderAcknowledgement();
     Q_INVOKABLE QRect reminderPopupArea() const;
     Q_INVOKABLE QVariantMap listDraft() const;
     Q_INVOKABLE bool createInlineTask(const QString& title,const QString& notes,const QString& planning,const QString& start,const QString& end,bool focus,const QVariantMap& details);
@@ -351,6 +360,8 @@ signals:
     void historyChanged();
     void reminderReady(const QString& title,const QString& message);
     void reminderAlertsChanged();
+    void reminderInboxOpening();
+    void reminderInboxActiveChanged();
 private:
     QVariantMap m_syncState{{"phase",QStringLiteral("GUEST")},{"status",QStringLiteral("仅存储在此设备")},{"authenticated",false},{"busy",false}};
     QVariantMap m_telemetryState{{"enabled",false},{"collecting",false},{"busy",false},{"status",QStringLiteral("登录后可选择参与，当前不采集。")}};
@@ -373,6 +384,7 @@ private:
     bool dropInView(const QString& source,const QString& target,const QString& view);
     void loadReminderPresentation();
     void refreshReminderAlerts();
+    bool saveReminderPresentation(const QVariantMap& state);
     bool remindersDue() const;
     QList<Task> calendarSelection() const;
     bool runTask(const QString& operation,std::function<Result<Task>(TaskWorker&)> command);
@@ -422,6 +434,9 @@ private:
     QVariantList m_taskNotifications;
     QVariantList m_reminderCandidates,m_reminderAlerts;
     QVariantMap m_reminderPresentation;
+    QString m_reminderUndoKey;
+    QVariant m_reminderUndoValue;
+    bool m_reminderInboxActive=false;
     QTimer m_reminderTimer;
     QVariantMap m_viewCounts;
     QVariantMap m_preferences{{"telemetryEnabled",false},{"recognizeTaskTime",true},{"recognitionDateReminder",false},{"recognitionReminderTime","09:00"},{"followSystemAccessibility",true},{"calendarScale","month"},{"desktopCalendarScale","month"},{"listShowSubtasks",true},{"reduceMotion",false},{"highContrast",false},{"compact",true},{"sidebarCollapsed",false},{"sidebarTasksExpanded",true},{"sidebarPlanningExpanded",true},{"sidebarLibraryExpanded",true},{"sidebarTagsExpanded",true},{"solidWidget",false},{"closeNoticeSeen",false},{"backupDays",1},{"systemReminders",true},{"reminderPopups",true},{"desktopCalendarVisible",false},{"desktopCalendarTopmost",false},{"desktopCalendarPinned",false},{"desktopCalendarOpacity",90}};

@@ -46,7 +46,11 @@ QSize WidgetViewModel::formSize(int form) const
 {
     if(form==WidgetPresentation::Ball)return {m_ballDiameter,m_ballDiameter};
     if(form==WidgetPresentation::Mini)return {m_miniSize.width(),m_miniHeight};
-    return m_floatingSize.expandedTo(m_panelMinimum);
+    const auto body=m_floatingSize.expandedTo(m_panelMinimum);
+    const auto available=screens();
+    int maxWidth=available.isEmpty()?body.width()+m_panelSidebarWidth:available.first().available.width();
+    for(const auto& screen:available)if(screen.id==m_anchor.screen)maxWidth=screen.available.width();
+    return body+QSize(maxWidth>=body.width()+m_panelSidebarWidth?m_panelSidebarWidth:0,0);
 }
 void WidgetViewModel::captureUserGeometry()
 {
@@ -65,7 +69,7 @@ void WidgetViewModel::captureUserGeometry()
     const auto available=screens();int index=WidgetPlacementPolicy::screenFor(rect,available);
     if(index<0)index=available.isEmpty()?-1:0;if(index<0)return;
     m_anchor=WidgetPlacementPolicy::capture(rect,available[index]);m_anchorValid=true;
-    if(m_renderForm==WidgetPresentation::Panel)m_floatingSize=rect.size();
+    if(m_renderForm==WidgetPresentation::Panel)m_floatingSize=rect.size()-QSize(panelSidebarWidth(),0);
     m_appliedGeometry=actual;
 }
 void WidgetViewModel::watchGeometry()
@@ -286,6 +290,15 @@ void WidgetViewModel::setPanelMinimumSize(int width,int height)
     const auto previous=formSize(0);const auto oldMinimum=m_panelMinimum;m_panelMinimum=QSize(qMax(260,width),qMax(190,height));
     if(m_window && formSize(0)!=previous && !applyPresentation(m_presentation,false))m_panelMinimum=oldMinimum;
 }
+void WidgetViewModel::setPanelSidebarWidth(int width)
+{
+    const int next=qBound(0,width,240);
+    if(m_panelSidebarWidth==next)return;
+    if(m_window && !m_geometryChanging && m_window->geometry()!=m_appliedGeometry)captureUserGeometry();
+    const int previous=m_panelSidebarWidth;m_panelSidebarWidth=next;
+    if(m_window && !applyPresentation(m_presentation,false))m_panelSidebarWidth=previous;
+    emit stateChanged();
+}
 void WidgetViewModel::setRevealRegion(const QRect& rectangle,double radius)
 {
     if(!m_window || m_geometryChanging || rectangle.isEmpty())return;
@@ -343,12 +356,12 @@ void WidgetViewModel::resizePanel(const QPointF& globalPosition)
 {
     if(!m_resizing || !m_window)return;
     const auto delta=(globalPosition-m_resizeCursor).toPoint();
-    auto rect=m_resizeOrigin;rect.setSize((m_resizeOrigin.size()+QSize(delta.x(),delta.y())).expandedTo(m_panelMinimum));
+    auto rect=m_resizeOrigin;rect.setSize((m_resizeOrigin.size()+QSize(delta.x(),delta.y())).expandedTo(m_panelMinimum+QSize(panelSidebarWidth(),0)));
     const auto available=screens();const int index=WidgetPlacementPolicy::screenFor(rect,available);if(index<0)return;
     const auto screen=available[index];const auto bounds=screen.available;
     const QPoint at(m_anchor.right?rect.x()+rect.width():rect.x(),m_anchor.bottom?rect.y()+rect.height():rect.y());
     const auto oldSize=m_floatingSize;const auto oldAnchor=m_anchor;
-    m_floatingSize=rect.size();m_anchor={screen.id,bounds,{double(at.x()-bounds.x())/qMax(1,bounds.width()),double(at.y()-bounds.y())/qMax(1,bounds.height())},oldAnchor.right,oldAnchor.bottom};
+    m_floatingSize=rect.size()-QSize(panelSidebarWidth(),0);m_anchor={screen.id,bounds,{double(at.x()-bounds.x())/qMax(1,bounds.width()),double(at.y()-bounds.y())/qMax(1,bounds.height())},oldAnchor.right,oldAnchor.bottom};
     if(!applyPresentation(m_presentation,false)){m_floatingSize=oldSize;m_anchor=oldAnchor;}
 }
 void WidgetViewModel::finishMove(){m_pointerMoving=false;m_moveTimer.stop();if(m_moving){m_resizing=false;captureUserGeometry();m_moving=false;normalizeGeometry();emit stateChanged();scheduleAutomatic();}}

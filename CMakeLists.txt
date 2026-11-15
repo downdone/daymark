@@ -47,7 +47,7 @@ add_library(daymark_core STATIC
     src/domain/Task.h
     src/persistence/SqliteDatabase.h src/persistence/SqliteDatabase.cpp
     src/persistence/TaskRepository.h src/persistence/TaskRepository.cpp src/persistence/TaskComponents.cpp src/persistence/UnifiedTaskMigration.h src/persistence/UnifiedTaskMigration.cpp
-    src/services/TaskTimeRecognition.h src/services/TaskTimeRecognition.cpp
+    src/services/TaskTimeRecognition.h src/services/TaskTimeRecognition.cpp src/services/ActivityExtraction.h src/services/ActivityExtraction.cpp
     src/services/TaskTime.cpp src/services/TaskService.h src/services/TaskService.cpp src/services/TaskTreeCommands.cpp
     src/services/ReminderSchedule.h src/services/ReminderSchedule.cpp
     src/persistence/CatalogRepository.h src/persistence/CatalogRepository.cpp
@@ -75,7 +75,7 @@ set(DAYMARK_WINDOW_SOURCES
 )
 
 set(DAYMARK_WORKSPACE_SOURCES
-    src/models/TaskWorkspace.h src/models/TaskWorkspace.cpp src/models/TaskWorkspaceCalendar.cpp src/models/TaskWorkspaceWindow.cpp
+    src/models/TaskWorkspace.h src/models/TaskWorkspace.cpp src/models/TaskWorkspaceCalendar.cpp src/models/TaskWorkspaceWindow.cpp src/models/TaskWorkspaceReminders.cpp
 )
 
 qt_add_executable(daymark src/app/ChromeSmokeProbe.h src/app/ChromeSmokeProbe.cpp src/app/PickerLifecycleProbe.h src/app/PickerLifecycleProbe.cpp src/app/ObjectAuditProbe.h src/app/ObjectAuditProbe.cpp src/app/WidgetPointerSmokeProbe.h src/app/WidgetPointerSmokeProbe.cpp src/app/TimeInputSmokeProbe.h src/app/TimeInputSmokeProbe.cpp src/app/Ux35SmokeProbe.h src/app/Ux35SmokeProbe.cpp src/app/Ux34SmokeProbe.h src/app/Ux34SmokeProbe.cpp src/platform/common/ApplicationMenus.h src/platform/common/ApplicationMenus.cpp src/main.cpp src/app/AppRuntime.h src/app/AppRuntime.cpp src/app/SoakRunner.h src/app/SoakRunner.cpp)
@@ -139,7 +139,7 @@ qt_add_qml_module(daymark
     VERSION 1.0
     QML_FILES src/ui/DaymarkTitleBar.qml src/ui/AccountWindow.qml src/ui/TaskSelection.qml src/ui/BrandWordmark.qml src/ui/BrandMark.qml src/ui/BrandLockup.qml src/ui/SettingsAboutPage.qml src/ui/TaskRowSummary.qml src/ui/TagMenu.qml src/ui/WindowResizeHandles.qml src/ui/TimeRangePicker.qml src/ui/PopoverSurface.qml
     QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/WidgetTaskRow.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/SettingsGroup.qml src/ui/SettingsRow.qml src/ui/SettingsToggle.qml src/ui/SettingsLink.qml src/ui/InspectorTabs.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
-    QML_FILES src/ui/WidgetMoveHandle.qml src/ui/CalendarMetrics.qml src/ui/CalendarMonthStream.qml src/ui/CalendarMonthGrid.qml src/ui/ListViewportState.qml src/ui/CalendarDateMoveDialog.qml src/ui/CalendarCreatePopup.qml src/ui/UnscheduledTasksPanel.qml src/ui/TaskDragGesture.qml src/ui/TaskDragPayload.qml src/ui/TaskInspectorPicker.qml src/ui/CalendarTimeline.qml src/ui/YearCalendar.qml src/ui/TaskEditorSession.qml src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/InputTimePreview.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskContextMenu.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
+    QML_FILES src/ui/WidgetActivityCapture.qml src/ui/WidgetTaskInspector.qml src/ui/WidgetCategoryRail.qml src/ui/ReminderInbox.qml src/ui/WidgetMoveHandle.qml src/ui/CalendarMetrics.qml src/ui/CalendarMonthStream.qml src/ui/CalendarMonthGrid.qml src/ui/ListViewportState.qml src/ui/CalendarDateMoveDialog.qml src/ui/CalendarCreatePopup.qml src/ui/UnscheduledTasksPanel.qml src/ui/TaskDragGesture.qml src/ui/TaskDragPayload.qml src/ui/TaskInspectorPicker.qml src/ui/CalendarTimeline.qml src/ui/YearCalendar.qml src/ui/TaskEditorSession.qml src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/InputTimePreview.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskContextMenu.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES src/platform/common/WindowChrome.h src/platform/common/WindowChrome.cpp ${DAYMARK_WINDOW_SOURCES} ${DAYMARK_WORKSPACE_SOURCES} src/platform/common/StartupController.h src/platform/common/StartupController.cpp
         src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp
 )
@@ -286,6 +286,8 @@ if(BUILD_TESTING)
     set_tests_properties(picker_lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20 LABELS "ui" RESOURCE_LOCK daymark_ui)
     add_test(NAME widget_pointer_ui COMMAND daymark --widget-pointer-smoke)
     set_tests_properties(widget_pointer_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15 LABELS "ui" RESOURCE_LOCK daymark_ui)
+    add_test(NAME widget_workflow COMMAND daymark --widget-workflow-smoke)
+    set_tests_properties(widget_workflow PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30 LABELS "ui" RESOURCE_LOCK daymark_ui)
     add_test(NAME time_input_ui COMMAND daymark --time-input-smoke)
     set_tests_properties(time_input_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30 LABELS "ui" RESOURCE_LOCK daymark_ui)
     qt_add_executable(test_catalog_service tests/services/CatalogServiceTest.cpp)

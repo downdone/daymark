@@ -114,7 +114,10 @@ ApplicationWindow {
     }
     function reveal(item) {
         const view=viewport();if(!view || !item)return
-        let owner=item;while(owner && owner!==pages)owner=owner.parent;if(!owner)return
+        // A retiring Loader may still own the previous focus item for a turn.
+        // It must not cancel restoration or scroll the newly selected page.
+        const selected=[appearance.item,widgetOptions.item,general.item,about.item,tasks.item,dataPrivacy.item,account.item][categoryIndex]
+        let owner=item;while(owner && owner!==selected)owner=owner.parent;if(!owner || !owner.visible)return
         restoringScroll=false
         const at=item.mapToItem(pages,0,0),extent=Math.min(item.height,view.height)
         if(at.y<view.contentY)view.contentY=Math.max(0,at.y-8)

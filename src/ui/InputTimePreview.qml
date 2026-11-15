@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -12,6 +13,7 @@ Control {
     property var overrides: ({})
     property string objectPrefix: ""
     property int clockRevision:0
+    property var pickerMonth:({title:"",days:[]})
     readonly property var suggestion: {const revision=clockRevision;const preferences=workspace.preferences;return workspace.previewTaskInput(rawText)}
     Timer {interval:1000;repeat:true;running:root.visible && !root.ignored && !root.manual && !root.composing;onTriggered:root.clockRevision++}
     readonly property bool manual: Object.keys(overrides).length>0
@@ -26,6 +28,7 @@ Control {
     function openEditor() {
         const value=manual?overrides:suggestion
         date.text=value.date || workspace.dateOffset(0)
+        pickerMonth=workspace.datePicker(date.text,0)
         time.text=value.time || workspace.preferences.recognitionReminderTime
         target.currentIndex=value.target==="deadline"?1:0
         remind.checked=!!value.reminder
@@ -50,16 +53,17 @@ Control {
     }
     Popup {
         id:picker
+        popupType:Popup.Window
         objectName:root.objectPrefix+"timePicker"
         parent:Overlay.overlay
         x:Math.max(8,Math.min(root.mapToItem(parent,0,0).x,parent.width-width-8))
         y:Math.max(8,Math.min(root.mapToItem(parent,0,root.height).y,parent.height-height-8))
-        width:Math.min(parent.width-16,340*Theme.scale)
-        height:Math.min(parent.height-16,implicitHeight)
+        width:Math.min(root.workspace.reminderPopupArea().width-24,340*Theme.scale)
+        height:Math.min(root.workspace.reminderPopupArea().height-24,implicitHeight)
         background:PopoverSurface {}
         modal:true;focus:true;closePolicy:Popup.CloseOnEscape|Popup.CloseOnPressOutside
         onClosed:{date.closePicker();time.closePicker()}
-        contentItem:ScrollView {
+        contentItem:DS.ScrollView {
             implicitHeight:fields.implicitHeight
             clip:true
             contentWidth:availableWidth
@@ -67,7 +71,14 @@ Control {
                 id:fields;width:parent.width;spacing:8
                 Label {text:qsTr("本条任务的时间");font.weight:Font.Bold;Layout.fillWidth:true;wrapMode:Text.Wrap}
                 ComboBox {id:target;objectName:root.objectPrefix+"timeTarget";Layout.fillWidth:true;model:[qsTr("计划日期"),qsTr("截止日期")];Accessible.name:qsTr("时间含义");onActivated:if(currentIndex===1)remind.checked=false}
-                DateField {id:date;objectName:root.objectPrefix+"timeDate";Layout.fillWidth:true;workspace:root.workspace;dateLabel:qsTr("任务日期");allowClear:false}
+                DateField {id:date;objectName:root.objectPrefix+"timeDate";visible:false;workspace:root.workspace;allowClear:false}
+                CalendarPicker {
+                    Layout.fillWidth:true;workspace:root.workspace;month:root.pickerMonth
+                    selectedDate:date.text;allowClear:false;showShortcuts:false
+                    onDateSelected:function(value){date.text=value}
+                    onMoveMonth:function(offset){root.pickerMonth=root.workspace.datePicker(root.pickerMonth.anchor,offset)}
+                    onDismissRequested:picker.close()
+                }
                 CheckBox {id:remind;objectName:root.objectPrefix+"timeRemind";text:qsTr("到时提醒");enabled:target.currentIndex===0;Layout.fillWidth:true}
                 TimeField {id:time;objectName:root.objectPrefix+"timeClock";Layout.fillWidth:true;visible:remind.checked && target.currentIndex===0;timeLabel:qsTr("提醒时刻")}
                 Button {

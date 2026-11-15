@@ -192,6 +192,7 @@ ApplicationWindow {
             id:headerActions; Layout.alignment:Qt.AlignVCenter
             spacing:Theme.gap
             Button {visible:mainWindow.taskContentVisible && ["completed","cancelled"].indexOf(mainWindow.taskWorkspace.view)>=0;flat:true;text:mainWindow.taskWorkspace.view==="completed" ? qsTr("查看已取消") : qsTr("查看已完成");onClicked:mainWindow.changeView(mainWindow.taskWorkspace.view==="completed" ? "cancelled" : "completed")}
+            WidgetAction {id:mainReminderButton;objectName:"mainReminderInboxButton";visible:mainWindow.taskContentVisible;symbol:"bell";description:qsTr("待处理提醒 %1项").arg(mainWindow.taskWorkspace.pendingReminderCount);onClicked:mainReminderInbox.openAt(this)}
             BusyIndicator { running: mainWindow.taskWorkspace.busy && !mainWindow.taskWorkspace.backgroundBusy; visible: running; Layout.preferredWidth: 28; Layout.preferredHeight: 28 }
             WidgetAction {visible: mainWindow.taskContentVisible;symbol: "search";description: mainWindow.searchExpanded ? qsTr("关闭搜索") : qsTr("搜索任务");checked: mainWindow.searchExpanded || search.text.length>0;onClicked: {if(mainWindow.searchExpanded || search.text.length>0){search.clear();mainWindow.searchExpanded=false;taskList.forceActiveFocus()}else{mainWindow.searchExpanded=true;search.forceActiveFocus()}}}
             WidgetAction {visible: mainWindow.taskContentVisible;symbol: "filter";description: (mainWindow.selectedTag || mainWindow.selectedProject) ? qsTr("清除筛选") : mainWindow.filtersExpanded ? qsTr("收起筛选") : qsTr("筛选任务");checked: mainWindow.filtersExpanded || !!mainWindow.selectedTag || !!mainWindow.selectedProject;onClicked: {if(mainWindow.selectedTag || mainWindow.selectedProject){mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("");mainWindow.filtersExpanded=false}else mainWindow.filtersExpanded=!mainWindow.filtersExpanded}}
@@ -1272,7 +1273,7 @@ ApplicationWindow {
                 property bool keyboardNavigation: false
                 onActiveFocusChanged: if(!activeFocus)keyboardNavigation=false
                 section.property: "viewSection"
-                section.delegate: Label { required property string section; text: section; color: Theme.secondary; font.pixelSize: Theme.captionSize; height: section.length>0 ? implicitHeight+12 : 0;visible: section.length>0;verticalAlignment: Text.AlignVCenter }
+                section.delegate: Label { id:sectionLabel;required property string section; text: section; color: Theme.secondary; font.pixelSize: Theme.captionSize; height: section.length>0 ? Math.ceil(sectionMetrics.height)+12 : 0;visible: section.length>0;verticalAlignment: Text.AlignVCenter;FontMetrics {id:sectionMetrics;font:sectionLabel.font} }
                 Keys.onReturnPressed: {const item=taskList.currentItem as TaskRow;if(item){if(mainWindow.batchMode)item.selectionRequested();else item.editRequested()}}
                 Keys.onPressed: function(event){
                     if(event.modifiers===Qt.NoModifier &&
@@ -1910,6 +1911,13 @@ ApplicationWindow {
         onOpenTaskRequested:function(taskId){mainWindow.showNormal();mainWindow.requestActivate();mainWindow.openEditor(taskId)}
         onOpenMainRequested: {mainWindow.showNormal();mainWindow.requestActivate()}
         onSettingsRequested: {mainWindow.showNormal();mainWindow.requestActivate();mainWindow.openTool("settings")}
+        onReminderHistoryRequested:mainWindow.openTool("notifications")
+    }
+    ReminderInbox {
+        id:mainReminderInbox;objectName:"mainReminderInbox";parent:mainWindow.contentItem
+        workspace:mainWindow.taskWorkspace
+        onOpenTask:function(id){close();mainWindow.openEditor(id)}
+        onHistoryRequested:mainWindow.openTool("notifications")
     }
     Window {
         id:reminderPopup;objectName:"reminderPopup"
@@ -1924,7 +1932,7 @@ ApplicationWindow {
         width:Math.min(420*Theme.scale,workArea.width-24)
         height:Math.min(reminderBody.implicitHeight+24,workArea.height-24)
         x:workArea.x+workArea.width-width-12;y:workArea.y+workArea.height-height-12
-        visible:mainWindow.taskWorkspace.pendingReminderCount>0
+        visible:mainWindow.taskWorkspace.preferences.reminderPopups && !mainWindow.taskWorkspace.reminderInboxActive && mainWindow.taskWorkspace.pendingReminderCount>0
         onAlertChanged:localError=""
         function dismiss(delay){if(!mainWindow.taskWorkspace.acknowledgeReminder(alert.key || "",delay))localError=mainWindow.taskWorkspace.errorText || qsTr("未能保存，请重试。")}
         onClosing:function(close){close.accepted=false;dismiss(0)}
@@ -2037,7 +2045,12 @@ ApplicationWindow {
                 ButtonGroup {id:purgeScope}
                 ScopeRadio {id:onlyDevice;objectName:"purgeOnlyDevice";Layout.fillWidth:true;ButtonGroup.group:purgeScope;text:qsTr("仅从此设备移除");checked:true}
                 ScopeRadio {id:alsoServer;objectName:"purgeAlsoServer";Layout.fillWidth:true;ButtonGroup.group:purgeScope;text:qsTr("同时从服务器删除");enabled:purgeConfirm.serverAvailable}
-                Label {id:purgeHint;Layout.fillWidth:true;Layout.minimumHeight:2*Math.ceil(purgeHintMetrics.height);Layout.topMargin:6*Theme.scale;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary;text:purgeConfirm.scopeHint}
+                Item {visible:false
+                Label {id:deviceScopeHint;visible:false;width:purgeHint.width;wrapMode:Text.Wrap;font:purgeHint.font;text:qsTr("仅从本机列表移除，服务器副本和同步记录保留。")}
+                Label {id:serverScopeHint;visible:false;width:purgeHint.width;wrapMode:Text.Wrap;font:purgeHint.font;text:qsTr("会同步移除其他设备上的任务，连接后执行。")}
+                Label {id:unavailableScopeHint;visible:false;width:purgeHint.width;wrapMode:Text.Wrap;font:purgeHint.font;text:qsTr("当前服务暂不支持同步删除，服务器副本保留。")}
+                }
+                Label {id:purgeHint;Layout.fillWidth:true;Layout.minimumHeight:Math.max(2*Math.ceil(purgeHintMetrics.height),deviceScopeHint.implicitHeight,serverScopeHint.implicitHeight,unavailableScopeHint.implicitHeight);Layout.preferredHeight:Layout.minimumHeight;Layout.topMargin:6*Theme.scale;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary;text:purgeConfirm.scopeHint}
                 Label {Layout.fillWidth:true;Layout.topMargin:8*Theme.scale;wrapMode:Text.Wrap;color:Theme.danger;visible:purgeConfirm.attempted && text.length>0;text:mainWindow.taskWorkspace.errorText}
                 RowLayout {
                     Layout.fillWidth:true;Layout.topMargin:16*Theme.scale;spacing:8*Theme.scale

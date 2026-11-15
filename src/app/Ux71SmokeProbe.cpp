@@ -195,8 +195,8 @@ QString Ux71SmokeProbe::advance(){
         click(row);
     }
     if(m_stage==64){
-        if(!m_main->isVisible() || m_main->property("editId").toString().isEmpty())return fail("task input does not recover after dismissal");
-        QMetaObject::invokeMethod(m_main,"returnFromDetails");m_controller.setVisible(true);m_main->show();
+        auto* inspector=find(m_widget,"widgetTaskInspector");if(m_main->isVisible() || !inspector || !inspector->property("visible").toBool() || inspector->property("original").toMap().value("taskId").toString().isEmpty())return fail("task input does not open nearby inspector after dismissal");
+        QMetaObject::invokeMethod(inspector,"finish",Q_ARG(QVariant,QStringLiteral("close")));m_controller.setVisible(true);m_main->show();
     }
     if(m_stage==65){
         m_main->hide();m_workspace.setThemeMode(1);m_workspace.setTextScale(1);

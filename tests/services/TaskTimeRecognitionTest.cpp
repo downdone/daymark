@@ -1,4 +1,5 @@
 #include "services/TaskTimeRecognition.h"
+#include "services/ActivityExtraction.h"
 #include <QtTest>
 #include <QElapsedTimer>
 using namespace daymark;
@@ -7,6 +8,22 @@ class TaskTimeRecognitionTest final : public QObject {
     const QTimeZone zone{QByteArray("Asia/Shanghai")};
     const QDateTime now{QDate(2026,11,6),QTime(10,0),zone};
 private slots:
+    void activityExtractionKeepsEvidenceAndSeparatesDateSemantics() {
+        const auto result=ActivityExtraction::preview(QStringLiteral("11月18日14:00—15:30，在A会议室召开活动复盘会。请在11月17日前提交复盘材料。"),now,zone);
+        QVERIFY(result.ok());QCOMPARE(result.value.size(),2);
+        const auto meeting=result.value[0].toMap(),material=result.value[1].toMap();
+        QCOMPARE(meeting.value("startOn").toString(),QStringLiteral("2026-11-18"));
+        QCOMPARE(meeting.value("startTime").toString(),QStringLiteral("14:00"));QCOMPARE(meeting.value("endTime").toString(),QStringLiteral("15:30"));
+        QCOMPARE(meeting.value("place").toString(),QStringLiteral("A会议室"));QVERIFY(!meeting.value("reminder").toBool());
+        QCOMPARE(meeting.value("title").toString(),QStringLiteral("召开活动复盘会"));QCOMPARE(material.value("title").toString(),QStringLiteral("提交复盘材料"));
+        QCOMPARE(meeting.value("source"),meeting.value("notes"));QCOMPARE(material.value("deadlineOn").toString(),QStringLiteral("2026-11-17"));QVERIFY(material.value("startOn").toString().isEmpty());
+        const auto unclear=ActivityExtraction::preview(QStringLiteral("下个月活动复盘；确认供应商报价"),now,zone);
+        QVERIFY(unclear.ok());QCOMPARE(unclear.value.size(),2);QVERIFY(!unclear.value[0].toMap().value("issue").toString().isEmpty());QVERIFY(unclear.value[1].toMap().value("startOn").toString().isEmpty());
+        QVERIFY(!ActivityExtraction::preview(QString(8193,'x'),now,zone).ok());
+        QVERIFY(!ActivityExtraction::preview(QStringLiteral("a。").repeated(33),now,zone).ok());
+        const auto reverse=ActivityExtraction::preview(QStringLiteral("11月18日15:30—14:00开会"),now,zone);QVERIFY(reverse.ok());QVERIFY(!reverse.value[0].toMap().value("issue").toString().isEmpty());
+        const auto moment=ActivityExtraction::preview(QStringLiteral("11月18日14:00开会"),now,zone);QVERIFY(moment.ok());QCOMPARE(moment.value[0].toMap().value("startTime").toString(),QStringLiteral("14:00"));QVERIFY(!moment.value[0].toMap().value("issue").toString().isEmpty());
+    }
     void recognition_data() {
         QTest::addColumn<QString>("text");QTest::addColumn<int>("state");QTest::addColumn<QString>("date");QTest::addColumn<QString>("time");QTest::addColumn<bool>("reminder");QTest::addColumn<QString>("target");
         auto add=[](const char* name,QString text,int state,QString date={},QString time={},bool reminder=false,QString target="planned") {QTest::newRow(name)<<text<<state<<date<<time<<reminder<<target;};

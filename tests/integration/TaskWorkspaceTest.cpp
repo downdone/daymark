@@ -277,8 +277,49 @@ private slots:
         {TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.pendingReminderCount(),0);}
         {QSettings settings(path+".reminders.ini",QSettings::IniFormat);auto states=settings.value("presentation").toMap();auto saved=states.value(key).toMap();saved["until"]=QDateTime::currentDateTimeUtc().addSecs(-1).toString(Qt::ISODateWithMs);states[key]=saved;settings.setValue("presentation",states);settings.sync();QCOMPARE(settings.status(),QSettings::NoError);}
         {TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.pendingReminderCount(),1);QCOMPARE(w.reminderAlerts().first().toMap().value("taskId").toString(),recurring);QCOMPARE(w.task(recurring).value("remindAtUtc").toString(),original.remindAtUtc);
-            QVERIFY(w.setPreference("reminderPopups",false));QCOMPARE(w.pendingReminderCount(),0);QVERIFY(w.setPreference("reminderPopups",true));QCOMPARE(w.pendingReminderCount(),1);
+            QVERIFY(w.setPreference("reminderPopups",false));QCOMPARE(w.pendingReminderCount(),1);QVERIFY(w.setPreference("reminderPopups",true));QCOMPARE(w.pendingReminderCount(),1);
             QVERIFY(w.changeState(recurring,w.task(recurring).value("rowVersion").toLongLong(),"complete"));QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.pendingReminderCount(),0);}
+    }
+    void activityConfirmationIsAtomicAndKeepsOriginalProfile() {
+        QTemporaryDir dir;const auto path=dir.filePath("activity.sqlite");TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));w.setView("all");
+        const auto profile=w.widgetProfileToken();
+        auto preview=w.previewActivityInput(w.dateOffset(3)+QStringLiteral(" 14:00—15:30，在A会议室召开复盘会。")+w.dateOffset(2)+QStringLiteral("前提交材料。"));
+        QVERIFY(preview.value("valid").toBool());auto candidates=preview.value("candidates").toList();QCOMPARE(candidates.size(),2);
+        auto bad=candidates.last().toMap();bad["title"]=QString();candidates.last()=bad;
+        QVERIFY(!w.createActivityTasks(candidates,"inbox",profile));QCOMPARE(w.tasks()->rowCount(),0);
+        bad["title"]="reject batch";candidates.last()=bad;
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());QSqlQuery query(db.connection());QVERIFY(query.exec("CREATE TRIGGER reject_activity BEFORE INSERT ON tasks WHEN NEW.title='reject batch' BEGIN SELECT RAISE(ABORT,'injected failure'); END"));}
+        QVERIFY(w.createActivityTasks(candidates,"inbox",profile));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(!w.errorText().isEmpty());QCOMPARE(w.tasks()->rowCount(),0);
+        bad["title"]=QStringLiteral("提交材料");candidates.last()=bad;
+        QVERIFY(w.createActivityTasks(candidates,"inbox",profile));QVERIFY(!w.createActivityTasks(candidates,"inbox",profile));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(w.errorText().isEmpty());QCOMPARE(w.tasks()->rowCount(),2);QCOMPARE(w.todayTasks()->rowCount(),0);
+        bool scheduled=false,deadline=false;for(const auto& task:w.tasks()->items()){scheduled|=task.schedule.has_value();deadline|=task.deadlineOn.has_value();QVERIFY(task.remindAtUtc.isEmpty());QVERIFY(!task.notes.isEmpty());}QVERIFY(scheduled);QVERIFY(deadline);
+        bool switched=false;w.switchSyncDatabase(dir.filePath("other.sqlite"),[&](Result<void> result){switched=result.ok();});QVERIFY(daymark::test::awaitIdle(w));QVERIFY(switched);
+        QVERIFY(!w.createActivityTasks(candidates,"inbox",profile));QCOMPARE(w.tasks()->rowCount(),0);
+    }
+    void activityDateOnlyRangeSurvivesConfirmation() {
+        QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("activity-range.sqlite"));QVERIFY(daymark::test::awaitIdle(w));w.setView("all");
+        auto candidates=w.previewActivityInput(w.dateOffset(2)+QStringLiteral(" 外出调研")).value("candidates").toList();
+        QCOMPARE(candidates.size(),1);auto candidate=candidates.first().toMap();candidate["endOn"]=w.dateOffset(4);candidates[0]=candidate;
+        QVERIFY(w.createActivityTasks(candidates,"inbox",w.widgetProfileToken()));QVERIFY(daymark::test::awaitIdle(w));QVERIFY2(w.errorText().isEmpty(),qPrintable(w.errorText()));
+        QCOMPARE(w.tasks()->rowCount(),1);const auto task=w.tasks()->items().first();QVERIFY(task.schedule);QVERIFY(task.schedule->allDay);
+        QCOMPARE(task.schedule->startOn,QDate::fromString(w.dateOffset(2),Qt::ISODate));QCOMPARE(task.schedule->endOn,QDate::fromString(w.dateOffset(5),Qt::ISODate));
+        QCOMPARE(w.todayTasks()->rowCount(),0);
+    }
+    void reminderInboxIncludesAllItemsAndUndoIsProfileScoped() {
+        QTemporaryDir dir;const auto path=dir.filePath("inbox.sqlite");
+        struct Clock:IClock {QDateTime now=QDateTime::currentDateTimeUtc().addSecs(-120);QDate localToday() const override{return now.toLocalTime().date();}QDateTime nowUtc() const override{return now;}} clock;
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());TaskRepository repo(db.connection());TaskService service(repo,clock);
+            for(int i=0;i<12;++i){auto task=service.create(QString::number(i),"today");QVERIFY(task.ok());TaskPatch patch;patch.remindAtUtc=FieldPatch<QString>::set(clock.now.addSecs(30+i).toString(Qt::ISODateWithMs));QVERIFY(service.edit(task.value.id,task.value.rowVersion,patch).ok());}}
+        TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));QCOMPARE(w.pendingReminderCount(),12);QCOMPARE(w.reminderAlerts().size(),12);
+        QVERIFY(w.setPreference("reminderPopups",false));QCOMPARE(w.reminderAlerts().size(),12);
+        const auto key=w.reminderAlerts().last().toMap().value("key").toString();
+        QVERIFY(w.acknowledgeReminder(key,10));QCOMPARE(w.pendingReminderCount(),11);QVERIFY(w.canUndoReminder());
+        QVERIFY(w.undoReminderAcknowledgement());QCOMPARE(w.pendingReminderCount(),12);QVERIFY(!w.canUndoReminder());
+        QVERIFY(w.acknowledgeReminder(key));QCOMPARE(w.pendingReminderCount(),11);
+        QVERIFY(w.undoReminderAcknowledgement());QCOMPARE(w.pendingReminderCount(),12);
+        QVERIFY(w.acknowledgeReminder(key));
+        bool switched=false;w.switchSyncDatabase(dir.filePath("other.sqlite"),[&](Result<void> result){switched=result.ok();});
+        QVERIFY(daymark::test::awaitIdle(w));QVERIFY(switched);QVERIFY(!w.canUndoReminder());QVERIFY(!w.undoReminderAcknowledgement());
     }
     void reminderPresentationWriteFailureKeepsAlertAndProfileSwitchHidesIt() {
         QTemporaryDir dir;const auto path=dir.filePath("popup-failure.sqlite");

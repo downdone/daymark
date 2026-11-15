@@ -20,3 +20,5 @@
 2026-11-12范围决定：NC-01通知中心已取消，不保留通知列表、未读/已读、下行拉取/缓存或待恢复的实施切片。BIZ-01后台公告管理与TEL-01保留。当前继续设置系统重组，原定3.0.1候选失败，用户确认完整发行改为3.0.2；实际执行/验收状态仍只见PROGRESS。
 
 Windows设计与操作：[在线更新](design/update/README.md)、[自签名](design/update/self-signing.md)、[日志诊断](design/runtime-diagnostics.md)、[工程流程](engineering.md)。
+
+2026-11-15用户授权[小窗综合工作流](design/widget-unified-workflow.md)实现：分类导航、提醒汇总、就近编辑与离线提取确认。实际进展及证据仅见PROGRESS；可选AI接入保留候选接口，不新增模型服务或发行步骤。

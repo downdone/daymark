@@ -9,6 +9,7 @@ ColumnLayout {
     property var month: ({title:"",days:[]})
     property string selectedDate: ""
     property bool allowClear: true
+    property bool showShortcuts:true
     signal dateSelected(string value)
     signal moveMonth(int offset)
     signal dismissRequested()
@@ -66,6 +67,7 @@ ColumnLayout {
         }
     }
     Flow {
+        visible:calendar.showShortcuts
         Layout.fillWidth: true
         spacing: 4
         Button {text: qsTr("今天");flat: true;onClicked: calendar.dateSelected(calendar.workspace.dateOffset(0))}

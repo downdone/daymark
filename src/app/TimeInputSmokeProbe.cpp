@@ -35,7 +35,7 @@ QString TimeInputSmokeProbe::advance() {
         if(w.tasks()->items().size()!=1 || !w.tasks()->items().first().remindAtUtc.isEmpty() || !input->property("text").toString().isEmpty() || preview->property("ignored").toBool())return fail("ignore persisted or reset");
         input->setProperty("text",QStringLiteral("明天15点再次联系客户"));if(!invoke(preview,"openEditor"))return fail("open time editor");
     }else if(phase==3){
-        if(popupCycle==0){if(!preview->property("popupOpen").toBool())return fail("time popup");key(mainWindow,Qt::Key_Escape);popupCycle=1;return {};}
+        if(popupCycle==0){if(!preview->property("popupOpen").toBool())return fail("time popup");auto* picker=find(mainWindow,"mainInputtimePicker");auto* content=picker?qvariant_cast<QQuickItem*>(picker->property("contentItem")):nullptr;if(!content || !content->window())return fail("date picker window");key(content->window(),Qt::Key_Escape);popupCycle=1;return {};}
         if(popupCycle==1){if(preview->property("popupOpen").toBool())return fail("Escape did not close picker");if(input->property("text").toString()!=QStringLiteral("明天15点再次联系客户"))return fail("Escape changed title");invoke(preview,"openEditor");popupCycle=2;return {};}
         if(!preview->property("popupOpen").toBool())return fail("reopen after cancel");
         auto* date=find(mainWindow,"mainInputtimeDate");auto* time=find(mainWindow,"mainInputtimeClock");auto* remind=find(mainWindow,"mainInputtimeRemind");
