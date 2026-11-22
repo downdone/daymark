@@ -1,6 +1,8 @@
 # 当前状态
 
-2026-11-13 **Daymark 3.1.0 已发布**，schema 11、HTTP JSON v1、Qt 6.10.2。
+2026-11-22 **Daymark 3.2.0 已发布**，schema 11、HTTP JSON v1、Qt 6.10.2。
+
+- 3.2.0 交付小窗分类拖拽、就近编辑、提醒汇总和离线活动提取。Windows 签名安装包与便携包可下载，公开安装和 3.1.0 在线升级通过。实际证据见 PROGRESS。
 
 - UPD-09已随3.1.0交付：账号设置、设置内更新入口、安装确认强制关闭和版本工具链；正式完整回归/公开安装/旧工具链拒绝均通过。3.0.2首次接入须完整安装一次，实际结果和未验证边界只见PROGRESS；已有发布资源不变。
 
@@ -18,6 +20,6 @@
 - 使用P-256更新签名与项目自签名EXE；不属于Windows公共发行者信任，不导入根证书。
 - 新版本包含离线时间输入识别、完整Windows安装向导、首次启动锁错误分类、Mini按钮与拖动修复、导入计划生命周期与生成契约门禁。
 
-[下载 3.0.2](https://github.com/downdone/daymark/releases/tag/v3.0.2) · [发行说明](release-notes-v3.0.2.md)。当前事实、精确资产身份和证据统一见[PROGRESS](PROGRESS.md)。
+[下载 3.2.0](https://github.com/downdone/daymark/releases/tag/v3.2.0) · [发行说明](release-notes-v3.2.0.md)。当前事实、精确资产身份和证据统一见[PROGRESS](PROGRESS.md)。
 
-Linux/macOS按用户指示跳过；2h/物理多屏/DPI/读屏、Windows 11 Snap悬停、另一台机器注册现场与逐字节堆/GPU归因仍UNVERIFIED。3.0.0的独立Windows匿名下载/安装/迁移通过，跨ABI在线升级不适用；本机补下载超时不冒充完整本地包。2.1.0、2.2.0、2.2.1空Release转草稿，原标签保留，无程序资产发布。本地完整套件退出期ToolTip警告保留在PROGRESS，不宣称整个进程零警告。
+Linux/macOS 本轮提供源码；2h/物理多屏/DPI/读屏、Windows 11 Snap悬停、另一台机器注册现场与逐字节堆/GPU归因仍UNVERIFIED。3.0.0的独立Windows匿名下载/安装/迁移通过，跨ABI在线升级不适用；本机补下载超时不冒充完整本地包。2.1.0、2.2.0、2.2.1空Release转草稿，原标签保留，无程序资产发布。本地完整套件退出期ToolTip警告保留在PROGRESS，不宣称整个进程零警告。

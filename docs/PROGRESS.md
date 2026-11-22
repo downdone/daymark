@@ -1,8 +1,24 @@
 # Daymark 当前进度
 
-## 3.2.0 发行（2026-11-22，进行中）
+## 3.2.0 正式发行完成（2026-11-22）
 
-用户要求发布新版。GitHub 当前最近托管版为3.1.0，main已同步。本次将小窗综合工作流和分类拖拽合并发行，按SemVer递增MINOR，保持schema11和同步协议。采用Qt6.10.2/MSVC2022正式Windows候选、受保护签名和公网安装/升级验收，上一版本为3.1.0，走完整兼容升级链。平台范围沿现有发行规则，物理操作和读屏以实际证据为准。
+用户要求发布新版。按 SemVer 将小窗分类拖拽、就近编辑、提醒汇总与离线活动提取合并为 3.2.0。源码 `8d1fdab1dba743a84442fa8024c4161fd5376976` 与注释标签对象 `6f5148067a64302db9228e29644bef7f6b1104c6` 已原子推送 main/v3.2.0。任务库 schema 11、HTTP JSON v1、Qt 6.10.2。
+
+- 本地 macOS Release 构建、QML lint、相关 CTest **3/3 PASS（31.64 秒）**及源码发布守卫 **15/15 PASS**。生成的诊断注册表与 107 项同步契约检查通过。主分支 [构建检查](https://github.com/downdone/daymark/actions/runs/44977080398)、[源码发布](https://github.com/downdone/daymark/actions/runs/44977079936) 与[账号/同步 CI](https://github.com/downdone/daymark/actions/runs/44977080297)通过。
+- [正式 Windows 候选 44977079868](https://github.com/downdone/daymark/actions/runs/44977079868)使用开源 Qt 6.10.2/MSVC2022。核对原始 JUnit 和日志，完整 CTest **54/54 PASS，零失败、零跳过，544.01 秒**。QML lint、许可和运行库校验、候选打包通过。
+- [受保护发行 44981393357](https://github.com/downdone/daymark/actions/runs/44981393357)完成固定指纹签名、独立 Windows 部署、发行前安装验收 **3/3 PASS（79.608 秒）**及资产发布。
+- 公开版匿名下载后实际安装 **3/3 PASS（46.535 秒）**。覆盖运行中默认取消、确认关闭后修复、Unicode/空格路径、迁移备份及卸载保留资料。公开安装报告、发行前报告和 GitHub 资产的安装包散列一致。
+- **3.1.0 → 3.2.0 在线升级 PASS（18.27 秒）**。真实旧版用生产信任从公开 GitHub 下载，完成 Qt 保存退出、重启与新版提交、清理旧程序，保留合成数据库及用户修改的文件。报告确认 `fixtureOverrides=false`，目标资产和源码身份与发布记录一致。
+
+[GitHub Release 454147110](https://github.com/downdone/daymark/releases/tag/v3.2.0)为最新正式版，7 个资产已上传。
+
+| 资产 | ID / 字节 | SHA256 |
+|---|---|---|
+| Daymark-3.2.0-windows-x64-setup.exe | 777766680 / 43947248 | `922ee7b131e29aed19e3e0da07bc036fbccd597acc3a74fcb4d89fd3449ddfb4` |
+| Daymark-3.2.0-windows-x64.zip | 777766682 / 44847981 | `b78530c79a137c1c04e1a941f902ebe405775cf657297546f703391a6690c247` |
+| update-windows-x64.json | 777766777 / 926 | `613a2b58cb0b6aa3fecab03e85bac6f098220ef0d2f318314d8877a6ade4c82c` |
+
+本机证据存于忽略目录 `build/release320-evidence/`。macOS/Linux 发行提供源码。Windows 实机最低系统、物理多屏、混合 DPI 与读屏仍为 UNVERIFIED。项目自签名采用固定指纹策略，Windows 公共发行者信任未建立。
 
 ## 小窗任务拖入分类（2026-11-20～21，本地实现与验证完成）
 
