@@ -689,6 +689,30 @@ bool TaskWorkspace::canMoveWidgetTask(const QString& id,int direction) const
     if((m_widgetContext==QStringLiteral("today") || m_widgetCategoryToday) && QueryService::todayPeriod(tasks[row],m_today)!=QueryService::todayPeriod(tasks[target],m_today))return false;
     return canDropWidgetTask(id,tasks[target].id);
 }
+QString TaskWorkspace::widgetCategoryDropReason(const QString& id,qint64 version,const QString& context,const QString& profile) const
+{
+    if(profile!=m_widgetProfileToken)return tr("资料已切换，请重新拖动任务。");
+    if(!m_ready || m_busy)return tr("正在保存，请稍后重试。");
+    const auto* task=cachedTask(id);
+    if(!task || widgetTaskIndex(id)<0 || task->status!=QStringLiteral("OPEN") || !task->deletedAtUtc.isEmpty())return tr("该任务已不可移动，请刷新后重试。");
+    if(task->rowVersion!=version)return tr("任务已更新，请重新拖动。");
+    if(std::none_of(m_widgetCatalog.cbegin(),m_widgetCatalog.cend(),[&](const QVariant& value){return value.toMap().value("key")==context;}))return tr("目标分类已不可用。");
+    const auto target=TaskService::draftForScope(context,m_today);
+    if(task->projectId==target.projectId && task->areaId==target.areaId)return tr("任务已在该分类中。");
+    return {};
+}
+bool TaskWorkspace::moveWidgetTaskToCategory(const QString& id,qint64 version,const QString& context,const QString& profile)
+{
+    if(m_busy)return false;
+    const auto reason=widgetCategoryDropReason(id,version,context,profile);
+    if(!reason.isEmpty()){m_widgetNotice=reason;emit widgetBrowseChanged();return false;}
+    const auto target=TaskService::draftForScope(context,m_today);
+    TaskPatch patch;patch.projectId=target.projectId.isEmpty()?FieldPatch<QString>::clear():FieldPatch<QString>::set(target.projectId);
+    patch.areaId=target.areaId.isEmpty()?FieldPatch<QString>::clear():FieldPatch<QString>::set(target.areaId);
+    patch.headingId=FieldPatch<QString>::clear();
+    m_widgetNotice.clear();
+    return runTask(QStringLiteral("widgetMoveCategory"),[id,version,patch](TaskWorker& worker){return worker.service->edit(id,version,patch);});
+}
 bool TaskWorkspace::moveWidgetTask(const QString& id,int direction)
 {return canMoveWidgetTask(id,direction) && dropWidgetTask(id,m_widgetTasks.taskIdAt(widgetTaskIndex(id)+direction));}
 

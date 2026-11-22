@@ -22,3 +22,5 @@
 Windows设计与操作：[在线更新](design/update/README.md)、[自签名](design/update/self-signing.md)、[日志诊断](design/runtime-diagnostics.md)、[工程流程](engineering.md)。
 
 2026-11-15用户授权[小窗综合工作流](design/widget-unified-workflow.md)实现：分类导航、提醒汇总、就近编辑与离线提取确认。实际进展及证据仅见PROGRESS；可选AI接入保留候选接口，不新增模型服务或发行步骤。
+
+2026-11-20用户授权UX-77-DND小窗拖任务到分类，范围及接口见[最终契约§6](design/widget-unified-workflow.md)，真实实现/测试状态只见PROGRESS，不新增发行步骤。

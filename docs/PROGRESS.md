@@ -1,5 +1,23 @@
 # Daymark 当前进度
 
+## 3.2.0 发行（2026-11-22，进行中）
+
+用户要求发布新版。GitHub 当前最近托管版为3.1.0，main已同步。本次将小窗综合工作流和分类拖拽合并发行，按SemVer递增MINOR，保持schema11和同步协议。采用Qt6.10.2/MSVC2022正式Windows候选、受保护签名和公网安装/升级验收，上一版本为3.1.0，走完整兼容升级链。平台范围沿现有发行规则，物理操作和读屏以实际证据为准。
+
+## 小窗任务拖入分类（2026-11-20～21，本地实现与验证完成）
+
+用户要求先拉取最新、实现小窗任务拖到其他分类。工作区初始干净；fetch并ff-only同步main，已是5239475，无新增上游提交。按[小窗最终契约§6](design/widget-unified-workflow.md)实施UX-77-DND/FR-044，版本/schema不变，未操作用户库、提交、推送或发布。
+
+- 任务标题可拖到左侧常用分类，命中轮廓与完整路径反馈，释放才提交。同分类/过期版本/跨资料/失效目标拒绝，悬停不保存、不切当前范围。
+- 停留“分类”500ms展开同窗完整分类页，可拖到一级/二级分类；侧栏收起后标题分类按钮同样支持。长目录边缘自动滚动，分类页展示期间保留来源鼠标抓取且停止背景任务区滚动。Esc/无效释放取消，临时选择页关闭，原归属不变。
+- WidgetTaskRow记录拖动开始的版本/资料令牌，防重复结束回调；新增WidgetCategoryDropTarget共享常用、完整页及收起入口的命中/反馈。TaskWorkspace预检后调用既有TaskService::edit与Repository/journal事务；父任务联动后代、单独移出子任务解除父子关系，日期/提醒/关注/置顶保留。QML无业务筛选/SQL，无schema/迁移/网络/依赖变化。
+
+Qt6.10.2 macOS Release构建及QML lint PASS、零lint告警。新增真实临时SQLite测试 `widgetCategoryDropIsAtomicAndKeepsTaskProperties` **3/3 PASS（含init/cleanup，95ms）**；覆盖一二级归属、父子联动、子项移出、属性保留、CAS/资料/无效目标/重复提交拒绝，并用子任务UPDATE触发器故障验证整批回滚。
+
+相关CTest **4/4 PASS，84.11秒**：widget_workflow、task_workspace、desktop_surfaces、desktop_task_menu（`build/widget-dnd-tests.log`及`build/macos-release/widget-dnd-tests.xml`），原排序、菜单、分类键盘与草稿等回归保留。首轮UI在 `Widget workflow 23: category hover must open chooser` 失败；将onEntered条件启动改为containsDrag/allowed驱动的计时器后通过，随后补验完整分类滚动及收起入口，没有扩大30秒预算。最后消除过快释放分类入口的闪现并调整提示后，重新构建/lint，Cocoa原生后端完整workflow再次PASS（`build/widget-dnd-native.log`），覆盖上述拖动、两个Esc取消、长目录、浅色100%/深色200%及原编辑/提醒/提取流程；三张拖拽截图已查看。原生探针是QML窗口合成事件，OS activation=false，**物理鼠标/IME/读屏/跨屏与Windows仍UNVERIFIED**，不能冒称真实OS拖放验收。
+
+共享字体/图标守卫PASS（103个QML、47个原创矢量、6个别名）；本轮16个变更文件的220处本地文档链接零断链，git diff --check通过，未发现个人路径/密钥模式、构建产物或用户资料。所有测试使用QTemporaryDir合成资料；既有stash保持不动。
+
 ## 小窗综合改进实施（2026-11-15，本地实现与验证完成）
 
 用户认可综合原型后授权最终设计与实现。按REM-02/CAP-02、UX-77修订依次实施：正文稳定的可收起左侧常用分类、完整手动提醒汇总及操作恢复、原位时间标签与小窗就近编辑；用户已确定先离线提取、保留后续AI接口；不接模型或上传输入。沿用Qt6.10.2、统一TaskService/QueryService及本机资料隔离；不恢复NC-01，不修改任务schema，不默认联网或推送。验证使用临时合成资料，依次构建、规则/工作区测试与实际QML探针；原生多屏/读屏/Windows平台结果独立记录。

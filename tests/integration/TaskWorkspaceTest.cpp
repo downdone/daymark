@@ -296,6 +296,28 @@ private slots:
         bool switched=false;w.switchSyncDatabase(dir.filePath("other.sqlite"),[&](Result<void> result){switched=result.ok();});QVERIFY(daymark::test::awaitIdle(w));QVERIFY(switched);
         QVERIFY(!w.createActivityTasks(candidates,"inbox",profile));QCOMPARE(w.tasks()->rowCount(),0);
     }
+    void widgetCategoryDropIsAtomicAndKeepsTaskProperties() {
+        QTemporaryDir dir;const auto path=dir.filePath("widget-drop.sqlite");TaskWorkspace w;w.start(path);QVERIFY(daymark::test::awaitIdle(w));
+        const auto a=addWidgetCategory(w,"Source"),b=addWidgetCategory(w,"Target"),nested=addWidgetCategory(w,"Nested",b.value("id").toString());
+        const auto source=a.value("key").toString(),target=nested.value("key").toString(),profile=w.widgetProfileToken();
+        QVERIFY(w.createWidgetTask("parent",source,true,profile));QVERIFY(daymark::test::awaitIdle(w));const auto parent=w.widgetTasks()->taskIdAt(0);
+        QVERIFY(!parent.isEmpty());QVERIFY(w.createSubtask("child",parent));QVERIFY(daymark::test::awaitIdle(w));const auto child=w.subtaskChoices(parent).first().toMap().value("taskId").toString();
+        QVERIFY(w.saveDetails(parent,w.task(parent).value("rowVersion").toLongLong(),{{"important",true},{"pinned",true},{"remindAtUtc",QDateTime::currentDateTimeUtc().addDays(1).toString(Qt::ISODateWithMs)}}));QVERIFY(daymark::test::awaitIdle(w));
+        const auto before=w.task(parent);const auto version=before.value("rowVersion").toLongLong();
+        QVERIFY(!w.widgetCategoryDropReason(parent,version,source,profile).isEmpty());
+        QVERIFY(!w.moveWidgetTaskToCategory(parent,version-1,target,profile));QCOMPARE(w.task(parent),before);
+        QVERIFY(!w.moveWidgetTaskToCategory(parent,version,"project:missing",profile));QCOMPARE(w.task(parent),before);
+        QVERIFY(!w.moveWidgetTaskToCategory(parent,version,target,"wrong-profile"));QCOMPARE(w.task(parent),before);
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());QSqlQuery query(db.connection());QVERIFY(query.exec("CREATE TRIGGER reject_child_move BEFORE UPDATE OF project_id ON tasks WHEN OLD.title='child' BEGIN SELECT RAISE(ABORT,'injected child move failure'); END"));}
+        QVERIFY(w.moveWidgetTaskToCategory(parent,version,target,profile));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(!w.errorText().isEmpty());QCOMPARE(w.task(parent),before);QCOMPARE(w.task(child).value("projectId"),a.value("id"));
+        {SqliteDatabase db;QVERIFY(db.open(path).ok());QSqlQuery query(db.connection());QVERIFY(query.exec("DROP TRIGGER reject_child_move"));}
+        QVERIFY(w.moveWidgetTaskToCategory(parent,version,target,profile));QVERIFY(!w.moveWidgetTaskToCategory(parent,version,target,profile));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(w.errorText().isEmpty());
+        const auto after=w.task(parent);QCOMPARE(after.value("projectId"),nested.value("id"));QCOMPARE(w.task(child).value("projectId"),nested.value("id"));QCOMPARE(w.task(child).value("parentTaskId").toString(),parent);
+        for(const auto& field:{"startOn","deadlineOn","remindAtUtc","pinned","important","todayFocus"})QCOMPARE(after.value(field),before.value(field));
+        QCOMPARE(w.widgetContext(),QString("today"));QVERIFY(w.setWidgetContext(target));
+        QVERIFY(w.moveWidgetTaskToCategory(child,w.task(child).value("rowVersion").toLongLong(),source,profile));QVERIFY(daymark::test::awaitIdle(w));QVERIFY(w.task(child).value("parentTaskId").toString().isEmpty());QCOMPARE(w.task(parent).value("projectId"),nested.value("id"));QCOMPARE(w.widgetContext(),target);
+        bool switched=false;w.switchSyncDatabase(dir.filePath("other.sqlite"),[&](Result<void> result){switched=result.ok();});QVERIFY(daymark::test::awaitIdle(w));QVERIFY(switched);QVERIFY(!w.moveWidgetTaskToCategory(parent,version,target,profile));
+    }
     void activityDateOnlyRangeSurvivesConfirmation() {
         QTemporaryDir dir;TaskWorkspace w;w.start(dir.filePath("activity-range.sqlite"));QVERIFY(daymark::test::awaitIdle(w));w.setView("all");
         auto candidates=w.previewActivityInput(w.dateOffset(2)+QStringLiteral(" 外出调研")).value("candidates").toList();

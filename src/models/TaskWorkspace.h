@@ -175,6 +175,8 @@ public:
     Q_INVOKABLE int widgetTaskIndex(const QString& id) const {return int(m_widgetRows.value(id,-1));}
     Q_INVOKABLE bool canDropWidgetTask(const QString& source,const QString& target) const;
     Q_INVOKABLE bool dropWidgetTask(const QString& source,const QString& target);
+    Q_INVOKABLE QString widgetCategoryDropReason(const QString& id,qint64 version,const QString& context,const QString& profile) const;
+    Q_INVOKABLE bool moveWidgetTaskToCategory(const QString& id,qint64 version,const QString& context,const QString& profile);
     Q_INVOKABLE bool canMoveWidgetTask(const QString& id,int direction) const;
     Q_INVOKABLE bool moveWidgetTask(const QString& id,int direction);
     TaskListModel* deadlineTasks() {return &m_deadlineTasks;}

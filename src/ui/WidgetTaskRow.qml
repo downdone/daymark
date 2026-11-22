@@ -19,6 +19,9 @@ ItemDelegate {
     required property bool pinned
     property Item dragLayer
     property bool dragging: false
+    property bool finishingDrag:false
+    property real dragTaskVersion:0
+    property string dragProfile:""
     property point dragPosition: Qt.point(0,0)
     property bool reduceMotion: false
     property bool showSeparator: false
@@ -32,9 +35,10 @@ ItemDelegate {
     signal reorderStarted()
     Component.onDestruction: if(dragging)dragStateChanged(false,Qt.point(0,0))
     function finishDrag(commit) {
-        if(!dragging)return
+        if(!dragging || finishingDrag)return
+        finishingDrag=true
         if(commit)dragProxy.Drag.drop();else dragProxy.Drag.cancel()
-        dragging=false;dragProxy.parent=row;dragStateChanged(false,Qt.point(0,0))
+        dragging=false;dragProxy.parent=row;dragStateChanged(false,Qt.point(0,0));finishingDrag=false
     }
     objectName: "widgetTask-"+taskId
     readonly property string summary: [parentTitle, arrangementSummary].filter(value => value.length>0).join(" · ")
@@ -83,6 +87,7 @@ ItemDelegate {
         onActivated: row.openRequested(row.taskId)
         onContextRequested: function(position){row.contextRequested(row.taskId,row,mapToItem(row,position.x,position.y))}
         onDragStarted: function(entry,source,origin){
+            row.dragTaskVersion=row.rowVersion;row.dragProfile=row.workspace.widgetProfileToken
             row.forceActiveFocus();row.dragging=true;dragProxy.parent=row.dragLayer || row
             const at=source.mapToItem(dragProxy.parent,origin.x,origin.y);dragProxy.x=at.x-12;dragProxy.y=at.y-row.height/2
             row.dragStateChanged(true,source.mapToItem(row.dragLayer || row,origin.x,origin.y))

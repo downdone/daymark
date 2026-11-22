@@ -11,6 +11,9 @@ Control {
     property real cornerRadius:Theme.panelRadius
     signal contextRequested(string key)
     signal categoriesRequested()
+    signal dropBrowseRequested()
+    signal taskMoved(string destination)
+    signal dropError(string message)
     padding:6
     implicitWidth:104*Theme.scale
     background:Rectangle {color:Theme.sidebar;topLeftRadius:root.cornerRadius;bottomLeftRadius:root.cornerRadius;Rectangle {anchors.right:parent.right;width:1;height:parent.height;color:Theme.detailDivider}}
@@ -26,6 +29,8 @@ Control {
         id:entry
         property string symbol:"folder"
         property string fullPath:text
+        property string contextKey:""
+        property bool dropBrowse:false
         Accessible.selected:checked
         Layout.fillWidth:true;Layout.minimumWidth:0
         padding:6
@@ -44,6 +49,14 @@ Control {
         Keys.onUpPressed:root.focusStep(-1)
         Keys.onDownPressed:root.focusStep(1)
         Keys.onReturnPressed:clicked()
+        WidgetCategoryDropTarget {
+            visible:entry.contextKey.length>0 || entry.dropBrowse
+            workspace:root.workspace;contextKey:entry.contextKey;destinationName:entry.fullPath
+            blocked:root.blocked;browseOnly:entry.dropBrowse
+            onBrowseRequested:root.dropBrowseRequested()
+            onMoveAccepted:function(destination){root.taskMoved(destination)}
+            onErrorReported:function(message){root.dropError(message)}
+        }
     }
     contentItem:ColumnLayout {
         spacing:4
@@ -63,6 +76,7 @@ Control {
                         objectName:"widgetShortcut-"+modelData.key
                         text:modelData.title;checked:root.workspace.widgetContext===modelData.key
                         fullPath:modelData.path
+                        contextKey:modelData.key
                         Accessible.name:modelData.path
                         enabled:!root.blocked
                         onClicked:root.contextRequested(modelData.key)
@@ -71,6 +85,6 @@ Control {
                 Item {Layout.fillWidth:true;implicitHeight:1}
             }
         }
-        Entry {id:allCategories;objectName:"widgetRailCategories";text:qsTr("分类");enabled:!root.blocked;onClicked:root.categoriesRequested()}
+        Entry {id:allCategories;objectName:"widgetRailCategories";text:qsTr("分类");dropBrowse:true;enabled:!root.blocked;onClicked:root.categoriesRequested()}
     }
 }
