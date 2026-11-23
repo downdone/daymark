@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -26,7 +27,7 @@ ColumnLayout {
     property alias endGroup: endRow
     property alias reminderField: reminder
     property alias timingFields: timing
-    readonly property bool pickerOpen: startDate.pickerVisible || endDate.pickerVisible || reminder.pickerVisible || timing.modalOpen
+    readonly property bool pickerOpen: startDate.pickerVisible || endDate.pickerVisible || reminder.pickerVisible || reminderMode.popup.visible || timing.modalOpen
     readonly property string summary: !startDate.text && !endDate.text ? qsTr("安排")
         : !startDate.text ? qsTr("最晚于 %1").arg(endDate.text)
         : startDate.text+(endDate.text && endDate.text!==startDate.text ? " — "+endDate.text : "")+
@@ -40,7 +41,7 @@ ColumnLayout {
 
     spacing: compact ? 4 : Theme.fieldGap
     Layout.fillWidth:true
-    function closePickers(){startDate.closePicker();endDate.closePicker();reminder.closePicker();timing.closePickers()}
+    function closePickers(){startDate.closePicker();endDate.closePicker();reminder.closePicker();reminderMode.popup.close();timing.closePickers()}
     function startEditing(){
         if(opened)return
         checkpoint={start:startDate.text,end:endDate.text,reminder:reminder.text,frequency:reminder.repeatFrequency,
@@ -112,8 +113,10 @@ ColumnLayout {
         }
         FormRow {contextual:true;label:qsTr("提醒")
             ColumnLayout {Layout.fillWidth:true;spacing:root.spacing
-                ComboBox {
-                    objectName:root.objectPrefix+"ReminderMode";Layout.fillWidth:true;model:[qsTr("不提醒"),qsTr("提前或开始时提醒"),qsTr("指定提醒时间")]
+                DS.ComboBox {
+                    id:reminderMode
+                    objectName:root.objectPrefix+"ReminderMode";withinHostWindow:true;Layout.fillWidth:true
+                    model:[qsTr("不提醒"),qsTr("提前或开始时提醒"),qsTr("指定提醒时间")]
                     currentIndex:timing.alertMinutes>=0?1:reminder.text?2:0
                     onActivated:function(index){root.setReminderMode(index)}
                 }

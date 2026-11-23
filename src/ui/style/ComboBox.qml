@@ -4,6 +4,7 @@ import QtQuick.Templates as T
 T.ComboBox {
     id: control
     property var separatorBefore: []
+    property bool withinHostWindow: false
     readonly property var hostWindow: Window.window
     implicitWidth: Math.max(140,implicitContentWidth+leftPadding+rightPadding)
     implicitHeight: Math.max(DesignTokens.controlHeight,implicitContentHeight+12)
@@ -47,8 +48,9 @@ T.ComboBox {
     }
     popup: T.Popup {
         id: optionsPopup
-        // These backends do not support our global popup positioning or grabs.
-        popupType: Qt.platform.pluginName.startsWith("wayland") || Qt.platform.pluginName === "offscreen"
+        // Keep nested fields in the parent's input surface. Other desktop
+        // dropdowns can use a separate window to reach the screen work area.
+        popupType: control.withinHostWindow || Qt.platform.pluginName.startsWith("wayland") || Qt.platform.pluginName === "offscreen"
             ? T.Popup.Item : T.Popup.Window
         margins: 8
         padding: 6
@@ -83,7 +85,13 @@ T.ComboBox {
             y = at.y
         }
         function refreshWorkArea() {
-            workArea = popupType === T.Popup.Window ? ScreenWorkArea.forItem(control) : Qt.rect(0, 0, 0, 0)
+            if (popupType === T.Popup.Window) {
+                workArea = ScreenWorkArea.forItem(control)
+            } else if (control.hostWindow) {
+                const viewport = control.hostWindow.contentItem
+                const origin = viewport.mapToGlobal(0, 0)
+                workArea = Qt.rect(origin.x, origin.y, viewport.width, viewport.height)
+            }
             placeAtAnchor()
         }
         onAboutToShow: refreshWorkArea()
@@ -93,6 +101,8 @@ T.ComboBox {
             target: optionsPopup.visible ? control.hostWindow : null
             function onXChanged() { optionsPopup.refreshWorkArea() }
             function onYChanged() { optionsPopup.refreshWorkArea() }
+            function onWidthChanged() { optionsPopup.refreshWorkArea() }
+            function onHeightChanged() { optionsPopup.refreshWorkArea() }
             function onScreenChanged() { optionsPopup.refreshWorkArea() }
         }
         contentItem: ListView {

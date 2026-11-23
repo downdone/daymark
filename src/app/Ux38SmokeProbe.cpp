@@ -543,6 +543,24 @@ QString Ux38SmokeProbe::advance() {
         auto* window=qobject_cast<QQuickWindow*>(find(m_main,"accountWindow"));auto* footer=qobject_cast<QQuickItem*>(find(window,"accountContinueLocal"));
         const auto at=footer->mapToScene(QPointF());
         if(at.x()<0 || at.y()<0 || at.x()+footer->width()>window->width()+1 || at.y()+footer->height()>window->height()+1 || !capture(window,"account-management-dark-200-narrow"))return fail("account footer remains reachable in narrow large text window");
+        auto state=m_accountDisplayState;
+        state.insert("busy",false);
+        state.insert("protocol_paused",true);
+        m_workspace.setSyncState(state);
+        auto* backup=qobject_cast<QQuickItem*>(find(window,"syncProtocolBackup"));
+        auto* recheck=find(window,"syncNow");
+        auto* rebuild=find(window,"syncRebuild");
+        if(!backup || !backup->isVisible() || !recheck || !recheck->property("enabled").toBool() ||
+           rebuild->property("visible").toBool() || find(window,"accountConflictLocal")->property("enabled").toBool())
+            return fail("protocol pause offers backup and recheck before applying conflicts");
+        state.insert("protocol_paused",false);
+        m_workspace.setSyncState(state);
+        auto* confirm=find(window,"syncRebuildConfirm");
+        if(!confirm || confirm->property("visible").toBool() || !QMetaObject::invokeMethod(rebuild,"clicked") ||
+           !confirm->property("visible").toBool())
+            return fail("remerge waits for an explicit confirmation");
+        if(!QMetaObject::invokeMethod(find(window,"syncRebuildCancel"),"clicked") || confirm->property("visible").toBool())
+            return fail("cancel returns to the optional remerge action");
         QMetaObject::invokeMethod(window,"close");m_workspace.setSyncState(m_originalSyncState);m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setPreference("sidebarCollapsed",true);
     }
     if(m_stage==111){

@@ -65,7 +65,7 @@ Popup {
         MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton | Qt.RightButton;onClicked:root.finish()}
     }
     Shortcut {
-        sequence: "Escape";enabled:root.visible && !root.creating && !assignment.tagPickerVisible && !draftCatalog.visible && !timing.modalOpen
+        sequence: "Escape";enabled:root.visible && !root.creating && !assignment.tagPickerVisible && !draftCatalog.visible && (!temporal.pickerOpen || picker.active)
         onActivated:picker.active ? picker.close() : root.finish()
     }
     onOpened: {

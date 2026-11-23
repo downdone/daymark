@@ -348,7 +348,7 @@ ApplicationWindow {
         onConflict:function(message,canReload){mainWindow.editConflict=message;mainWindow.editCanReload=canReload}
     }
     readonly property bool transientMenuOpen: taskContextMenu.visible || libraryMenu.visible || libraryCreateMenu.visible || categoryContextMenu.visible || catalogDeleteConfirm.visible || pageMenu.visible || categorySectionMenu.visible || tagSectionMenu.visible || batchContextMenu.visible || trashContextMenu.visible || purgeConfirm.visible
-    readonly property bool toolModalOpen: inspectorPicker.active || transientMenuOpen || catalogEdit.visible || deleteParentConfirm.visible || catalogCreate.visible || quickEditor.editing || organization.modalOpen || windowSettings.visible || accountWindow.visible || dataTools.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen || timingFields.modalOpen || extraFields.parentPickerVisible || startDate.pickerVisible || deadline.pickerVisible || reminder.pickerVisible
+    readonly property bool toolModalOpen: inspectorPicker.active || transientMenuOpen || catalogEdit.visible || deleteParentConfirm.visible || catalogCreate.visible || quickEditor.editing || organization.modalOpen || windowSettings.visible || accountWindow.visible || dataTools.visible || batchDialog.visible || firstClose.visible || datePicker.visible || leaveDialog.visible || confirmToday.visible || calendarPanel.modalOpen || temporal.pickerOpen || extraFields.parentPickerVisible
     property string toolPage: ""
     readonly property bool toolPageVisible: toolPage.length>0
     readonly property bool taskContentVisible: !toolPageVisible && !calendarVisible
@@ -956,7 +956,7 @@ ApplicationWindow {
     Shortcut { sequences: [StandardKey.Find];enabled: !mainWindow.toolModalOpen && mainWindow.taskContentVisible;onActivated: { if (!editor.visible || mainWindow.detailDocked) {mainWindow.searchExpanded=true;Qt.callLater(function(){mainWindow.focusHeader(search)})} } }
     Shortcut {sequences:[StandardKey.Save];enabled:editor.visible && !mainWindow.editorSaving;onActivated:{const id=mainWindow.editId;const tab=mainWindow.editorTab;const y=editorScroll.contentY;const caret=editNotes.cursorPosition;mainWindow.pendingAction=function(){mainWindow.fillEditor(id);mainWindow.editorTab=tab;Qt.callLater(function(){editorScroll.contentY=y;editNotes.cursorPosition=caret})};if(!mainWindow.saveEditor())mainWindow.pendingAction=null}}
     Shortcut {sequence:"Escape";enabled:editor.visible && inspectorPicker.active;onActivated:inspectorPicker.close()}
-    Shortcut { sequence: "Escape";enabled: editor.visible && !inspectorDrag.pressed && !timingFields.modalOpen && !inspectorPicker.active && !taskHistoryDialog.visible && !editorMenu.visible && !extraFields.parentPickerVisible && !extraFields.tagPickerVisible && !catalogCreate.visible && !leaveDialog.visible && !datePicker.visible && !startDate.pickerVisible && !deadline.pickerVisible && !reminder.pickerVisible;onActivated: {if(temporal.opened)temporal.finish(false);else mainWindow.returnFromDetails()} }
+    Shortcut { sequence: "Escape";enabled: editor.visible && !inspectorDrag.pressed && !temporal.pickerOpen && !inspectorPicker.active && !taskHistoryDialog.visible && !editorMenu.visible && !extraFields.parentPickerVisible && !extraFields.tagPickerVisible && !catalogCreate.visible && !leaveDialog.visible && !datePicker.visible;onActivated: {if(temporal.opened)temporal.finish(false);else mainWindow.returnFromDetails()} }
 
     RowLayout {
         anchors.fill: parent
@@ -1886,6 +1886,7 @@ ApplicationWindow {
         onSyncProfileRequested:function(id){mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncOpenProfile(id)})}
         onSyncResolveRequested:function(id,decision){mainWindow.navigateSafely(function(){mainWindow.taskWorkspace.syncResolveConflict(id,decision)})}
         onSyncRebuildRequested:mainWindow.navigateSafely(function(){editor.close();mainWindow.taskWorkspace.syncRebuild()})
+        onSyncBackupRequested:mainWindow.openTool("data")
         onDismissed: Qt.callLater(function(){if(mainWindow.taskWorkspace.preferences.sidebarCollapsed)accountCompactEntry.forceActiveFocus();else accountEntry.forceActiveFocus()})
     }
 

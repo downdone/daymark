@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"encoding/pem"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -88,7 +90,36 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 	var rebased atomic.Bool
 	var droppedPush, droppedLogout atomic.Bool
 	var expiredStage atomic.Bool
+	protocolGate := filepath.Join(root, "protocol-transition")
+	var protocolPausedPayload atomic.Pointer[string]
+	var protocolRechecked, protocolReplayed atomic.Bool
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/capabilities" && protocolPausedPayload.Load() != nil {
+			protocolRechecked.Store(true)
+		}
+		_, gateError := os.Stat(protocolGate)
+		if gateError == nil && !protocolReplayed.Load() && r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/sync/push") {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("read sync fixture: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			_ = r.Body.Close()
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			payload := string(body)
+			if protocolPausedPayload.CompareAndSwap(nil, &payload) {
+				r = r.WithContext(context.WithValue(r.Context(), requestKey{}, r.Header.Get("X-Daymark-Request-ID")))
+				handler.problem(w, r, domain.Fail("protocol_upgrade_required"))
+				return
+			}
+			if !protocolRechecked.Load() || payload != *protocolPausedPayload.Load() {
+				t.Error("protocol resume must follow capability negotiation and preserve the frozen request")
+				w.WriteHeader(http.StatusUpgradeRequired)
+				return
+			}
+			protocolReplayed.Store(true)
+		}
 		if r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/publish") && !rebased.Load() {
 			principal, authError := auth.Authenticate(r.Context(), strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 			if authError == nil {
@@ -202,13 +233,16 @@ func TestQtDesktopEndToEnd(t *testing.T) {
 	command := exec.CommandContext(ctx, executable, arguments...)
 	command.WaitDelay = 5 * time.Second
 	graphPath := filepath.Join(root, "client-graph.json")
-	command.Env = append(os.Environ(), "QT_QPA_PLATFORM=offscreen", "DAYMARK_SYNC_E2E_TELEMETRY=1", "DAYMARK_SYNC_E2E_URL="+server.URL, "DAYMARK_SYNC_E2E_PASSWORD="+password, "DAYMARK_SYNC_E2E_CA="+ca, "DAYMARK_SYNC_E2E_GRAPH_PATH="+graphPath)
+	command.Env = append(os.Environ(), "QT_QPA_PLATFORM=offscreen", "DAYMARK_SYNC_E2E_TELEMETRY=1", "DAYMARK_SYNC_E2E_URL="+server.URL, "DAYMARK_SYNC_E2E_PASSWORD="+password, "DAYMARK_SYNC_E2E_CA="+ca, "DAYMARK_SYNC_E2E_GRAPH_PATH="+graphPath, "DAYMARK_SYNC_E2E_PROTOCOL_GATE="+protocolGate)
 	output, e := command.CombinedOutput()
 	if e != nil {
 		t.Fatalf("Qt integration failed: %v\n%s", e, output)
 	}
 	if !strings.Contains(string(output), "PASS native credentials;") {
 		t.Fatalf("missing integration completion evidence: %s", output)
+	}
+	if !protocolReplayed.Load() {
+		t.Fatal("protocol transition did not replay the original request")
 	}
 	if staged.Load() == 0 || !rebased.Load() || !droppedPush.Load() || !droppedLogout.Load() || !expiredStage.Load() {
 		t.Fatal("large mutation/rebase path not exercised")

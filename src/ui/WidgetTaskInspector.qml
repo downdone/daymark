@@ -35,7 +35,7 @@ Popup {
     height:Math.min(body.implicitHeight+padding*2,workspace.reminderPopupArea().height-24,640*Theme.scale)
     closePolicy:Popup.NoAutoClose
     background:PopoverSurface {}
-    readonly property bool pickersOpen:timing.modalOpen || start.pickerVisible || end.pickerVisible || reminder.pickerVisible || extra.parentPickerVisible || extra.tagPickerVisible
+    readonly property bool pickersOpen:temporal.pickerOpen || extra.parentPickerVisible || extra.tagPickerVisible
     TaskSnapshotObserver {
         workspace:root.workspace;taskId:root.original.taskId || "";profile:root.projectionProfile
         active:root.visible && taskId.length>0;dirty:root.dirty || root.pickersOpen || temporal.opened;saving:root.saving

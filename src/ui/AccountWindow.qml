@@ -37,6 +37,7 @@ ApplicationWindow {
     signal syncProfileRequested(string id)
     signal syncResolveRequested(string id, string decision)
     signal syncRebuildRequested()
+    signal syncBackupRequested()
     signal dismissed()
     property bool syncRegisterMode: false
     property int serviceMode:0
@@ -45,13 +46,16 @@ ApplicationWindow {
     property bool serverExpanded: true
     property bool showPassword: false
     property bool diagnosticExpanded:false
+    property bool confirmRebuild: false
     property string diagnosticActionError:""
     property bool prefilled: false
     property string prefillProfileId: ""
     readonly property bool connected: !!workspace.syncState.authenticated
     readonly property bool connecting: !!workspace.syncState.busy
+    readonly property bool protocolPaused: !!workspace.syncState.protocol_paused
     readonly property bool validRegistration: Array.from(syncPassword.text).length >= 8 && syncConfirmPassword.text === syncPassword.text
     readonly property bool canSubmit: !connecting && activeOrigin.trim().length > 0 && syncLogin.text.trim().length > 0 && syncPassword.text.length > 0 && (!syncRegisterMode || validRegistration)
+    onConnectedChanged: if (!connected) confirmRebuild = false
     title: qsTr("账号 · Daymark")
     visible: false
     modality: Qt.WindowModal
@@ -90,7 +94,7 @@ ApplicationWindow {
         show(); requestActivate()
         Qt.callLater(function() { if (root.visible && !root.connected) { if (root.serviceMode===1 && root.serverExpanded) syncOrigin.forceActiveFocus(); else if (!syncLogin.text) syncLogin.forceActiveFocus(); else syncPassword.forceActiveFocus() } })
     }
-    function close() { hide(); clearSecrets(); syncRegisterMode = false;diagnosticExpanded=false;diagnosticActionError=""; dismissed(); if (transientParent) transientParent.requestActivate() }
+    function close() { hide(); clearSecrets(); syncRegisterMode = false;confirmRebuild=false;diagnosticExpanded=false;diagnosticActionError=""; dismissed(); if (transientParent) transientParent.requestActivate() }
     function reveal(item) {
         if (!item || !item.visible) return
         let owner = item
@@ -119,7 +123,17 @@ ApplicationWindow {
     onVisibleChanged: if (!visible) clearSecrets()
     onClosing: function(event) { event.accepted = false; close() }
     onActiveFocusItemChanged: Qt.callLater(function() { root.reveal(root.activeFocusItem) })
-    Shortcut { sequence: "Escape"; enabled: root.visible; onActivated: root.close() }
+    Shortcut {
+        sequence: "Escape"; enabled: root.visible
+        onActivated: {
+            if (root.confirmRebuild) {
+                root.confirmRebuild = false
+                rebuildEntry.forceActiveFocus()
+            } else {
+                root.close()
+            }
+        }
+    }
     Connections {
         target: body.contentItem
         function onContentHeightChanged() { Qt.callLater(root.revealFocusedItem) }
@@ -222,7 +236,7 @@ ApplicationWindow {
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: Theme.fieldGap
                             Button { id: syncSubmit; objectName: "syncSubmit"; Layout.fillWidth: true; Layout.minimumHeight: Math.max(40, Theme.controlHeight + 8); highlighted: true; text: root.connecting ? qsTr("正在连接…") : root.syncRegisterMode ? qsTr("注册并同步") : qsTr("登录并同步"); enabled: root.canSubmit; onClicked: root.submit(); BusyIndicator { anchors.left: parent.left; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 24; running: root.connecting; visible: running } }
-                            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("将安全合并此设备与服务器的资料。"); color: Theme.secondary; font.pixelSize: Theme.captionSize; horizontalAlignment: Text.AlignHCenter }
+                            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: root.workspace.syncState.local_only ? qsTr("登录后会打开独立的账号资料。") : qsTr("将安全合并此设备与服务器的资料。"); color: Theme.secondary; font.pixelSize: Theme.captionSize; horizontalAlignment: Text.AlignHCenter }
                             Button { objectName: "syncRegisterMode"; Layout.alignment: Qt.AlignHCenter; text: root.syncRegisterMode ? qsTr("已有账号？返回登录") : qsTr("没有账号？创建账号"); flat: true; enabled: !root.connecting; onClicked: { root.syncRegisterMode = !root.syncRegisterMode; syncLogin.forceActiveFocus() } }
                         }
                     }
@@ -242,8 +256,36 @@ ApplicationWindow {
                                 Label { objectName: "accountStatus"; Layout.fillWidth: true; text: root.workspace.syncState.status || qsTr("已连接"); wrapMode: Text.Wrap; font.pixelSize: Theme.bodySize }
                             }
                             Label { visible: (root.workspace.syncState.pending_count || 0) > 0; Layout.fillWidth: true; text: qsTr("%1 组修改保留在此设备，等待同步。").arg(root.workspace.syncState.pending_count || 0); wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }
-                            Button { objectName: "syncNow"; text: root.connecting ? qsTr("正在同步…") : qsTr("立即同步"); enabled: !root.connecting; onClicked: root.workspace.syncNow() }
-                            Button { objectName: "syncRebuild"; visible: root.workspace.syncState.phase === "RECONCILE_REQUIRED"; text: qsTr("备份并重新合并"); enabled: !root.connecting; onClicked: root.syncRebuildRequested() }
+                            Button { objectName: "syncNow"; visible: root.protocolPaused || root.workspace.syncState.phase !== "RECONCILE_REQUIRED"; text: root.protocolPaused ? qsTr("重新检查协议") : root.connecting ? qsTr("正在同步…") : qsTr("立即同步"); enabled: !root.connecting; onClicked: root.workspace.syncNow() }
+                            Button {
+                                id: rebuildEntry
+                                objectName: "syncRebuild"
+                                visible: !root.protocolPaused && root.workspace.syncState.phase === "RECONCILE_REQUIRED" && !root.confirmRebuild
+                                text: qsTr("备份并重新合并…")
+                                enabled: !root.connecting
+                                onClicked: { root.confirmRebuild = true; cancelRebuild.forceActiveFocus() }
+                            }
+                            ColumnLayout {
+                                visible: root.confirmRebuild && !root.protocolPaused && root.workspace.syncState.phase === "RECONCILE_REQUIRED"
+                                Layout.fillWidth: true
+                                spacing: Theme.fieldGap
+                                Label {
+                                    Layout.fillWidth: true; wrapMode: Text.Wrap
+                                    text: qsTr("重新合并会先备份此设备的资料。双方修改不一致时，你可以选择保留的版本。")
+                                }
+                                Button {
+                                    id: cancelRebuild
+                                    objectName: "syncRebuildCancel"
+                                    text: qsTr("取消")
+                                    onClicked: { root.confirmRebuild = false; rebuildEntry.forceActiveFocus() }
+                                }
+                                Button {
+                                    objectName: "syncRebuildConfirm"
+                                    text: qsTr("备份并重新合并")
+                                    enabled: !root.connecting
+                                    onClicked: { root.confirmRebuild = false; root.syncRebuildRequested() }
+                                }
+                            }
                         }
                         Repeater {
                             model: root.workspace.syncState.conflicts || []
@@ -254,9 +296,9 @@ ApplicationWindow {
                                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("处理修改冲突：%1").arg(conflict.modelData.local_title || conflict.modelData.remote_title || qsTr("相关资料")); font.pixelSize: Theme.sectionSize; font.weight: Font.DemiBold }
                                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("此选择处理 %1 项相关修改，两个版本保留在恢复记录中。").arg(conflict.modelData.related_count || 1); font.pixelSize: Theme.captionSize; color: Theme.secondary }
                                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("此设备\n%1").arg(conflict.modelData.local_summary || ""); font.pixelSize: Theme.bodySize }
-                                Button { objectName: "accountConflictLocal"; text: qsTr("保留此设备"); enabled: !root.connecting; onClicked: root.syncResolveRequested(conflict.modelData.id, "local") }
+                                Button { objectName: "accountConflictLocal"; text: qsTr("保留此设备"); enabled: !root.connecting && !root.protocolPaused; onClicked: root.syncResolveRequested(conflict.modelData.id, "local") }
                                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: qsTr("服务器\n%1").arg(conflict.modelData.remote_summary || ""); font.pixelSize: Theme.bodySize }
-                                Button { objectName: "accountConflictRemote"; text: qsTr("使用服务器版本"); enabled: !root.connecting && conflict.modelData.remote_available !== false; onClicked: root.syncResolveRequested(conflict.modelData.id, "remote") }
+                                Button { objectName: "accountConflictRemote"; text: qsTr("使用服务器版本"); enabled: !root.connecting && !root.protocolPaused && conflict.modelData.remote_available !== false; onClicked: root.syncResolveRequested(conflict.modelData.id, "remote") }
                             }
                         }
                     }
@@ -279,8 +321,11 @@ ApplicationWindow {
         ColumnLayout {
             objectName: "accountWindowFooter"
             Layout.fillWidth: true; Layout.margins: 16; spacing: Theme.fieldGap
+            Button { objectName: "syncProtocolBackup"; visible: root.protocolPaused && !root.connecting; Layout.fillWidth: true; text: qsTr("打开数据与备份"); onClicked: { root.close(); root.syncBackupRequested() } }
             Label { visible: root.connecting && !root.connected; Layout.fillWidth: true; text: qsTr("关闭窗口后，连接会在后台继续。"); wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary; horizontalAlignment: Text.AlignHCenter }
-            Button { objectName: "accountContinueLocal"; Layout.fillWidth: true; flat: true; text: root.connected ? qsTr("返回任务") : root.connecting ? qsTr("在后台继续") : qsTr("继续本地使用"); onClicked: root.close() }
+            Button { id:openLocalProfile; objectName: "accountOpenLocalProfile"; visible: !root.connected && !root.connecting && root.workspace.syncState.mode === "ACCOUNT"; Layout.fillWidth: true; text: qsTr("打开仅本机资料"); onClicked: { root.syncProfileRequested("local"); root.close() } }
+            Label { visible: openLocalProfile.visible; Layout.fillWidth: true; text: qsTr("单独保存本机任务。原账号资料可从此窗口重新打开。"); wrapMode: Text.Wrap; color: Theme.secondary; font.pixelSize: Theme.captionSize; horizontalAlignment: Text.AlignHCenter }
+            Button { objectName: "accountContinueLocal"; Layout.fillWidth: true; flat: true; text: root.connecting && !root.connected ? qsTr("在后台继续") : root.workspace.syncState.mode === "ACCOUNT" || root.connected ? qsTr("返回任务") : qsTr("继续本地使用"); onClicked: root.close() }
         }
     }
 }

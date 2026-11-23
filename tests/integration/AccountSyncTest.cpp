@@ -207,8 +207,23 @@ int run() {
     until([] { return false; }, 100);
     if (requests != count || !credentialsA.values.isEmpty())
         return failed("signed out must make zero network requests", &a);
+    const auto accountPath = a.databasePath();
+    const QVariantMap cycleRule{{"active",true},{"frequency","DAILY"},{"rowVersion","0"},{"zone","UTC"}};
+    if (a.saveDetails(id, a.task(id).value("rowVersion").toLongLong(), {{"cycle",cycleRule}}))
+        return failed("signed-out account facts still use the v1 capability boundary", &a);
+    a.syncOpenProfile("local");
+    if (!until([&] { return a.syncState().value("local_only").toBool() && !a.syncState().value("busy").toBool(); }) ||
+        !idle(a) || a.databasePath()==accountPath || !a.task(id).isEmpty() || requests!=count)
+        return failed("explicit local workspace is separate and offline", &a);
+    const auto localPath = a.databasePath();
+    if (sync::ProfileIndex(dirA).activePath()!=localPath || !a.createTodayTask("仅本机周期验收") || !idle(a))
+        return failed("local workspace is remembered and supports tasks", &a);
+    const auto localId=a.todayTasks()->taskIdAt(0);
+    if (localId.isEmpty() || !a.saveDetails(localId,a.task(localId).value("rowVersion").toLongLong(),{{"cycle",cycleRule}}) ||
+        !idle(a) || a.task(localId).value("cycle").toMap().value("frequency")!="DAILY")
+        return failed("local-only cycle persists", &a);
     a.syncLogin(url, login, password);
-    if (!settle(a))
+    if (!settle(a) || a.databasePath()!=accountPath || !a.task(localId).isEmpty())
         return failed("same account offline queue resume", &a);
     b.syncNow();
     if (!settle(b) || b.task(id).value("title") != "退出后离线修改")
@@ -336,6 +351,27 @@ int run() {
     b.syncNow();
     if (!settle(b) || b.task(lastBulk).isEmpty())
         return failed("large batch reference download", &a, &b);
+    QFile protocolGate(qEnvironmentVariable("DAYMARK_SYNC_E2E_PROTOCOL_GATE"));
+    if (protocolGate.fileName().isEmpty() || !protocolGate.open(QIODevice::WriteOnly))
+        return failed("prepare the temporary server protocol gate", &a, &b);
+    protocolGate.close();
+    if (!a.createTask("Synthetic protocol transition") || !idle(a))
+        return failed("queue a modification before protocol changes", &a, &b);
+    if (!until([&] {
+            const auto state = a.syncState();
+            return !state.value("busy").toBool() && state.value("protocol_paused").toBool() &&
+                   state.value("safe_error_code") == "protocol_upgrade_required" &&
+                   state.value("pending_count").toInt() == 1;
+        }))
+        return failed("protocol error pauses without rejecting the frozen modification", &a, &b);
+    if (!a.createTask("Synthetic edit while protocol paused") || !idle(a) ||
+        !until([&] { return a.syncState().value("pending_count").toInt() == 2; }))
+        return failed("local editing remains available while paused", &a, &b);
+    if (until([&] { return !a.syncState().value("protocol_paused").toBool() ||
+                           a.syncState().value("busy").toBool(); }, 800))
+        return failed("local edits do not restart the paused sync", &a, &b);
+    if (!settle(a) || !settle(b))
+        return failed("explicit protocol recheck sends pending changes", &a, &b);
     QString category, tag;
     QObject::connect(&a, &TaskWorkspace::catalogSaved, &a,
                      [&](const QString &created, const QString &kind) {
@@ -448,10 +484,14 @@ int run() {
         db.close();
     }
     QSqlDatabase::removeDatabase(connection);
+    a.syncOpenProfile("local");
+    if (!until([&] { return a.syncState().value("local_only").toBool() && !a.syncState().value("busy").toBool(); }) ||
+        a.databasePath()!=localPath || a.task(localId).value("cycle").toMap().value("frequency")!="DAILY" || !a.task(id).isEmpty())
+        return failed("reopening local workspace preserves its cycle after account use", &a);
     std::cout << "PASS native credentials; Qt/Go trusted TLS; guest import; snapshot; incremental "
                  "push/pull; logout zero-network; durable offline queue; conflict resolution; "
                  "atomic 1000-task import; staged mutation; large batch reference; account "
-                 "isolation and offline recovery"
+                 "isolation, offline recovery and a separate local-only cycle"
               << std::endl;
     return 0;
 }

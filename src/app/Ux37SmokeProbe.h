@@ -27,7 +27,7 @@ private:
     int m_stage=0;
     int m_firstInspectorPhase=0;
     bool m_listSurfaceHoverSent=false;
-    bool m_inlineDateOpened=false;
+    int m_arrangementPhase=0;
     QElapsedTimer m_wait,m_clock,m_presentClock;
     qint64 m_panelFrameMs=-1;
     bool m_awaitingPanelFrame=false;

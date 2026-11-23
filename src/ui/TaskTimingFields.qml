@@ -168,13 +168,16 @@ ColumnLayout {
         id:repeatSection
         Layout.fillWidth: true;spacing: Theme.fieldGap
         Label {visible:root.legacyRule;Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("旧循环保留已生成任务。转换时将以当前任务继续，其他任务保留。");color:Theme.secondary}
-        Label {visible:root.useTaskCycle && !root.cycleAvailable;Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("当前账号同步版本暂不支持同一任务周期。");color:Theme.secondary}
+        Label {visible:root.useTaskCycle && !root.cycleAvailable;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.secondary
+            text:root.workspace.syncState.authenticated ? qsTr("当前账号同步版本暂不支持同一任务周期。")
+                : qsTr("此任务仍在账号资料中。可在账号页打开「仅本机资料」来设置本机任务周期。")}
         Button {visible:root.legacyRule && !root.convertLegacy;enabled:root.cycleAvailable;text:qsTr("转换为同一任务周期");onClicked:{root.convertLegacy=true;root.changed(false)}}
         Label {visible:root.useTaskCycle && !!root.cycleSnapshot.nextDate;Layout.fillWidth:true;text:qsTr("下次 %1").arg(root.cycleSnapshot.nextDate || "");color:Theme.secondary}
         SettingSwitch {id: repeating;visible:!root.compactPresentation;objectName: root.objectPrefix+"Repeating";Layout.fillWidth: true;symbol: "reload";text: qsTr("循环生成任务");Accessible.description: qsTr("按周期生成可独立完成的任务");onClicked: root.changed(false)}
         FormRow {contextual:root.compactPresentation;visible:root.compactPresentation;label:root.useTaskCycle?qsTr("周期"):qsTr("重复")
             DS.ComboBox {
                 id:repeatChoice;objectName:root.objectPrefix+"RepeatChoice";Layout.fillWidth:true;Accessible.name:qsTr("任务重复规则")
+                withinHostWindow:root.useTaskCycle
                 enabled:root.cycleAvailable && (!root.legacyRule || root.convertLegacy)
                 separatorBefore:[1,5]
                 model:[qsTr("不重复"),qsTr("每天"),qsTr("每周"),qsTr("每月"),qsTr("每年"),qsTr("自定义…")]
@@ -197,7 +200,7 @@ ColumnLayout {
             parent:root.compactPresentation ? repeatPopupBody : repeatSection
             visible:root.compactPresentation ? repeatOptions.visible : repeating.checked
             Layout.fillWidth: true;spacing: Theme.fieldGap
-            ComboBox {id: frequency;objectName: root.objectPrefix+"RepeatFrequency";Layout.fillWidth: true;Accessible.name: qsTr("任务循环周期");model:[qsTr("每天"),qsTr("每周"),qsTr("每月"),qsTr("每年"),qsTr("完成后按天循环")];onActivated: if(!repeatOptions.visible)root.changed(false)}
+            DS.ComboBox {id: frequency;objectName: root.objectPrefix+"RepeatFrequency";withinHostWindow:true;Layout.fillWidth: true;Accessible.name: qsTr("任务循环周期");model:[qsTr("每天"),qsTr("每周"),qsTr("每月"),qsTr("每年"),qsTr("完成后按天循环")];onActivated: if(!repeatOptions.visible)root.changed(false)}
             RowLayout {Layout.fillWidth: true;Label {text: qsTr("每隔")} SpinBox {id: interval;objectName: root.objectPrefix+"RepeatInterval";from: 1;to: 36500;editable: true;Accessible.name: qsTr("任务循环间隔");onValueModified: if(!repeatOptions.visible)root.changed(false)} Label {Layout.fillWidth: true;text: [qsTr("天"),qsTr("周"),qsTr("月"),qsTr("年"),qsTr("天")][frequency.currentIndex]}}
             Flow {
                 visible: frequency.currentIndex===1;Layout.fillWidth: true;spacing: 4

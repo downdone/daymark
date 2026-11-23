@@ -50,7 +50,7 @@ class Coordinator final : public QObject {
         timer.setSingleShot(true);
         statistics=std::make_unique<telemetry::Controller>(workspace,
             [this](const QByteArray& method,const QString& path,const QJsonObject& body,telemetry::Controller::Done done){
-                if(busy || active || !authenticated)return false;
+                if(busy || active || !authenticated || protocolPaused)return false;
                 busy=true;timer.stop();cycleTime.start();
                 request(method,path,body.isEmpty()?QByteArray():json(body),{},[this,done=std::move(done)](Response response){
                     busy=false;QJsonParseError error;const auto document=QJsonDocument::fromJson(response.bytes,&error);
@@ -80,8 +80,12 @@ class Coordinator final : public QObject {
                         openProfile(values.value("id").toString());
                     else if (action == "now") {
                         timer.stop();
+                        if (protocolPaused && authenticated && !busy) {
+                            capabilities = {};
+                            protocolPaused = false;
+                        }
                         cycle();
-                    } else if (action == "resolve" && !busy) {
+                    } else if (action == "resolve" && !busy && !protocolPaused) {
                         busy = true;
                         db("resolve", QJsonObject::fromVariantMap(values), [this](auto r) {
                             if (!r.ok()) {
@@ -109,7 +113,7 @@ class Coordinator final : public QObject {
                             profile = p.value;
                             publish();
                         }
-                        if (authenticated && !busy)
+                        if (authenticated && !busy && !protocolPaused)
                             timer.start(200);
                     });
                 });
@@ -162,6 +166,7 @@ class Coordinator final : public QObject {
     QString server, installation, message, safeCode;
     QJsonObject diagnostic;
     bool started = false, busy = false, authenticated = false;
+    bool protocolPaused = false;
     quint64 serial = 0;
     int failures = 0;
     QElapsedTimer cycleTime;
@@ -194,7 +199,9 @@ class Coordinator final : public QObject {
         state.insert("diagnostic_code",support);
         state.insert("diagnostic",diagnostic.toVariantMap());
         state.insert("authenticated", authenticated);
-        state.insert("purge_supported",authenticated && capabilities.value("command_types").toArray().contains("task.purge"));
+        state.insert("protocol_paused", protocolPaused);
+        state.insert("local_only", index.isLocalOnly(workspace.databasePath()));
+        state.insert("purge_supported",authenticated && !protocolPaused && capabilities.value("command_types").toArray().contains("task.purge"));
         state.insert("profiles", index.entries().toVariantList());
         state.insert("status", message.isEmpty() ? (authenticated ? tr("已连接，修改将自动同步")
                                                     : profile.value("mode") == "ACCOUNT"
@@ -272,15 +279,8 @@ class Coordinator final : public QObject {
                 return;
             }
             tokens = pair.toObject();
-            request("GET","/v1/capabilities",{},"Capabilities",[this](Response r){if(r.ok()){capabilities=r.object;publish();}},false);
             authenticated = true;
-            busy = true;
-            publish();
-            revokePending([this] {
-                busy = false;
-                publish();
-                timer.start(0);
-            });
+            cycle();
         });
     }
     void request(const QByteArray &method, const QString &path, const QByteArray &data,
@@ -389,13 +389,17 @@ class Coordinator final : public QObject {
                         default: result.code = "syncNetworkError"; break;
                         }
                     }
-                    if (result.status >= 400) {
+                    if (result.status == 426 && !path.startsWith("/telemetry/")) {
+                        result.code = "protocol_upgrade_required";
+                    } else if (result.status >= 400) {
                         if(path.startsWith("/telemetry/")){
                             const auto key=QJsonDocument::fromJson(result.bytes).object().value("code").toString();
                             result.code=serverDiagnostic(key)!=QStringLiteral("S999")?key:QStringLiteral("telemetryProtocolMismatch");
                         }else{
                             auto problem = Schema::decode("Problem", result.bytes, 1024 * 1024);
-                            result.code = problem.ok() ? problem.value.value("code").toString() : QStringLiteral("syncProtocolMismatch");
+                            result.code = problem.ok() ? problem.value.value("code").toString()
+                                : result.status >= 500 ? QStringLiteral("temporarily_unavailable")
+                                                       : QStringLiteral("syncProtocolMismatch");
                         }
                     } else if (result.code.isEmpty() && !schema.isEmpty()) {
                         auto decoded = Schema::decode(schema, result.bytes);
@@ -414,6 +418,14 @@ class Coordinator final : public QObject {
                     diagnostic.insert("diagnostic_code",result.code.isEmpty()?QString():diagnosticCode(result.code));
                     diagnostics::event("network","request.finished",diagnostic,result.ok()?QStringLiteral("info"):QStringLiteral("warning"));
                     if(path.startsWith("/telemetry/"))diagnostic=taskDiagnostic;
+                    if (authorized && authenticated && !path.startsWith("/telemetry/") &&
+                        (result.code == "protocol_upgrade_required" ||
+                         (result.status >= 200 && result.status < 300 && result.code == "syncProtocolMismatch"))) {
+                        // The server may have committed a request before its reply failed
+                        // validation. Leave the journal and frozen mutation ID intact.
+                        fail(result.code);
+                        return;
+                    }
                     if (result.status == 401 && authorized && !retried && !tokens.isEmpty()) {
                         refresh([this, method, path, data, schema, done, chunkHash] {
                             request(method, path, data, schema, done, true, true, chunkHash);
@@ -464,12 +476,32 @@ class Coordinator final : public QObject {
     void probe(const QString& value) {
         if(busy || authenticated)return;
         const auto normalized=origin(value);if(!normalized.ok()){fail(normalized.error.key);return;}
+        protocolPaused = false;
         ++serial;timer.stop();server=normalized.value;busy=true;safeCode.clear();diagnostic={};
         message=tr("正在检查服务连接…");cycleTime.restart();publish();
         request("GET","/v1/capabilities",{},"Capabilities",[this](Response result){
             if(!result.ok()){fail(result.code);return;}
+            if(!supportsCurrentProtocol(result.object)){fail("syncProtocolMismatch");return;}
             busy=false;message=tr("服务连接正常，可以登录或注册。");publish();
         },false);
+    }
+    static bool supportsCurrentProtocol(const QJsonObject &offered) {
+        if (!offered.value("supported_protocol_versions").toArray().contains(1) ||
+            !offered.value("supported_dto_versions").toArray().contains(1))
+            return false;
+        const auto features = offered.value("features").toObject();
+        for (const auto &feature : {"snapshots", "imports", "staged_payloads"})
+            if (!features.value(QLatin1String(feature)).toBool())
+                return false;
+        const auto commands = offered.value("command_types").toArray();
+        for (const auto &command : {"task.create", "task.patch", "task.change_state",
+                                    "task.move_tree", "category.save", "category.relocate",
+                                    "category.remove", "tag.save", "tag.remove",
+                                    "recurrence.replace", "recurrence.stop",
+                                    "recurrence.materialize", "ordering.replace"})
+            if (!commands.contains(QString::fromLatin1(command)))
+                return false;
+        return true;
     }
     void login(const QVariantMap &values, bool registering = false) {
         if (busy)
@@ -486,6 +518,7 @@ class Coordinator final : public QObject {
         active = nullptr;
         busy = true;
         authenticated = false;
+        protocolPaused = false;
         tokens = {};
         safeCode.clear();diagnostic={};
         server = normalized.value;
@@ -500,30 +533,10 @@ class Coordinator final : public QObject {
                     return;
                 }
                 capabilities = r.object;
-                if (!capabilities.value("supported_protocol_versions").toArray().contains(1) ||
-                    !capabilities.value("supported_dto_versions").toArray().contains(1)) {
+                if (!supportsCurrentProtocol(capabilities)) {
                     fail("syncProtocolMismatch");
                     return;
                 }
-                for (const auto &f : {"snapshots", "imports", "staged_payloads"})
-                    if (!capabilities.value("features")
-                             .toObject()
-                             .value(QLatin1String(f))
-                             .toBool()) {
-                        fail("syncProtocolMismatch");
-                        return;
-                    }
-                const QStringList commands{
-                    "task.create",        "task.patch",      "task.change_state",
-                    "task.move_tree",     "category.save",   "category.relocate",
-                    "category.remove",    "tag.save",        "tag.remove",
-                    "recurrence.replace", "recurrence.stop", "recurrence.materialize",
-                    "ordering.replace"};
-                for (const auto &c : commands)
-                    if (!capabilities.value("command_types").toArray().contains(c)) {
-                        fail("syncProtocolMismatch");
-                        return;
-                    }
                 if (registering) {
                     if (!capabilities.value("metadata").toObject().value("registration_enabled").toBool()) {
                         fail("syncRegistrationDisabled");
@@ -620,6 +633,7 @@ class Coordinator final : public QObject {
             active->abort();
         active = nullptr;
         authenticated = false;
+        protocolPaused = false;
         busy = true;
         const auto removed = credentials.remove(profile.value("profile_id").toString());
         tokens = {};
@@ -685,7 +699,7 @@ class Coordinator final : public QObject {
         });
     }
     void rebuild() {
-        if (busy || !authenticated || profile.value("phase") != "RECONCILE_REQUIRED")
+        if (busy || !authenticated || protocolPaused || profile.value("phase") != "RECONCILE_REQUIRED")
             return;
         busy = true;
         message = tr("正在备份并重新合并…");
@@ -712,8 +726,9 @@ class Coordinator final : public QObject {
         });
     }
     void selectIdentity(const QJsonObject &me, std::function<void()> selected) {
-        if (profile.value("mode") != "ACCOUNT" ||
-            (profile.value("server_origin") == server &&
+        const bool account = profile.value("mode") == "ACCOUNT";
+        if ((!account && !index.isLocalOnly(workspace.databasePath())) ||
+            (account && profile.value("server_origin") == server &&
              profile.value("server_instance_id") == capabilities.value("server_instance_id") &&
              profile.value("user_id") == me.value("user_id"))) {
             selected();
@@ -727,21 +742,8 @@ class Coordinator final : public QObject {
         const auto target =
             index.pathFor(server, capabilities.value("server_instance_id").toString(),
                           me.value("user_id").toString());
-        const auto removed = credentials.remove(profile.value("profile_id").toString());
-        if (!removed.ok()) {
-            fail(removed.error.key);
-            return;
-        }
-        db("logout", {}, [this, target, selected](auto signedOut) {
-            if (!signedOut.ok()) {
-                fail(signedOut.error.key);
-                return;
-            }
-            profile = signedOut.value;
-            const auto fence = serial;
-            switchDatabase(target, [this, fence, selected](auto switched) {
-                if (fence != serial)
-                    return;
+        auto openIdentity = [this, target, selected] {
+            switchDatabase(target, [this, selected](auto switched) {
                 if (!switched.ok()) {
                     fail(switched.error.key);
                     return;
@@ -755,6 +757,23 @@ class Coordinator final : public QObject {
                     selected();
                 });
             });
+        };
+        if (!account) {
+            openIdentity();
+            return;
+        }
+        const auto removed = credentials.remove(profile.value("profile_id").toString());
+        if (!removed.ok()) {
+            fail(removed.error.key);
+            return;
+        }
+        db("logout", {}, [this, openIdentity](auto signedOut) {
+            if (!signedOut.ok()) {
+                fail(signedOut.error.key);
+                return;
+            }
+            profile = signedOut.value;
+            openIdentity();
         });
     }
     void openProfile(const QString &id) {
@@ -763,9 +782,15 @@ class Coordinator final : public QObject {
         const auto target = index.selectedPath(id);
         if (target.isEmpty() || target == workspace.databasePath())
             return;
+        const auto remembered = index.remember(workspace.databasePath(), profile);
+        if (!remembered.ok()) {
+            fail(remembered.error.key);
+            return;
+        }
         ++serial;
         timer.stop();
         authenticated = false;
+        protocolPaused = false;
         tokens = {};
         busy = true;
         publish();
@@ -791,7 +816,8 @@ class Coordinator final : public QObject {
                         return;
                     }
                     busy = false;
-                    message = tr("已打开本地资料；登录后继续同步。");
+                    message = index.isLocalOnly(workspace.databasePath())
+                        ? tr("已打开仅本机资料。") : tr("已打开本地资料；登录后继续同步。");
                     publish();
                 });
             });
@@ -828,6 +854,13 @@ class Coordinator final : public QObject {
     void fail(const QString &code) {
         safeCode = code;
         busy = false;
+        if (code == "protocol_upgrade_required" || code == "syncProtocolMismatch") {
+            protocolPaused = true;
+            timer.stop();
+            message = tr("当前客户端无法使用服务器的同步协议。修改已保留在此设备。请备份资料，然后更新 Daymark 或重新检查协议。");
+            publish();
+            return;
+        }
         if (code == "data_epoch_mismatch" || code == "epoch_changed" || code == "cursor_expired" ||
             code == "cursor_epoch_mismatch" || code == "snapshot_expired" ||
             code == "job_state_conflict") {
@@ -884,8 +917,6 @@ class Coordinator final : public QObject {
             message = tr("无法访问系统凭据存储，请解锁后重新登录。");
         else if (code.startsWith("syncLegacy") || code == "syncInitialIdentityConflict")
             message = tr("现有资料需要先处理兼容性或同 ID 数据冲突，原资料已保留。");
-        else if (code == "syncProtocolMismatch")
-            message = tr("客户端与服务器接口不兼容，请检查版本。");
         else
             message = tr("同步暂未完成，修改已保留。检查网络后可重试。");
         publish();
@@ -896,8 +927,30 @@ class Coordinator final : public QObject {
         }
     }
     void cycle() {
-        if (busy || !authenticated || !workspace.ready() ||
-            profile.value("phase") == "RECONCILE_REQUIRED")
+        if (busy || !authenticated || protocolPaused || !workspace.ready())
+            return;
+        if (capabilities.isEmpty()) {
+            busy = true;
+            message = tr("正在检查同步协议…");
+            cycleTime.restart();
+            publish();
+            request("GET", "/v1/capabilities", {}, "Capabilities", [this](Response response) {
+                if (!response.ok() || !supportsCurrentProtocol(response.object)) {
+                    fail(response.ok() ? QStringLiteral("syncProtocolMismatch") : response.code);
+                    return;
+                }
+                capabilities = response.object;
+                revokePending([this] {
+                    busy = false;
+                    safeCode.clear();
+                    message.clear();
+                    publish();
+                    cycle();
+                });
+            }, false);
+            return;
+        }
+        if (profile.value("phase") == "RECONCILE_REQUIRED")
             return;
         if (workspace.syncApplyPaused()) {
             timer.start(500);

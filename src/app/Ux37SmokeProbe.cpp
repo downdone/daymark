@@ -155,14 +155,45 @@ QString Ux37SmokeProbe::advance() {
         auto* rule=editingRow?editingRow->findChild<QQuickItem*>("taskRowSeparator"):nullptr;
         if(!rowSurface || rowSurface->property("color").value<QColor>().alpha()!=0 || !rule || rule->isVisible())
             return fail("inline edit shares the list surface without a row separator");
-        if(!editingRow->property("expanded").toBool() || qAbs(positions.value("completion").toDouble()-m_columns.value("completion").toDouble())>1 || qAbs(positions.value("title").toDouble()-m_columns.value("title").toDouble())>1 || qAbs(positions.value("notes").toDouble()-positions.value("title").toDouble())>1 || find("saveQuickEditor")->property("visible").toBool() || !capture("list-refined-inline"))return fail("inline uses same columns without extra controls");
-        if(qAbs(positions.value("tools").toReal()-positions.value("title").toReal())>1 || qAbs(positions.value("completionCenterY").toReal()-positions.value("titleCenterY").toReal())>1){qInfo()<<"Inline title axes"<<positions;return fail("inline tools and title line alignment");}
         auto* arrangement=qobject_cast<QQuickItem*>(find("quickArrangement"));
         auto* popup=find("quickArrangementPopup");
         if(!arrangement || !popup)return fail("inline arrangement action missing");
-        if(!m_inlineDateOpened){click(arrangement);m_inlineDateOpened=true;m_wait.restart();return {};}
+        if(m_arrangementPhase==0){
+            if(!editingRow->property("expanded").toBool() || qAbs(positions.value("completion").toDouble()-m_columns.value("completion").toDouble())>1 || qAbs(positions.value("title").toDouble()-m_columns.value("title").toDouble())>1 || qAbs(positions.value("notes").toDouble()-positions.value("title").toDouble())>1 || find("saveQuickEditor")->property("visible").toBool() || !capture("list-refined-inline")){
+                qInfo()<<"Inline geometry"<<positions<<"previous"<<m_columns;
+                return fail("inline uses same columns without extra controls");
+            }
+            if(qAbs(positions.value("tools").toReal()-positions.value("title").toReal())>1 || qAbs(positions.value("completionCenterY").toReal()-positions.value("titleCenterY").toReal())>1){qInfo()<<"Inline title axes"<<positions;return fail("inline tools and title line alignment");}
+            click(arrangement);
+            ++m_arrangementPhase;m_wait.restart();return {};
+        }
+        auto* mode=qobject_cast<QQuickItem*>(find("taskReminderMode"));
+        auto* options=mode?mode->property("popup").value<QObject*>():nullptr;
         auto* end=qobject_cast<QQuickItem*>(find("editDeadlineDate"));
-        if(!popup->property("visible").toBool() || !end || !end->isVisible())return fail("the nearby arrangement contains the end date");
+        if(!popup->property("visible").toBool() || !end || !end->isVisible() || !mode || !options)
+            return fail("arrangement and reminder fields remain open");
+        bool waiting=true;
+        if(m_arrangementPhase==1 || m_arrangementPhase==3){
+            click(mode);
+        }else if(m_arrangementPhase==2){
+            auto* option=qobject_cast<QQuickItem*>(find("taskReminderMode-option-2"));
+            if(!options->property("visible").toBool() || !option || option->window()!=m_window)
+                return fail("reminder choices share the arrangement window for pointer input");
+            const auto y=option->mapToScene(QPointF(0,option->height()/2)).y();
+            if(y<=popup->property("y").toReal()+popup->property("height").toReal())
+                return fail("fixture must click a reminder choice below the parent panel");
+            click(option);
+        }else if(m_arrangementPhase==4){
+            if(!options->property("visible").toBool() || mode->property("currentIndex").toInt()!=2)
+                return fail("clicking the extended option changes only the draft");
+            windowKey(Qt::Key_Escape);
+        }else{
+            waiting=false;
+            if(options->property("visible").toBool() || mode->property("currentIndex").toInt()!=2 ||
+               !m_workspace.task(m_ids[1]).value("remindAtUtc").toString().isEmpty())
+                return fail("Escape closes only the reminder choices without persisting the draft");
+        }
+        if(waiting){++m_arrangementPhase;m_wait.restart();return {};}
         invoke(find("taskArrangementCancel"),"clicked");
         QMetaObject::invokeMethod(find("taskQuickEditor"),"notesEdited",Q_ARG(QString,QStringLiteral("就近编辑备注")));
         invoke(find("taskQuickEditor"),"closeRequested");
@@ -176,7 +207,13 @@ QString Ux37SmokeProbe::advance() {
     if(m_stage==52){if(find("taskQuickEditor")->property("visible").toBool() || !m_workspace.errorText().isEmpty())return fail("corrected draft exits safely");m_workspace.setPreference("highContrast",true);}
     if(m_stage==53){if(!capture("list-refined-contrast-200"))return fail("contrast capture");m_workspace.setSearch(QStringLiteral("独立任务 2"));m_workspace.setTextScale(1);m_workspace.setThemeMode(1);}
     if(m_stage==54){if(m_wait.elapsed()<350)return {};if(m_workspace.tasks()->rowCount()!=1 || m_workspace.tasks()->hasHierarchy())return fail("flat search projection");const auto positions=columns(row(2));if(positions.isEmpty() || qAbs(positions.value("completion").toDouble()-6)>1 || qAbs(positions.value("title").toDouble()-46)>1 || !capture("list-refined-flat"))return fail("flat list removes unused hierarchy gutter");m_workspace.setSearch("");}
-    if(m_stage==55){if(m_wait.elapsed()<350)return {};if(!m_workspace.tasks()->hasHierarchy())return fail("tree restored after search");m_workspace.setPreference("listShowSubtasks",false);}
+    if(m_stage==55){
+        if(!m_workspace.tasks()->hasHierarchy()){
+            if(m_wait.elapsed()<1500)return {};
+            return fail("tree restored after search");
+        }
+        m_workspace.setPreference("listShowSubtasks",false);
+    }
     if(m_stage==56){if(m_workspace.taskIndex(m_ids[1])>=0 || !qobject_cast<QQuickItem*>(find("taskSubtasksLink-"+m_ids[0]))->isVisible())return fail("global hidden children retain count entry");m_workspace.setPreference("listShowSubtasks",true);}
     if(m_stage==57){if(m_workspace.taskIndex(m_ids[1])<0 || m_workspace.task(m_ids[1]).value("notes")!=QStringLiteral("就近编辑备注"))return fail("global show restores same child and data");m_window->resize(1280,800);m_workspace.setPreference("highContrast",false);m_workspace.saveCatalog({{"kind","tag"},{"title",QStringLiteral("计划与设计")}});}
     if(m_stage==58){const auto tags=m_workspace.catalogOf("tag");if(tags.isEmpty())return fail("tag fixture");m_tag=tags.last().toMap().value("id").toString();QMetaObject::invokeMethod(m_window,"openEditor",Q_ARG(QVariant,QVariant(m_ids[2])));}
