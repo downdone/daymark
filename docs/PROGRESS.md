@@ -2,7 +2,11 @@
 
 ## 4.0.0 发行与公网服务升级（2026-11-23）
 
-用户授权发布 Windows 版本及升级现有公网服务。客户端数据库 schema 11→12，使用 4.0.0 与完整安装边界。同步协议保留 v1，新任务周期仍仅在本地资料可用。发行前后分别验证源码标签、Windows 候选与签名安装，以及公网服务备份和切换。实际结果待执行，见[发行说明](release-notes-v4.0.0.md)。
+用户授权发布 Windows 版本及升级现有公网服务。客户端数据库 schema 11→12，使用 4.0.0 与完整安装边界。同步协议保留 v1，新任务周期仍仅在本地资料可用。见[发行说明](release-notes-v4.0.0.md)。
+
+- [v4.0.0](https://github.com/downdone/daymark/releases/tag/v4.0.0) 已公开，注释标签指向 `d5dd8cd9e203423b9af964b1dea4893c69cf9626`。源码发行、账号与同步 CI、固定源码 Windows 候选及签名发布均通过。[源码发行 CI](https://github.com/downdone/daymark/actions/runs/45120786219) · [账号与同步 CI](https://github.com/downdone/daymark/actions/runs/45120785958) · [Windows 候选](https://github.com/downdone/daymark/actions/runs/45120786139) · [受保护签名发行](https://github.com/downdone/daymark/actions/runs/45147400821)
+- Windows x64 签名安装包与便携包已上传，GitHub SHA256 分别为 `1c79daefb39bb02ff7fa599e641b79a1ebcabe00ed8dc0041e6fc9f47e69b767` 与 `271e2e994f3f544fa3ef048f65da05bbf9e581d1a39913e8927f0c0816b891d1`。匿名下载后实际安装 **3/3 PASS（66.869 秒）**，包括运行中取消或确认关闭、真实启动、迁移到 schema 12、备份、修复和卸载保留资料。跨 ABI 公开自动升级不适用，已按完整安装发布。
+- 同源码 Linux x64 服务已上线。先停服生成加密备份和完整归档，再对独立副本执行 schema 3→5 迁移。SQLite `quick_check`、外键检查、既有资料 DTO 1 默认值及实际进程二进制散列均已验证。归档与原资料目录保留在服务器。Nginx 与 Windows 主机外严格 TLS 检查均通过，`/health/ready` 返回 `ok`，v1 能力和 `task.purge` 保留。本次未使用生产用户登录验证。
 
 ## TIME-02 / CONS-01 实施（2026-11-23）
 

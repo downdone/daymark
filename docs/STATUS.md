@@ -1,6 +1,9 @@
 # 当前状态
 
-2026-11-22 **Daymark 3.2.0 已发布**，schema 11、HTTP JSON v1、Qt 6.10.2。
+2026-11-23 **Daymark 4.0.0 已发布**，客户端 schema 12、HTTP JSON v1、Qt 6.10.2。
+
+- 4.0.0 交付小窗全部分类与共享排序、统一安排入口、本地同任务周期和跨界面刷新。Windows 签名安装包与便携包已上线，匿名下载后的安装验收通过。3.2.0 及更早版本请使用完整安装包升级。
+- 官方现有服务已备份并升级到服务端 schema 5，公网严格 HTTPS 就绪检查通过。账号继续使用 v1，新周期保留在本地资料中。
 
 - 3.2.0 交付小窗分类拖拽、就近编辑、提醒汇总和离线活动提取。Windows 签名安装包与便携包可下载，公开安装和 3.1.0 在线升级通过。实际证据见 PROGRESS。
 
@@ -20,6 +23,6 @@
 - 使用P-256更新签名与项目自签名EXE；不属于Windows公共发行者信任，不导入根证书。
 - 新版本包含离线时间输入识别、完整Windows安装向导、首次启动锁错误分类、Mini按钮与拖动修复、导入计划生命周期与生成契约门禁。
 
-[下载 3.2.0](https://github.com/downdone/daymark/releases/tag/v3.2.0) · [发行说明](release-notes-v3.2.0.md)。当前事实、精确资产身份和证据统一见[PROGRESS](PROGRESS.md)。
+[下载 4.0.0](https://github.com/downdone/daymark/releases/tag/v4.0.0) · [发行说明](release-notes-v4.0.0.md)。当前事实、精确资产身份和证据统一见[PROGRESS](PROGRESS.md)。
 
 Linux/macOS 本轮提供源码；2h/物理多屏/DPI/读屏、Windows 11 Snap悬停、另一台机器注册现场与逐字节堆/GPU归因仍UNVERIFIED。3.0.0的独立Windows匿名下载/安装/迁移通过，跨ABI在线升级不适用；本机补下载超时不冒充完整本地包。2.1.0、2.2.0、2.2.1空Release转草稿，原标签保留，无程序资产发布。本地完整套件退出期ToolTip警告保留在PROGRESS，不宣称整个进程零警告。
