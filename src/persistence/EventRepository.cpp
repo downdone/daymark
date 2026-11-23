@@ -33,6 +33,7 @@ Result<void> EventRepository::save(CalendarEvent event,const QString& now)
     CommandClock clock(now);TaskRepository repository(m_db);TaskService service(repository,clock);const bool creating=event.id.isEmpty();
     Task task;if(creating){const auto created=service.create(event.title,QStringLiteral("anytime"));if(!created.ok())return failed(created.error);task=created.value;}else{const auto found=repository.find(event.id);if(!found.ok())return failed(found.error);task=found.value;if(task.rowVersion!=event.rowVersion)return failed({ErrorCode::Conflict,QStringLiteral("eventConflict")});}
     TaskPatch patch;patch.title=FieldPatch<QString>::set(event.title);patch.notes=FieldPatch<QString>::set(event.notes);patch.links=FieldPatch<QList<TaskLink>>::set(event.links);
+    patch.calendarSeries=true;
     TaskSchedule s;s.allDay=event.allDay;s.startOn=event.startOn;s.endOn=event.endOn;s.startUtc=event.startUtc;s.endUtc=event.endUtc;s.timeZone=event.timeZone;s.alertMinutes=event.alertMinutes;patch.schedule=FieldPatch<TaskSchedule>::set(s);
     const auto anchor=s.allDay?s.startOn:s.startUtc.toTimeZone(QTimeZone(s.timeZone.toUtf8())).date();patch.startOn=FieldPatch<QDate>::set(anchor);
     if(event.repeatFrequency!=QStringLiteral("NONE")){
@@ -40,7 +41,7 @@ Result<void> EventRepository::save(CalendarEvent event,const QString& now)
         patch.repeat=FieldPatch<RecurrenceRule>::set(r);
     }else if(task.repeat && task.repeat->active)patch.repeat=FieldPatch<RecurrenceRule>::clear();
     const auto saved=service.edit(task.id,task.rowVersion,patch);if(!saved.ok())return failed(saved.error);
-    RecurrenceRepository rules(m_db);const auto generated=RecurrenceService(rules,repository,clock).generate();if(!generated.ok())return failed(generated.error);
+    RecurrenceRepository rules(m_db);const auto generated=RecurrenceService(rules,repository,clock).generate({},{},{},true);if(!generated.ok())return failed(generated.error);
     if(!q.exec(QStringLiteral("RELEASE calendar_task")))return failed({ErrorCode::PersistenceError,QStringLiteral("databaseWrite")});return {};
 }
 Result<void> EventRepository::setDeleted(const QString& id,qint64 version,bool deleted,const QString& now)

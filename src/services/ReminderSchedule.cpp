@@ -6,7 +6,7 @@ QDateTime ReminderSchedule::nextPending(const QList<Task>& tasks)
 {
     QDateTime earliest;
     for(const auto& task:tasks){
-        if(!QueryService::effectiveActive(task) || task.remindAtUtc.isEmpty())continue;
+        if(!QueryService::reminderEligible(task) || task.remindAtUtc.isEmpty())continue;
         if(!task.reminderFiredAtUtc.isEmpty() && task.reminderRepeat==QStringLiteral("NONE"))continue;
         const auto at=QDateTime::fromString(task.remindAtUtc,Qt::ISODateWithMs);
         if(at.isValid() && (!earliest.isValid() || at<earliest))earliest=at;

@@ -19,18 +19,16 @@ Popup {
     property point manualPosition: Qt.point(-1,-1)
     property bool validDraft: false
     readonly property var hostWindow: contentItem ? contentItem.Window.window : null
+    readonly property var startField: temporal.startField
+    readonly property var endField: temporal.endField
+    readonly property var timing: temporal.timingFields
     readonly property string notes: notesField.text
     readonly property string startOn: startField.text
     readonly property string endOn: endField.text
     readonly property var timelineSelection: timing.hasSpecificTime ? workspace.timeRangeDraft({startDate:startField.text,endDate:endField.text,startTime:timing.startTimeValue,endTime:timing.endTimeValue,zone:timing.timeZoneValue}) : ({valid:false})
     signal submitted(string title)
     function detailsPatch() {
-        const patch=Object.assign(assignment.detailsPatch(),timing.detailsPatch());
-        patch.remindAtLocal=reminder.text;
-        patch.reminderRepeat=reminder.repeatFrequency;
-        patch.reminderEvery=reminder.repeatInterval;
-        patch.reminderZone=workspace.systemTimeZone();
-        return patch;
+        return Object.assign(assignment.detailsPatch(),temporal.detailsPatch(workspace.systemTimeZone()));
     }
     function finish() {
         if(creating || draftCatalog.visible || timing.rangePickerVisible)return false;
@@ -75,14 +73,14 @@ Popup {
         const item=workspace.calendarDraft(date,minute,duration,globalScope);
         validDraft=item.startOn!==undefined;
         title.clear();notesField.clear();startField.text=item.startOn || date;endField.text=item.deadlineOn || "";
-        reminder.clear();reminder.repeatFrequency="NONE";reminder.repeatInterval=1;
+        temporal.reminderField.loadTask({});temporal.datesEdited=false;
         assignment.loadTask(Object.assign({tagIds:[],taskId:""},item));timing.loadTask(item);
         // A selected hour is an explicit draft schedule, including if the user
         // adds a title without touching the prefilled endpoint controls.
         timing.timeDirty=!!item.schedule;
-        picker.close();scroller.contentY=0;title.forceActiveFocus();
+        temporal.startEditing();picker.close();scroller.contentY=0;title.forceActiveFocus();
     }
-    onClosed: {picker.close();timing.closePickers();startField.closePicker();endField.closePicker();reminder.closePicker();}
+    onClosed: {picker.close();temporal.finish(false);temporal.closePickers();}
     CatalogCreateDialog {
         id: draftCatalog;objectName: "calendarCreateCatalogDialog";objectPrefix: "calendarDraft"
         parent: Overlay.overlay;anchors.centerIn: parent;workspace: root.workspace
@@ -138,33 +136,10 @@ Popup {
                 }
                 DetailSection {
                     plain:true;heading:""
-                    ColumnLayout {
-                        Layout.fillWidth:true;spacing:Theme.fieldGap
-                        FormRow {contextual:true;
-                            label:qsTr("开始");minimumValueWidth:(timing.hasSpecificTime ? 280 : 180)*Theme.scale
-                            GridLayout {
-                                id:startEndpoint;Layout.fillWidth:true;columns:width>=280*Theme.scale ? 2 : 1;columnSpacing:8;rowSpacing:4
-                                DateField {id:startField;objectName:"calendarCreateStart";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;onInlinePickerRequested:picker.openFor(startField,"date");onTextEdited:timing.changed(true);onDateChosen:timing.changed(true)}
-                            }
-                        }
-                        FormRow {contextual:true;
-                            label:qsTr("结束");minimumValueWidth:(timing.hasSpecificTime ? 280 : 180)*Theme.scale
-                            GridLayout {
-                                id:endEndpoint;Layout.fillWidth:true;columns:width>=280*Theme.scale ? 2 : 1;columnSpacing:8;rowSpacing:4
-                                DateField {id:endField;objectName:"calendarCreateEnd";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;onInlinePickerRequested:picker.openFor(endField,"date");onTextEdited:timing.changed(true);onDateChosen:timing.changed(true)}
-                            }
-                        }
-                    }
-                    TaskTimingFields {
-                        id:timing;compactPresentation:true;objectPrefix:"calendarCreate";objectName:"calendarCreateTiming";workspace:root.workspace;Layout.fillWidth:true
-                        inlinePickers:true;startEndpointHost:startEndpoint;endEndpointHost:endEndpoint
-                        startDateValue:startField.text;endDateValue:endField.text
+                    TaskTemporalFields {
+                        id:temporal;workspace:root.workspace;objectPrefix:"calendarCreate";showActions:false;inlinePickers:true
+                        startName:"calendarCreateStart";endName:"calendarCreateEnd";
                         onPickerRequested:function(field,kind){picker.openFor(field,kind)}
-                        onDateDefaultsRequested:{if(!startField.text)startField.text=root.date;if(!endField.text)endField.text=startField.text}
-                        onRangeDatesChosen:function(first,last){startField.text=first;endField.text=last}
-                    }
-                    FormRow {contextual:true;label:qsTr("提醒")
-                    ReminderField {id:reminder;objectPrefix:"calendarCreate";objectName:"calendarCreateReminder";workspace:root.workspace;Layout.fillWidth:true;inlineMode:true;placeholderText:qsTr("添加提醒…");onInlinePickerRequested:picker.openFor(reminder,"reminder")}
                     }
                 }
                 TaskDetailsFields {id:assignment;objectPrefix:"calendarCreate";objectName:"calendarCreateAssignment";workspace:root.workspace;Layout.fillWidth:true;inspectorMode:true;creationMode:true;onCreateCatalogRequested:function(kind){draftCatalog.showFor(kind)}}

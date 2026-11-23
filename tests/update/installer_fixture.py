@@ -91,6 +91,8 @@ def main():
     database=profile/'daymark.sqlite'
     with sqlite3.connect(database) as db:
         db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        db.execute("DROP TABLE task_cycle_completions")
+        db.execute("DROP TABLE task_cycles")
         db.execute("ALTER TABLE tasks DROP COLUMN purged_at_utc")
         db.execute("ALTER TABLE tasks DROP COLUMN local_removed_at_utc")
         db.execute("PRAGMA user_version=10")
@@ -106,7 +108,7 @@ def main():
             assert not list(backup.glob('versions/**/daymark.exe')),'old executable retained despite RUNNING'
         assert any((backup/'personal.db').read_bytes()==b'synthetic file must survive' for backup in root.parent.glob(root.name+'.previous-*') if (backup/'personal.db').exists())
         with sqlite3.connect(database) as db:
-            assert db.execute('PRAGMA user_version').fetchone()[0]==11
+            assert db.execute('PRAGMA user_version').fetchone()[0]==12
             assert db.execute("SELECT title FROM tasks WHERE id='installer-migration'").fetchone()[0]=='Synthetic migration preservation'
         assert list((profile/'backups/migrations').glob('*.sqlite')),'migration backup missing'
 
@@ -133,5 +135,5 @@ def main():
             kernel.CloseHandle(handle)
         return True
     wait_for(released,5)
-    print('PASS: real NSIS Unicode/space path, pinned setup/uninstaller, registration='+str(integration)+', real Qt RUNNING, busy refusal, two repairs, schema10-to-11 migration/backup, old-program cleanup, uninstall with data preserved')
+    print('PASS: real NSIS Unicode/space path, pinned setup/uninstaller, registration='+str(integration)+', real Qt RUNNING, busy refusal, two repairs, schema10-to-12 migration/backup, old-program cleanup, uninstall with data preserved')
 if __name__=='__main__':main()

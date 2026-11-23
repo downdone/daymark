@@ -177,9 +177,11 @@ def main():
             current=json.loads((root/'current.json').read_text());old=root/current['current']/'daymark.exe'
             wait_for(lambda:(data/'daymark.sqlite').exists(),30)
             import sqlite3
+            old_manifest=json.loads((args.work/('release-'+old_version)/'update-windows-x64.json').read_text())
+            expected_schema=old_manifest['data']['schema']
             def schema_ready():
                 with sqlite3.connect(data/'daymark.sqlite') as db:
-                    return db.execute('PRAGMA user_version').fetchone()[0]==11
+                    return db.execute('PRAGMA user_version').fetchone()[0]==expected_schema
             wait_for(schema_ready,30)
             with sqlite3.connect(data/'daymark.sqlite') as db:
                 db.execute("INSERT INTO tasks(id,title,created_at_utc,updated_at_utc) VALUES(?,?,?,?)",('update-flow-synthetic-task','Synthetic update preservation check','2026-11-05T00:00:00.000Z','2026-11-05T00:00:00.000Z'))

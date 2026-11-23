@@ -65,6 +65,45 @@ func TestRealEngineAndConnectionPragmas(t *testing.T) {
 		t.Fatal("read pool permits writes")
 	}
 }
+
+func TestDatasetDTOFloorKeepsLegacyClientsOutAfterCommit(t *testing.T) {
+	db, legacy := openTest(t)
+	legacy.DTOVersion = 1
+	current := legacy
+	current.DTOVersion = 2
+	check := func(scope domain.Scope, wantError string) {
+		t.Helper()
+		err := db.View(t.Context(), func(tx ports.Tx) error {
+			_, err := tx.Dataset(t.Context(), scope)
+			return err
+		})
+		if wantError == "" && err != nil || wantError != "" && domain.Code(err) != wantError {
+			t.Fatalf("DTO %d: got %v, expected %q", scope.DTOVersion, err, wantError)
+		}
+	}
+	raiseFloor := func(tx ports.Tx) error {
+		return tx.(*transaction).exec(t.Context(), "UPDATE datasets SET minimum_dto_version=2 WHERE id=?", legacy.DatasetID)
+	}
+	check(legacy, "")
+	rolledBack := errors.New("abort with the cycle transaction")
+	if _, err := db.Update(t.Context(), func(tx ports.Tx) error {
+		if err := raiseFloor(tx); err != nil {
+			return err
+		}
+		return rolledBack
+	}); !errors.Is(err, rolledBack) {
+		t.Fatal(err)
+	}
+	check(legacy, "")
+	if _, err := db.Update(t.Context(), raiseFloor); err != nil {
+		t.Fatal(err)
+	}
+	check(legacy, "protocol_upgrade_required")
+	check(current, "")
+	current.Principal.UserID, _ = domain.NewID()
+	check(current, "not_found")
+}
+
 func TestLastReceiptFailureRollsBackEverything(t *testing.T) {
 	db, s := openTest(t)
 	id, _ := domain.NewID()

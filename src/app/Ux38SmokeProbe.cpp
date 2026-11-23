@@ -1247,9 +1247,9 @@ QString Ux38SmokeProbe::advanceCategories()
         if(m_workspace.widgetCategoryToday() || m_workspace.widgetTasks()->rowCount()!=3)return fail("settings keyboard selects all unfinished");
         auto* settings=find(m_main,"settingsDialog");if(!capture(qobject_cast<QQuickWindow*>(settings),"categories-setting"))return fail("category setting capture");QMetaObject::invokeMethod(settings,"close");m_main->hide();m_widget->requestActivate();click(m_controller.panelSidebarWidth()>0?"widgetRailCategories":"widgetCategoryButton");search->setProperty("text",QStringLiteral("生活安排"));
     }
-    if(m_stage==276){if(!m_widget->property("categoryPickerOpen").toBool())return fail("picker remains open after settings dismissal");click("widgetCategoryPin-"+m_categoryOther);}
+    if(m_stage==276){if(!m_widget->property("categoryPickerOpen").toBool())return fail("picker remains open after settings dismissal");click("widgetCategoryChoice-"+m_categoryOther);}
     if(m_stage==277){
-        if(m_workspace.widgetContext()!=m_categoryRoot)return fail("favorite management must not switch content");key(m_widget,Qt::Key_Escape);click("widgetShortcut-"+m_categoryOther);
+        if(m_workspace.widgetContext()!=m_categoryOther || m_widget->property("categoryPickerOpen").toBool())return fail("search selects a category and exits");
     }
     if(m_stage==278){
         if(m_workspace.widgetContext()!=m_categoryOther || m_workspace.widgetTasks()->rowCount()!=0 || !capture(m_widget,"categories-empty-light"))return fail("empty category retains context");

@@ -293,7 +293,7 @@ func (h *Handler) currentScope(r *http.Request, p domain.Principal) (domain.Scop
 	}
 	for _, d := range me["datasets"].([]domain.Dataset) {
 		if d.ID == dataset {
-			return domain.Scope{Principal: p, DatasetID: d.ID, DataEpoch: d.DataEpoch}, nil
+			return domain.Scope{Principal: p, DatasetID: d.ID, DataEpoch: d.DataEpoch, DTOVersion: requestDTOVersion(r)}, nil
 		}
 	}
 	return domain.Scope{}, domain.Fail("not_found")

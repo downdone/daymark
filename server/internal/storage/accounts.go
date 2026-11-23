@@ -92,6 +92,9 @@ func (t *transaction) Dataset(ctx context.Context, s domain.Scope) (domain.Datas
 	if d.DataEpoch != s.DataEpoch {
 		return domain.Dataset{}, domain.Fail("epoch_changed")
 	}
+	if s.DTOVersion != 0 && int64(s.DTOVersion) < r.n("minimum_dto_version") {
+		return domain.Dataset{}, domain.Fail("protocol_upgrade_required")
+	}
 	return d, nil
 }
 func (t *transaction) Datasets(ctx context.Context, id domain.ID) ([]domain.Dataset, error) {

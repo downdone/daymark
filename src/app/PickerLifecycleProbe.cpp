@@ -1,17 +1,24 @@
 #include "PickerLifecycleProbe.h"
 #include "models/TaskWorkspace.h"
+#include <QGuiApplication>
+#include <QImage>
+#include <QKeyEvent>
 #include <QQmlApplicationEngine>
 #include <QQmlComponent>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QScreen>
 namespace daymark {
 PickerLifecycleProbe::PickerLifecycleProbe(QQmlApplicationEngine &e,
-                                           TaskWorkspace &w, QQuickWindow *v)
-    : engine(e), workspace(w), window(v) {}
+                                           TaskWorkspace &w, QQuickWindow *v,
+                                           const QString &path)
+    : engine(e), workspace(w), window(v), screenshotPath(path) {}
 PickerLifecycleProbe::~PickerLifecycleProbe() {
   delete date.data();
   delete time.data();
   delete catalog.data();
+  delete timing.data();
+  delete timingWindow.data();
 }
 QString PickerLifecycleProbe::advance() {
   if (!workspace.ready() || workspace.busy())
@@ -166,7 +173,127 @@ QString PickerLifecycleProbe::advance() {
     if (catalog->property("visible").toBool() ||
         time->property("text") != "08:05")
       return fail("catalog close changes unrelated field");
-    return "DONE";
+    workspace.setTextScale(1);
+    QQmlComponent component(&engine);
+    component.loadFromModule("Daymark", "TaskTimingFields");
+    timing = qobject_cast<QQuickItem *>(component.createWithInitialProperties(
+        {{"workspace", QVariant::fromValue(&workspace)},
+         {"objectPrefix", "probe"}, {"width", 400}, {"compactPresentation", true}}));
+    if (!timing)
+      return fail("task timing fields creation");
+    const auto area = window->screen()->availableGeometry();
+    timingWindow = new QQuickWindow;
+    timingWindow->setScreen(window->screen());
+    const bool headless = QGuiApplication::platformName() == "offscreen";
+    timingWindow->setGeometry(area.x() + 24, area.bottom() - (headless ? 428 : 262),
+                              480, headless ? 400 : 240);
+    timing->setParent(timingWindow->contentItem());
+    timing->setParentItem(timingWindow->contentItem());
+    timingWindow->show();
+  } else if (phase >= 17) {
+    auto *choice = timing->findChild<QQuickItem *>("probeRepeatChoice");
+    auto *popup = choice ? choice->property("popup").value<QObject *>() : nullptr;
+    auto *list = popup ? qobject_cast<QQuickItem *>(popup->property("contentItem").value<QObject *>()) : nullptr;
+    if (!list)
+      return fail("repeat options missing");
+    auto option = [list](const QString &name) -> QQuickItem * {
+      const auto *content = list->property("contentItem").value<QQuickItem *>();
+      if (content) {
+        for (auto *row : content->childItems()) {
+          if (row->objectName() == name)
+            return row;
+        }
+      }
+      return nullptr;
+    };
+    auto keyClick = [this](int key) {
+      QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);
+      QKeyEvent release(QEvent::KeyRelease, key, Qt::NoModifier);
+      QGuiApplication::sendEvent(timingWindow, &press);
+      QGuiApplication::sendEvent(timingWindow, &release);
+    };
+
+    if (phase == 17) {
+      if (list->property("count").toInt() != 0)
+        return fail("repeat options should load when opened");
+      repeatPresets = choice->property("model");
+      choice->forceActiveFocus(Qt::TabFocusReason);
+      keyClick(Qt::Key_Space);
+    } else if (phase == 18 || phase == 19) {
+      const auto *last = option(QStringLiteral("probeRepeatChoice-option-5"));
+      if (!popup->property("visible").toBool() || list->property("count").toInt() != 6 ||
+          !last || qAbs(list->height() - last->y() - last->height()) > 1 ||
+          list->property("interactive").toBool())
+        return fail("six repeat options should fit with no trailing space or scrolling") +
+               QStringLiteral(" (open=%1, count=%2, viewport=%3, last bottom=%4, scroll=%5)")
+                   .arg(popup->property("visible").toBool())
+                   .arg(list->property("count").toInt())
+                   .arg(list->height())
+                   .arg(last ? last->y() + last->height() : -1)
+                   .arg(list->property("interactive").toBool());
+      if (phase == 18) {
+        workspace.setTextScale(2);
+        workspace.setThemeMode(2);
+      } else {
+        workspace.setTextScale(1);
+        QStringList options;
+        for (int i = 0; i < 14; ++i)
+          options.append(QStringLiteral("Option %1").arg(i + 1));
+        choice->setProperty("model", options);
+      }
+    } else if (phase == 20) {
+      const auto platform = QGuiApplication::platformName();
+      if (platform != "offscreen" && !platform.startsWith("wayland")) {
+        const auto area = timingWindow->screen()->availableGeometry();
+        const auto top = list->mapToGlobal(QPointF(0, 0));
+        const auto *last = option(QStringLiteral("probeRepeatChoice-option-13"));
+        if (list->property("count").toInt() != 14 || !last ||
+            list->window() == timingWindow || list->height() <= 320 ||
+            qAbs(list->height() - last->y() - last->height()) > 1 ||
+            list->property("interactive").toBool() || top.y() < area.y() ||
+            top.y() + list->height() > choice->mapToGlobal(QPointF(0, 0)).y())
+          return fail("long options should fit above the anchor beyond the host window");
+        if (!screenshotPath.isEmpty() &&
+            !list->window()->grabWindow().save(screenshotPath + ".dropdown-full.png"))
+          return fail("full dropdown screenshot");
+      }
+      workspace.setTextScale(2);
+      QStringList options;
+      for (int i = 0; i < 200; ++i)
+        options.append(QStringLiteral("Option %1").arg(i + 1));
+      choice->setProperty("model", options);
+    } else if (phase == 21) {
+      const auto area = timingWindow->screen()->availableGeometry();
+      const auto top = list->mapToGlobal(QPointF(0, 0));
+      if (list->property("count").toInt() != 200 ||
+          !list->property("interactive").toBool() ||
+          popup->property("height").toReal() > area.height() ||
+          top.y() < area.y() || top.y() + list->height() > area.bottom() + 1)
+        return fail("options taller than the screen should scroll within its work area");
+      keyClick(Qt::Key_End);
+    } else if (phase == 22) {
+      const auto *last = option(QStringLiteral("probeRepeatChoice-option-199"));
+      if (choice->property("highlightedIndex").toInt() != 199 || !last ||
+          last->mapToItem(list, QPointF(0, last->height())).y() > list->height() + 1)
+        return fail("last option cannot scroll into view");
+      keyClick(Qt::Key_Escape);
+    } else if (phase == 23) {
+      if (popup->property("visible").toBool() || list->property("count").toInt() != 0 ||
+          choice->property("currentIndex").toInt() == 199)
+        return fail("Escape should cancel and release the options");
+      choice->setProperty("model", repeatPresets);
+      workspace.setTextScale(1);
+      choice->forceActiveFocus(Qt::TabFocusReason);
+      keyClick(Qt::Key_Space);
+      keyClick(Qt::Key_End);
+      keyClick(Qt::Key_Return);
+    } else {
+      const auto *custom = timing->findChild<QObject *>("probeRepeatOptions");
+      if (!custom || !custom->property("visible").toBool() ||
+          popup->property("visible").toBool())
+        return fail("selecting Custom should switch to the repeat parameter panel");
+      return "DONE";
+    }
   }
   ++phase;
   return {};

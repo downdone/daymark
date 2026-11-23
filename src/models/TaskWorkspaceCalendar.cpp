@@ -330,7 +330,9 @@ QString TaskWorkspace::recurrencePreview(const QVariantMap& values) const
 {
     RecurrenceRule rule;rule.anchor=QDate::fromString(values.value("anchor").toString(),Qt::ISODate);if(!rule.anchor.isValid())return tr("先设置开始日期，再预览循环。");
     rule.frequency=values.value("frequency").toString();rule.interval=values.value("interval",1).toInt();rule.weekdays=values.value("weekdays").toInt();rule.monthDay=rule.anchor.day();rule.yearMonth=rule.anchor.month();rule.end=QDate::fromString(values.value("end").toString(),Qt::ISODate);
-    if(rule.frequency==QStringLiteral("AFTER_DAYS"))return tr("每次完成后 %1 天生成下一项。").arg(rule.interval);
+    if(rule.frequency==QStringLiteral("AFTER_DAYS"))return values.value("sameTask").toBool()
+        ? tr("每次完成后 %1 天恢复待办。").arg(rule.interval)
+        : tr("每次完成后 %1 天生成下一项。").arg(rule.interval);
     const auto dates=RecurrenceService::nextDates(rule,m_today);QStringList labels;for(const auto& date:dates)labels.append(date.toString(QStringLiteral("yyyy-M-d")));
     return labels.isEmpty()?tr("当前规则没有后续日期，请检查星期或结束日期。"):tr("接下来：%1").arg(labels.join(QStringLiteral("、")));
 }

@@ -63,7 +63,8 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(bool widgetPreferencesUnsaved READ widgetPreferencesUnsaved NOTIFY widgetBrowseChanged)
     Q_PROPERTY(bool widgetCategoryToday READ widgetCategoryToday NOTIFY widgetBrowseChanged)
     Q_PROPERTY(bool widgetShowShortcuts READ widgetShowShortcuts NOTIFY widgetBrowseChanged)
-    Q_PROPERTY(QVariantList widgetCategories READ widgetCategories NOTIFY widgetBrowseChanged)
+    Q_PROPERTY(QVariantList widgetCategories READ widgetCategories NOTIFY widgetCategoriesChanged)
+    Q_PROPERTY(QString profileGeneration READ profileGeneration NOTIFY profileGenerationChanged)
     Q_PROPERTY(QVariantList widgetShortcuts READ widgetShortcuts NOTIFY widgetBrowseChanged)
     Q_PROPERTY(QString firstWidgetTitle READ firstWidgetTitle NOTIFY widgetBrowseChanged)
     Q_PROPERTY(daymark::TaskListModel* deadlineTasks READ deadlineTasks CONSTANT)
@@ -94,6 +95,7 @@ class TaskWorkspace : public QObject {
     Q_PROPERTY(bool sundayFirst READ sundayFirst WRITE setSundayFirst NOTIFY stateChanged)
     Q_PROPERTY(QVariantList recurrenceRules READ recurrenceRules NOTIFY stateChanged)
     Q_PROPERTY(QVariantList taskEditHistory READ taskEditHistory NOTIFY historyChanged)
+    Q_PROPERTY(QVariantList taskCycleHistory READ taskCycleHistory NOTIFY historyChanged)
     Q_PROPERTY(bool historyLoading READ historyLoading NOTIFY historyChanged)
     Q_PROPERTY(QVariantList notifications READ notifications NOTIFY stateChanged)
     Q_PROPERTY(QVariantList reminderAlerts READ reminderAlerts NOTIFY reminderAlertsChanged)
@@ -154,6 +156,7 @@ public:
     QString widgetContextTitle() const;
     QString widgetRangeLabel() const;
     QString widgetProfileToken() const {return m_widgetProfileToken;}
+    QString profileGeneration() const {return QString::number(m_profileGeneration);}
     QString widgetBrowseKey() const {return m_widgetContext==QStringLiteral("today")?m_widgetContext:m_widgetContext+QLatin1Char('/')+(m_widgetCategoryToday?QStringLiteral("today"):QStringLiteral("all"));}
     QString widgetBrowseError() const {return m_widgetPreferenceError.isEmpty()?m_widgetNotice:m_widgetPreferenceError+(m_widgetNotice.isEmpty()?QString():QLatin1Char('\n')+m_widgetNotice);}
     bool widgetPreferencesUnsaved() const {return !m_widgetPreferenceError.isEmpty();}
@@ -167,7 +170,8 @@ public:
     Q_INVOKABLE void requestWidgetCategoryToday(bool enabled){emit widgetCategoryRangeRequested(enabled);}
     Q_INVOKABLE bool setWidgetShowShortcuts(bool enabled);
     Q_INVOKABLE bool setWidgetShortcut(const QString& key,bool enabled);
-    Q_INVOKABLE bool moveWidgetShortcut(const QString& key,int direction);
+    Q_INVOKABLE bool canMoveWidgetCategory(const QString& key,int direction) const;
+    Q_INVOKABLE bool moveWidgetCategory(const QString& key,qint64 version,int direction);
     Q_INVOKABLE bool retryWidgetBrowsePreferences();
     Q_INVOKABLE bool createWidgetTask(const QString& title,const QString& context,bool todayOnly,const QString& profileToken,bool ignoreTime=false,const QVariantMap& timing={});
     Q_INVOKABLE QVariantMap previewActivityInput(const QString& text) const;
@@ -289,8 +293,11 @@ public:
     Q_INVOKABLE void setSearch(const QString& search);
     Q_INVOKABLE QVariantMap task(const QString& id) const;
     QVariantList taskEditHistory() const {return m_taskEditHistory;}
+    QVariantList taskCycleHistory() const {return m_taskCycleHistory;}
     bool historyLoading() const {return m_historyLoading;}
     Q_INVOKABLE void requestTaskEditHistory(const QString& id);
+    Q_INVOKABLE void loadMoreCycleHistory();
+    Q_INVOKABLE bool changeCycleOccurrence(const QString& id,qint64 taskVersion,const QString& cycleVersion,const QString& key,const QString& action);
     Q_INVOKABLE bool createSubtask(const QString& title,const QString& parentId);
     Q_INVOKABLE QVariantList subtaskChoices(const QString& parentId) const;
     Q_INVOKABLE QVariantList parentTaskChoices(const QString& taskId,const QString& search) const;
@@ -346,6 +353,9 @@ public:
     Q_INVOKABLE bool saveDetails(const QString& id,qint64 version,const QVariantMap& details);
 signals:
     void widgetBrowseChanged();
+    void widgetCategoriesChanged();
+    void profileGenerationChanged();
+    void snapshotCommitted(const QVariantMap& event);
     void widgetContextChanging();
     void widgetCategoryRangeRequested(bool enabled);
     void syncStateChanged();
@@ -368,7 +378,7 @@ private:
     QVariantMap m_syncState{{"phase",QStringLiteral("GUEST")},{"status",QStringLiteral("仅存储在此设备")},{"authenticated",false},{"busy",false}};
     QVariantMap m_telemetryState{{"enabled",false},{"collecting",false},{"busy",false},{"status",QStringLiteral("登录后可选择参与，当前不采集。")}};
     bool m_syncApplyPaused=false;
-    QVariantList m_taskEditHistory;
+    QVariantList m_taskEditHistory,m_taskCycleHistory;
     QVariantList m_lastBatchDeleted;
     QVariantMap timelineInZone(const QString& anchor,bool week,bool scoped,const QTimeZone& zone,const QString& omittedTask) const;
     QString m_historyTaskId;
@@ -378,9 +388,12 @@ private:
     bool begin(bool clearFeedback=true);
     QVariantMap eventMap(const CalendarEvent& event) const;
     void refresh(bool snapshotChanged=true);
+    void publishCommittedSnapshot(const QString& source);
+    void invalidateProjectionProfile();
     void loadWidgetBrowsePreferences();
     bool saveWidgetBrowsePreferences();
     void refreshWidgetBrowse();
+    QVariantMap widgetCategoryNeighbor(const QString& key,int direction) const;
     const Task* cachedTask(const QString& id) const;
     bool canDropInView(const QString& source,const QString& target,const QString& view) const;
     bool dropInView(const QString& source,const QString& target,const QString& view);
@@ -402,8 +415,11 @@ private:
     QVariantList m_widgetCatalog;
     QHash<QString,qsizetype> m_widgetRows;
     QList<Task> m_cache;
+    QHash<QString,qint64> m_committedTaskVersions,m_committedCatalogVersions,m_committedCycleVersions;
+    quint64 m_profileGeneration=0,m_projectionRevision=0;
     QHash<QString,qsizetype> m_taskIndex;
     QDateTime m_nextReminder;
+    QDateTime m_nextCycle;
     QSet<QString> m_collapsedTasks;
     QList<CalendarEvent> m_events;
     QString m_eventUndoId,m_eventDeleteCandidate;

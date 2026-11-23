@@ -122,8 +122,8 @@ QString Ux37SmokeProbe::advance() {
     if(m_stage==38){auto* scroll=qobject_cast<QQuickItem*>(find("taskEditorScroll"));auto* title=qobject_cast<QQuickItem*>(find("editTaskTitle"));title->forceActiveFocus();if(!scroll || scroll->width()<200 || scroll->height()<96 || !capture("inspector-dark-200"))return fail("readable expanded inspector");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1280,800);}
     if(m_stage==39){auto* choice=qobject_cast<QQuickItem*>(find("taskRepeatChoice"));if(!choice || !choice->isVisible())return fail("repeat property entry");click(choice);key(choice,Qt::Key_End);key(choice,Qt::Key_Return);}
     if(m_stage==40){auto* frequency=qobject_cast<QQuickItem*>(find("taskRepeatFrequency"));if(!find("taskTimingFields")->property("repeatExpanded").toBool() || !frequency || !frequency->isVisible())return fail("custom repeat expands in the same inspector");if(!capture("custom-repeat"))return fail("repeat capture");auto* choice=qobject_cast<QQuickItem*>(find("taskRepeatChoice"));click(choice);key(choice,Qt::Key_Home);key(choice,Qt::Key_Down);key(choice,Qt::Key_Down);key(choice,Qt::Key_Return);}
-    if(m_stage==41){QVariant patch;QMetaObject::invokeMethod(find("taskTimingFields"),"detailsPatch",Q_RETURN_ARG(QVariant,patch));if(patch.toMap().value("repeat").toMap().value("frequency")!="WEEKLY")return fail("repeat preset draft");invoke(m_window,"saveEditor");}
-    if(m_stage==42){if(m_workspace.task(m_parent).value("repeat").toMap().value("frequency")!="WEEKLY" || !m_workspace.errorText().isEmpty())return fail("repeat preset persists with the same task");invoke(find("taskEditor"),"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1120,720);}
+    if(m_stage==41){QVariant patch;QMetaObject::invokeMethod(find("taskTimingFields"),"detailsPatch",Q_RETURN_ARG(QVariant,patch));if(patch.toMap().value("cycle").toMap().value("frequency")!="WEEKLY")return fail("repeat preset draft");invoke(m_window,"saveEditor");}
+    if(m_stage==42){if(m_workspace.task(m_parent).value("cycle").toMap().value("frequency")!="WEEKLY" || !m_workspace.errorText().isEmpty())return fail("repeat preset persists with the same task");invoke(find("taskEditor"),"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1120,720);}
     if(m_stage==43){const auto task=m_workspace.task(m_ids[0]);if(!m_workspace.saveTask(m_ids[0],task.value("rowVersion").toLongLong(),task.value("title").toString(),QStringLiteral("准备第一版计划\n补充细节与验收安排"),"INBOX","","",false))return fail("list notes fixture");}
     if(m_stage==44){
         auto* browseRow=row(2);
@@ -157,10 +157,13 @@ QString Ux37SmokeProbe::advance() {
             return fail("inline edit shares the list surface without a row separator");
         if(!editingRow->property("expanded").toBool() || qAbs(positions.value("completion").toDouble()-m_columns.value("completion").toDouble())>1 || qAbs(positions.value("title").toDouble()-m_columns.value("title").toDouble())>1 || qAbs(positions.value("notes").toDouble()-positions.value("title").toDouble())>1 || find("saveQuickEditor")->property("visible").toBool() || !capture("list-refined-inline"))return fail("inline uses same columns without extra controls");
         if(qAbs(positions.value("tools").toReal()-positions.value("title").toReal())>1 || qAbs(positions.value("completionCenterY").toReal()-positions.value("titleCenterY").toReal())>1){qInfo()<<"Inline title axes"<<positions;return fail("inline tools and title line alignment");}
-        auto* end=qobject_cast<QQuickItem*>(find("quickEditorDeadline"));
-        if(!m_inlineDateOpened){if(end->property("iconOnly").toBool() && qAbs(end->width()-end->height())>1)return fail("empty date action is circular");click(end);m_inlineDateOpened=true;m_wait.restart();return {};}
-        if(!end->property("pickerVisible").toBool())return fail("compact date action opens nearby picker");
-        invoke(end,"closePicker");
+        auto* arrangement=qobject_cast<QQuickItem*>(find("quickArrangement"));
+        auto* popup=find("quickArrangementPopup");
+        if(!arrangement || !popup)return fail("inline arrangement action missing");
+        if(!m_inlineDateOpened){click(arrangement);m_inlineDateOpened=true;m_wait.restart();return {};}
+        auto* end=qobject_cast<QQuickItem*>(find("editDeadlineDate"));
+        if(!popup->property("visible").toBool() || !end || !end->isVisible())return fail("the nearby arrangement contains the end date");
+        invoke(find("taskArrangementCancel"),"clicked");
         QMetaObject::invokeMethod(find("taskQuickEditor"),"notesEdited",Q_ARG(QString,QStringLiteral("就近编辑备注")));
         invoke(find("taskQuickEditor"),"closeRequested");
     }

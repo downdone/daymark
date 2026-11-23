@@ -4,6 +4,7 @@ import QtQuick.Templates as T
 T.ComboBox {
     id: control
     property var separatorBefore: []
+    readonly property var hostWindow: Window.window
     implicitWidth: Math.max(140,implicitContentWidth+leftPadding+rightPadding)
     implicitHeight: Math.max(DesignTokens.controlHeight,implicitContentHeight+12)
     leftPadding: 10
@@ -45,20 +46,63 @@ T.ComboBox {
         highlighted: control.highlightedIndex===index
     }
     popup: T.Popup {
-        y: control.height+4
-        width: control.width
-        // Bootstrap a nonzero viewport without relying on offscreen cache rows.
-        implicitHeight: Math.min(320,Math.max(contentItem.implicitHeight,Math.min(control.count,8)*DesignTokens.controlHeight)+12)
+        id: optionsPopup
+        // These backends do not support our global popup positioning or grabs.
+        popupType: Qt.platform.pluginName.startsWith("wayland") || Qt.platform.pluginName === "offscreen"
+            ? T.Popup.Item : T.Popup.Window
+        margins: 8
         padding: 6
+        readonly property int anchorGap: 4
+        property rect workArea
+        readonly property real heightLimit: Math.max(0, (workArea.height || (control.hostWindow ? control.hostWindow.height : 0)) - 2 * margins)
+        implicitWidth: workArea.width > 0 ? Math.min(control.width, workArea.width - 2 * margins) : control.width
+        // Reserve the initial viewport before the native popup opens. Use the
+        // measured rows as soon as the ListView starts laying out delegates.
+        implicitHeight: Math.min(heightLimit, (optionsList.contentHeight > 0 ? optionsList.contentHeight
+            : control.count * DesignTokens.menuRowHeight) + topPadding + bottomPadding)
+        function placeAtAnchor() {
+            if (!parent || workArea.height <= 0) {
+                x = 0
+                y = control.height + anchorGap
+                return
+            }
+            const top = control.mapToGlobal(0, 0)
+            const bottom = control.mapToGlobal(0, control.height)
+            const minY = workArea.y + margins
+            const maxY = workArea.y + workArea.height - margins
+            const below = bottom.y + anchorGap
+            const above = top.y - anchorGap - implicitHeight
+            let targetY = below
+            if (below + implicitHeight > maxY)
+                targetY = above >= minY ? above : maxY - implicitHeight
+            targetY = Math.max(minY, targetY)
+            const minX = workArea.x + margins
+            const maxX = workArea.x + workArea.width - margins - implicitWidth
+            const at = parent.mapFromGlobal(Math.max(minX, Math.min(top.x, maxX)), targetY)
+            x = at.x
+            y = at.y
+        }
+        function refreshWorkArea() {
+            workArea = popupType === T.Popup.Window ? ScreenWorkArea.forItem(control) : Qt.rect(0, 0, 0, 0)
+            placeAtAnchor()
+        }
+        onAboutToShow: refreshWorkArea()
+        onImplicitHeightChanged: if (visible) placeAtAnchor()
+        onImplicitWidthChanged: if (visible) placeAtAnchor()
+        Connections {
+            target: optionsPopup.visible ? control.hostWindow : null
+            function onXChanged() { optionsPopup.refreshWorkArea() }
+            function onYChanged() { optionsPopup.refreshWorkArea() }
+            function onScreenChanged() { optionsPopup.refreshWorkArea() }
+        }
         contentItem: ListView {
-                // Avoid background row incubation across model resets on Qt 6.10.2.
-                cacheBuffer: 0
-            id: motionSurface1
-            ScrollPhysics {target: motionSurface1}
-            implicitHeight: contentHeight
+            id: optionsList
+            // Avoid background row incubation across model resets on Qt 6.10.2.
+            cacheBuffer: 0
+            ScrollPhysics {target: optionsList}
             clip: true
             // Closed popups must not incubate rows while form models refresh.
-            model: control.popup.visible ? control.delegateModel : null
+            model: optionsPopup.visible ? control.delegateModel : null
             currentIndex: control.highlightedIndex
             highlightMoveDuration: 0
             boundsBehavior: Flickable.StopAtBounds

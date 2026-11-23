@@ -44,7 +44,8 @@ Result<CatalogItem> CatalogRepository::find(const QString& kind,const QString& i
     for(const auto& item:items.value)if(item.id==id && item.kind==kind)return {item,{}};
     return Result<CatalogItem>::failure(ErrorCode::NotFound,QStringLiteral("notFound"));
 }
-Result<void> CatalogRepository::move(const QString& kind,const QString& id,qint64 version,int direction,const QString& now)
+Result<void> CatalogRepository::move(const QString& kind,const QString& id,qint64 version,int direction,const QString& now,
+                                    const QString& neighborId,qint64 neighborVersion)
 {
     const auto table=tableFor(kind);
     if(table.isEmpty() || (direction!=-1 && direction!=1))return Result<void>::failure(ErrorCode::ValidationError,QStringLiteral("orderInvalid"));
@@ -53,8 +54,16 @@ Result<void> CatalogRepository::move(const QString& kind,const QString& id,qint6
     const auto allItems=all();if(!allItems.ok())return {allItems.error};
     QList<CatalogItem> siblings;int index=-1;
     for(const auto& item:allItems.value)if(item.kind==kind && item.parentId==current.value.parentId){if(item.id==id)index=siblings.size();siblings.append(item);}
-    if(index+direction<0 || index+direction>=siblings.size())return {};
-    siblings.swapItemsAt(index,index+direction);
+    int destination=index+direction;
+    if(!neighborId.isEmpty()) {
+        destination=-1;
+        for(int i=0;i<siblings.size();++i)
+            if(siblings[i].id==neighborId && siblings[i].rowVersion==neighborVersion)destination=i;
+        if(destination<0 || (destination-index)*direction<=0)
+            return Result<void>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));
+    }
+    if(index<0 || destination<0 || destination>=siblings.size())return {};
+    siblings.move(index,destination);
     ScopedTransaction writeScope(m_db);if(!writeScope.active())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
     int order=0;
     for(const auto& item:siblings) {

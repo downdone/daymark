@@ -1,5 +1,6 @@
 #include "ScopedTransaction.h"
 #include "TaskRepository.h"
+#include "TaskCycleRepository.h"
 #include "services/ReminderSchedule.h"
 #include <QSqlQuery>
 #include <QVariant>
@@ -48,6 +49,7 @@ Task readTask(const QSqlQuery& q)
 bool loadDetails(QSqlDatabase db,QList<Task>& tasks,const QString& taskId={})
 {
     if(tasks.isEmpty())return true;
+    if(!TaskCycleRepository(db).load(tasks,taskId).ok())return false;
     QHash<QString,int> indices;for(int i=0;i<tasks.size();++i)indices.insert(tasks[i].id,i);
     QSqlQuery q(db);
     q.prepare(QStringLiteral("SELECT tt.task_id,t.id,t.name FROM task_tags tt JOIN tags t ON t.id=tt.tag_id WHERE t.deleted_at_utc IS NULL ")
@@ -110,7 +112,7 @@ Result<void> TaskRepository::purge(const QStringList& ids,const QString& at,bool
         q.addBindValue(at);if(server){q.addBindValue(at);q.addBindValue(at);}q.addBindValue(id);
         if(!q.exec() || q.numRowsAffected()!=1)return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
         if(server) {
-            for(const auto& table:QStringList{"task_tags","task_schedules","task_reminder_history","task_edit_history","checklist_items","reminder_execution"}) {
+            for(const auto& table:QStringList{"task_tags","task_schedules","task_reminder_history","task_edit_history","checklist_items","reminder_execution","task_cycles"}) {
                 q.prepare("DELETE FROM "+table+" WHERE task_id=?");q.addBindValue(id);if(!q.exec())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
             }
             q.prepare("DELETE FROM task_links WHERE source_id=?");q.addBindValue(id);if(!q.exec())return Result<void>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
@@ -129,7 +131,7 @@ Result<QVariantList> TaskRepository::reminderCandidates() const
 {
     QSqlQuery q(m_db);
     // No history-page LIMIT: bursts must remain queued, even beyond 50 records.
-    if(!q.exec(QStringLiteral("SELECT h.task_id,h.fired_at_utc,h.scheduled_at_utc FROM task_reminder_history h JOIN tasks t ON t.id=h.task_id WHERE t.status='OPEN' AND t.local_removed_at_utc IS NULL AND t.purged_at_utc IS NULL AND t.deleted_at_utc IS NULL AND t.remind_at_utc IS NOT NULL AND t.reminder_fired_at_utc=h.fired_at_utc ORDER BY h.fired_at_utc,h.rowid")))return Result<QVariantList>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
+    if(!q.exec(QStringLiteral("SELECT h.task_id,h.fired_at_utc,h.scheduled_at_utc FROM task_reminder_history h JOIN tasks t ON t.id=h.task_id WHERE (t.status='OPEN' OR (t.status='COMPLETED' AND EXISTS(SELECT 1 FROM task_cycles c WHERE c.task_id=t.id AND c.active=1 AND c.next_start_utc IS NOT NULL))) AND t.local_removed_at_utc IS NULL AND t.purged_at_utc IS NULL AND t.deleted_at_utc IS NULL AND t.remind_at_utc IS NOT NULL AND t.reminder_fired_at_utc=h.fired_at_utc ORDER BY h.fired_at_utc,h.rowid")))return Result<QVariantList>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     QVariantList result;while(q.next())result.append(QVariantMap{{"taskId",q.value(0)},{"firedAt",q.value(1)},{"occurrenceAt",q.value(2)}});return {result,{}};
 }
 
@@ -209,7 +211,7 @@ Result<QList<Task>> TaskRepository::claimDueReminders(const QString& now)
 {
     ScopedTransaction writeScope(m_db);if(!writeScope.active())return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
     QSqlQuery q(m_db);
-    if(!q.exec(selectTasks+QStringLiteral("WHERE t.local_removed_at_utc IS NULL AND t.purged_at_utc IS NULL AND t.deleted_at_utc IS NULL AND COALESCE(c.archived,a.archived,0)=0 AND (c.id IS NULL OR (c.deleted_at_utc IS NULL AND c.status='OPEN' AND c.planning_state='ACTIVE')) AND COALESCE(p.archived,0)=0 AND t.status='OPEN' AND t.planning_state='ACTIVE' AND (t.project_id IS NULL OR (p.deleted_at_utc IS NULL AND p.status='OPEN' AND p.planning_state='ACTIVE')) AND t.remind_at_utc IS NOT NULL AND (t.reminder_fired_at_utc IS NULL OR t.reminder_repeat<>'NONE') ORDER BY t.remind_at_utc"))) {
+    if(!q.exec(selectTasks+QStringLiteral("WHERE t.local_removed_at_utc IS NULL AND t.purged_at_utc IS NULL AND t.deleted_at_utc IS NULL AND COALESCE(c.archived,a.archived,0)=0 AND (c.id IS NULL OR (c.deleted_at_utc IS NULL AND c.status='OPEN' AND c.planning_state='ACTIVE')) AND COALESCE(p.archived,0)=0 AND (t.status='OPEN' OR (t.status='COMPLETED' AND EXISTS(SELECT 1 FROM task_cycles cycle WHERE cycle.task_id=t.id AND cycle.active=1 AND cycle.next_start_utc IS NOT NULL))) AND t.planning_state='ACTIVE' AND (t.project_id IS NULL OR (p.deleted_at_utc IS NULL AND p.status='OPEN' AND p.planning_state='ACTIVE')) AND t.remind_at_utc IS NOT NULL AND (t.reminder_fired_at_utc IS NULL OR t.reminder_repeat<>'NONE') ORDER BY t.remind_at_utc"))) {
         writeScope.rollback();return Result<QList<Task>>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseRead"));
     }
     QList<Task> due;

@@ -1,5 +1,7 @@
 #include "services/RecurrenceService.h"
 #include "services/TaskService.h"
+#include "services/TaskCycleService.h"
+#include "services/ReminderSchedule.h"
 #include "persistence/SqliteDatabase.h"
 #include <QTemporaryDir>
 #include <QtTest>
@@ -8,11 +10,99 @@
 using namespace daymark;
 class Clock:public IClock {
 public: QDate day=QDate(2024,2,1);QDate localToday()const override{return day;}
-    QDateTime nowUtc()const override{return QDateTime(day,QTime(12,0),QTimeZone::UTC);}
+    QTime time{12,0};
+    QDateTime nowUtc()const override{return QDateTime(day,time,QTimeZone::UTC);}
 };
 class RecurrenceServiceTest:public QObject {
     Q_OBJECT
 private slots:
+    void oneTaskReopensAcrossThreeCyclesAndPreservesHistory()
+    {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("cycles.sqlite")).ok());
+        Clock clock;TaskRepository tasks(db.connection());TaskCycleRepository cycles(db.connection());
+        TaskCycleService lifecycle(cycles,tasks,clock);TaskService service(tasks,clock,nullptr,&lifecycle);
+        const auto task=service.create("cycle",QStringLiteral("today"));QVERIFY(task.ok());const auto id=task.value.id;
+        const auto child=service.createSubtask("subtask",id);QVERIFY(child.ok());
+        TaskPatch edit;TaskCycle rule;rule.rule.frequency="DAILY";rule.zone="UTC";edit.cycle=rule;
+        auto saved=service.edit(id,task.value.rowVersion,edit);QVERIFY(saved.ok());
+        for(int round=1;round<=3;++round){
+            const auto complete=service.changeState(id,saved.value.rowVersion,"complete");QVERIFY(complete.ok());
+            QCOMPARE(complete.value.cycle->nextDate,clock.day.addDays(1));QCOMPARE(lifecycle.advance().value,0);
+            QCOMPARE(cycles.history(id,0).value.size(),round);
+            QCOMPARE(tasks.find(child.value.id).value.status,QStringLiteral("COMPLETED"));
+            clock.day=clock.day.addDays(1);const auto due=lifecycle.advance();QVERIFY(due.ok());QCOMPARE(due.value,1);
+            saved=tasks.find(id);QVERIFY(saved.ok());QCOMPARE(saved.value.id,id);QCOMPARE(saved.value.status,QStringLiteral("OPEN"));
+            QCOMPARE(tasks.find(child.value.id).value.status,QStringLiteral("OPEN"));QCOMPARE(tasks.all().value.size(),2);
+        }
+        const auto complete=service.changeState(id,saved.value.rowVersion,"complete");QVERIFY(complete.ok());
+        QVERIFY(service.changeState(id,complete.value.rowVersion,"reopen").ok());
+        QCOMPARE(cycles.history(id,0).value.size(),4);
+        QVERIFY(!cycles.history(id,0).value.first().toMap().value("revokedAt").toString().isEmpty());
+    }
+    void cycleCalendarBoundariesAndRollback()
+    {
+        Task task;task.startOn=QDate(2024,1,31);RecurrenceRule rule;rule.frequency="MONTHLY";
+        auto first=TaskCycleService::first(task,rule,"UTC",*task.startOn);QVERIFY(first.ok());
+        const auto next=TaskCycleService::next(task,first.value,QDateTime(QDate(2024,2,2),QTime(9,0),QTimeZone::UTC));
+        QVERIFY(next.ok());QCOMPARE(next.value.first,QDate(2024,3,31));
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("rollback.sqlite")).ok());
+        Clock clock;TaskRepository tasks(db.connection());TaskCycleRepository cycles(db.connection());
+        TaskCycleService lifecycle(cycles,tasks,clock);TaskService service(tasks,clock,nullptr,&lifecycle);
+        const auto created=service.create("must remain open",QStringLiteral("today"));QVERIFY(created.ok());
+        TaskPatch edit;TaskCycle cycle;cycle.zone="UTC";edit.cycle=cycle;
+        const auto saved=service.edit(created.value.id,created.value.rowVersion,edit);QVERIFY(saved.ok());
+        QSqlQuery q(db.connection());QVERIFY(q.exec("CREATE TRIGGER reject_cycle_record BEFORE INSERT ON task_cycle_completions BEGIN SELECT RAISE(ABORT,'test'); END"));
+        QVERIFY(!service.changeState(saved.value.id,saved.value.rowVersion,"complete").ok());
+        QCOMPARE(tasks.find(saved.value.id).value.status,QStringLiteral("OPEN"));
+        QVERIFY(cycles.history(saved.value.id,0).value.isEmpty());
+    }
+    void relativeReminderCanFireBeforeTheSameTaskReopens()
+    {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("relative.sqlite")).ok());
+        Clock clock;TaskRepository tasks(db.connection());TaskCycleRepository cycles(db.connection());
+        TaskCycleService lifecycle(cycles,tasks,clock);TaskService service(tasks,clock,nullptr,&lifecycle);
+        const auto task=service.create("timed cycle",QStringLiteral("today"));QVERIFY(task.ok());
+        TaskSchedule schedule;schedule.allDay=false;schedule.timeZone="UTC";schedule.startUtc=clock.nowUtc();
+        schedule.endUtc=schedule.startUtc.addSecs(3600);schedule.alertMinutes=30;
+        TaskPatch edit;TaskCycle rule;rule.zone="UTC";edit.cycle=rule;edit.schedule=FieldPatch<TaskSchedule>::set(schedule);
+        const auto saved=service.edit(task.value.id,task.value.rowVersion,edit);QVERIFY(saved.ok());
+        const auto complete=service.changeState(saved.value.id,saved.value.rowVersion,"complete");QVERIFY(complete.ok());
+        clock.day=clock.day.addDays(1);clock.time=QTime(11,30);
+        QCOMPARE(ReminderSchedule::nextPending(tasks.all().value),clock.nowUtc());
+        QCOMPARE(lifecycle.advance().value,0);
+        const auto reminders=tasks.claimDueReminders(clock.nowUtc().toString(Qt::ISODateWithMs));
+        QVERIFY(reminders.ok());QCOMPARE(reminders.value.size(),1);QCOMPARE(reminders.value.first().id,saved.value.id);
+        QCOMPARE(tasks.find(saved.value.id).value.status,QStringLiteral("COMPLETED"));
+        clock.time=QTime(12,0);const auto advance=lifecycle.advance();QVERIFY(advance.ok());QCOMPARE(advance.value,1);
+        QCOMPARE(tasks.find(saved.value.id).value.status,QStringLiteral("OPEN"));
+        QVERIFY(tasks.claimDueReminders(clock.nowUtc().toString(Qt::ISODateWithMs)).value.isEmpty());
+    }
+    void legacyCompletionCadenceConvertsWithoutCreatingAnotherTask()
+    {
+        QTemporaryDir dir;SqliteDatabase db;QVERIFY(db.open(dir.filePath("conversion.sqlite")).ok());
+        Clock clock;TaskRepository tasks(db.connection());TaskCycleRepository cycles(db.connection());
+        TaskCycleService lifecycle(cycles,tasks,clock);TaskService service(tasks,clock,nullptr,&lifecycle);
+        const auto task=service.create("legacy cycle",QStringLiteral("today"));QVERIFY(task.ok());
+        RecurrenceRule old;old.frequency="AFTER_DAYS";old.interval=3;
+        TaskPatch install;install.repeat=FieldPatch<RecurrenceRule>::set(old);
+        const auto legacy=service.edit(task.value.id,task.value.rowVersion,install);QVERIFY(legacy.ok());
+        QVERIFY(legacy.value.repeat && legacy.value.repeat->active);
+
+        TaskCycle cycle;cycle.rule=*legacy.value.repeat;cycle.zone="UTC";
+        TaskPatch convert;convert.cycle=cycle;convert.convertLegacyCycleVersion=legacy.value.repeat->rowVersion;
+        const auto current=service.edit(task.value.id,legacy.value.rowVersion,convert);QVERIFY(current.ok());
+        QVERIFY(current.value.recurrenceId.isEmpty());
+        QCOMPARE(current.value.cycle->rule.frequency,QStringLiteral("AFTER_DAYS"));
+        QCOMPARE(current.value.id,task.value.id);
+        clock.day=clock.day.addDays(4);
+        const auto completed=service.changeState(task.value.id,current.value.rowVersion,"complete");QVERIFY(completed.ok());
+        QCOMPARE(completed.value.cycle->nextDate,clock.day.addDays(3));
+        clock.day=clock.day.addDays(3);
+        const auto due=lifecycle.advance();QVERIFY(due.ok());QCOMPARE(due.value,1);
+        QCOMPARE(tasks.all().value.size(),1);
+        QCOMPARE(tasks.find(task.value.id).value.status,QStringLiteral("OPEN"));
+        QCOMPARE(cycles.history(task.value.id,0).value.size(),1);
+    }
     void inactiveRulesDoNotLoadTaskSnapshot()
     {
         QTemporaryDir directory;SqliteDatabase database;QVERIFY(database.open(directory.filePath("inactive.sqlite")).ok());Clock clock;RecurrenceRepository rules(database.connection());TaskRepository tasks(database.connection());RecurrenceService service(rules,tasks,clock);

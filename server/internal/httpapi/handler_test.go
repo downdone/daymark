@@ -2,10 +2,12 @@ package httpapi
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +20,8 @@ import (
 )
 
 func TestTLSLoginAtomicPushPullAndProtocolErrors(t *testing.T) {
-	db, e := storage.Open(t.Context(), t.TempDir(), storage.DefaultOptions())
+	directory := t.TempDir()
+	db, e := storage.Open(t.Context(), directory, storage.DefaultOptions())
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -184,5 +187,29 @@ func TestTLSLoginAtomicPushPullAndProtocolErrors(t *testing.T) {
 	// Default TLS trust does not accept httptest's private certificate.
 	if _, e = http.Get(server.URL + "/health/live"); e == nil {
 		t.Fatal("untrusted TLS certificate accepted")
+	}
+
+	// Seed the compatibility floor that a future DTO 2 mutation commits with its cycle facts.
+	fixture, e := sql.Open("sqlite", filepath.Join(directory, "daymark.sqlite"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer fixture.Close()
+	if _, e = fixture.ExecContext(t.Context(), "UPDATE datasets SET minimum_dto_version=2 WHERE id=?", scope.DatasetID); e != nil {
+		t.Fatal(e)
+	}
+	for _, operation := range []struct {
+		method, path string
+		body         []byte
+	}{
+		{"POST", "/sync/push", payload},
+		{"GET", "/sync/pull?cursor=" + start, nil},
+		{"GET", "/sync/receipts/" + string(mid) + "?data_epoch=" + string(scope.DataEpoch), nil},
+	} {
+		status, body := request(operation.method, base+operation.path, pair.Access, operation.body)
+		var problem domain.Fault
+		if status != protocol.ErrorStatuses()["protocol_upgrade_required"] || json.Unmarshal(body, &problem) != nil || problem.Code != "protocol_upgrade_required" {
+			t.Fatalf("%s used a dataset above its DTO version: %d %s", operation.method, status, body)
+		}
 	}
 }

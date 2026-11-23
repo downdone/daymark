@@ -15,6 +15,7 @@
 #include "services/CalendarService.h"
 #include "services/EventService.h"
 #include "services/RecurrenceService.h"
+#include "services/TaskCycleService.h"
 #include "persistence/DataTransfer.h"
 #include "sync/Journal.h"
 #include <QUrl>
@@ -70,7 +71,7 @@ QVariant TaskListModel::data(const QModelIndex& index,int role) const
     case ProjectName:return t.projectName.isEmpty()?t.areaName:t.projectName;
     case ContextGroup:return t.areaName.isEmpty() && t.projectName.isEmpty()?tr("收集箱"):t.areaName+(t.areaName.isEmpty() || t.projectName.isEmpty()?QString():QStringLiteral(" / "))+t.projectName;
     case InToday:return QueryService::inView(t,QStringLiteral("today"),m_today);
-    case ArrangementSummary:return CalendarService::timeSummary(t,m_today,QTimeZone::systemTimeZone());
+    case ArrangementSummary:return t.cycle && t.cycle->nextDate.isValid()?tr("下次 %1").arg(t.cycle->nextDate.toString(Qt::ISODate)):CalendarService::timeSummary(t,m_today,QTimeZone::systemTimeZone());
     case SubtaskTotal:return t.totalSubtasks;
     case TagSummary:{const auto shown=t.tagNames.mid(0,2).join(QStringLiteral(" · "));return t.tagNames.size()>2?shown+QStringLiteral(" +%1").arg(t.tagNames.size()-2):shown;}
     case Section:return QStringList{tr("全天"),tr("上午"),tr("下午"),tr("今晚")}.value(QueryService::todayPeriod(t,m_today));
@@ -83,12 +84,15 @@ QVariant TaskListModel::data(const QModelIndex& index,int role) const
 QVariantMap TaskListModel::taskMap(const Task& stored)
 {
     const auto t=QueryService::withUnifiedDates(stored);
-    QVariantMap schedule,repeat;auto timeText=[](const QTime& value){return value.toString(value.second() || value.msec()?QStringLiteral("HH:mm:ss.zzz"):QStringLiteral("HH:mm"));};
+    QVariantMap schedule,repeat,cycle;auto timeText=[](const QTime& value){return value.toString(value.second() || value.msec()?QStringLiteral("HH:mm:ss.zzz"):QStringLiteral("HH:mm"));};
     if(t.schedule){const auto& s=*t.schedule;const QTimeZone zone(s.timeZone.toUtf8());const auto start=s.startUtc.toTimeZone(zone),end=s.endUtc.toTimeZone(zone);schedule={{"allDay",s.allDay},{"startDate",s.allDay?s.startOn.toString(Qt::ISODate):start.date().toString(Qt::ISODate)},{"endDate",s.allDay?s.endOn.addDays(-1).toString(Qt::ISODate):end.date().toString(Qt::ISODate)},{"startTime",timeText(start.time())},{"endTime",timeText(end.time())},{"zone",s.timeZone},{"alertMinutes",s.alertMinutes}};}
     if(t.repeat){const auto& r=*t.repeat;repeat={{"active",r.active},{"frequency",r.frequency},{"interval",r.interval},{"weekdays",r.weekdays},{"monthDay",r.monthDay},{"yearMonth",r.yearMonth},{"end",r.end.toString(Qt::ISODate)},{"rowVersion",r.rowVersion}};}
+    if(t.cycle){const auto& c=*t.cycle;cycle={{"active",c.rule.active},{"frequency",c.rule.frequency},{"interval",c.rule.interval},
+        {"weekdays",c.rule.weekdays},{"end",c.rule.end.toString(Qt::ISODate)},{"rowVersion",QString::number(c.rowVersion)},
+        {"occurrenceKey",TaskCycleService::occurrenceKey(t.id,c)},{"nextDate",c.nextDate.toString(Qt::ISODate)},{"zone",c.zone}};}
     return {{"arrangementSummary",CalendarService::timeSummary(t,QDate::currentDate(),QTimeZone::systemTimeZone())},{"subtaskTotal",t.totalSubtasks},{"storedStartOn",stored.startOn?stored.startOn->toString(Qt::ISODate):QString()},{"storedEndOn",stored.deadlineOn?stored.deadlineOn->toString(Qt::ISODate):QString()},{"timeDatesDiffer",(stored.startOn && stored.startOn!=t.startOn) || (stored.deadlineOn && stored.deadlineOn!=t.deadlineOn)},{"schedule",schedule.isEmpty()?QVariant():QVariant(schedule)},{"repeat",repeat.isEmpty()?QVariant():QVariant(repeat)},{"parentTaskId",t.parentTaskId},{"parentTitle",t.parentTitle},{"parentDeleted",t.parentDeleted},{"pinned",t.pinned},{"important",t.important},{"taskDepth",t.listDepth},{"taskId",t.id},{"title",t.title},{"notes",t.notes},{"planningState",t.planningState},{"taskStatus",t.status},
             {"startOn",t.startOn?t.startOn->toString(Qt::ISODate):QString()},{"deadlineOn",t.deadlineOn?t.deadlineOn->toString(Qt::ISODate):QString()},
-            {"todayFocus",t.todayFocus},{"rowVersion",t.rowVersion},
+            {"todayFocus",t.todayFocus},{"rowVersion",t.rowVersion},{"cycle",cycle.isEmpty()?QVariant():QVariant(cycle)},
             {"projectId",t.projectId},{"areaId",t.areaId},{"headingId",t.headingId},{"tagIds",t.tagIds},
             {"tagNames",t.tagNames},{"evening",t.evening},{"remindAtUtc",t.remindAtUtc},
             {"reminderRepeat",t.reminderRepeat},{"reminderEvery",t.reminderEvery},{"reminderZone",t.reminderZone},{"createdAtUtc",t.createdAtUtc},{"updatedAtUtc",t.updatedAtUtc},{"completedAtUtc",t.completedAtUtc},{"recurrenceId",t.recurrenceId},
@@ -173,6 +177,8 @@ public:
     std::unique_ptr<CatalogService> catalogService;
     std::unique_ptr<RecurrenceRepository> recurrence;
     std::unique_ptr<RecurrenceService> recurrenceService;
+    std::unique_ptr<TaskCycleRepository> cycles;
+    std::unique_ptr<TaskCycleService> cycleService;
     std::optional<ImportPlan> pendingImport;
     quint64 profileGeneration=0,pendingImportGeneration=0;
     SystemClock clock;
@@ -181,22 +187,26 @@ public:
         ScopedTransaction tx(database.connection());if(!tx.active())return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
         const auto before=capture?sync::Mapping(database.connection()).capture():Result<sync::Graph>{};if(!before.ok())return Result<T>::failure(before.error.code,before.error.key);
         auto result=command();if(!result.ok())return result;
+        if(capture){const auto cycleData=cycles->hasAny();if(!cycleData.ok())return Result<T>::failure(cycleData.error.code,cycleData.error.key);
+            if(cycleData.value)return Result<T>::failure(ErrorCode::ValidationError,QStringLiteral("cycleSyncUnsupported"));}
         if(capture){const auto after=sync::Mapping(database.connection()).capture();if(!after.ok())return Result<T>::failure(after.error.code,after.error.key);const auto recorded=journal.record(before.value,after.value);if(!recorded.ok())return Result<T>::failure(recorded.error.code,recorded.error.key);}
         if(!tx.commit())return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));return result;
     }
     Result<QList<Task>> load(const QString& path)
     {
         ++profileGeneration;pendingImport.reset();
-        recurrenceService.reset();recurrence.reset();service.reset();repository.reset();catalogService.reset();catalog.reset();
+        recurrenceService.reset();recurrence.reset();service.reset();cycleService.reset();cycles.reset();repository.reset();catalogService.reset();catalog.reset();
         const auto opened=database.open(path);
         if(!opened.ok()) return {{},opened.error};
         repository=std::make_unique<TaskRepository>(database.connection());
         catalog=std::make_unique<CatalogRepository>(database.connection());
         catalogService=std::make_unique<CatalogService>(*catalog,clock);
-        service=std::make_unique<TaskService>(*repository,clock,catalogService.get());
+        cycles=std::make_unique<TaskCycleRepository>(database.connection());
+        cycleService=std::make_unique<TaskCycleService>(*cycles,*repository,clock);
+        service=std::make_unique<TaskService>(*repository,clock,catalogService.get(),cycleService.get());
         recurrence=std::make_unique<RecurrenceRepository>(database.connection());
         recurrenceService=std::make_unique<RecurrenceService>(*recurrence,*repository,clock);
-        const auto generated=mutate<int>([&]{return recurrenceService->generate();});if(!generated.ok())return {{},generated.error};
+        const auto advanced=mutate<int>([&]{return cycleService->advance();});if(!advanced.ok())return {{},advanced.error};
         return repository->all();
     }
 };
@@ -247,6 +257,7 @@ TaskWorkspace::~TaskWorkspace()
 }
 void TaskWorkspace::start(const QString& path) {
     ++m_importGeneration;m_importSummary.clear();
+    invalidateProjectionProfile();
     m_path=path;loadReminderPresentation();loadWidgetBrowsePreferences();
     QSettings settings(QFileInfo(path).dir().filePath(QStringLiteral("ui.ini")),QSettings::IniFormat);
     m_sundayFirst=settings.value(QStringLiteral("calendar/sundayFirst"),false).toBool();
@@ -285,9 +296,10 @@ void TaskWorkspace::reload()
             if(!self)return;
             self->m_busy=false;self->m_ready=result.ok() && catalogs.ok() && rules.ok();self->m_error=result.ok()?(catalogs.ok()?rules.error:catalogs.error):result.error;
             if(catalogs.ok())self->m_catalog=catalogs.value;
-            if(result.ok()) {self->m_cache=result.value;self->refresh();}
+            if(result.ok())self->m_cache=result.value;
             if(rules.ok())self->m_rules=rules.value;
             if(events.ok())self->m_events=events.value;else {self->m_error=events.error;self->m_ready=false;}
+            if(self->m_ready)self->publishCommittedSnapshot(QStringLiteral("restore"));
             emit self->stateChanged();emit self->operationFinished(QStringLiteral("load"),self->m_ready);
             if(self->m_ready)self->maintain();
         },Qt::QueuedConnection);
@@ -305,6 +317,10 @@ void TaskWorkspace::refresh(bool snapshotChanged)
     m_viewCounts.clear();for(const auto& code:QStringList{QStringLiteral("today"),QStringLiteral("scheduled"),QStringLiteral("all"),QStringLiteral("important"),QStringLiteral("completed"),QStringLiteral("inbox"),QStringLiteral("trash")}){int count=0;for(const auto& task:m_cache)if(QueryService::inView(task,code,m_today))++count;m_viewCounts.insert(code,count);}
     m_taskIndex.clear();m_taskIndex.reserve(m_cache.size());for(qsizetype row=0;row<m_cache.size();++row)m_taskIndex.insert(m_cache[row].id,row);
     m_nextReminder=ReminderSchedule::nextPending(m_cache);
+    m_nextCycle={};
+    for(const auto& t:m_cache)if(t.cycle && t.cycle->rule.active && t.cycle->nextStartUtc.isValid() &&
+                                 t.status==QStringLiteral("COMPLETED") && t.deletedAtUtc.isEmpty() && !t.syncRemoteDeletionPending &&
+                                 (!m_nextCycle.isValid() || t.cycle->nextStartUtc<m_nextCycle))m_nextCycle=t.cycle->nextStartUtc;
     }
     const int groupRole=m_view==QStringLiteral("today") ? TaskListModel::Section : m_view==QStringLiteral("upcoming") ? TaskListModel::StartOn : m_view.startsWith(QStringLiteral("project:")) ? TaskListModel::HeadingTitle : m_view==QStringLiteral("scheduled") ? TaskListModel::PlannedDate : m_view==QStringLiteral("completed") ? TaskListModel::CompletionMonth : m_view==QStringLiteral("trash") ? TaskListModel::DeletedAt : (m_view==QStringLiteral("anytime") || m_view==QStringLiteral("all")) ? TaskListModel::ContextGroup : 0;
     m_tasks.replace(QueryService::select(m_cache,m_view,m_today,m_search,m_includeCompleted,m_tagFilter,m_upcomingDays,m_historyDays,m_projectFilter,m_view==QStringLiteral("trash") ? QSet<QString>{} : m_collapsedTasks,(smartView() || !m_search.isEmpty() || m_preferences.value(QStringLiteral("listShowSubtasks")).toBool()),m_view==QStringLiteral("trash") || !smartView()),m_today,groupRole);
@@ -314,6 +330,36 @@ void TaskWorkspace::refresh(bool snapshotChanged)
         refreshWidgetBrowse();
     }
     refreshReminderAlerts();
+}
+void TaskWorkspace::invalidateProjectionProfile()
+{
+    ++m_profileGeneration;
+    m_committedTaskVersions.clear();m_committedCatalogVersions.clear();m_committedCycleVersions.clear();
+    emit profileGenerationChanged();
+}
+void TaskWorkspace::publishCommittedSnapshot(const QString& source)
+{
+    refresh();
+    QHash<QString,qint64> tasks,catalog,cycles;
+    tasks.reserve(m_cache.size());catalog.reserve(m_catalog.size());
+    for(const auto& task:m_cache)if(task.deletedAtUtc.isEmpty() && !task.syncRemoteDeletionPending){
+        tasks.insert(task.id,task.rowVersion);
+        if(task.cycle)cycles.insert(task.id,task.cycle->rowVersion);
+    }
+    for(const auto& item:m_catalog)catalog.insert(item.kind+QLatin1Char(':')+item.id,item.rowVersion);
+    const auto changed=[](const QHash<QString,qint64>& previous,const QHash<QString,qint64>& current){
+        QStringList ids;
+        for(auto it=current.cbegin();it!=current.cend();++it)if(previous.value(it.key(),-1)!=it.value())ids.append(it.key());
+        for(auto it=previous.cbegin();it!=previous.cend();++it)if(!current.contains(it.key()))ids.append(it.key());
+        return ids;
+    };
+    const auto taskIds=changed(m_committedTaskVersions,tasks),catalogIds=changed(m_committedCatalogVersions,catalog);
+    const auto cycleIds=changed(m_committedCycleVersions,cycles);
+    m_committedTaskVersions=std::move(tasks);m_committedCatalogVersions=std::move(catalog);
+    m_committedCycleVersions=std::move(cycles);
+    if(taskIds.isEmpty() && catalogIds.isEmpty() && cycleIds.isEmpty())return;
+    emit snapshotCommitted({{"profileGeneration",profileGeneration()},{"projectionRevision",QString::number(++m_projectionRevision)},
+                            {"source",source},{"changedTaskIds",taskIds},{"changedCatalogIds",catalogIds},{"changedCycleTaskIds",cycleIds}});
 }
 void TaskWorkspace::setTaskChildrenExpanded(const QString& id,bool expanded)
 {
@@ -358,13 +404,13 @@ void TaskWorkspace::refreshClock(){m_today=m_clock.localToday();refresh();emit s
 void TaskWorkspace::switchSyncDatabase(const QString& path,std::function<void(Result<void>)> completed)
 {
     if(!m_ready || !begin()){completed(Result<void>::failure(ErrorCode::Cancelled,QStringLiteral("syncWorkspaceBusy")));return;}
-    ++m_importGeneration;m_importSummary.clear();
+    ++m_importGeneration;m_importSummary.clear();invalidateProjectionProfile();
     const auto previous=m_path;m_ready=false;refreshReminderAlerts();m_undoTimer.stop();m_lastDeleted.clear();m_lastBatchDeleted.clear();m_taskEditHistory.clear();m_historyTaskId.clear();m_collapsedTasks.clear();m_eventUndoId.clear();m_view=QStringLiteral("inbox");m_scope=m_view;m_search.clear();m_tagFilter.clear();m_projectFilter.clear();
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
     QMetaObject::invokeMethod(worker,[self,worker,path,previous,completed=std::move(completed)]{
         auto tasks=worker->load(path);const auto loadError=tasks.error;if(!tasks.ok())tasks=worker->load(previous);
         const auto catalog=tasks.ok()?worker->catalog->all():Result<QList<CatalogItem>>{};const auto rules=tasks.ok()?worker->recurrence->all():Result<QList<RecurrenceRule>>{};
-        if(self)QMetaObject::invokeMethod(self.data(),[self,path,previous,tasks,catalog,rules,loadError,completed]{if(!self)return;self->m_busy=false;self->m_ready=tasks.ok() && catalog.ok() && rules.ok();self->m_path=loadError.code==ErrorCode::None?path:previous;self->loadReminderPresentation();self->loadWidgetBrowsePreferences();if(self->m_ready){self->m_cache=tasks.value;self->m_catalog=catalog.value;self->m_rules=rules.value;self->refresh();}self->m_error=loadError;emit self->stateChanged();completed(Result<void>{loadError});if(self->m_ready)self->maintain();},Qt::QueuedConnection);
+        if(self)QMetaObject::invokeMethod(self.data(),[self,path,previous,tasks,catalog,rules,loadError,completed]{if(!self)return;self->m_busy=false;self->m_ready=tasks.ok() && catalog.ok() && rules.ok();self->m_path=loadError.code==ErrorCode::None?path:previous;self->loadReminderPresentation();self->loadWidgetBrowsePreferences();if(self->m_ready){self->m_cache=tasks.value;self->m_catalog=catalog.value;self->m_rules=rules.value;self->publishCommittedSnapshot(QStringLiteral("restore"));}self->m_error=loadError;emit self->stateChanged();completed(Result<void>{loadError});if(self->m_ready)self->maintain();},Qt::QueuedConnection);
     },Qt::QueuedConnection);
 }
 void TaskWorkspace::telemetryExecute(const QString& binding,const QString& operation,const QJsonObject& input,std::function<void(Result<QJsonObject>)> completed)
@@ -383,10 +429,15 @@ void TaskWorkspace::syncExecute(const QString& operation,const QJsonObject& inpu
         QPointer<TaskWorkspace> self(this);QTimer::singleShot(100,this,[self,operation,input,completed=std::move(completed)]()mutable{if(self)self->syncExecute(operation,input,std::move(completed));});return;
     }
     if(!m_ready){completed(Result<QJsonObject>::failure(ErrorCode::Cancelled,QStringLiteral("syncWorkspaceNotReady")));return;}
-    QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
-    QMetaObject::invokeMethod(worker,[self,worker,operation,input,completed=std::move(completed)]{
+    QPointer<TaskWorkspace> self(this);auto* worker=m_worker;const auto generation=m_profileGeneration;
+    QMetaObject::invokeMethod(worker,[self,worker,operation,input,generation,completed=std::move(completed)]{
         Result<QJsonObject> result;
-        if(operation==QStringLiteral("bind") || operation==QStringLiteral("reconcile") || operation==QStringLiteral("rebuild")){
+        if(operation==QStringLiteral("bind")){
+            const auto cycleData=worker->cycles->hasAny();
+            if(!cycleData.ok())result.error=cycleData.error;
+            else if(cycleData.value)result.error={ErrorCode::ValidationError,QStringLiteral("cycleSyncUnsupported")};
+        }
+        if(result.ok() && (operation==QStringLiteral("bind") || operation==QStringLiteral("reconcile") || operation==QStringLiteral("rebuild"))){
             const auto backup=worker->database.createSnapshot(QFileInfo(worker->database.connection().databaseName()).dir().filePath(QStringLiteral("backups/accounts")));
             if(!backup.ok())result.error=backup.error;
         }
@@ -396,7 +447,7 @@ void TaskWorkspace::syncExecute(const QString& operation,const QJsonObject& inpu
         }
         const bool changed=result.ok() && (operation==QStringLiteral("batch") || operation==QStringLiteral("snapshot") || operation==QStringLiteral("resolve"));
         const auto tasks=changed?worker->repository->all():Result<QList<Task>>{};const auto catalog=changed?worker->catalog->all():Result<QList<CatalogItem>>{};const auto rules=changed?worker->recurrence->all():Result<QList<RecurrenceRule>>{};
-        if(self)QMetaObject::invokeMethod(self.data(),[self,result,changed,tasks,catalog,rules,completed]{if(!self)return;auto final=result;if(changed){if(!tasks.ok())final.error=tasks.error;else if(!catalog.ok())final.error=catalog.error;else if(!rules.ok())final.error=rules.error;else{self->m_cache=tasks.value;self->m_catalog=catalog.value;self->m_rules=rules.value;self->refresh();emit self->stateChanged();}}completed(final);},Qt::QueuedConnection);
+        if(self)QMetaObject::invokeMethod(self.data(),[self,result,changed,tasks,catalog,rules,generation,completed]{if(!self)return;if(self->m_profileGeneration!=generation){completed(Result<QJsonObject>::failure(ErrorCode::Cancelled,QStringLiteral("syncStaleCallback")));return;}auto final=result;if(changed){if(!tasks.ok())final.error=tasks.error;else if(!catalog.ok())final.error=catalog.error;else if(!rules.ok())final.error=rules.error;else{self->m_cache=tasks.value;self->m_catalog=catalog.value;self->m_rules=rules.value;self->publishCommittedSnapshot(QStringLiteral("sync"));emit self->stateChanged();}}completed(final);},Qt::QueuedConnection);
     },Qt::QueuedConnection);
 }
 const Task* TaskWorkspace::cachedTask(const QString& id) const
@@ -416,7 +467,7 @@ bool TaskWorkspace::runTask(const QString& operation,std::function<Result<Task>(
     if(!m_ready || !begin()) return false;
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
     QMetaObject::invokeMethod(worker,[self,worker,operation,command=std::move(command)]{
-        const auto result=worker->mutate<Task>([&]{auto result=command(*worker);if(result.ok() && operation==QStringLiteral("complete") && !result.value.recurrenceId.isEmpty()){const auto generated=worker->recurrenceService->generate({},{},{result.value.id});if(!generated.ok())return Result<Task>{{},generated.error};}return result;});
+        const auto result=worker->mutate<Task>([&]{return command(*worker);});
         const auto snapshot=result.ok()?worker->repository->all():Result<QList<Task>>{};
         if(self) QMetaObject::invokeMethod(self.data(),[self,operation,result,snapshot]{if(!self)return;if(result.ok() && !snapshot.ok()){self->finishTask(operation,Result<Task>{{},snapshot.error});return;}if(result.ok())self->m_cache=snapshot.value;self->finishTask(operation,result);},Qt::QueuedConnection);
     },Qt::QueuedConnection);
@@ -431,18 +482,55 @@ void TaskWorkspace::finishTask(const QString& operation,const Result<Task>& resu
         if(it==m_cache.end())m_cache.append(result.value);else *it=result.value;
         if(operation==QStringLiteral("delete")) {m_lastDeleted=result.value.id;m_lastBatchDeleted.clear();m_undoTimer.start();}
         if(operation==QStringLiteral("restore")) {m_lastDeleted.clear();m_lastBatchDeleted.clear();m_undoTimer.stop();}
-        refresh();
+        publishCommittedSnapshot(QStringLiteral("local"));
     }
     emit stateChanged();emit operationFinished(operation,result.ok());
     if(result.ok() && operation==QStringLiteral("calendarCreate"))emit calendarTaskCreated(result.value.id);
     if(result.ok() && operation==QStringLiteral("createSubtask"))emit subtaskCreated(result.value.id);
-    if(result.ok() && !result.value.recurrenceId.isEmpty())maintain();
 }
 void TaskWorkspace::requestTaskEditHistory(const QString& id)
 {
-    if(!m_ready)return;m_historyTaskId=id;m_historyLoading=true;m_taskEditHistory.clear();emit historyChanged();
+    if(!m_ready)return;
+    m_historyTaskId=id;m_historyLoading=true;m_taskEditHistory.clear();m_taskCycleHistory.clear();emit historyChanged();
+    QPointer<TaskWorkspace> self(this);auto* worker=m_worker;const auto generation=m_profileGeneration;
+    QMetaObject::invokeMethod(worker,[self,worker,id,generation]{
+        const auto history=worker->repository->editHistory(id);const auto cycles=worker->cycles->history(id,0);
+        if(self)QMetaObject::invokeMethod(self.data(),[self,id,history,cycles,generation]{
+            if(!self || self->m_historyTaskId!=id || self->m_profileGeneration!=generation)return;
+            self->m_historyLoading=false;
+            if(history.ok() && cycles.ok()){self->m_taskEditHistory=history.value;self->m_taskCycleHistory=cycles.value;}
+            else{self->m_error=history.ok()?cycles.error:history.error;emit self->stateChanged();}
+            emit self->historyChanged();
+        },Qt::QueuedConnection);
+    },Qt::QueuedConnection);
+}
+void TaskWorkspace::loadMoreCycleHistory()
+{
+    if(!m_ready || m_historyLoading || m_historyTaskId.isEmpty())return;
+    m_historyLoading=true;emit historyChanged();
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
-    QMetaObject::invokeMethod(worker,[self,worker,id]{const auto history=worker->repository->editHistory(id);if(self)QMetaObject::invokeMethod(self.data(),[self,id,history]{if(!self || self->m_historyTaskId!=id)return;self->m_historyLoading=false;if(history.ok())self->m_taskEditHistory=history.value;else{self->m_error=history.error;emit self->stateChanged();}emit self->historyChanged();},Qt::QueuedConnection);},Qt::QueuedConnection);
+    const auto id=m_historyTaskId;const auto offset=m_taskCycleHistory.size();const auto generation=m_profileGeneration;
+    QMetaObject::invokeMethod(worker,[self,worker,id,offset,generation]{
+        const auto rows=worker->cycles->history(id,int(offset));
+        if(self)QMetaObject::invokeMethod(self.data(),[self,id,generation,rows]{
+            if(!self || self->m_historyTaskId!=id || self->m_profileGeneration!=generation)return;
+            self->m_historyLoading=false;
+            if(rows.ok())self->m_taskCycleHistory.append(rows.value);else{self->m_error=rows.error;emit self->stateChanged();}
+            emit self->historyChanged();
+        },Qt::QueuedConnection);
+    },Qt::QueuedConnection);
+}
+bool TaskWorkspace::changeCycleOccurrence(const QString& id,qint64 taskVersion,const QString& cycleVersion,const QString& key,const QString& action)
+{
+    if(action!="complete" && action!="skipOccurrence" && action!="reopen")return false;
+    bool valid=false;const auto version=cycleVersion.toLongLong(&valid);if(!valid)return false;
+    return runTask(action,[=](TaskWorker& worker){
+        const auto task=worker.repository->find(id);if(!task.ok())return task;
+        if(!task.value.cycle || task.value.rowVersion!=taskVersion || task.value.cycle->rowVersion!=version ||
+           TaskCycleService::occurrenceKey(id,*task.value.cycle)!=key)
+            return Result<Task>::failure(ErrorCode::Conflict,QStringLiteral("cycleConflict"));
+        return worker.service->changeState(id,taskVersion,action);
+    });
 }
 bool TaskWorkspace::createSubtask(const QString& title,const QString& parentId)
 {return runTask(QStringLiteral("createSubtask"),[title,parentId](TaskWorker& w){return w.service->createSubtask(title,parentId);});}
@@ -506,7 +594,7 @@ bool TaskWorkspace::createTask(const QString& title,bool ignoreTime,const QVaria
 void TaskWorkspace::loadWidgetBrowsePreferences()
 {
     m_widgetContext=QStringLiteral("today");m_widgetCategoryToday=false;m_widgetShowShortcuts=true;
-    m_widgetShortcutsInitialized=false;m_widgetShortcutKeys.clear();m_widgetCatalog.clear();
+    m_widgetShortcutsInitialized=false;m_widgetShortcutKeys.clear();
     m_widgetPreferenceError.clear();m_widgetNotice.clear();
     m_widgetProfileToken=QString::fromLatin1(QCryptographicHash::hash(m_path.toUtf8(),QCryptographicHash::Sha256).toHex());
     QSettings settings(m_path+QStringLiteral(".widget.ini"),QSettings::IniFormat);
@@ -566,7 +654,7 @@ QVariantList TaskWorkspace::widgetShortcuts() const
 }
 void TaskWorkspace::refreshWidgetBrowse()
 {
-    m_widgetCatalog.clear();QSet<QString> available,existing;
+    auto previous=std::exchange(m_widgetCatalog,{});QSet<QString> available,existing;
     for(const auto& item:m_catalog)if(item.kind==QStringLiteral("area") || item.kind==QStringLiteral("project"))existing.insert(item.kind+QLatin1Char(':')+item.id);
     for(const auto& value:navigationCatalog()){
         auto item=value.toMap();const auto key=item.value("kind").toString()+QLatin1Char(':')+item.value("id").toString();
@@ -585,6 +673,7 @@ void TaskWorkspace::refreshWidgetBrowse()
     const auto selected=m_widgetContext==QStringLiteral("today")?m_todayTasks.items():QueryService::selectWidget(m_cache,m_widgetContext,m_widgetCategoryToday,m_today);
     m_widgetTasks.replace(selected,m_today);m_widgetRows.clear();m_widgetRows.reserve(selected.size());
     for(qsizetype row=0;row<selected.size();++row)m_widgetRows.insert(selected[row].id,row);
+    if(previous!=m_widgetCatalog || changed)emit widgetCategoriesChanged();
     emit widgetBrowseChanged();
 }
 bool TaskWorkspace::setWidgetContext(const QString& key)
@@ -608,15 +697,36 @@ bool TaskWorkspace::setWidgetShortcut(const QString& key,bool enabled)
     if(enabled && std::none_of(m_widgetCatalog.cbegin(),m_widgetCatalog.cend(),[&](const QVariant& item){return item.toMap().value("key")==key;}))return false;
     if(enabled && !m_widgetShortcutKeys.contains(key))m_widgetShortcutKeys.append(key);
     if(!enabled)m_widgetShortcutKeys.removeAll(key);
-    m_widgetShortcutsInitialized=true;saveWidgetBrowsePreferences();emit widgetBrowseChanged();return true;
+    m_widgetShortcutsInitialized=true;saveWidgetBrowsePreferences();emit widgetCategoriesChanged();emit widgetBrowseChanged();return true;
 }
-bool TaskWorkspace::moveWidgetShortcut(const QString& key,int direction)
+QVariantMap TaskWorkspace::widgetCategoryNeighbor(const QString& key,int direction) const
 {
-    const auto visible=widgetShortcuts();int row=-1;
-    for(int i=0;i<visible.size();++i)if(visible[i].toMap().value("key")==key)row=i;
-    const auto target=row+direction;
-    if((direction!=-1 && direction!=1) || row<0 || target<0 || target>=visible.size())return false;
-    m_widgetShortcutKeys.move(m_widgetShortcutKeys.indexOf(key),m_widgetShortcutKeys.indexOf(visible[target].toMap().value("key").toString()));saveWidgetBrowsePreferences();emit widgetBrowseChanged();return true;
+    if(direction!=-1 && direction!=1)return {};
+    for(qsizetype row=0;row<m_widgetCatalog.size();++row) {
+        const auto item=m_widgetCatalog[row].toMap();
+        if(item.value("key")!=key)continue;
+        for(auto next=row+direction;next>=0 && next<m_widgetCatalog.size();next+=direction) {
+            const auto candidate=m_widgetCatalog[next].toMap();
+            if(candidate.value("kind")==item.value("kind") && candidate.value("parentId")==item.value("parentId"))return candidate;
+        }
+        break;
+    }
+    return {};
+}
+bool TaskWorkspace::canMoveWidgetCategory(const QString& key,int direction) const
+{
+    return m_ready && !m_busy && !widgetCategoryNeighbor(key,direction).isEmpty();
+}
+bool TaskWorkspace::moveWidgetCategory(const QString& key,qint64 version,int direction)
+{
+    const auto neighbor=widgetCategoryNeighbor(key,direction);
+    if(neighbor.isEmpty())return false;
+    const auto separator=key.indexOf(QLatin1Char(':'));
+    const auto id=key.mid(separator+1),kind=key.left(separator),neighborId=neighbor.value("id").toString();
+    const auto neighborVersion=neighbor.value("rowVersion").toLongLong();
+    return runCatalog([=](TaskWorker& worker){
+        return worker.catalog->move(kind,id,version,direction,worker.clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),neighborId,neighborVersion);
+    },QStringLiteral("widgetCategoryOrder"));
 }
 bool TaskWorkspace::createWidgetTask(const QString& title,const QString& context,bool todayOnly,const QString& profileToken,bool ignoreTime,const QVariantMap& timing)
 {
@@ -889,7 +999,6 @@ bool TaskWorkspace::batchTasks(const QVariantList& selection,const QString& acti
         return w.repository->atomically([&] {
             const auto command=QStringList{"complete","reopen","delete","restore"}.contains(action)?action:QStringLiteral("edit");
             const auto result=w.service->batch(items,command,patch);if(!result.ok())return result;
-            if(action==QStringLiteral("complete")){QStringList completedIds;for(const auto& item:items)completedIds.append(item.first);const auto generated=w.recurrenceService->generate({},{},completedIds);return Result<void>{generated.error};}
             if(action!=QStringLiteral("delete"))return result;
             QSet<QString> groups;
             for(const auto& item:items){const auto task=w.repository->find(item.first);if(!task.ok())return Result<void>{task.error};groups.insert(task.value.deletionGroupId);}
@@ -967,6 +1076,10 @@ QString TaskWorkspace::errorText() const
     if(key==QStringLiteral("integrityFailed"))return tr("本地数据完整性检查失败。请停止编辑并保留当前数据，使用已验证的备份在独立目录恢复。");
     if(key==QStringLiteral("calendarAmbiguous"))return tr("同日标记包含开始和结束。请明确选择要移动的日期字段。");
     if(key==QStringLiteral("recurrenceInvalid"))return tr("重复规则无效。请检查日期、周期和星期选择。");
+    if(key==QStringLiteral("cycleInvalid"))return tr("周期设置不适用于此任务。请检查开始日期、时区、旧重复规则和提醒方式。");
+    if(key==QStringLiteral("cycleConflict"))return tr("此周期或轮次已变更。请重新载入任务后确认。");
+    if(key==QStringLiteral("cycleWaitingEdit"))return tr("本轮已完成。请在下一轮开始后编辑安排，或先停止周期。");
+    if(key==QStringLiteral("cycleSyncUnsupported"))return tr("当前账号同步版本不支持新周期。请保留原任务，待客户端和服务端支持后再启用。");
     if(key==QStringLiteral("recurrenceModeImmutable"))return tr("请停止旧规则后建立另一周期类型，以保留现有实例的时间语义。");
     if(key==QStringLiteral("recurrenceOpenInstance"))return tr("完成后重复规则已有一个未完成实例。请先处理该实例再恢复历史任务。");
     if(key==QStringLiteral("importInvalid"))return tr("导入文件无效或与现有数据冲突：请检查版本、重复ID、日期和外键。数据库未修改。");
@@ -1012,10 +1125,10 @@ bool TaskWorkspace::runCatalog(std::function<Result<void>(TaskWorker&)> command,
     if(!m_ready || !begin(operation!=QStringLiteral("maintenance") && operation!=QStringLiteral("calendarRange")))return false;
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;
     QMetaObject::invokeMethod(worker,[self,worker,operation,command=std::move(command),completed=std::move(completed)]{
-        Result<int> generated;const auto result=worker->mutate<void>([&]{auto r=command(*worker);if(r.ok() && operation!=QStringLiteral("batch") && operation!=QStringLiteral("integrity")){generated=worker->recurrenceService->generate();if(!generated.ok())return Result<void>{generated.error};}return r;});
+        const auto result=worker->mutate<void>([&]{return command(*worker);});
         const auto tasks=worker->repository->all();const auto catalog=worker->catalog->all();const auto rules=worker->recurrence->all();
         const auto events=EventRepository(worker->database.connection()).all();const auto history=worker->repository->reminderHistory();const auto alerts=worker->repository->reminderCandidates();
-        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,history,alerts,generated,operation,completed]{
+        if(self)QMetaObject::invokeMethod(self.data(),[self,result,tasks,catalog,rules,events,history,alerts,operation,completed]{
             if(!self)return;
             self->m_busy=false;if((operation!=QStringLiteral("maintenance") && operation!=QStringLiteral("calendarRange")) || !result.ok())self->m_error=result.error;
             if(tasks.ok())self->m_cache=tasks.value;else self->m_error=tasks.error;
@@ -1024,8 +1137,9 @@ bool TaskWorkspace::runCatalog(std::function<Result<void>(TaskWorker&)> command,
             if(events.ok())self->m_events=events.value;else self->m_error=events.error;
             if(history.ok())self->m_taskNotifications=history.value;else self->m_error=history.error;
             if(alerts.ok())self->m_reminderCandidates=alerts.value;else self->m_error=alerts.error;
-            if(!generated.ok())self->m_error=generated.error;
-            self->refresh();emit self->stateChanged();const bool success=result.ok() && tasks.ok() && catalog.ok() && rules.ok() && events.ok() && history.ok() && alerts.ok() && generated.ok();if(success && completed)completed();emit self->operationFinished(operation,success);
+            const bool success=result.ok() && tasks.ok() && catalog.ok() && rules.ok() && events.ok() && history.ok() && alerts.ok();
+            if(success)self->publishCommittedSnapshot(operation==QStringLiteral("maintenance")?QStringLiteral("cycle"):QStringLiteral("local"));else self->refresh();
+            emit self->stateChanged();if(success && completed)completed();emit self->operationFinished(operation,success);
             if(operation==QStringLiteral("batch") && result.ok())self->maintain();
         },Qt::QueuedConnection);
     },Qt::QueuedConnection);return true;
@@ -1074,6 +1188,20 @@ bool TaskWorkspace::saveDetails(const QString& id,qint64 version,const QVariantM
 }
 bool TaskWorkspace::appendDetailsPatch(const QString& id,const QVariantMap& details,TaskPatch& patch)
 {
+    if(details.contains(QStringLiteral("cycle"))){
+        if(m_syncState.value("mode")==QStringLiteral("ACCOUNT")){m_error={ErrorCode::ValidationError,QStringLiteral("cycleSyncUnsupported")};emit stateChanged();return false;}
+        const auto values=details.value("cycle").toMap();TaskCycle cycle;
+        bool versionOk=false;cycle.rowVersion=values.value("rowVersion",QStringLiteral("0")).toString().toLongLong(&versionOk);
+        cycle.rule.active=values.value("active").toBool();cycle.rule.frequency=values.value("frequency").toString();
+        cycle.rule.interval=values.value("interval",1).toInt();cycle.rule.weekdays=values.value("weekdays",0).toInt();
+        const auto end=values.value("end").toString();cycle.rule.end=QDate::fromString(end,Qt::ISODate);
+        cycle.zone=values.value("zone",systemTimeZone()).toString();
+        if(!versionOk || cycle.rowVersion<0 || (!end.isEmpty() && !cycle.rule.end.isValid())){
+            m_error={ErrorCode::ValidationError,QStringLiteral("cycleInvalid")};emit stateChanged();return false;
+        }
+        patch.cycle=cycle;
+        if(values.value("convertLegacy").toBool())patch.convertLegacyCycleVersion=values.value("legacyVersion").toLongLong();
+    }
     if(details.contains(QStringLiteral("schedule"))){
         const auto json=details.value(QStringLiteral("schedule")).toMap();
         if(json.isEmpty())patch.schedule=FieldPatch<TaskSchedule>::clear();
@@ -1166,14 +1294,17 @@ void TaskWorkspace::setSundayFirst(bool enabled)
 bool TaskWorkspace::requestCalendarRange(const QString& anchor)
 {
     const auto date=QDate::fromString(anchor,Qt::ISODate);if(!date.isValid() || !m_ready || m_busy)return false;
-    const auto first=QDate(date.year(),date.month(),1).addDays(-7),last=QDate(date.year(),date.month(),1).addMonths(1).addDays(7);
-    return runCatalog([first,last](TaskWorker& w){const auto generated=w.recurrenceService->generate(first,last);return Result<void>{generated.error};},QStringLiteral("calendarRange"));
+    const auto month=QDate(date.year(),date.month(),1);
+    return requestCalendarSpan(month.addDays(-7).toString(Qt::ISODate),month.addMonths(1).addDays(7).toString(Qt::ISODate));
 }
 bool TaskWorkspace::requestCalendarSpan(const QString& from,const QString& through)
 {
     const auto first=QDate::fromString(from,Qt::ISODate),last=QDate::fromString(through,Qt::ISODate);
     if(!first.isValid() || !last.isValid() || last<first || first.daysTo(last)>70 || !m_ready || m_busy)return false;
-    return runCatalog([first,last](TaskWorker& w){const auto generated=w.recurrenceService->generate(first.addDays(-7),last.addDays(7));return Result<void>{generated.error};},QStringLiteral("calendarRange"));
+    return runCatalog([first,last](TaskWorker& w){
+        const auto cycles=w.cycleService->advance();if(!cycles.ok())return Result<void>{cycles.error};
+        return Result<void>{w.recurrenceService->generate(first,last,{},true).error};
+    },QStringLiteral("calendarRange"));
 }
 bool TaskWorkspace::createForTime(const QString& title,const QString& date,int minute,int duration,bool global)
 {
@@ -1212,7 +1343,8 @@ void TaskWorkspace::setInteractionActive(bool active)
 }
 bool TaskWorkspace::remindersDue() const
 {
-    return m_nextReminder.isValid() && m_nextReminder<=m_clock.nowUtc();
+    const auto now=m_clock.nowUtc();
+    return (m_nextReminder.isValid() && m_nextReminder<=now) || (m_nextCycle.isValid() && m_nextCycle<=now);
 }
 void TaskWorkspace::maintain()
 {
@@ -1221,6 +1353,7 @@ void TaskWorkspace::maintain()
     m_refreshPending=false;
     auto claimed=std::make_shared<QList<Task>>();
     runCatalog([claimed](TaskWorker& w){
+        const auto advanced=w.cycleService->advance();if(!advanced.ok())return Result<void>{advanced.error};
         const auto due=w.repository->claimDueReminders(w.clock.nowUtc().toUTC().toString(Qt::ISODateWithMs));
         if(due.ok())*claimed=due.value;
         return Result<void>{due.error};
@@ -1261,7 +1394,9 @@ bool TaskWorkspace::runTransfer(const QString& operation,std::function<Result<QS
                     self->m_textScale=qBound(1.0,settings.value(QStringLiteral("appearance/textScale"),1.0).toDouble(),2.0);
                 }
             }
-            self->refresh();emit self->stateChanged();emit self->operationFinished(operation,result.ok() && tasks.ok() && catalog.ok() && rules.ok() && events.ok());
+            const bool success=result.ok() && tasks.ok() && catalog.ok() && rules.ok() && events.ok();
+            if(success && operation==QStringLiteral("applyImport")){self->invalidateProjectionProfile();self->publishCommittedSnapshot(QStringLiteral("restore"));}else self->refresh();
+            emit self->stateChanged();emit self->operationFinished(operation,success);
         },Qt::QueuedConnection);
     },Qt::QueuedConnection);return true;
 }
@@ -1296,7 +1431,12 @@ bool TaskWorkspace::applyImport(bool replace)
         if(account && replace)return Result<QString>::failure(ErrorCode::ValidationError,QStringLiteral("syncReplaceSeparateProfile"));
         std::unique_ptr<ScopedTransaction> scope;if(account){scope=std::make_unique<ScopedTransaction>(w.database.connection());if(!scope->active())return Result<QString>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
         const auto before=account?sync::Mapping(w.database.connection()).capture():Result<sync::Graph>{};if(!before.ok())return Result<QString>{{},before.error};
-        auto plan=*w.pendingImport;if(account)plan.document.remove(QStringLiteral("settings"));
+        auto plan=*w.pendingImport;
+        if(account){
+            if(!plan.document.value("tables").toObject().value("task_cycles").toArray().isEmpty())
+                return Result<QString>::failure(ErrorCode::ValidationError,QStringLiteral("cycleSyncUnsupported"));
+            plan.document.remove(QStringLiteral("settings"));
+        }
         DataTransfer transfer(w.database);const auto result=transfer.apply(plan,replace);if(!result.ok())return Result<QString>{{},result.error};
         if(account){const auto after=sync::Mapping(w.database.connection()).capture();if(!after.ok())return Result<QString>{{},after.error};const auto recorded=journal.recordImport(before.value,after.value);if(!recorded.ok())return Result<QString>{{},recorded.error};if(!scope->commit())return Result<QString>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
         w.pendingImport.reset();return Result<QString>{tr("已导入 %1 行，跳过 %2 行ID冲突。%3%4").arg(result.value.added).arg(result.value.skipped).arg(replace?tr("替换前已创建完整备份。"):QString()).arg(result.value.settingsApplied?QString():tr("数据已提交，但外观设置未能保存；请在设置页重试。")),{}};

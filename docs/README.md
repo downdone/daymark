@@ -47,6 +47,8 @@
 [品牌接入契约](design/brand-identity-integration.md) · [现行母版](../assets/brand/current/README.md) · [完整VI与PDF](../resource/VI/README.md) · [UI/UX 设计基准](design/ui-baseline.md) · [验收与迁移](design/ui-acceptance.md) · [官方调研](design/ui-research.md) · [全局视觉系统](design/global-visual-system.md) · [排版与比例留白](design/typography-and-proportional-spacing.md) · [空间稳定与滚动槽](design/stable-layout-and-scroll.md) · [提示与垂直节奏](design/tooltip-and-layout-rhythm.md) · [全菜单](design/menu-system-review.md) · [侧栏与字标](design/sidebar-and-wordmark.md) · [两栏设置](design/settings-split-navigation.md) · [详情尺寸](design/inspector-size-control.md)
 
 ### 3.2 任务与列表
+
+[同一任务周期与跨界面一致性（设计）](design/task-cycle-and-cross-surface-consistency.md)：全部分类与共享排序、唯一安排入口及主小窗布局、同一任务本轮完成与下轮恢复、提交观察及旧周期兼容。实施状态见 PROGRESS。
 [小窗综合工作流](design/widget-unified-workflow.md)：最终布局、就近编辑、提醒汇总、直接日历与离线提取确认；实施状态见PROGRESS。[原始竞品取舍及AI候选](design/reminder-hub-and-assisted-capture-proposal.md)保留设计来源；不恢复NC-01。
 
 [智能时间输入](design/task-time-recognition.md) · [统一任务系统](design/unified-task-system.md) · [提醒事项式列表](design/reminders-list-refinement.md) · [列表布局与编辑节奏](design/list-layout-and-editing-rhythm.md) · [双击原行草稿](design/list-double-click-draft.md) · [就近任务面板](design/contextual-task-inspector.md) · [任务列表交互](design/task-list-interaction-review.md) · [桌面密度](design/desktop-density-review.md)

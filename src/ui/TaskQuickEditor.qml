@@ -7,16 +7,16 @@ Control {
     objectName: "taskQuickEditor"
     required property TaskWorkspace workspace
     property bool dirty: false
+    property string conflictText: ""
+    property bool canReload: false
+    signal reloadRequested()
+    function closePickers(){tagPicker.close();destinationPicker.close()}
     property bool creationMode: false
     property bool guardActive: false
     property string titleText: ""
     property string notesText: ""
     property string startOn: ""
     property string deadlineOn: ""
-    property string reminderText: ""
-    property string reminderRepeat: "NONE"
-    property int reminderEvery: 1
-    signal reminderCycleEdited(string frequency,int interval)
     property var destinations: []
     property var tags: []
     property var tagIds: []
@@ -25,15 +25,12 @@ Control {
     readonly property var hostWindow: Window.window
     property bool timeRangeOpen: false
     property string timeSummary: ""
-    readonly property bool pickerVisible: timeRangeOpen || quickStart.pickerVisible || quickEnd.pickerVisible || reminder.pickerVisible || tagPicker.visible || destinationPicker.visible
+    readonly property bool pickerVisible: timeRangeOpen || tagPicker.visible || destinationPicker.visible
     signal timeRangeRequested(Item source)
     property bool important: false
     signal importantEdited(bool value)
     signal titleEdited(string value)
     signal notesEdited(string value)
-    signal startEdited(string value)
-    signal deadlineEdited(string value)
-    signal reminderEdited(string value)
     signal destinationEdited(string kind,string id)
     signal tagEdited(string id,bool checked)
     signal createCatalogRequested(string kind)
@@ -61,13 +58,15 @@ Control {
     topPadding: 0;bottomPadding: 4
     implicitHeight: implicitContentHeight+topPadding+bottomPadding
     function open(){editing=true;Qt.callLater(function(){focusTitle();if(root.creationMode)quickTitle.selectAll()})}
-    function close(){fullNotes.keepOpen=false;hideNotesTooltip.stop();fullNotes.close();quickStart.closePicker();quickEnd.closePicker();reminder.closePicker();tagPicker.close();destinationPicker.close();editing=false}
+    function close(){fullNotes.keepOpen=false;hideNotesTooltip.stop();fullNotes.close();tagPicker.close();destinationPicker.close();editing=false}
     function focusTitle(){quickTitle.forceActiveFocus();focusRequested(quickTitle)}
     function verifyLayout(){return editing && visible && width>0 && height<=170*Theme.scale && quickTitle.font.pixelSize===Theme.listTitleSize && quickNotes.font.pixelSize===Theme.captionSize ? "PASS" : "inline geometry editing="+editing+" width="+width+" height="+height+" implicit="+implicitHeight+" scale="+Theme.scale+" fonts="+quickTitle.font.pixelSize+","+quickNotes.font.pixelSize}
     Connections {target:Theme;function onHintsBlockedChanged(){if(Theme.hintsBlocked){fullNotes.keepOpen=false;hideNotesTooltip.stop();fullNotes.close()}}}
     Shortcut {sequence: "Escape";enabled: root.visible && !root.guardActive && !root.pickerVisible;onActivated: root.closeRequested()}
     Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+Return" : "Ctrl+Return";enabled: root.visible && !root.guardActive && !root.pickerVisible;onActivated: root.saveRequested()}
     contentItem: ColumnLayout {
+        Label {visible:!!root.conflictText;Layout.fillWidth:true;text:root.conflictText;wrapMode:Text.Wrap;color:Theme.danger}
+        Button {visible:root.canReload;text:qsTr("重新载入");onClicked:root.reloadRequested()}
         spacing: 2
         enabled: !root.workspace.busy || root.workspace.backgroundBusy
         RowLayout {
@@ -127,29 +126,7 @@ Control {
         Flow {
             id:quickActions;objectName:"quickEditorActions"
             Layout.fillWidth: true;Layout.leftMargin: root.textInset;spacing: 6
-            ActionButton {objectName:"quickTimeRange";symbol:"clock";text:root.timeSummary || qsTr("时段");Accessible.name:qsTr("设置具体时段：%1").arg(text);onClicked:root.timeRangeRequested(this)}
-            DateField {
-                id: quickStart;objectName: "quickEditorStart"
-                workspace: root.workspace;dateLabel: qsTr("开始：%1").arg(text || qsTr("未设置"))
-                width: text ? 116*Theme.scale : height;height: Math.max(32,Theme.captionSize+14);implicitWidth: width
-                font.pixelSize: Theme.captionSize
-                iconOnly:!text;readOnly: true;activeFocusOnTab: false;color: iconOnly ? "transparent" : Theme.secondary;leftPadding: 8;placeholderText: ""
-                background: Rectangle {radius: quickStart.iconOnly ? height/2 : Theme.controlRadius;border.width: quickStart.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickStart.text ? Theme.selected : Theme.hover}
-                onDateChosen: root.startEdited(text)
-                onActiveFocusChanged: if(activeFocus)root.focusRequested(quickStart)
-            }
-            Binding {target: quickStart;property: "text";value: root.startOn}
-            DateField {
-                id: quickEnd;objectName: "quickEditorDeadline"
-                workspace: root.workspace;iconOnly: !text;dateLabel: qsTr("结束日期：%1").arg(text || qsTr("未设置"));symbol: "upcoming"
-                width: text ? 116*Theme.scale : height;height: Math.max(32,Theme.captionSize+14);implicitWidth: width
-                font.pixelSize: Theme.captionSize
-                readOnly: true;activeFocusOnTab: false;color: iconOnly ? "transparent" : Theme.secondary;leftPadding: 8;placeholderText: ""
-                background: Rectangle {radius: quickEnd.iconOnly ? height/2 : Theme.controlRadius;border.width: quickEnd.activeFocus ? 1 : 0;border.color: Theme.accent;color: quickEnd.text ? Theme.selected : Theme.hover}
-                onDateChosen: root.deadlineEdited(text)
-                onActiveFocusChanged: if(activeFocus)root.focusRequested(quickEnd)
-            }
-            Binding {target: quickEnd;property: "text";value: root.deadlineOn}
+            ActionButton {objectName:"quickArrangement";symbol:"calendar";text:root.timeSummary || qsTr("安排");Accessible.name:qsTr("编辑安排：%1").arg(text);onClicked:root.timeRangeRequested(this);onActiveFocusChanged:if(activeFocus)root.focusRequested(this)}
             IconToolButton {
                 id: tagButton
                 objectName: "quickTagButton"
@@ -169,17 +146,6 @@ Control {
                 onClicked: destinationPicker.open()
                 CatalogPicker {id: destinationPicker;heading: qsTr("分类");options: root.destinations;selectedIds: [root.destinationId];heightLimit: root.hostWindow ? root.hostWindow.height-32 : 440;y: destinationButton.height+4;onSelected: function(kind,id,checked){root.destinationEdited(kind,id)};onCreateRequested: function(kind){root.createCatalogRequested(kind)}}
             }
-            ReminderField {
-                id: reminder;objectName: "quickEditorReminder";workspace: root.workspace;iconOnly: true;commitTask: false
-                width: Math.max(32,Theme.iconSize+12);height: width;implicitWidth: width
-                readOnly: true;activeFocusOnTab: false;color: "transparent";leftPadding: 0;placeholderText: ""
-                background: Rectangle {radius: Theme.controlRadius;border.width: reminder.activeFocus ? 1 : 0;border.color: Theme.accent;color: reminder.text ? Theme.selected : Theme.hover}
-                onReminderChosen: {root.reminderCycleEdited(repeatFrequency,repeatInterval);root.reminderEdited(text)}
-                onActiveFocusChanged: if(activeFocus)root.focusRequested(reminder)
-            }
-            Binding {target: reminder;property: "text";value: root.reminderText}
-            Binding {target: reminder;property: "repeatFrequency";value: root.reminderRepeat}
-            Binding {target: reminder;property: "repeatInterval";value: root.reminderEvery}
             IconToolButton {id:importantButton;objectName:"quickImportant";Accessible.name:checked ? qsTr("取消特别关注") : qsTr("特别关注");checkable:true;checked:root.important;background:Rectangle {radius:Theme.controlRadius;color:importantButton.checked ? Theme.selected : importantButton.down ? Theme.pressed : Theme.hover;border.width:importantButton.visualFocus ? 1 : 0;border.color:Theme.accent} contentItem:AppIcon{name:"flag";ink:root.important ? Theme.catalogColor("orange") : Theme.secondary} onClicked:root.importantEdited(checked)}
         }
         Label {Layout.fillWidth: true;Layout.leftMargin: root.textInset;visible: text.length>0;text: root.workspace.errorText;color: Theme.danger;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize}

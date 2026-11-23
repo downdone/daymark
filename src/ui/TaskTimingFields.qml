@@ -15,6 +15,11 @@ ColumnLayout {
     property bool inlinePickers:false
     property bool compactPresentation:false
     property bool showTimeControls:true
+    property bool useTaskCycle:false
+    property bool cycleAvailable:true
+    property bool legacyRule:false
+    property bool convertLegacy:false
+    property var cycleSnapshot:({})
     readonly property string startTimeValue:startTime.text
     readonly property string endTimeValue:endTime.text
     readonly property string timeZoneValue:zone.text
@@ -50,9 +55,20 @@ ColumnLayout {
     readonly property var frequencies: ["DAILY","WEEKLY","MONTHLY","YEARLY","AFTER_DAYS"]
     signal draftChanged()
     function changed(time) {if(loading)return;if(time)timeDirty=true;else repeatDirty=true;draftChanged()}
+    function adoptReminderCadence(cadence, every) {
+        const index=frequencies.indexOf(cadence)
+        if(index<0 || !cycleAvailable || repeating.checked || legacyRule)return false
+        repeating.checked=true
+        frequency.currentIndex=index
+        interval.value=every
+        weekdayMask=index===1?defaultRepeatWeekdays:0
+        changed(false)
+        return true
+    }
     function loadTask(task) {
         closePickers();loading=true
-        const s=task.schedule || {},r=task.repeat || {}
+        const s=task.schedule || {},r=(useTaskCycle ? task.cycle || task.repeat : task.repeat) || {}
+        cycleSnapshot=task.cycle || {};legacyRule=useTaskCycle && !!task.recurrenceId && !!r.active && !task.cycle;convertLegacy=false
         hadSchedule=!!task.schedule;allDay.checked=s.allDay===undefined ? false : !s.allDay
         startTime.text=s.startTime || "09:00";endTime.text=s.endTime || "10:00";zone.text=s.zone || workspace.systemTimeZone();alertMinutes=s.alertMinutes===undefined ? -1 : s.alertMinutes
         hadRepeat=!!r.active;repeating.checked=hadRepeat;frequency.currentIndex=Math.max(0,frequencies.indexOf(r.frequency || "DAILY"));interval.value=r.interval || 1;until.text=r.end || "";repeatVersion=r.rowVersion || 1;weekdayMask=r.weekdays || 0;monthDay=r.monthDay || 1;yearMonth=r.yearMonth || 1
@@ -60,12 +76,26 @@ ColumnLayout {
     }
     function detailsPatch() {
         const patch={}
-        if(timeDirty || (datesEdited && hadSchedule))patch.schedule=hasSpecificTime ? {allDay:false,startDate:startDateValue,endDate:endDateValue,startTime:startTime.text,endTime:endTime.text,zone:zone.text,alertMinutes:alertMinutes} : null
-        if(repeatDirty){if(hadRepeat)patch.repeatVersion=repeatVersion;patch.repeat=repeating.checked ? {frequency:frequencies[frequency.currentIndex],interval:interval.value,end:until.text,rowVersion:repeatVersion,weekdays:weekdayMask,monthDay:monthDay,yearMonth:yearMonth} : null}
+        if(timeDirty || (datesEdited && hadSchedule))patch.schedule=hasSpecificTime || alertMinutes>=0 ? {allDay:!hasSpecificTime,startDate:startDateValue,endDate:endDateValue || startDateValue,startTime:startTime.text,endTime:endTime.text,zone:zone.text,alertMinutes:alertMinutes} : null
+        if(repeatDirty){
+            const rule={active:repeating.checked,frequency:frequencies[frequency.currentIndex],interval:interval.value,end:until.text,rowVersion:repeatVersion,weekdays:weekdayMask,monthDay:monthDay,yearMonth:yearMonth}
+            if(useTaskCycle)patch.cycle=Object.assign(rule,{rowVersion:cycleSnapshot.rowVersion || "0",zone:zone.text,convertLegacy:convertLegacy,legacyVersion:repeatVersion})
+            else {if(hadRepeat)patch.repeatVersion=repeatVersion;patch.repeat=repeating.checked ? rule : null}
+        }
         return patch
     }
+    function saveDraft() {return {specific:allDay.checked,start:startTime.text,end:endTime.text,zone:zone.text,alert:alertMinutes,
+        repeat:repeating.checked,frequency:frequency.currentIndex,interval:interval.value,until:until.text,weekdays:weekdayMask,
+        advanced:zoneExpanded.checked,timeDirty:timeDirty,repeatDirty:repeatDirty,convertLegacy:convertLegacy}}
+    function restoreDraft(draft) {
+        closePickers();loading=true
+        allDay.checked=draft.specific;startTime.text=draft.start;endTime.text=draft.end;zone.text=draft.zone;alertMinutes=draft.alert
+        repeating.checked=draft.repeat;frequency.currentIndex=draft.frequency;interval.value=draft.interval;until.text=draft.until
+        weekdayMask=draft.weekdays;zoneExpanded.checked=draft.advanced;timeDirty=draft.timeDirty;repeatDirty=draft.repeatDirty
+        convertLegacy=draft.convertLegacy;loading=false
+    }
     spacing: Theme.fieldGap
-    RowLayout {visible:root.hasSpecificTime && zoneExpanded.checked;Layout.fillWidth:true
+    RowLayout {visible:!root.useTaskCycle && root.hasSpecificTime && zoneExpanded.checked;Layout.fillWidth:true
         Label {text:qsTr("提前提醒");font.pixelSize:Theme.captionSize;color:Theme.secondary}
         ComboBox {Layout.fillWidth:true;model:[qsTr("指定提醒时刻"),qsTr("开始时"),qsTr("开始前5分钟"),qsTr("开始前10分钟"),qsTr("开始前30分钟"),qsTr("开始前1小时")];currentIndex:[-1,0,5,10,30,60].indexOf(root.alertMinutes);onActivated:{root.alertMinutes=[-1,0,5,10,30,60][currentIndex];root.changed(true)}}
     }
@@ -83,7 +113,7 @@ ColumnLayout {
                         id:timeOptions
                         MenuItem {text:qsTr("改为仅日期");onTriggered:{allDay.checked=false;root.changed(true)}}
                         DS.MenuSeparator {}
-                        MenuItem {text:qsTr("时区与提前提醒…");onTriggered:zoneExpanded.checked=!zoneExpanded.checked}
+                        MenuItem {text:root.useTaskCycle?qsTr("时区…"):qsTr("时区与提前提醒…");onTriggered:zoneExpanded.checked=!zoneExpanded.checked}
                     }
                 }
             }
@@ -137,10 +167,15 @@ ColumnLayout {
     ColumnLayout {
         id:repeatSection
         Layout.fillWidth: true;spacing: Theme.fieldGap
+        Label {visible:root.legacyRule;Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("旧循环保留已生成任务。转换时将以当前任务继续，其他任务保留。");color:Theme.secondary}
+        Label {visible:root.useTaskCycle && !root.cycleAvailable;Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("当前账号同步版本暂不支持同一任务周期。");color:Theme.secondary}
+        Button {visible:root.legacyRule && !root.convertLegacy;enabled:root.cycleAvailable;text:qsTr("转换为同一任务周期");onClicked:{root.convertLegacy=true;root.changed(false)}}
+        Label {visible:root.useTaskCycle && !!root.cycleSnapshot.nextDate;Layout.fillWidth:true;text:qsTr("下次 %1").arg(root.cycleSnapshot.nextDate || "");color:Theme.secondary}
         SettingSwitch {id: repeating;visible:!root.compactPresentation;objectName: root.objectPrefix+"Repeating";Layout.fillWidth: true;symbol: "reload";text: qsTr("循环生成任务");Accessible.description: qsTr("按周期生成可独立完成的任务");onClicked: root.changed(false)}
-        FormRow {contextual:root.compactPresentation;visible:root.compactPresentation;label:qsTr("重复")
+        FormRow {contextual:root.compactPresentation;visible:root.compactPresentation;label:root.useTaskCycle?qsTr("周期"):qsTr("重复")
             DS.ComboBox {
                 id:repeatChoice;objectName:root.objectPrefix+"RepeatChoice";Layout.fillWidth:true;Accessible.name:qsTr("任务重复规则")
+                enabled:root.cycleAvailable && (!root.legacyRule || root.convertLegacy)
                 separatorBefore:[1,5]
                 model:[qsTr("不重复"),qsTr("每天"),qsTr("每周"),qsTr("每月"),qsTr("每年"),qsTr("自定义…")]
                 Binding {target:repeatChoice;property:"currentIndex";value:repeating.checked ? (interval.value>1 || frequency.currentIndex===4 || (frequency.currentIndex===1 && root.weekdayMask!==0 && root.weekdayMask!==root.defaultRepeatWeekdays) ? 5 : frequency.currentIndex+1) : 0;when:!repeatChoice.popup.visible;restoreMode:Binding.RestoreNone}
@@ -162,16 +197,17 @@ ColumnLayout {
             parent:root.compactPresentation ? repeatPopupBody : repeatSection
             visible:root.compactPresentation ? repeatOptions.visible : repeating.checked
             Layout.fillWidth: true;spacing: Theme.fieldGap
-            ComboBox {id: frequency;objectName: root.objectPrefix+"RepeatFrequency";Layout.fillWidth: true;Accessible.name: qsTr("任务循环周期");model: [qsTr("每天"),qsTr("每周"),qsTr("每月"),qsTr("每年"),qsTr("完成后按天循环")];onActivated: if(!repeatOptions.visible)root.changed(false)}
+            ComboBox {id: frequency;objectName: root.objectPrefix+"RepeatFrequency";Layout.fillWidth: true;Accessible.name: qsTr("任务循环周期");model:[qsTr("每天"),qsTr("每周"),qsTr("每月"),qsTr("每年"),qsTr("完成后按天循环")];onActivated: if(!repeatOptions.visible)root.changed(false)}
             RowLayout {Layout.fillWidth: true;Label {text: qsTr("每隔")} SpinBox {id: interval;objectName: root.objectPrefix+"RepeatInterval";from: 1;to: 36500;editable: true;Accessible.name: qsTr("任务循环间隔");onValueModified: if(!repeatOptions.visible)root.changed(false)} Label {Layout.fillWidth: true;text: [qsTr("天"),qsTr("周"),qsTr("月"),qsTr("年"),qsTr("天")][frequency.currentIndex]}}
             Flow {
                 visible: frequency.currentIndex===1;Layout.fillWidth: true;spacing: 4
                 Repeater {model: [qsTr("一"),qsTr("二"),qsTr("三"),qsTr("四"),qsTr("五"),qsTr("六"),qsTr("日")];CheckBox {required property int index;required property string modelData;text: modelData;checked: !!(root.weekdayMask & (1<<index));onClicked: {root.weekdayMask=checked ? root.weekdayMask | (1<<index) : root.weekdayMask & ~(1<<index);if(!repeatOptions.visible)root.changed(false)}}}
             }
-            DateField {id: until;parent:root.compactPresentation ? repeatEndHost : repeatControls;objectName: root.objectPrefix+"RepeatUntil";inlineMode:root.inlinePickers && !root.compactPresentation;onInlinePickerRequested:root.pickerRequested(until,"date");Layout.fillWidth: true;workspace: root.workspace;dateLabel: qsTr("结束重复");placeholderText: qsTr("永不");onTextEdited: root.changed(false);onDateChosen: root.changed(false)}
-            Label {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary;text:root.workspace.recurrencePreview({anchor:root.startDateValue || root.workspace.dateOffset(0),frequency:root.frequencies[frequency.currentIndex],interval:interval.value,weekdays:root.weekdayMask,end:until.text})}
+            DateField {id: until;parent:root.compactPresentation ? repeatEndHost : repeatControls;objectName: root.objectPrefix+"RepeatUntil";enabled:root.cycleAvailable && (!root.legacyRule || root.convertLegacy);inlineMode:root.inlinePickers && !root.compactPresentation;onInlinePickerRequested:root.pickerRequested(until,"date");Layout.fillWidth: true;workspace: root.workspace;dateLabel: qsTr("结束重复");placeholderText: qsTr("永不");onTextEdited: root.changed(false);onDateChosen: root.changed(false)}
+            Label {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary;text:root.workspace.recurrencePreview({anchor:root.startDateValue || root.workspace.dateOffset(0),frequency:root.frequencies[frequency.currentIndex],interval:interval.value,weekdays:root.weekdayMask,end:until.text,sameTask:root.useTaskCycle})}
         }
-        Label {visible: root.hadRepeat && repeating.checked && root.repeatDirty;Layout.fillWidth: true;wrapMode: Text.Wrap;font.pixelSize: Theme.captionSize;color:Theme.secondary;text:qsTr("将更新后续未修改任务；历史和单独编辑项保留。")}
+        Label {visible:root.hadRepeat && repeating.checked && root.repeatDirty;Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary
+            text:root.useTaskCycle?qsTr("之后将按此规则安排同一任务，已完成记录会保留。"):qsTr("将更新后续未修改任务；历史和单独编辑项保留。")}
     }
     Item {
     visible:false

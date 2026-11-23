@@ -6,6 +6,7 @@
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QCoreApplication>
+#include <QGuiApplication>
 #include <QElapsedTimer>
 #include <QImage>
 #include <QSet>
@@ -90,10 +91,18 @@ public:
             const auto favorites=w.widgetShortcuts();for(const auto& value:favorites)w.setWidgetShortcut(value.toMap().value("key").toString(),false);
             w.setWidgetShortcut(toCategory,true);
             if(!w.moveWidgetTaskToCategory(id,w.task(id).value("rowVersion").toLongLong(),fromCategory,w.widgetProfileToken()))return fail("initial category assignment");
+            widget->requestActivate();wait.restart();
         }else if(phase==18){
-            widget->requestActivate();if(!startDrag("widgetShortcut-"+toCategory))return fail("start favorite drag");
+            const bool native=QGuiApplication::platformName()!=QStringLiteral("offscreen");
+            if((native && !widget->isActive()) || widget->property("motionInputBlocked").toBool()){
+                if(wait.elapsed()<2000)return {};
+                return fail("widget did not activate or finish layout before drag");
+            }
+            widget->grabWindow();
+            if(!startDrag("widgetShortcut-"+toCategory))return fail("start category drag");
         }else if(phase==19){
-            if(w.task(id).value("projectId").toString()!=fromCategory.mid(8) || !widget->property("taskDragging").toBool())return fail("hover must not move task");
+            if(w.task(id).value("projectId").toString()!=fromCategory.mid(8))return fail("hover moved task before release");
+            if(!widget->property("taskDragging").toBool())return fail("widget drag gesture did not stay active over category");
             capture(widget,"category-drop-hover");
             for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(widget,&event);}
         }else if(phase==20){
@@ -123,18 +132,61 @@ public:
         }else if(phase==28){
             if(w.task(id).value("projectId").toString()!=toCategory.mid(8) || w.widgetContext()!="today")return fail("large text drop commit");
             w.setThemeMode(1);w.setTextScale(1);w.setWidgetShowShortcuts(false);
-        }else if(phase==29){if(!startDrag("widgetCategoryButton"))return fail("collapsed rail chooser target");wait.restart();
+        }else if(phase==29){
+            if(widget->property("motionInputBlocked").toBool() || widget->property("categoryRailWidth").toInt()!=0)return {};
+            widget->grabWindow();
+            if(!startDrag("widgetCategoryButton"))return fail("collapsed rail chooser target");wait.restart();
         }else if(phase==30){
             if(!widget->property("categoryPickerOpen").toBool()){if(wait.elapsed()<1600)return {};return fail("collapsed rail hover opens chooser");}
             for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(widget,&event);}
         }else if(phase==31){
             pointer(QEvent::MouseButtonRelease,dropAt);
             if(widget->property("categoryPickerOpen").toBool() || widget->property("taskDragging").toBool() || w.task(id).value("projectId").toString()!=toCategory.mid(8))return fail("Esc closes complete chooser without moving");
+        }else if(phase==32){
+            if(!QMetaObject::invokeMethod(widget,"openSmallTask",Q_ARG(QVariant,id),Q_ARG(QVariant,QVariant::fromValue(find("widgetMore")))))return fail("open inspector for committed changes");
+        }else if(phase==33){
+            if(!inspector->property("visible").toBool() || !changeTitle(QStringLiteral("另一处已提交")))return fail("save outside clean inspector");
+        }else if(phase==34){
+            if(find("widgetInspectorTitle")->property("text")!=QStringLiteral("另一处已提交"))return fail("clean inspector must observe committed change");
+            if(!click("widgetInspectorArrangement"))return fail("open shared arrangement in widget inspector");
+        }else if(phase==35){
+            if(!inspector->property("arrangementPage").toBool() || !find("widgetInspectorStartDate"))return fail("compact arrangement page is visible");
+            find("widgetInspectorStartDate")->setProperty("text",w.dateOffset(3));
+            if(!click("widgetInspectorCancelArrangementPage"))return fail("cancel compact arrangement");
+        }else if(phase==36){
+            if(inspector->property("arrangementPage").toBool() || inspector->property("dirty").toBool())return fail("cancel arrangement restores the draft checkpoint");
+            find("widgetInspectorTitle")->setProperty("text",QStringLiteral("保留本地草稿"));
+            QMetaObject::invokeMethod(inspector,"markDirty");
+            if(!changeTitle(QStringLiteral("另一处的更新")))return fail("save outside a dirty inspector");
+        }else if(phase==37){
+            if(!inspector->property("canReload").toBool() || find("widgetInspectorTitle")->property("text")!=QStringLiteral("保留本地草稿") ||
+               w.task(id).value("title")!=QStringLiteral("另一处的更新"))return fail("a committed update must preserve the dirty inspector draft");
+            if(!click("widgetInspectorReload"))return fail("reload committed snapshot");
+        }else if(phase==38){
+            if(w.task(id).value("remindAtUtc").toString().isEmpty() || !click("widgetInspectorArrangement"))return fail("open schedule with an existing absolute reminder");
+        }else if(phase==39){
+            auto* mode=find("widgetInspectorReminderMode");auto* start=find("widgetInspectorStartDate");
+            if(!mode || !start || mode->property("currentIndex").toInt()!=2)return fail("load existing absolute reminder");
+            start->setProperty("text",w.dateOffset(3));
+            if(!QMetaObject::invokeMethod(mode,"activated",Q_ARG(int,1)))return fail("choose relative reminder");
+            if(!click("widgetInspectorApplyArrangementPage"))return fail("apply reminder arrangement");
+        }else if(phase==40){
+            if(!click("widgetInspectorClose"))return fail("save new reminder mode");
+        }else if(phase==41){
+            const auto task=w.task(id);const auto schedule=task.value("schedule").toMap();
+            if(inspector->property("visible").toBool() || schedule.value("alertMinutes",-1).toInt()!=0 ||
+               QDateTime::fromString(task.value("remindAtUtc").toString(),Qt::ISODateWithMs)<=QDateTime::currentDateTimeUtc())
+                return fail("relative reminder must replace the absolute instant and retain the schedule offset");
             return QStringLiteral("DONE");
         }
         ++phase;return {};
     }
 private:
+    bool changeTitle(const QString& title){
+        const auto item=w.task(id);
+        return w.saveTask(id,item.value("rowVersion").toLongLong(),title,item.value("notes").toString(),
+            item.value("planningState").toString(),item.value("storedStartOn").toString(),item.value("storedEndOn").toString(),item.value("todayFocus").toBool());
+    }
     QString categoryKey(const QString& title){for(const auto& value:w.widgetCategories())if(value.toMap().value("title").toString()==title)return value.toMap().value("key").toString();return {};}
     void pointer(QEvent::Type type,const QPointF& at){QMouseEvent event(type,at,widget->mapToGlobal(at.toPoint()),type==QEvent::MouseMove?Qt::NoButton:Qt::LeftButton,type==QEvent::MouseButtonRelease?Qt::NoButton:Qt::LeftButton,Qt::NoModifier);QCoreApplication::sendEvent(widget,&event);}
     bool startDrag(const QString& name){

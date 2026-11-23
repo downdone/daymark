@@ -155,6 +155,8 @@ type Principal struct {
 type Scope struct {
 	Principal            Principal
 	DatasetID, DataEpoch ID
+	// Zero denotes an internal operation with no remote DTO boundary.
+	DTOVersion int
 }
 type Dataset struct {
 	ID            ID      `json:"id"`

@@ -32,6 +32,12 @@ bool QueryService::effectiveActive(const Task& t)
     return !t.syncRemoteDeletionPending && t.deletedAtUtc.isEmpty() && !t.areaArchived && t.status==QStringLiteral("OPEN") && t.planningState==QStringLiteral("ACTIVE")
         && (t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN") && t.projectPlanning==QStringLiteral("ACTIVE")));
 }
+bool QueryService::reminderEligible(const Task& task)
+{
+    if(effectiveActive(task))return true;
+    if(task.status!=QStringLiteral("COMPLETED") || !task.cycle || !task.cycle->rule.active || !task.cycle->nextStartUtc.isValid())return false;
+    auto open=task;open.status=QStringLiteral("OPEN");return effectiveActive(open);
+}
 bool QueryService::inView(const Task& input, const QString& view, const QDate& d)
 {
     const auto normalized=input.schedule?std::optional<Task>(withUnifiedDates(input)):std::nullopt;
@@ -40,11 +46,14 @@ bool QueryService::inView(const Task& input, const QString& view, const QDate& d
     if(view==QStringLiteral("trash"))return !t.deletedAtUtc.isEmpty();
     if(!t.deletedAtUtc.isEmpty()) return false;
     if(view==QStringLiteral("cancelled"))return t.status==QStringLiteral("CANCELLED");
-    if(view==QStringLiteral("completed"))return t.status==QStringLiteral("COMPLETED");
-    if(view==QStringLiteral("logbook")) return t.status!=QStringLiteral("OPEN");
-    if(view==QStringLiteral("repeating"))return t.repeat && t.repeat->active && t.status==QStringLiteral("OPEN") && !t.areaArchived && (t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN")));
+    const bool hasCycleHistory=t.cycle && !t.cycle->latestCompletion.isEmpty();
+    if(view==QStringLiteral("completed"))return hasCycleHistory || (t.status==QStringLiteral("COMPLETED") && (!t.cycle || !t.cycle->rule.active));
+    if(view==QStringLiteral("logbook")) return hasCycleHistory || t.status==QStringLiteral("CANCELLED") || (t.status==QStringLiteral("COMPLETED") && (!t.cycle || !t.cycle->rule.active));
+    if(view==QStringLiteral("repeating"))return ((t.cycle && t.cycle->rule.active) || (t.repeat && t.repeat->active)) && t.status!=QStringLiteral("CANCELLED") && !t.areaArchived && (t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN")));
     if(view==QStringLiteral("important"))return t.important && t.status==QStringLiteral("OPEN") && !t.areaArchived && (t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN")));
     if(t.areaArchived)return false;
+    if((view==QStringLiteral("scheduled") || view==QStringLiteral("upcoming")) && t.status==QStringLiteral("COMPLETED") &&
+       t.cycle && t.cycle->nextDate.isValid())return t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN"));
     if(t.status!=QStringLiteral("OPEN")) return false;
     const bool projectOpen=t.projectId.isEmpty() || (!t.projectDeleted && t.projectStatus==QStringLiteral("OPEN"));
     if(view.startsWith(QStringLiteral("project:")))return (t.projectId==view.mid(8) || t.projectAreaId==view.mid(8)) && projectOpen;
@@ -79,12 +88,19 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
         if(search.isEmpty() && upcomingDays>0 && ((view==QStringLiteral("upcoming") && task.startOn && *task.startOn>d.addDays(upcomingDays))
             || (view==QStringLiteral("deadlines") && task.deadlineOn && *task.deadlineOn>d.addDays(upcomingDays))))continue;
         if((view==QStringLiteral("logbook") || view==QStringLiteral("cancelled")) && historyDays>0) {
-            const auto timestamp=task.completedAtUtc.isEmpty()?task.cancelledAtUtc:task.completedAtUtc;
+            const auto timestamp=task.cycle && !task.cycle->latestCompletion.isEmpty()?task.cycle->latestCompletion:task.completedAtUtc.isEmpty()?task.cancelledAtUtc:task.completedAtUtc;
             const auto date=QDateTime::fromString(timestamp,Qt::ISODateWithMs).toLocalTime().date();
             if(!date.isValid() || date<d.addDays(1-historyDays))continue;
         }
         if(!search.isEmpty() && !task.title.contains(search,Qt::CaseInsensitive) && !task.notes.contains(search,Qt::CaseInsensitive)) continue;
-        output.append(withUnifiedDates(task));
+        auto projected=withUnifiedDates(task);
+        if((view==QStringLiteral("completed") || view==QStringLiteral("logbook")) && task.cycle && !task.cycle->latestCompletion.isEmpty()){
+            projected.status=QStringLiteral("COMPLETED");projected.completedAtUtc=task.cycle->latestCompletion;
+        }
+        if((view==QStringLiteral("scheduled") || view==QStringLiteral("upcoming")) && task.cycle && task.cycle->nextDate.isValid()){
+            projected.startOn=task.cycle->nextDate;projected.deadlineOn.reset();projected.schedule.reset();
+        }
+        output.append(projected);
     }
     QList<qsizetype> order;order.reserve(output.size());for(qsizetype row=0;row<output.size();++row)order.append(row);
     std::stable_sort(order.begin(),order.end(),[&view,&d,&output](qsizetype left,qsizetype right) {
@@ -338,6 +354,7 @@ Result<Task> TaskService::editOne(const QString& id, qint64 version, const TaskP
             if(r.interval<1 || r.interval>36500 || !QStringList{"DAILY","WEEKLY","MONTHLY","YEARLY","AFTER_DAYS"}.contains(r.frequency) || r.weekdays<0 || r.weekdays>127 || (r.frequency=="WEEKLY" && r.weekdays==0) || r.monthDay<1 || r.monthDay>31 || r.yearMonth<1 || r.yearMonth>12 || (r.frequency=="YEARLY" && !QDate(2000,r.yearMonth,r.monthDay).isValid()) || (r.end.isValid() && r.end<r.anchor))return Result<Task>::failure(ErrorCode::ValidationError,QStringLiteral("recurrenceInvalid"));
             if(r.frequency!=QStringLiteral("WEEKLY"))r.weekdays=0;
             auto defaults=TaskRepository::seedFor(t);defaults.insert(QStringLiteral("recurrence_time_zone"),QString::fromUtf8(QTimeZone::systemTimeZoneId()));const auto previous=existing.value.repeat?QJsonDocument::fromJson(existing.value.repeat->defaultsJson.toUtf8()).object():QJsonObject();
+            if(patch.calendarSeries || previous.value("calendar_series").toBool())defaults.insert("calendar_series",true);
             for(const auto& key:{QStringLiteral("legacy_event_task_id"),QStringLiteral("reminder_not_before_utc")})if(previous.contains(key))defaults.insert(key,previous.value(key));
             auto ancestors=previous.value(QStringLiteral("reminder_ancestors")).toArray(),sources=previous.value(QStringLiteral("reminder_sources")).toArray();
             if(!existing.value.recurrenceId.isEmpty() && !ancestors.contains(existing.value.recurrenceId))ancestors.append(existing.value.recurrenceId);

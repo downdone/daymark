@@ -148,7 +148,7 @@ def build(args: argparse.Namespace) -> dict:
                                'runtime_min': args.runtime_min, 'minimum_windows_build': args.min_windows_build},
                     'bootstrap_protocol': {'min': 1, 'max': 1},
                     'required_capabilities': ['native-toolchain-v1'],
-                    'data': {'schema': 11, 'read_write_compatibility': 'task-store-v11-rw1'},
+                    'data': {'schema': 12, 'read_write_compatibility': 'task-store-v12-rw1'},
                     'package': {'name': archive.name, 'asset_id': str(args.asset_id), 'size': archive.stat().st_size,
                                 'sha256': digest(archive), 'layout': 'portable-managed-v1', 'archive_root': name,
                                 'payload_dir': 'versions/' + version_key, 'entry': 'daymark.exe',

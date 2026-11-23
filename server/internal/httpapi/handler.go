@@ -329,12 +329,17 @@ func (h *Handler) password(w http.ResponseWriter, r *http.Request, p domain.Prin
 	}
 	h.write(w, r, 204, "", nil)
 }
+func requestDTOVersion(r *http.Request) int {
+	version, _ := strconv.Atoi(r.Header.Get("X-Daymark-DTO-Version"))
+	return version
+}
+
 func (h *Handler) scope(r *http.Request, p domain.Principal, epoch domain.ID) (domain.Scope, error) {
 	dataset := domain.ID(r.PathValue("dataset_id"))
 	if !domain.ValidID(string(dataset), false) || !domain.ValidID(string(epoch), false) {
 		return domain.Scope{}, domain.Invalid("/dataset_or_epoch")
 	}
-	return domain.Scope{Principal: p, DatasetID: dataset, DataEpoch: epoch}, nil
+	return domain.Scope{Principal: p, DatasetID: dataset, DataEpoch: epoch, DTOVersion: requestDTOVersion(r)}, nil
 }
 func (h *Handler) push(w http.ResponseWriter, r *http.Request, p domain.Principal) {
 	b, e := h.body(w, r)
@@ -401,7 +406,7 @@ func (h *Handler) pull(w http.ResponseWriter, r *http.Request, p domain.Principa
 	}
 	for _, d := range me["datasets"].([]domain.Dataset) {
 		if d.ID == dataset {
-			scope = domain.Scope{Principal: p, DatasetID: dataset, DataEpoch: d.DataEpoch}
+			scope = domain.Scope{Principal: p, DatasetID: dataset, DataEpoch: d.DataEpoch, DTOVersion: requestDTOVersion(r)}
 			found = true
 			break
 		}

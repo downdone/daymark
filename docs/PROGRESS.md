@@ -1,5 +1,39 @@
 # Daymark 当前进度
 
+## 4.0.0 发行与公网服务升级（2026-11-23）
+
+用户授权发布 Windows 版本及升级现有公网服务。客户端数据库 schema 11→12，使用 4.0.0 与完整安装边界。同步协议保留 v1，新任务周期仍仅在本地资料可用。发行前后分别验证源码标签、Windows 候选与签名安装，以及公网服务备份和切换。实际结果待执行，见[发行说明](release-notes-v4.0.0.md)。
+
+## TIME-02 / CONS-01 实施（2026-11-23）
+
+按[设计与验收](design/task-cycle-and-cross-surface-consistency.md)执行。客户端已接入小窗全部分类与同级共享排序、统一底色、事务后提交观察、统一安排表单及本地同任务周期。主窗详情、原行编辑、小窗详情和日历新建复用安排草稿及保存逻辑。schema 12 在升级前备份，周期记录进入本地导入导出，更新包标识使用 v12 ABI。旧本地任务循环暂停生成新实例，显式转换仅迁移当前选中的任务，包括完成后若干天的规则。日历事件系列保留独立的日期投影路径。已完成列表按任务列出最近一次有效周期完成，所有轮次可在详情记录中查看。
+
+- Windows Release 全目标构建通过。初次全套 CTest 为 52/54，启动烟测与其 watchdog 都在同一旧周期断言处提前失败。更新断言、接通日历共用安排组件后重新构建，`qml_startup`、`qml_watchdog_late`、`calendar_lifecycle`、`calendar_interaction`、`desktop_surfaces`、`widget_workflow` 针对性复验 6/6。周期、迁移、恢复导入、资料兼容和更新数据探针均通过。相对提醒回归覆盖开始前提醒、准点恢复以及恢复后不重复提示。
+- Windows 原生窗口配合 Qt Quick 软件渲染的 `widget_workflow` 通过，覆盖拖到分类、取消安排、提交后刷新、保留未保存草稿及将固定提醒改为相对提醒。默认图形后端的窗口截图正常，探针在已有活动提取候选编辑阶段退出，未覆盖后续拖拽与安排。软件渲染截图中局部图标截切，默认后端对应截图正常。物理拖动、跨屏、macOS/Linux、正式签名发行及跨 ABI 更新未验收。
+- Go 迁移 0005 增加资料级 DTO 版本门。Go `go test ./...` 通过，真实本机 TLS 覆盖低于资料协议版本的推送、拉取、回执检查，事务回滚时保留原兼容范围。生产启用新周期的领域事务、DTO 2、Qt journal 映射及两设备同轮冲突验收尚未实现。账号资料拒绝创建或导入新周期，含本地周期历史的资料也会保留在原位置，避免通过 v1 同步时丢失周期事实。
+
+## 下拉列表按屏幕工作区展开（2026-11-23）
+
+UX-53、UX-09/11 与 P-13/16，按[下拉契约](design/repeat-choice-popover.md)去掉共享 ComboBox 的 320 DIP 与宿主窗高上限。验收短列表无空白，长列表可跨宿主边缘完整展开，超过当前显示器工作区才滚动。风险是跨窗焦点与靠近屏边时的位置，使用真实 Windows 后端覆盖。
+
+- Windows Release 构建和共享样式 QML lint 通过。Windows 原生窗口后端验证六项周期预设在 100% / 200% 下无末尾空白、14 项高于 320 DIP 且可在屏幕底部锚点上方一次显示、200 项被限制在工作区内并可用 End 到达末项。Esc 关闭且不提交，Enter 可选中“自定义”并打开参数面板。已检查本地菜单截图 `build/screen-dropdown.dropdown-full.png`。
+- CTest `picker_lifecycle`、`contextual_workspace`、`task_list_interaction` 通过。`widget_workflow` 的折叠分类栏拖拽悬停阶段失败，单独复验同样失败，原因待确认。macOS、Linux、物理多屏未验证。
+
+## 安排入口与周期选项列表（2026-11-23）
+
+按用户确认将 TIME-02 的设计收敛为唯一“安排”入口。主窗和小窗共享表单、草稿与校验，小窗用紧凑单列、保留字号和点击区域，详情内可按空间切换为当前页。设计及验收在[同一任务周期与跨界面一致性](design/task-cycle-and-cross-surface-consistency.md)。本切片独立修复 UX-53/P-16 的周期下拉底部空白，检查共享控件在短列表、分组、长列表和 200% 下的高度与可达性。风险是错误限高或延迟创建列表后无法滚动。仅涉及本地呈现。
+
+- Windows / Qt 6.10.2 复现六项周期列表末项下多出 18 个逻辑像素。修复后，按选项实际高度和内边距计算，100% 与 200% 下内容贴合；原生 Windows 后端验证长列表滚动及 End 键可达最后一项。
+- Windows Release 构建、共享样式 QML lint 通过。`picker_lifecycle`、`qml_startup`、`contextual_workspace`、`task_list_interaction` **4/4 PASS（93.14 秒）**；最终构建复跑 `picker_lifecycle` **PASS（9.79 秒）**，覆盖实际安排组件中六项周期预设和长列表回归。macOS/Linux 本轮未验证。统一安排入口目前处于设计阶段。
+
+## TIME-02 / CONS-01 分类与时间模型重审（2026-11-23，设计自审完成，尚未实施）
+
+用户反馈3.2.0新分类未显示于小窗、分类两块表面不协调、重复提醒/任务重复混淆及时间入口繁杂；已明确选择**全部分类、可收起、可调整顺序**，并明确周期必须是**同一任务完成本轮、下周期恢复待办、保留完成记录，不生成新任务**。
+
+核查源码：全部catalog在refreshWidgetBrowse已更新，左栏绑定仅首次初始化的widgetShortcuts而非全部集合；背景Theme.sidebar不透明而shell采用panelAlpha。截图每月reminderRepeat和TaskTimingFields.repeat对应不同服务/行为，不能直接称同一字段未同步。Main/WidgetTaskInspector只在打开时复制编辑草稿，列表通知不足以刷新打开的编辑器；保存无条件传显式提醒还会按TaskService合法优先级解除相对提醒关系。旧RecurrenceService真实物化新任务，改变为同taskId需领域生命周期、完成记录、schema迁移和严格双端协议，不能只改UI文案或加轮询。
+
+已完成[十二项详细设计与单代理自审](design/task-cycle-and-cross-surface-consistency.md)：三项安排/提醒/周期共享表单、Qt提交观察与dirty/CAS保护、全部分类共享排序、同任务周期状态/记录、schema12候选及DTO2能力门、旧物化与提醒循环显式转换、规则/SQLite/双设备/QML测试矩阵和分片实施队列。**本轮仅设计与根因审查，未修改运行代码、执行迁移或修复实测；没有构建/CTest新PASS证据，不把3.2.0旧测试当作本方案验收。**未操作个人任务/运行实例、未提交或推送；原有build-request和品牌草案保留。
+
 ## 3.2.0 正式发行完成（2026-11-22）
 
 用户要求发布新版。按 SemVer 将小窗分类拖拽、就近编辑、提醒汇总与离线活动提取合并为 3.2.0。源码 `8d1fdab1dba743a84442fa8024c4161fd5376976` 与注释标签对象 `6f5148067a64302db9228e29644bef7f6b1104c6` 已原子推送 main/v3.2.0。任务库 schema 11、HTTP JSON v1、Qt 6.10.2。

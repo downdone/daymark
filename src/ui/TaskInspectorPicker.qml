@@ -30,7 +30,7 @@ ColumnLayout {
         date = item.text.length >= 10 ? item.text.slice(0, 10) : type === "reminder" ? workspace.defaultReminderLocal().slice(0, 10) : workspace.dateOffset(0);
         month = workspace.datePicker(date, 0);
         clock.text = type === "time" ? item.text : item.text.length >= 16 ? item.text.slice(11, 16) : type === "reminder" ? workspace.defaultReminderLocal().slice(11, 16) : "09:00";
-        frequency.currentIndex = type === "reminder" ? Math.max(0, ["NONE", "DAILY", "WEEKLY", "MONTHLY", "YEARLY"].indexOf(item.repeatFrequency)) : 0;
+        frequency.currentIndex = type === "reminder" && !item.singleOccurrence ? Math.max(0, ["NONE", "DAILY", "WEEKLY", "MONTHLY", "YEARLY"].indexOf(item.repeatFrequency)) : 0;
         interval.value = type === "reminder" ? item.repeatInterval : 1;
         Qt.callLater(function () {
             if (root.kind === "date" || root.kind === "reminder")
@@ -104,12 +104,12 @@ ColumnLayout {
             ComboBox {
                 id: frequency
                 Layout.fillWidth: true
-                visible: root.kind === "reminder"
+                visible: root.kind === "reminder" && root.field && !root.field.singleOccurrence
                 model: [qsTr("提醒一次"), qsTr("每天提醒此任务"), qsTr("每周提醒此任务"), qsTr("每月提醒此任务"), qsTr("每年提醒此任务")]
                 Accessible.name: qsTr("重复提醒")
             }
             RowLayout {
-                visible: root.kind === "reminder" && frequency.currentIndex > 0
+                visible: root.kind === "reminder" && root.field && !root.field.singleOccurrence && frequency.currentIndex > 0
                 Label {
                     text: qsTr("每隔")
                 }
@@ -122,7 +122,7 @@ ColumnLayout {
                 }
             }
             Label {
-                visible: root.kind === "reminder"
+                visible: root.kind === "reminder" && root.field && !root.field.singleOccurrence
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
                 font.pixelSize: Theme.captionSize
@@ -130,7 +130,7 @@ ColumnLayout {
                 text: root.workspace.reminderPreview(root.date + " " + clock.text, ["NONE", "DAILY", "WEEKLY", "MONTHLY", "YEARLY"][frequency.currentIndex], interval.value)
             }
             Label {
-                visible: root.kind === "reminder"
+                visible: root.kind === "reminder" && root.field && !root.field.singleOccurrence
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
                 text: qsTr("应用运行时检查提醒；重复提醒在任务完成后停止。")
@@ -142,7 +142,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Button {
-            visible: root.kind === "reminder"
+            visible: root.kind === "reminder" && root.field && !root.field.singleOccurrence
             text: qsTr("取消提醒")
             onClicked: {
                 root.field.text = "";

@@ -178,6 +178,54 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(finished,5000);QVERIFY(success);QVERIFY(daymark::test::awaitIdle(workspace));
         QCOMPARE(workspace.widgetContext(),context);QCOMPARE(workspace.widgetProfileToken(),token);QVERIFY(workspace.widgetShortcuts().isEmpty());
     }
+    void widgetCategoriesShareCommittedSiblingOrder()
+    {
+        QTemporaryDir dir;
+        TaskWorkspace workspace;
+        workspace.start(dir.filePath("categories.sqlite"));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        const auto first=addWidgetCategory(workspace,"First");
+        const auto child=addWidgetCategory(workspace,"Child",first.value("id").toString());
+        const auto last=addWidgetCategory(workspace,"Last");
+        QVERIFY(!child.isEmpty() && !last.isEmpty());
+        QVariantMap actualLast;
+        for(const auto& entry:workspace.widgetCategories()){
+            const auto category=entry.toMap();
+            if(category.value("depth").toInt()==0)actualLast=category;
+        }
+        const auto key=actualLast.value("key").toString();
+        QVERIFY(!workspace.canMoveWidgetCategory(child.value("key").toString(),-1));
+        QVERIFY(!workspace.canMoveWidgetCategory(child.value("key").toString(),1));
+        QVERIFY(workspace.canMoveWidgetCategory(key,-1));
+        QSignalSpy commits(&workspace,&TaskWorkspace::snapshotCommitted);
+        QVERIFY(workspace.moveWidgetCategory(key,actualLast.value("rowVersion").toLongLong(),-1));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.widgetCategories().first().toMap().value("id"),actualLast.value("id"));
+        QCOMPARE(workspace.categoryTree().first().toMap().value("id"),actualLast.value("id"));
+        QVERIFY(!commits.isEmpty());
+        QVERIFY(!commits.first().first().toMap().value("changedCatalogIds").toStringList().isEmpty());
+        QVERIFY(workspace.moveWidgetCategory(key,actualLast.value("rowVersion").toLongLong(),1));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.categoryTree().first().toMap().value("id"),actualLast.value("id"));
+        QVERIFY(!workspace.errorText().isEmpty());
+    }
+    void v1BindingCannotDropLocalCycleFacts()
+    {
+        QTemporaryDir dir;TaskWorkspace workspace;workspace.start(dir.filePath("cycle-bind.sqlite"));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        QVERIFY(workspace.createTodayTask("keep local cycle"));QVERIFY(daymark::test::awaitIdle(workspace));
+        const auto id=workspace.todayTasks()->taskIdAt(0);
+        const QVariantMap rule{{"active",true},{"frequency","DAILY"},{"rowVersion","0"},{"zone","UTC"}};
+        QVERIFY(workspace.saveDetails(id,workspace.task(id).value("rowVersion").toLongLong(),{{"cycle",rule}}));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.task(id).value("cycle").toMap().value("frequency").toString(),QStringLiteral("DAILY"));
+        bool done=false;QString error;
+        workspace.syncExecute(QStringLiteral("bind"),{},[&](const Result<QJsonObject>& result){error=result.error.key;done=true;});
+        QTRY_VERIFY_WITH_TIMEOUT(done,5000);QCOMPARE(error,QStringLiteral("cycleSyncUnsupported"));
+        QCOMPARE(workspace.task(id).value("cycle").toMap().value("frequency").toString(),QStringLiteral("DAILY"));
+        workspace.setSyncState({{"mode",QStringLiteral("ACCOUNT")}});
+        QVERIFY(!workspace.saveDetails(id,workspace.task(id).value("rowVersion").toLongLong(),{{"cycle",rule}}));
+    }
     void widgetArchiveFallbackAndLocalSortKeepOtherTasks()
     {
         QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("widget-sort.sqlite"));QVERIFY(daymark::test::awaitIdle(workspace));

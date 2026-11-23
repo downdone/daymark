@@ -57,14 +57,20 @@ Result<RecurrenceRule> RecurrenceService::save(RecurrenceRule r)
 }
 Result<void> RecurrenceService::stop(const QString& id,qint64 version,bool removeFuture)
 {return m_rules.stop(id,version,m_clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),removeFuture,m_clock.localToday());}
-Result<int> RecurrenceService::generate(const QDate& from,const QDate& through,const QStringList& completionPriority)
+Result<int> RecurrenceService::generate(const QDate& from,const QDate& through,const QStringList& completionPriority,bool calendarOnly)
 {
     const auto rules=m_rules.all();if(!rules.ok())return {{},rules.error};
-    if(std::none_of(rules.value.cbegin(),rules.value.cend(),[](const RecurrenceRule& rule){return rule.active;}))return {0,{}};
+    const auto eligible=[calendarOnly](const RecurrenceRule& rule){
+        if(!rule.active)return false;
+        if(!calendarOnly)return true;
+        const auto saved=QJsonDocument::fromJson(rule.defaultsJson.toUtf8()).object();
+        return saved.value("calendar_series").toBool() || !saved.value("legacy_event_task_id").toString().isEmpty();
+    };
+    if(std::none_of(rules.value.cbegin(),rules.value.cend(),eligible))return {0,{}};
     const auto tasks=m_tasks.all();if(!tasks.ok())return {{},tasks.error};
     int generated=0;const auto today=m_clock.localToday();
     for(const auto& rule:rules.value) {
-        if(!rule.active)continue;
+        if(!eligible(rule))continue;
         if(!completionPriority.isEmpty() && (rule.frequency!=QStringLiteral("AFTER_DAYS") || !std::any_of(tasks.value.cbegin(),tasks.value.cend(),[&](const Task& t){return completionPriority.contains(t.id) && t.recurrenceId==rule.id && t.status==QStringLiteral("COMPLETED");})))continue;
         QList<QDate> dates;QDate occurrenceKey;QString predecessorId;
         if(rule.frequency==QStringLiteral("AFTER_DAYS")) {

@@ -72,12 +72,22 @@ struct TaskLink {
     QString taskId,role=QStringLiteral("preparation");
     bool operator==(const TaskLink&) const = default;
 };
+struct TaskCycle {
+    RecurrenceRule rule;
+    QString zone;
+    QDate currentDate,nextDate;
+    QDateTime currentStartUtc,currentEndUtc,nextStartUtc;
+    QString latestCompletion;
+    qint64 ruleRevision=1,rowVersion=0;
+    bool operator==(const TaskCycle&) const = default;
+};
 
 struct Task {
     QString id, title, notes;
     QString parentTaskId,parentTitle;
     std::optional<TaskSchedule> schedule;
     std::optional<RecurrenceRule> repeat;
+    std::optional<TaskCycle> cycle;
     QList<TaskLink> links;
     // Command-only context; never stored as another task fact.
     bool repeatChanged=false;
@@ -120,10 +130,13 @@ struct Task {
 };
 
 struct TaskPatch {
+    bool calendarSeries=false;
     FieldPatch<qint64> repeatVersion;
     FieldPatch<TaskSchedule> schedule;
     FieldPatch<RecurrenceRule> repeat;
+    std::optional<TaskCycle> cycle;
     FieldPatch<QList<TaskLink>> links;
+    std::optional<qint64> convertLegacyCycleVersion;
     FieldPatch<QString> title, notes, planningState, parentTaskId;
     FieldPatch<bool> pinned,important;
     FieldPatch<QDate> startOn, deadlineOn;

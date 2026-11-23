@@ -48,7 +48,7 @@ Window {
     property bool addingPending: false
     property bool categoryPickerOpen:false
     property bool dropCategoryPicker:false
-    function openDropCategories(){if(!taskDragging)return;dropCategoryPicker=true;managingShortcuts=false;openCategoryPicker(true)}
+    function openDropCategories(){if(!taskDragging)return;dropCategoryPicker=true;openCategoryPicker(true)}
     function movedTaskToCategory(destination){taskError="";taskOperation="widgetMoveCategory";activityNotice=qsTr("正在移到 %1…").arg(destination)}
     function openActivityCapture(){if(!workspace.busy && !addingPending){widgetMenu.close();categoryPickerOpen=false;activityCapture.begin(workspace.widgetContext)}}
     function extractQuickInput(){
@@ -56,7 +56,20 @@ Window {
         extractingQuickText=quickTitle.text;extractingQuickProfile=draftContext.profile
         activityCapture.begin(draftContext.key,quickTitle.text,draftContext.profile);extractingQuickInput=true
     }
-    property bool managingShortcuts:false
+    property var categoryOrderEntry:null
+    property string pendingCategoryOrder:""
+    function showCategoryOrder(entry,anchor,position) {
+        if(workspace.busy || motionInputBlocked || taskDragging)return
+        categoryOrderEntry=entry
+        categoryOrderMenu.popupAtPoint(anchor,position)
+    }
+    function reorderCategory(entry,direction) {
+        if(!entry || !workspace.canMoveWidgetCategory(entry.key,direction))return
+        if(workspace.moveWidgetCategory(entry.key,entry.rowVersion,direction)){
+            pendingCategoryOrder=entry.key
+            taskError=""
+        }else taskError=workspace.errorText || qsTr("无法调整分类顺序，请重试。")
+    }
     readonly property int categoryRailWidth:controller.panelSidebarWidth
     onCategoryRailWidthChanged:Qt.callLater(syncPanelMinimum)
     property var draftContext:null
@@ -219,7 +232,7 @@ Window {
     onMiniKeyboardFocusChanged: reportInteraction()
     onInteractionPressedChanged: reportInteraction()
     onInteractingChanged: reportInteraction()
-    function reportInteraction() {controller.setInteraction(miniHover.hovered,interactionPressed || interacting,widgetMenu.visible || taskMenu.visible || deleteTaskConfirmation.visible || pendingTaskContext!==null || categoryPickerOpen || reminderInbox.visible || (taskInspector && taskInspector.visible) || activityCapture.opened || activityCapture.popupOpen,miniKeyboardFocus)}
+    function reportInteraction() {controller.setInteraction(miniHover.hovered,interactionPressed || interacting,widgetMenu.visible || taskMenu.visible || categoryOrderMenu.visible || deleteTaskConfirmation.visible || pendingTaskContext!==null || categoryPickerOpen || reminderInbox.visible || (taskInspector && taskInspector.visible) || activityCapture.opened || activityCapture.popupOpen,miniKeyboardFocus)}
     function syncMiniLayout() {controller.setMiniLayout(miniBarHeight,ballDiameter)}
     function targetRect(){return controller.effectiveForm===0?controller.panelRect:controller.effectiveForm===1?controller.miniRect:controller.ballRect}
     function syncSurfaceSize(){setMiniAnimation()}
@@ -236,7 +249,7 @@ Window {
             if(pendingWidgetMenu && !controller.transitionPending){pendingWidgetMenu=false;Qt.callLater(showWidgetMenu)}
             return
         }
-        widgetMenu.close();taskMenu.close();if(controller.effectiveForm!==0)categoryPickerOpen=false;pendingWidgetMenu=false;pendingTaskContext=null;pendingTaskSource=null
+        widgetMenu.close();taskMenu.close();categoryOrderMenu.close();if(controller.effectiveForm!==0)categoryPickerOpen=false;pendingWidgetMenu=false;pendingTaskContext=null;pendingTaskSource=null
         const currentRect=frameRect,currentPanel=panelReveal,currentMini=miniReveal,currentRadius=frameRadius,currentOpacity=panelContentOpacity
         motionAnimation.stop();visualTransition=controller.transitionId
         fromRect=currentRect;fromPanel=currentPanel;fromMini=currentMini;fromRadius=currentRadius;fromOpacity=currentOpacity
@@ -259,6 +272,12 @@ Window {
         function onWidgetBrowseChanged(){Qt.callLater(widget.syncPanelMinimum);widget.syncBrowsePresentation()}
         function onWidgetCategoryRangeRequested(enabled){widget.requestBrowse({kind:"range",todayOnly:enabled})}
         function onOperationFinished(operation,success) {
+            if(operation==="widgetCategoryOrder" && widget.pendingCategoryOrder){
+                const key=widget.pendingCategoryOrder;widget.pendingCategoryOrder=""
+                if(!success)widget.taskError=widget.workspace.errorText || qsTr("无法调整分类顺序，请重试。")
+                if(widget.categoryPickerOpen){categoryChoices.currentIndex=categoryChoices.model.findIndex(item=>item.key===key);categoryChoices.forceActiveFocus()}
+                else if(widget.categoryRailWidth>0)navigationBar.focusCategory(key)
+            }
             if(operation==="widgetCreate" && widget.addingPending){
                 widget.addingPending=false
                 const intent=widget.pendingBrowse;widget.pendingBrowse=null
@@ -299,7 +318,7 @@ Window {
             anchors.fill:parent;anchors.margins:Theme.panelPadding;spacing:Theme.fieldGap
             RowLayout {
                 Layout.fillWidth:true
-                Label {Layout.fillWidth:true;text:widget.managingShortcuts?qsTr("常用分类"):qsTr("选择分类");font.pixelSize:Theme.panelTitleSize;font.weight:Font.DemiBold;color:Theme.text;elide:Text.ElideRight}
+                Label {Layout.fillWidth:true;text:qsTr("选择分类");font.pixelSize:Theme.panelTitleSize;font.weight:Font.DemiBold;color:Theme.text;elide:Text.ElideRight}
                 WidgetAction {objectName:"widgetCategoryClose";symbol:"close";description:qsTr("关闭分类选择");onClicked:widget.categoryPickerOpen=false}
             }
             TextField {
@@ -313,7 +332,7 @@ Window {
                 Layout.fillWidth:true;Layout.fillHeight:true;Layout.minimumHeight:32
                 ListView {
                     id:categoryChoices;objectName:"widgetCategoryChoices";anchors.fill:parent;clip:true
-                    readonly property var entries:widget.managingShortcuts?widget.workspace.widgetShortcuts:widget.workspace.widgetCategories
+                    readonly property var entries:widget.workspace.widgetCategories
                     model:entries.filter(item=>!categorySearch.text || item.path.toLocaleLowerCase().indexOf(categorySearch.text.toLocaleLowerCase())>=0)
                     DS.ScrollPhysics {target:categoryChoices}
                     ScrollBar.vertical:ScrollBar {}
@@ -325,12 +344,18 @@ Window {
                         required property int index
                         objectName:"widgetCategoryChoice-"+modelData.key
                         width:categoryChoices.width-Theme.scrollGutter
-                        leftPadding:8+(!categorySearch.text && !widget.managingShortcuts?modelData.depth*12*Theme.scale:0)
+                        leftPadding:8+(!categorySearch.text?modelData.depth*12*Theme.scale:0)
                         checkable:true;checked:widget.workspace.widgetContext===modelData.key
                         highlighted:activeFocus || (categoryChoices.activeFocus && categoryChoices.currentIndex===index)
                         Accessible.name:modelData.path
                         enabled:!widget.workspace.busy && !widget.addingPending
                         onClicked:widget.requestBrowse({kind:"context",key:modelData.key})
+                        Keys.onPressed:function(event){
+                            if((event.modifiers & Qt.AltModifier) && (event.key===Qt.Key_Up || event.key===Qt.Key_Down)){
+                                widget.reorderCategory(categoryEntry.modelData,event.key===Qt.Key_Up?-1:1);event.accepted=true
+                            }
+                        }
+                        TapHandler {acceptedButtons:Qt.RightButton;onTapped:function(point){widget.showCategoryOrder(categoryEntry.modelData,categoryEntry,point.position)}}
                         background: NavigationSurface {control:categoryEntry;keyboardFocus:categoryEntry.highlighted}
                         WidgetCategoryDropTarget {
                             workspace:widget.workspace;contextKey:categoryEntry.modelData.key;destinationName:categoryEntry.modelData.path
@@ -340,34 +365,25 @@ Window {
                         }
                         contentItem:RowLayout {
                             spacing:4
-                            Label {id:categoryName;Layout.fillWidth:true;Layout.minimumWidth:0;text:categorySearch.text || widget.managingShortcuts?categoryEntry.modelData.path:categoryEntry.modelData.title;color:Theme.text;elide:Text.ElideRight;DS.ToolTip {visible:!Theme.hintsBlocked && categoryName.truncated && nameHover.hovered;text:categoryEntry.modelData.path} HoverHandler {id:nameHover}}
-                            WidgetAction {visible:widget.managingShortcuts;symbol:"up";description:qsTr("上移常用分类");enabled:categoryEntry.index>0;onClicked:{widget.workspace.moveWidgetShortcut(categoryEntry.modelData.key,-1);Qt.callLater(function(){categoryChoices.forceActiveFocus()})}}
-                            WidgetAction {visible:widget.managingShortcuts;symbol:"down";description:qsTr("下移常用分类");enabled:categoryEntry.index<categoryChoices.count-1;onClicked:{widget.workspace.moveWidgetShortcut(categoryEntry.modelData.key,1);Qt.callLater(function(){categoryChoices.forceActiveFocus()})}}
-                            WidgetAction {objectName:"widgetCategoryPin-"+categoryEntry.modelData.key;symbol:"pin";checked:widget.managingShortcuts || !!categoryEntry.modelData.favorite;description:checked?qsTr("取消常用分类"):qsTr("固定为常用分类");onClicked:{widget.workspace.setWidgetShortcut(categoryEntry.modelData.key,!checked);Qt.callLater(function(){categorySearch.forceActiveFocus()})}}
+                            Label {id:categoryName;Layout.fillWidth:true;Layout.minimumWidth:0;text:categorySearch.text?categoryEntry.modelData.path:categoryEntry.modelData.title;color:Theme.text;elide:Text.ElideRight;DS.ToolTip {visible:!Theme.hintsBlocked && categoryName.truncated && nameHover.hovered;text:categoryEntry.modelData.path} HoverHandler {id:nameHover}}
                         }
                     }
                 }
-                Label {anchors.centerIn:parent;width:parent.width;text:categorySearch.text?qsTr("没有匹配的分类"):widget.managingShortcuts?qsTr("尚未固定常用分类"):qsTr("还没有可用分类，可在主窗口侧栏创建。");horizontalAlignment:Text.AlignHCenter;wrapMode:Text.Wrap;color:Theme.secondary;visible:categoryChoices.count===0}
+                Label {anchors.centerIn:parent;width:parent.width;text:categorySearch.text?qsTr("没有匹配的分类"):qsTr("还没有可用分类，可在主窗口侧栏创建。");horizontalAlignment:Text.AlignHCenter;wrapMode:Text.Wrap;color:Theme.secondary;visible:categoryChoices.count===0}
             }
             RowLayout {
                 Layout.fillWidth:true
-                ToolButton {
-                    id: manageShortcuts
-                    objectName: "widgetManageShortcuts"
-                    text: qsTr("常用管理")
-                    checkable: true
-                    checked: widget.managingShortcuts
-                    font.pixelSize: Theme.captionSize
-                    background: NavigationSurface {control:manageShortcuts}
-                    onClicked: {
-                        widget.managingShortcuts = !widget.managingShortcuts
-                        categorySearch.clear()
-                    }
-                }
                 Item {Layout.fillWidth:true;Layout.minimumWidth:0}
                 WidgetAction {objectName:"widgetManageCategories";symbol:"window";description:qsTr("在主窗口管理分类");onClicked:{widget.categoryPickerOpen=false;widget.openMainRequested()}}
             }
         }
+    }
+    DS.Menu {
+        id:categoryOrderMenu;objectName:"widgetCategoryOrderMenu";parent:widget.contentItem
+        popupType:Qt.platform.pluginName==="windows" ? Popup.Native : Popup.Window
+        onVisibleChanged:widget.reportInteraction()
+        MenuItem {text:qsTr("上移");enabled:!!widget.categoryOrderEntry && widget.workspace.canMoveWidgetCategory(widget.categoryOrderEntry.key,-1);onTriggered:widget.reorderCategory(widget.categoryOrderEntry,-1)}
+        MenuItem {text:qsTr("下移");enabled:!!widget.categoryOrderEntry && widget.workspace.canMoveWidgetCategory(widget.categoryOrderEntry.key,1);onTriggered:widget.reorderCategory(widget.categoryOrderEntry,1)}
     }
     function verifyMenu() {
         if(!widgetMenu.visible)return "closed"
@@ -484,7 +500,7 @@ Window {
         DS.MenuSeparator {}
         MenuItem {text:qsTr("从文本提取任务…");onTriggered:widget.openActivityCapture()}
         MenuItem {text:qsTr("打开主窗口");onTriggered:widget.openMainRequested()}
-        MenuItem {text:qsTr("显示常用分类");checkable:true;checked:widget.workspace.widgetShowShortcuts;onTriggered:widget.workspace.setWidgetShowShortcuts(checked)}
+        MenuItem {text:qsTr("显示分类栏");checkable:true;checked:widget.workspace.widgetShowShortcuts;onTriggered:widget.workspace.setWidgetShowShortcuts(checked)}
         DS.MenuSeparator {}
         MenuItem {objectName:"widgetNormalLayer";text:qsTr("普通层级");checkable:true;checked:widget.controller.layer===0;onTriggered:widget.controller.setLayer(0)}
         MenuItem {objectName:"widgetTopmostLayer";text:qsTr("始终置顶");checkable:true;checked:widget.controller.layer===1;onTriggered:widget.controller.setLayer(1)}
@@ -590,11 +606,13 @@ Window {
                     id:navigationBar;objectName:"widgetCategoryNavigation"
                     anchors.left:parent.left;anchors.top:parent.top;anchors.bottom:parent.bottom
                     width:widget.categoryRailWidth;visible:width>0
-                    cornerRadius:widget.shellCorner
+                    dividerOpacity:surface.panelAlpha
                     workspace:widget.workspace
                     blocked:widget.categoryPickerOpen || widget.workspace.busy || widget.addingPending || widget.motionInputBlocked
                     onContextRequested:function(key){widget.requestBrowse({kind:"context",key:key})}
                     onCategoriesRequested:widget.openCategoryPicker()
+                    onOrderMenuRequested:function(category,anchor,position){widget.showCategoryOrder(category,anchor,position)}
+                    onReorderRequested:function(category,direction){widget.reorderCategory(category,direction)}
                     onDropBrowseRequested:widget.openDropCategories()
                     onTaskMoved:function(destination){widget.movedTaskToCategory(destination)}
                     onDropError:function(message){widget.taskError=message}
@@ -645,7 +663,7 @@ Window {
                         PointHandler {id:headerPress;acceptedButtons:Qt.LeftButton}
                         WidgetMoveHandle {id:headerDrag;controller:widget.controller}
                     }
-                    WidgetAction {objectName:"widgetToggleCategories";symbol:"sidebar";description:qsTr("显示或收起常用分类");onClicked:widget.workspace.setWidgetShowShortcuts(!widget.workspace.widgetShowShortcuts)}
+                    WidgetAction {objectName:"widgetToggleCategories";symbol:"sidebar";description:qsTr("显示或收起分类栏");onClicked:widget.workspace.setWidgetShowShortcuts(!widget.workspace.widgetShowShortcuts)}
                     WidgetAction {id:reminderButton;objectName:"widgetReminders";symbol:"bell";description:qsTr("待处理提醒 %1项").arg(widget.workspace.pendingReminderCount);onClicked:reminderInbox.openAt(this)
                         Label {anchors.right:parent.right;anchors.top:parent.top;text:widget.workspace.pendingReminderCount;visible:widget.workspace.pendingReminderCount>0;font.pixelSize:Theme.captionSize;color:Theme.accent}
                     }

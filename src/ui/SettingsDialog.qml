@@ -222,7 +222,7 @@ ApplicationWindow {
                             label:qsTr("分类任务范围")
                             SettingsComboBox {objectName:"widgetCategoryRangeSetting";Layout.fillWidth:true;Accessible.name:qsTr("小窗分类任务范围");model:[qsTr("全部未完成"),qsTr("仅今天")];currentIndex:root.workspace.widgetCategoryToday?1:0;enabled:root.workspace.ready && !root.workspace.busy;onActivated:{root.workspace.requestWidgetCategoryToday(currentIndex===1);currentIndex=Qt.binding(function(){return root.workspace.widgetCategoryToday?1:0})}}
                         }
-                        SettingsToggle {objectName:"widgetShowShortcutsSetting";separator:false;text:qsTr("显示常用分类");checked:root.workspace.widgetShowShortcuts;onClicked:root.workspace.setWidgetShowShortcuts(checked)}
+                        SettingsToggle {objectName:"widgetShowShortcutsSetting";separator:false;text:qsTr("显示分类栏");checked:root.workspace.widgetShowShortcuts;onClicked:root.workspace.setWidgetShowShortcuts(checked)}
                       }
                       SettingsGroup {
                         heading:qsTr("层级与交互")
