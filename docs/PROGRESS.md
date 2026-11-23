@@ -2,7 +2,11 @@
 
 ## 4.0.1 补丁发行（2026-11-23）
 
-发布 FR-015、FR-042 修复。本次沿用 schema 12、HTTP JSON v1 及现有 Windows 更新 ABI。以 v4.0.0 为公开在线升级基线。原生列表探针在搜索清空后按模型实际恢复条件等待，保留层级断言。当前准备固定源码 Windows 候选，发布、公开安装及在线升级结果待核实。
+发布 FR-015、FR-042 修复。本次沿用 schema 12、HTTP JSON v1 及现有 Windows 更新 ABI。以 v4.0.0 为公开在线升级基线。原生列表探针在搜索清空后按模型实际恢复条件等待，保留层级断言。源码已公开，Windows 候选未达到签名门禁。
+
+- 本地 Windows Release 构建及 QML lint 通过，针对性 CTest 4/4 PASS，原生 `task_list_interaction` 全程通过。已创建 [v4.0.1 源码发行](https://github.com/downdone/daymark/releases/tag/v4.0.1)，[账号与同步 CI](https://github.com/downdone/daymark/actions/runs/45155992577)通过。
+- [首轮正式 Windows 候选](https://github.com/downdone/daymark/actions/runs/45155992625/attempts/1) CTest 53/54，`desktop_rendering` 出现 QML 组件警告并在结束时报告 SEGFAULT，其余用例通过。相同用例本机复验通过。GitHub 对同一源码标签复验一次，所有门禁保留。
+- [第二轮正式候选](https://github.com/downdone/daymark/actions/runs/45155992625/attempts/2) 同样为 53/54，`desktop_rendering` 的 QML 成员数据警告与 SEGFAULT 重现。相同顺序的本机三项和使用正式 CI 字体目录的本机渲染测试通过。Qt 6.10.3 包含相关方向的 [QML 垃圾回收修复](https://github.com/qt/qtdeclarative/commit/f2e838e86cefd91577345e093edbbc0bbd1fd6cd)，尚无证据确认 Daymark 崩溃由该缺陷导致。Windows 签名、安装包、便携包及公开更新仍未发布。
 
 ## 4.0.0 安排入口回归（2026-11-23）
 
