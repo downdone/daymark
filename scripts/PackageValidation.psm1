@@ -46,7 +46,7 @@ function Test-DaymarkPayloadPath([string]$Path) {
         return $Path -notmatch '^Qt6QuickControls2(Fusion|Imagine|Material|Universal|FluentWinUI3|Windows)(StyleImpl)?\.dll$'
     }
     if($Path -match '^sqldrivers/'){return $Path -ceq 'sqldrivers/qsqlite.dll'}
-    if($Path -match '^qt-sbom/'){return $Path -match '^qt-sbom/(qtbase|qtdeclarative|qtshadertools|qtsvg)-6\.10\.2\.spdx\.json$'}
+    if($Path -match '^qt-sbom/'){return $Path -match '^qt-sbom/(qtbase|qtdeclarative|qtshadertools|qtsvg)-6\.10\.3\.spdx\.json$'}
     if($Path -match '^qml/') {
         return $Path -notmatch '^qml/QtQuick/Controls/(Fusion|Imagine|Material|Universal|FluentWinUI3|Windows)/' -and
             $Path -match '(\.dll|\.qml|\.png|/qmldir)$'

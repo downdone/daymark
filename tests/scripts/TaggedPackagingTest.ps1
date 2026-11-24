@@ -20,7 +20,8 @@ try {
         New-Item -ItemType Directory -Path (Join-Path $redist "$version/x64/$family") -Force | Out-Null
     }
     $expected = Join-Path $redist '14.44.35211/x64/Microsoft.VC143.CRT'
-    if ((Get-DaymarkMsvcRedistDirectory $redist) -cne $expected) { throw 'Wrong CRT family/version selected.' }
+    $actual = Get-DaymarkMsvcRedistDirectory $redist
+    if ([IO.Path]::GetFullPath($actual) -ine [IO.Path]::GetFullPath($expected)) { throw 'Wrong CRT family/version selected.' }
     foreach ($invalid in @($fixture, (Join-Path $redist '14.44.35211/x64'), (Join-Path $fixture 'empty/VC/Redist/MSVC'))) {
         New-Item -ItemType Directory -Path $invalid -Force | Out-Null
         $rejected = $false
