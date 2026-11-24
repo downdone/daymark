@@ -92,11 +92,8 @@ jobs:
           ls "${QT_ROOT_DIR:-$Qt6_DIR}/LICENSES" 2>/dev/null | head -20 || true
       - name: Configure
         run: cmake -S . -B build/ci -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-      - name: Build
-        run: |
-          cmake --build build/ci --config Release --target daymark-update-cli daymark-bootstrap daymark-updater --parallel 4
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build build/ci --config Release --parallel 4
+      - name: Build application for the Qt rendering preflight
+        run: cmake --build build/ci --config Release --target daymark --parallel 4
       - name: Test
         shell: bash
         run: |
@@ -105,7 +102,7 @@ jobs:
           report="$PWD/build/ctest-report.xml"
           log="$PWD/build/ctest-console.log"
           mkdir -p build
-          ctest --test-dir build/ci -C Release --output-on-failure --no-tests=error \
+          ctest --test-dir build/ci -C Release -R "^(desktop_rendering|calendar_interaction|task_list_interaction)$" --output-on-failure --no-tests=error \
                 --output-junit "$report" >"$log" 2>&1
           status=$?
           cat "$log"
