@@ -83,18 +83,24 @@ def repair_with_running_app(artifact, root, work, pid, confirm):
                 next_button = user.GetDlgItem(wizard, 1)
                 controls = children(wizard)
                 run = [h for h, text, cls in controls if cls == 'Button' and text == '运行 Daymark']
-                if run:
-                    assert confirm and answered, 'unexpected completion before confirmation'
-                    # Never let the wizard start Daymark on a personal profile.
-                    user.SendMessageW(run[0], 0xF1, 0, 0)  # BM_SETCHECK / BST_UNCHECKED
-                    assert user.SendMessageW(run[0], 0xF0, 0, 0) == 0
-                    finish = True
                 # NSIS creates one inner dialog per page. Text/layout continues
                 # settling after Next; using that changing text as a page key
                 # would click the same page twice, unlike a user's navigation.
                 page = tuple(h for h, _, cls in controls if cls == '#32770')
-                if page and next_button and label(next_button) and user.IsWindowEnabled(next_button) and page != last_page:
-                    observed.append(label(next_button))
+                title = label(next_button) if next_button else ''
+                completion_page = title == '完成(&F)'
+                # The button can become enabled before the checkbox is visible.
+                # Wait for both controls before allowing this page to advance.
+                if (page and title and user.IsWindowEnabled(next_button)
+                        and page != last_page and completion_page == bool(run)):
+                    if completion_page:
+                        assert confirm and answered, 'unexpected completion before confirmation'
+                        assert len(run) == 1, 'unexpected number of Run controls on the completion page'
+                        # Keep the installer from opening the normal app profile.
+                        user.SendMessageW(run[0], 0xF1, 0, 0)  # BM_SETCHECK / BST_UNCHECKED
+                        assert user.SendMessageW(run[0], 0xF0, 0, 0) == 0
+                        finish = True
+                    observed.append(title)
                     last_page = page
                     # BM_CLICK may be ignored when another app owns activation.
                     # Deliver the button's BN_CLICKED to this owned wizard;
