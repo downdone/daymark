@@ -277,6 +277,15 @@ def main():
         print('PASS: public toolchain bridge safely requires full installation; automatic upgrade not applicable',flush=True)
         print(json.dumps(result),flush=True)
         return
+    bootstrap_manifest = public_json(
+        f"https://github.com/downdone/daymark/releases/download/v{args.old_version}/update-windows-x64.json")
+    old_schema = bootstrap_manifest.get('data', {}).get('schema')
+    if (bootstrap_manifest.get('version') != args.old_version
+            or str(bootstrap_manifest.get('release_id')) != str(release['id'])
+            or str(bootstrap_manifest.get('package', {}).get('asset_id')) != str(asset['id'])
+            or bootstrap_manifest.get('package', {}).get('sha256') != actual
+            or type(old_schema) is not int or old_schema < 1):
+        raise AssertionError('Public bootstrap manifest identity or schema mismatch')
     qt_started = time.monotonic()
     data = args.work/'synthetic-data'
     processes = []
@@ -294,8 +303,8 @@ def main():
         def schema_ready():
             if not (data/'daymark.sqlite').exists(): return False
             with sqlite3.connect(data/'daymark.sqlite') as db:
-                return db.execute('PRAGMA user_version').fetchone()[0] == 11
-        wait_for(schema_ready,30,'synthetic database creation',root)
+                return db.execute('PRAGMA user_version').fetchone()[0] == old_schema
+        wait_for(schema_ready,30,f'synthetic database creation (schema {old_schema})',root)
         old_modules = audit_qt_runtime(old['pid'],root/current['current'])
         with sqlite3.connect(data/'daymark.sqlite') as db:
             db.execute('INSERT INTO tasks(id,title,created_at_utc,updated_at_utc) VALUES(?,?,?,?)',
@@ -333,14 +342,17 @@ def main():
         assert instance(args.new_version)
         new_modules = audit_qt_runtime(journal['new_pid'],root/current['current'])
         accepted_manifest = json.loads((root/'update-state/releases'/Path(current['current']).name/'manifest.json').read_text())
+        new_schema = accepted_manifest['data']['schema']
+        assert type(new_schema) is int and new_schema > 0
         with sqlite3.connect(data/'daymark.sqlite') as db:
             assert db.execute('PRAGMA quick_check').fetchone()[0] == 'ok'
-            assert db.execute('PRAGMA user_version').fetchone()[0] == 11
+            assert db.execute('PRAGMA user_version').fetchone()[0] == new_schema
             assert db.execute("SELECT title FROM tasks WHERE id='github-update-synthetic-task'").fetchone()[0] == 'Public GitHub update preservation check'
         result = dict(passed=True,repository='downdone/daymark',oldVersion=args.old_version,newVersion=args.new_version,
                       bootstrapReleaseId=release['id'],bootstrapAssetId=asset['id'],bootstrapSha256=actual,
                       targetReleaseId=accepted_manifest['release_id'],targetAssetId=accepted_manifest['package']['asset_id'],
                       targetSourceRevision=accepted_manifest['source_revision'],
+                      oldDatabaseSchema=old_schema,newDatabaseSchema=new_schema,
                       oldQtModules=old_modules,newQtModules=new_modules,productionEnvironmentIsolated=True,
                       automaticPrepare=True,productionCompiledTrust=True,anonymousGitHub=True,fixtureOverrides=False,
                       coldRootLaunch=True,

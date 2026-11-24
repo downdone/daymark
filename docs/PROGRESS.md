@@ -8,6 +8,7 @@
 
 - 本机 Qt 6.10.3 / MinGW Release 应用构建、QML lint、日历生命周期、桌面渲染、滚动反馈和账号界面 **4/4 PASS**。本机测试日志未复现上述 QML 错误。CTest 对涉及用例同时检查程序退出期间输出。Windows MSVC 完整候选尚待执行。
 - [正式 MSVC 候选](https://github.com/downdone/daymark/actions/runs/45350360728)专项 **3/3 PASS**，完整 CTest **54/54 PASS（520.99 秒）**，QML lint 和包门禁通过。[首次签名流程](https://github.com/downdone/daymark/actions/runs/45353164187)通过签名及独立 Windows 运行验证。发布前 NSIS 界面探针在「运行 Daymark」复选框显示前点击了完成，脚本因此失败，未上传 Windows 资产。验收脚本改为同时等待完成按钮和复选框，验证已取消勾选后才点击。复用已通过的固定源码和候选。
+- [签名和公开安装](https://github.com/downdone/daymark/actions/runs/45354275985)通过，GitHub 已提供安装包及便携包。公开升级探针观察到签名包完成下载和预备，随后因探针仍固定等待 schema 11 中止，4.0.0 起应为 schema 12。修订探针，从对应公开版本的清单核对版本、资产身份及数据库 schema，目标版本使用更新器已接受的签名清单。仅重跑公网升级验收。
 
 ## Qt 6.10.3 与 Windows 4.0.3（2026-11-24）
 
