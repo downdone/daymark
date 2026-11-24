@@ -4,6 +4,10 @@
 
 用户授权升级精确 Qt 版本并发行 4.0.3。以原 Windows Server 2022 / MSVC 运行器和既有桌面渲染断言验证 Qt 6.10.3。专项通过后再发布不可变标签，执行全量 Windows 候选、签名、公开安装及从 4.0.0 在线升级。客户端 schema 12 和现有更新 ABI 保持兼容，服务已部署 DTO 2。
 
+- [专项验证](https://github.com/downdone/daymark/actions/runs/45337207096) **3/3 PASS**，包括在原运行器上通过 `desktop_rendering`、日历交互、任务列表。包校验、CRT 布局、SBOM 测试通过。
+- [4.0.3 源码](https://github.com/downdone/daymark/releases/tag/v4.0.3)与[账号同步 CI](https://github.com/downdone/daymark/actions/runs/45339281387)通过。[正式 Windows 候选](https://github.com/downdone/daymark/actions/runs/45339281793)为 **53/54**，`desktop_rendering` 跑完场景但仍报告 QML 成员存储为空及属性读取告警。与 4.0.2 相比，这次测试正常以失败码退出，签名、安装及公网升级门仍在等待。
+- [渲染对照](https://github.com/downdone/daymark/actions/runs/45343110119)在同一二进制上比较默认环境和从源码加载的行为。单独运行、运行邻近用例后复验均退出 8，设置 `QML_DISABLE_DISK_CACHE=1` 后退出 0。Qt 文档说明此开关会跳过内嵌的预编译 QML 和磁盘缓存。新增手动候选参数，构建时关闭 Daymark QML 的预编译，发布候选继续使用常规运行环境和完整门禁。[Qt 缓存文档](https://doc.qt.io/qt-6.10/qmldiskcache.html)
+
 ## 账号任务周期同步（2026-11-24）
 
 FR-015、FR-042，TIME-02／SYNC-07。实现账号任务的同一 ID 周期、跨设备完成记录和兼容门，按[双端契约](design/task-cycle-and-cross-surface-consistency.md#账号周期上线契约)验证。服务端先部署，普通资料仍支持旧客户端。Windows 4.0.2 发布单独验证签名产物及实际在线升级。

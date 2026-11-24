@@ -58,6 +58,8 @@ Actions checkout可能在一次性runner中把事件标签落成本地轻量引�
 
 主分支的手动候选可选择 `alternate_windows_runner`，用 Windows Server 2025 复验固定标签在 Windows Server 2022 上的环境相关结果。两者使用同一标签指定的 Qt 和 VS 2022 工具链、整套测试和独立验收。备用系统只用于手动候选，发布 provenance 记录运行及工具提交。
 
+已确认故障与 QML 预编译或缓存路径相关时，手动候选可选择 `qml_from_source`。该选项让 Daymark 从应用内置的 QML 资源运行时加载。候选先执行桌面渲染用例，再对同一个构建执行完整测试、QML lint 和独立验收，发布 provenance 记录 `qml_load_mode`。
+
 跨平台run步骤若使用`$RELEASE_TAG`，必须显式`shell: bash`；PowerShell应使用`$env:RELEASE_TAG`。恢复构建的归档命名/上传统一使用解析后的tag，不使用触发它的main分支名。
 
 Qt6.10.2官方SBOM默认tag/value（.spdx），JSON为可选生成结果。标签包保留四模块原始文档字节和实际扩展名，并校验SPDX结构；缺模块、损坏或目标重名仍阻止归档。恢复时打包工具从当前工作流提交单独checkout，源码/QML/LICENSE/二进制及BUILD-INFO源码SHA仍来自固定tag。依据[Qt生成器](https://github.com/qt/qtbase/blob/v6.10.2/cmake/QtPublicSbomGenerationHelpers.cmake)和[可选JSON生成操作](https://github.com/qt/qtbase/blob/v6.10.2/cmake/QtPublicSbomOpsHelpers.cmake)。
