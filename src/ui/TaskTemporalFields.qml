@@ -103,7 +103,6 @@ ColumnLayout {
             id:timing;objectName:root.objectPrefix==="task"?"taskTimingFields":root.objectPrefix+"TimingFields"
             workspace:root.workspace;objectPrefix:root.objectPrefix;taskId:root.taskId;Layout.fillWidth:true
             compactPresentation:true;inlinePickers:root.inlinePickers;useTaskCycle:true
-            cycleAvailable:root.workspace.syncState.mode!=="ACCOUNT"
             datesEdited:root.datesEdited;startDateValue:startDate.text;endDateValue:endDate.text
             startEndpointHost:startValues;endEndpointHost:endValues
             onPickerRequested:function(field,kind){root.pickerRequested(field,kind)}
@@ -132,7 +131,7 @@ ColumnLayout {
                 }
                 Label {visible:reminder.repeatFrequency!=="NONE";Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("原重复提醒 · %1").arg(reminder.repeatSummary);color:Theme.secondary}
                 ActionButton {
-                    visible:reminder.repeatFrequency!=="NONE" && timing.cycleAvailable && !timing.repeatEnabled && !timing.legacyRule
+                    visible:reminder.repeatFrequency!=="NONE" && !timing.repeatEnabled && !timing.legacyRule
                     Layout.fillWidth:true;symbol:"reload";contentAlignment:Qt.AlignLeft
                     text:qsTr("转为任务周期，保留此次提醒")
                     onClicked:if(timing.adoptReminderCadence(reminder.repeatFrequency,reminder.repeatInterval)){

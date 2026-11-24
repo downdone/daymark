@@ -85,10 +85,10 @@ Result<void> TaskCycleRepository::record(const Task& before,const TaskCycle& cyc
                                          const QString& outcome,const QDateTime& now,const QString& group,const QStringList& members)
 {
     QSqlQuery q(m_db);
-    q.prepare("INSERT INTO task_cycle_completions(task_id,occurrence_key,rule_revision,scheduled_start_utc,scheduled_end_utc,outcome,performed_at_utc,mutation_id,completion_group_id,members_json,prior_reminder_utc,prior_reminder_fired_utc) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) "
+    q.prepare("INSERT INTO task_cycle_completions(task_id,occurrence_key,rule_revision,scheduled_start_utc,scheduled_end_utc,outcome,performed_at_utc,mutation_id,completion_group_id,members_json,prior_reminder_utc,prior_reminder_fired_utc) VALUES(?,COALESCE((SELECT occurrence_key FROM task_cycle_completions WHERE task_id=? AND rule_revision=? AND scheduled_start_utc=?),?),?,?,?,?,?,?,?,?,?,?) "
               "ON CONFLICT(task_id,occurrence_key) DO UPDATE SET outcome=excluded.outcome,performed_at_utc=excluded.performed_at_utc,mutation_id=excluded.mutation_id,completion_group_id=excluded.completion_group_id,members_json=excluded.members_json,prior_reminder_utc=excluded.prior_reminder_utc,prior_reminder_fired_utc=excluded.prior_reminder_fired_utc,revoked_at_utc=NULL WHERE revoked_at_utc IS NOT NULL");
     const auto optional=[](const QString& value){return value.isEmpty()?QVariant():QVariant(value);};
-    for(const auto& value:QList<QVariant>{before.id,occurrence,cycle.ruleRevision,instantValue(cycle.currentStartUtc),instantValue(cycle.currentEndUtc),outcome,instantValue(now),
+    for(const auto& value:QList<QVariant>{before.id,before.id,cycle.ruleRevision,instantValue(cycle.currentStartUtc),occurrence,cycle.ruleRevision,instantValue(cycle.currentStartUtc),instantValue(cycle.currentEndUtc),outcome,instantValue(now),
             QUuid::createUuid().toString(QUuid::WithoutBraces),group.isEmpty()?QVariant():QVariant(group),
             QString::fromUtf8(QJsonDocument(QJsonArray::fromStringList(members)).toJson(QJsonDocument::Compact)),
             optional(before.remindAtUtc),optional(before.reminderFiredAtUtc)})q.addBindValue(value);

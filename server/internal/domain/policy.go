@@ -244,6 +244,8 @@ func (p *planner) apply(cmd Command) error {
 		return nil
 	case *MoveTree:
 		return p.move(c.TaskID, c.CategoryID, c.ParentTaskID)
+	case *ReplaceTaskCycle:
+		return p.replaceTaskCycle(c)
 	case *PurgeTasks:
 		return p.purge(c)
 	case *ChangeState:
@@ -476,6 +478,7 @@ func (p *planner) finish() (Plan, error) {
 		keys = append(keys, k)
 	}
 	slices.SortFunc(keys, func(a, b Key) int { return strings.Compare(a.String(), b.String()) })
+	cyclesChanged := false
 	for _, k := range keys {
 		after := p.graph.Entities[k]
 		before, ok := p.before.Entities[k]
@@ -486,6 +489,10 @@ func (p *planner) finish() (Plan, error) {
 		if e := p.validateEntity(after, before); e != nil {
 			return Plan{}, e
 		}
+		if next, ok := after.Value.(*Task); ok && next.Cycle != nil {
+			prior, _ := before.Value.(*Task)
+			cyclesChanged = cyclesChanged || prior == nil || !Equal(prior.Cycle, next.Cycle)
+		}
 		if ok {
 			if before.Revision == Counter(1<<63-1) {
 				return Plan{}, Fail("quota_exceeded")
@@ -495,6 +502,11 @@ func (p *planner) finish() (Plan, error) {
 		} else {
 			after.Revision = 1
 			out.Changes = append(out.Changes, Delta{After: after})
+		}
+	}
+	if cyclesChanged {
+		if e := validateCycleMutationIDs(p.graph); e != nil {
+			return Plan{}, e
 		}
 	}
 	for k := range p.dirty {
@@ -678,7 +690,7 @@ func (p *planner) validateTask(t *Task, before Entity) error {
 		if _, e := t.PurgedAt.Time(); e != nil {
 			return e
 		}
-		if t.DeletedAt == nil || t.Title != "[deleted]" || t.Notes != "" || t.Schedule != nil || t.Reminder != nil || len(t.TagIDs) > 0 || len(t.Links) > 0 || t.Legacy != nil {
+		if t.DeletedAt == nil || t.Title != "[deleted]" || t.Notes != "" || t.Schedule != nil || t.Reminder != nil || len(t.TagIDs) > 0 || len(t.Links) > 0 || t.Legacy != nil || t.Cycle != nil {
 			return Invalid("/purged_at_utc")
 		}
 	}
@@ -776,6 +788,9 @@ func (p *planner) validateTask(t *Task, before Entity) error {
 		if _, e := p.task(l.TargetID); e != nil {
 			return e
 		}
+	}
+	if e := validateTaskCycle(t, before); e != nil {
+		return e
 	}
 	return validateTiming(t)
 }

@@ -81,6 +81,16 @@ func PlanImport(before Graph, payload ImportPayload, dataset ID) (Plan, error) {
 			for i := range v.Links {
 				v.Links[i].TargetID = Value(resolve(&v.Links[i].TargetID))
 			}
+			if v.Cycle != nil {
+				for i := range v.Cycle.Completions {
+					history := &v.Cycle.Completions[i]
+					for j := range history.Members {
+						history.Members[j] = Value(resolve(&history.Members[j]))
+					}
+					slices.Sort(history.Members)
+					history.Members = slices.Compact(history.Members)
+				}
+			}
 			if v.ID != en.ID {
 				return Plan{}, Invalid("/entities/id")
 			}

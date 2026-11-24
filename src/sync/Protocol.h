@@ -42,6 +42,10 @@ inline QJsonValue nullable(const std::optional<QDate> &v) {
 inline Error failure(const QString &key = QStringLiteral("syncInvalidPayload")) {
     return {ErrorCode::ValidationError, key};
 }
+inline bool supportsTaskCycles(const QJsonObject &capabilities) {
+    return capabilities.value("supported_dto_versions").toArray().contains(2) &&
+           capabilities.value("command_types").toArray().contains(QStringLiteral("task.cycle_replace"));
+}
 
 // Validate lexical information before Qt's object parser can discard it. In
 // particular, duplicate escaped keys and lone UTF-16 surrogates are rejected.

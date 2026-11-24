@@ -303,7 +303,8 @@ class Coordinator final : public QObject {
         const bool telemetryCall=path.startsWith("/telemetry/");
         const int requestBudget=path == "/v1/auth/logout" ? 1000 : telemetryCall ? 3000 : 15000;
         req.setTransferTimeout(requestBudget);
-        req.setRawHeader("X-Daymark-DTO-Version", "1");
+        req.setRawHeader("X-Daymark-DTO-Version",
+                         path == "/v1/capabilities" || supportsTaskCycles(capabilities) ? "2" : "1");
         req.setRawHeader("Accept", "application/json");
         const auto clientRequestId=uuid();
         req.setRawHeader("X-Daymark-Request-ID",clientRequestId.toLatin1());
@@ -520,6 +521,7 @@ class Coordinator final : public QObject {
         authenticated = false;
         protocolPaused = false;
         tokens = {};
+        capabilities = {};
         safeCode.clear();diagnostic={};
         server = normalized.value;
         message = registering ? tr("正在注册…") : tr("正在登录…");
@@ -854,10 +856,12 @@ class Coordinator final : public QObject {
     void fail(const QString &code) {
         safeCode = code;
         busy = false;
-        if (code == "protocol_upgrade_required" || code == "syncProtocolMismatch") {
+        if (code == "cycleSyncUnsupported" || code == "protocol_upgrade_required" || code == "syncProtocolMismatch") {
             protocolPaused = true;
             timer.stop();
-            message = tr("当前客户端无法使用服务器的同步协议。修改已保留在此设备。请备份资料，然后更新 Daymark 或重新检查协议。");
+            message = code == "cycleSyncUnsupported"
+                ? tr("此服务器需升级才能同步重复任务。任务和重复设置已保存在此设备。")
+                : tr("同步已暂停。未同步的修改已保存在这台设备上。");
             publish();
             return;
         }
@@ -1111,6 +1115,13 @@ class Coordinator final : public QObject {
             }
             const auto bytes = prepared.value.value("payload").toString().toUtf8();
             const auto payload = QJsonDocument::fromJson(bytes).object();
+            if (!supportsTaskCycles(capabilities)) {
+                for (const auto &entry : payload.value("commands").toArray())
+                    if (entry.toObject().value("type") == "task.cycle_replace") {
+                        fail("cycleSyncUnsupported");
+                        return;
+                    }
+            }
             if (bytes.size() <= 1048576 && payload.value("commands").toArray().size() <= 64 &&
                 payload.value("preconditions").toObject().value("entities").toArray().size() <=
                     512) {
@@ -1204,11 +1215,23 @@ class Coordinator final : public QObject {
     void bootstrap() {
         startBootstrap();
     }
+    bool checkImportCycles(const QJsonObject &payload) {
+        if (supportsTaskCycles(capabilities))
+            return true;
+        for (const auto &entity : payload.value("entities").toArray())
+            if (entity.toObject().value("value").toObject().contains("cycle")) {
+                fail("cycleSyncUnsupported");
+                return false;
+            }
+        return true;
+    }
     void pushImport(const QJsonObject &prepared) {
         const auto mid = prepared.value("mutation_id").toString(),
                    operationId = stableId(QStringLiteral("import:") + mid);
         const auto bytes = prepared.value("payload").toString().toUtf8();
         const auto payload = QJsonDocument::fromJson(bytes).object();
+        if (!checkImportCycles(payload))
+            return;
         auto create = operation(operationId);
         create.insert("mutation_id", mid);
         create.insert("installation_id", profile.value("installation_id"));
@@ -1306,6 +1329,8 @@ class Coordinator final : public QObject {
                    idle();
                    return;
                }
+               if (!checkImportCycles(initial.value))
+                   return;
                db("freeze_import", {{"payload", initial.value}},
                   [this, meta, id, initial](auto frozen) {
                       if (!frozen.ok()) {

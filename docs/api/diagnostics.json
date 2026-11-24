@@ -105,6 +105,7 @@
     "syncLegacyUnsupported": "C314",
     "syncProfilePath": "C407",
     "syncRemoteVersionMissing": "C315",
+    "cycleSyncUnsupported": "C316",
     "setup.target_unsafe": "C801",
     "setup.target_filesystem": "C802",
     "setup.source_target_overlap": "C803",

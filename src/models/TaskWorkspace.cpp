@@ -89,7 +89,7 @@ QVariantMap TaskListModel::taskMap(const Task& stored)
     if(t.repeat){const auto& r=*t.repeat;repeat={{"active",r.active},{"frequency",r.frequency},{"interval",r.interval},{"weekdays",r.weekdays},{"monthDay",r.monthDay},{"yearMonth",r.yearMonth},{"end",r.end.toString(Qt::ISODate)},{"rowVersion",r.rowVersion}};}
     if(t.cycle){const auto& c=*t.cycle;cycle={{"active",c.rule.active},{"frequency",c.rule.frequency},{"interval",c.rule.interval},
         {"weekdays",c.rule.weekdays},{"end",c.rule.end.toString(Qt::ISODate)},{"rowVersion",QString::number(c.rowVersion)},
-        {"occurrenceKey",TaskCycleService::occurrenceKey(t.id,c)},{"nextDate",c.nextDate.toString(Qt::ISODate)},{"zone",c.zone}};}
+        {"occurrenceKey",TaskCycleService::occurrenceKey(c)},{"nextDate",c.nextDate.toString(Qt::ISODate)},{"zone",c.zone}};}
     return {{"arrangementSummary",CalendarService::timeSummary(t,QDate::currentDate(),QTimeZone::systemTimeZone())},{"subtaskTotal",t.totalSubtasks},{"storedStartOn",stored.startOn?stored.startOn->toString(Qt::ISODate):QString()},{"storedEndOn",stored.deadlineOn?stored.deadlineOn->toString(Qt::ISODate):QString()},{"timeDatesDiffer",(stored.startOn && stored.startOn!=t.startOn) || (stored.deadlineOn && stored.deadlineOn!=t.deadlineOn)},{"schedule",schedule.isEmpty()?QVariant():QVariant(schedule)},{"repeat",repeat.isEmpty()?QVariant():QVariant(repeat)},{"parentTaskId",t.parentTaskId},{"parentTitle",t.parentTitle},{"parentDeleted",t.parentDeleted},{"pinned",t.pinned},{"important",t.important},{"taskDepth",t.listDepth},{"taskId",t.id},{"title",t.title},{"notes",t.notes},{"planningState",t.planningState},{"taskStatus",t.status},
             {"startOn",t.startOn?t.startOn->toString(Qt::ISODate):QString()},{"deadlineOn",t.deadlineOn?t.deadlineOn->toString(Qt::ISODate):QString()},
             {"todayFocus",t.todayFocus},{"rowVersion",t.rowVersion},{"cycle",cycle.isEmpty()?QVariant():QVariant(cycle)},
@@ -187,8 +187,6 @@ public:
         ScopedTransaction tx(database.connection());if(!tx.active())return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));
         const auto before=capture?sync::Mapping(database.connection()).capture():Result<sync::Graph>{};if(!before.ok())return Result<T>::failure(before.error.code,before.error.key);
         auto result=command();if(!result.ok())return result;
-        if(capture){const auto cycleData=cycles->hasAny();if(!cycleData.ok())return Result<T>::failure(cycleData.error.code,cycleData.error.key);
-            if(cycleData.value)return Result<T>::failure(ErrorCode::ValidationError,QStringLiteral("cycleSyncUnsupported"));}
         if(capture){const auto after=sync::Mapping(database.connection()).capture();if(!after.ok())return Result<T>::failure(after.error.code,after.error.key);const auto recorded=journal.record(before.value,after.value);if(!recorded.ok())return Result<T>::failure(recorded.error.code,recorded.error.key);}
         if(!tx.commit())return Result<T>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));return result;
     }
@@ -432,7 +430,7 @@ void TaskWorkspace::syncExecute(const QString& operation,const QJsonObject& inpu
     QPointer<TaskWorkspace> self(this);auto* worker=m_worker;const auto generation=m_profileGeneration;
     QMetaObject::invokeMethod(worker,[self,worker,operation,input,generation,completed=std::move(completed)]{
         Result<QJsonObject> result;
-        if(operation==QStringLiteral("bind")){
+        if(operation==QStringLiteral("bind") && !sync::supportsTaskCycles(input.value("capabilities").toObject())){
             const auto cycleData=worker->cycles->hasAny();
             if(!cycleData.ok())result.error=cycleData.error;
             else if(cycleData.value)result.error={ErrorCode::ValidationError,QStringLiteral("cycleSyncUnsupported")};
@@ -527,7 +525,7 @@ bool TaskWorkspace::changeCycleOccurrence(const QString& id,qint64 taskVersion,c
     return runTask(action,[=](TaskWorker& worker){
         const auto task=worker.repository->find(id);if(!task.ok())return task;
         if(!task.value.cycle || task.value.rowVersion!=taskVersion || task.value.cycle->rowVersion!=version ||
-           TaskCycleService::occurrenceKey(id,*task.value.cycle)!=key)
+           TaskCycleService::occurrenceKey(*task.value.cycle)!=key)
             return Result<Task>::failure(ErrorCode::Conflict,QStringLiteral("cycleConflict"));
         return worker.service->changeState(id,taskVersion,action);
     });
@@ -1079,7 +1077,7 @@ QString TaskWorkspace::errorText() const
     if(key==QStringLiteral("cycleInvalid"))return tr("周期设置不适用于此任务。请检查开始日期、时区、旧重复规则和提醒方式。");
     if(key==QStringLiteral("cycleConflict"))return tr("此周期或轮次已变更。请重新载入任务后确认。");
     if(key==QStringLiteral("cycleWaitingEdit"))return tr("本轮已完成。请在下一轮开始后编辑安排，或先停止周期。");
-    if(key==QStringLiteral("cycleSyncUnsupported"))return tr("当前账号同步版本不支持新周期。请保留原任务，待客户端和服务端支持后再启用。");
+    if(key==QStringLiteral("cycleSyncUnsupported"))return tr("此服务器需要升级才能同步重复任务。任务和重复设置已保存在此设备。");
     if(key==QStringLiteral("recurrenceModeImmutable"))return tr("请停止旧规则后建立另一周期类型，以保留现有实例的时间语义。");
     if(key==QStringLiteral("recurrenceOpenInstance"))return tr("完成后重复规则已有一个未完成实例。请先处理该实例再恢复历史任务。");
     if(key==QStringLiteral("importInvalid"))return tr("导入文件无效或与现有数据冲突：请检查版本、重复ID、日期和外键。数据库未修改。");
@@ -1189,7 +1187,6 @@ bool TaskWorkspace::saveDetails(const QString& id,qint64 version,const QVariantM
 bool TaskWorkspace::appendDetailsPatch(const QString& id,const QVariantMap& details,TaskPatch& patch)
 {
     if(details.contains(QStringLiteral("cycle"))){
-        if(m_syncState.value("mode")==QStringLiteral("ACCOUNT")){m_error={ErrorCode::ValidationError,QStringLiteral("cycleSyncUnsupported")};emit stateChanged();return false;}
         const auto values=details.value("cycle").toMap();TaskCycle cycle;
         bool versionOk=false;cycle.rowVersion=values.value("rowVersion",QStringLiteral("0")).toString().toLongLong(&versionOk);
         cycle.rule.active=values.value("active").toBool();cycle.rule.frequency=values.value("frequency").toString();
@@ -1432,11 +1429,7 @@ bool TaskWorkspace::applyImport(bool replace)
         std::unique_ptr<ScopedTransaction> scope;if(account){scope=std::make_unique<ScopedTransaction>(w.database.connection());if(!scope->active())return Result<QString>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
         const auto before=account?sync::Mapping(w.database.connection()).capture():Result<sync::Graph>{};if(!before.ok())return Result<QString>{{},before.error};
         auto plan=*w.pendingImport;
-        if(account){
-            if(!plan.document.value("tables").toObject().value("task_cycles").toArray().isEmpty())
-                return Result<QString>::failure(ErrorCode::ValidationError,QStringLiteral("cycleSyncUnsupported"));
-            plan.document.remove(QStringLiteral("settings"));
-        }
+        if(account)plan.document.remove(QStringLiteral("settings"));
         DataTransfer transfer(w.database);const auto result=transfer.apply(plan,replace);if(!result.ok())return Result<QString>{{},result.error};
         if(account){const auto after=sync::Mapping(w.database.connection()).capture();if(!after.ok())return Result<QString>{{},after.error};const auto recorded=journal.recordImport(before.value,after.value);if(!recorded.ok())return Result<QString>{{},recorded.error};if(!scope->commit())return Result<QString>::failure(ErrorCode::PersistenceError,QStringLiteral("databaseWrite"));}
         w.pendingImport.reset();return Result<QString>{tr("已导入 %1 行，跳过 %2 行ID冲突。%3%4").arg(result.value.added).arg(result.value.skipped).arg(replace?tr("替换前已创建完整备份。"):QString()).arg(result.value.settingsApplied?QString():tr("数据已提交，但外观设置未能保存；请在设置页重试。")),{}};

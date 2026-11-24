@@ -38,6 +38,7 @@ func (p *planner) purge(c *PurgeTasks) error {
 		t.PurgedAt = Ptr(p.event)
 		t.Schedule = nil
 		t.Reminder = nil
+		t.Cycle = nil
 		t.StartOn = nil
 		t.DeadlineOn = nil
 		t.TodayFocus = false

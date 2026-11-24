@@ -202,6 +202,8 @@ func DecodeCommand(raw []byte) (domain.Command, error) {
 		cmd = &domain.CreateTask{}
 	case "task.patch":
 		cmd = &domain.PatchTask{}
+	case "task.cycle_replace":
+		cmd = &domain.ReplaceTaskCycle{}
 	case "task.purge":
 		cmd = &domain.PurgeTasks{}
 	case "task.change_state":

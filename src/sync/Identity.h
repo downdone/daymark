@@ -61,6 +61,21 @@ class Identity final {
         }
         return links;
     }
+    static QJsonObject mapCycle(QJsonObject cycle, const QHash<QString, QString> &ids) {
+        auto history = cycle.value("completions").toArray();
+        for (qsizetype i = 0; i < history.size(); ++i) {
+            auto row = history[i].toObject();
+            QStringList members;
+            for (const auto &id : row.value("members").toArray())
+                members.append(mapId(id, ids).toString());
+            members.removeDuplicates();
+            members.sort();
+            row.insert("members", QJsonArray::fromStringList(members));
+            history[i] = row;
+        }
+        cycle.insert("completions", history);
+        return cycle;
+    }
     static QJsonObject entityTo(const QJsonObject &input, const QHash<QString, QString> &ids) {
         auto e = input, v = e.value("value").toObject();
         const auto type = e.value("type").toString();
@@ -68,6 +83,8 @@ class Identity final {
             v.insert("id", mapId(v.value("id"), ids));
             v.insert("parent_task_id", mapId(v.value("parent_task_id"), ids));
             v.insert("links", mapLinks(v.value("links").toArray(), ids));
+            if (v.contains("cycle"))
+                v.insert("cycle", mapCycle(v.value("cycle").toObject(), ids));
             const auto occurrence = v.value("occurrence_key").toString();
             if (occurrence.startsWith("A:"))
                 v.insert("occurrence_key",
@@ -149,6 +166,8 @@ class Identity final {
                     }
                     if (c.contains("parent_task_id"))
                         c.insert("parent_task_id", mapId(c.value("parent_task_id"), ids));
+                    if (c.contains("cycle"))
+                        c.insert("cycle", mapCycle(c.value("cycle").toObject(), ids));
                     for (const auto &f : {"patch", "initial"})
                         if (c.contains(QLatin1String(f)))
                             c.insert(QLatin1String(f),

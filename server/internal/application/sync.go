@@ -205,6 +205,13 @@ func (s *Sync) Push(ctx context.Context, scope domain.Scope, m domain.Mutation) 
 	if m.Ref == nil && len(m.Commands) > s.MaxCommands {
 		return out, domain.Fail("payload_too_large")
 	}
+	if scope.DTOVersion == 1 {
+		for _, command := range m.Commands {
+			if command.CommandType() == domain.TaskCycleCommand {
+				return out, domain.Fail("protocol_upgrade_required")
+			}
+		}
+	}
 	state, e := s.Store.Update(ctx, func(tx ports.Tx) error {
 		if e := s.Auth.Check(ctx, tx, scope.Principal); e != nil {
 			return e

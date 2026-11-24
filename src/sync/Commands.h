@@ -41,8 +41,17 @@ inline QJsonArray withoutCategoryRemovalMoves(const QJsonArray &commands,
 // retained in a blocked journal entry; it never becomes a generic remote upsert.
 inline CommandDelta commandsBetween(const Graph &before, const Graph &after) {
     CommandDelta out;
-    QJsonArray creates, patches, states, rules, orders, categories, tags;
+    QJsonArray creates, patches, states, rules, cycles, orders, categories, tags;
     QSet<QString> consumedState;
+    QSet<QString> convertedRules;
+    for (auto it = after.entities.cbegin(); it != after.entities.cend(); ++it) {
+        const auto current = it.value().value("value").toObject();
+        if (current.value("cycle").isObject() && current.value("recurrence_id").isNull()) {
+            const auto previous = before.entities.value(it.key()).value("value").toObject();
+            if (previous.value("recurrence_id").isString())
+                convertedRules.insert(previous.value("recurrence_id").toString());
+        }
+    }
     for (auto it = after.entities.begin(); it != after.entities.end(); ++it) {
         const auto e = it.value(), old = before.entities.value(it.key());
         const auto type = e.value("type").toString(), id = e.value("id").toString();
@@ -150,7 +159,7 @@ inline CommandDelta commandsBetween(const Graph &before, const Graph &after) {
             } else if (was.value("active").toBool() && !v.value("active").toBool()) {
                 auto c = event("recurrence.stop", at);
                 c.insert("rule_id", id);
-                c.insert("remove_future", true);
+                c.insert("remove_future", !convertedRules.contains(id));
                 c.insert("cutoff_on", QDate::currentDate().addDays(1).toString(Qt::ISODate));
                 rules.append(c);
             }
@@ -170,6 +179,12 @@ inline CommandDelta commandsBetween(const Graph &before, const Graph &after) {
                 const bool parentChanged=parent.value("purged_at_utc")!=oldParent.value("purged_at_utc");
                 if(!parentChanged || parent.value("purged_at_utc").isUndefined() || parent.value("purged_at_utc")!=v.value("purged_at_utc")){auto c=event("task.purge",v.value("purged_at_utc").toString());c.insert("task_ids",QJsonArray{id});states.append(c);}
                 continue;
+            }
+            if (v.value("cycle").isObject() && v.value("cycle") != was.value("cycle")) {
+                auto change = event("task.cycle_replace", at);
+                change.insert("task_id", id);
+                change.insert("cycle", v.value("cycle"));
+                cycles.append(change);
             }
             if (old.isEmpty()) {
                 if (!v.value("recurrence_id").isNull()) {
@@ -251,7 +266,7 @@ inline CommandDelta commandsBetween(const Graph &before, const Graph &after) {
                                                ? QStringLiteral("deletion_group_id")
                                                : QStringLiteral("completion_group_id");
                         const auto pp =
-                            action == "restore"
+                            (action == "restore" || action == "reopen")
                                 ? before.entities.value("task:" + parent).value("value").toObject()
                                 : pv;
                         if (!group.isEmpty() && pp.value(field) == group)
@@ -341,7 +356,7 @@ inline CommandDelta commandsBetween(const Graph &before, const Graph &after) {
     }
     QJsonArray result;
     for (const auto &a : {categorySaves, categoryMoves, categoryRemoves, tags, out.commands,
-                          earlyStates, sourcePatches, rules, otherPatches, lateStates, orders})
+                          earlyStates, sourcePatches, rules, otherPatches, lateStates, cycles, orders})
         for (const auto &c : a)
             result.append(c);
     out.commands = withoutCategoryRemovalMoves(result, before, after);

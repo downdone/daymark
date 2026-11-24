@@ -71,6 +71,11 @@ type PatchTask struct {
 	TaskID ID    `json:"task_id"`
 	Patch  Patch `json:"patch"`
 }
+type ReplaceTaskCycle struct {
+	Event
+	TaskID ID        `json:"task_id"`
+	Cycle  TaskCycle `json:"cycle"`
+}
 type ChangeState struct {
 	Event
 	TaskIDs []ID   `json:"task_ids"`

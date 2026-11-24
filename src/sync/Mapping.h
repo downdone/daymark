@@ -1,6 +1,7 @@
 #pragma once
 #include "Schema.h"
 #include "Identity.h"
+#include "CycleMapping.h"
 #include "persistence/TaskRepository.h"
 #include "services/ReminderSchedule.h"
 #include <QSqlQuery>
@@ -60,6 +61,9 @@ class Mapping final {
             return {{}, rows.error};
         for (const auto &r : rows.value)
             rawTasks.insert(r.value("id").toString(), r);
+        const auto cycles = CycleMapping(db).history();
+        if (!cycles.ok())
+            return {{}, cycles.error};
         auto add = [&](const QString &type, const QJsonObject &value, qint64 version) {
             auto e = entity(type, value);
             const auto n = normalize(e);
@@ -71,6 +75,8 @@ class Mapping final {
         for (const auto &t : taskResult.value) {
             const auto raw = rawTasks.value(t.id);
             auto v = taskValue(t, raw);
+            if(t.cycle && t.purgedAtUtc.isEmpty())
+                v.insert("cycle", CycleMapping::encode(*t.cycle,cycles.value.value(t.id)));
             if(!t.purgedAtUtc.isEmpty())v.insert("purged_at_utc",t.purgedAtUtc);
             if (!t.recurrenceId.isEmpty()) {
                 QString occurrence = raw.value("sync_occurrence_key").toString();
@@ -589,6 +595,7 @@ class Mapping final {
         const auto id = v.value("id").toString();
         const auto before = TaskRepository(db).find(id,true);
         const auto r = v.value("reminder").toObject(), s = v.value("schedule").toObject();
+        const auto cycle = v.value("cycle").toObject();
         QString due, anchor, repeat = QStringLiteral("NONE"), zone = QStringLiteral("UTC"), fired;
         int every = 1, alert = -1;
         if (!r.isEmpty()) {
@@ -600,14 +607,22 @@ class Mapping final {
             else {
                 alert = r.value("minutes_before").toInt();
                 QDateTime start;
-                if (s.value("kind") == "ALL_DAY")
+                if (!cycle.isEmpty() && v.value("status") == "COMPLETED") {
+                    const auto next = QDateTime::fromString(cycle.value("next_start_utc").toString(), Qt::ISODateWithMs);
+                    if (next.isValid())
+                        start = s.value("kind") == "ALL_DAY"
+                            ? QDateTime(QDate::fromString(cycle.value("next_on").toString(), Qt::ISODate),
+                                        QTime(9, 0), QTimeZone(cycle.value("zone").toString().toUtf8()),
+                                        QDateTime::TransitionResolution::Reject)
+                            : next;
+                } else if (s.value("kind") == "ALL_DAY")
                     start = QDateTime(
                         QDate::fromString(s.value("start_on").toString(), Qt::ISODate), QTime(9, 0),
                         QTimeZone(zone.toUtf8()), QDateTime::TransitionResolution::Reject);
                 else
                     start = QDateTime::fromString(s.value("start_at_utc").toString(),
                                                   Qt::ISODateWithMs);
-                if (!start.isValid())
+                if (!start.isValid() && (cycle.isEmpty() || v.value("status") != "COMPLETED"))
                     return {failure()};
                 anchor = start.addSecs(-60 * alert).toUTC().toString(Qt::ISODateWithMs);
             }
@@ -615,12 +630,13 @@ class Mapping final {
             if (before.ok()) {
                 auto old = taskValue(before.value, {});
                 if (old.value("reminder") == v.value("reminder") &&
-                    old.value("schedule") == v.value("schedule")) {
+                    old.value("schedule") == v.value("schedule") &&
+                    (cycle.isEmpty() || before.value.reminderAnchorUtc == anchor)) {
                     due = before.value.remindAtUtc;
                     fired = before.value.reminderFiredAtUtc;
                 }
             }
-            if (fired.isEmpty() &&
+            if (!due.isEmpty() && fired.isEmpty() &&
                 QDateTime::fromString(due, Qt::ISODateWithMs) < QDateTime::currentDateTimeUtc()) {
                 if (repeat == "NONE")
                     fired = now();
@@ -699,6 +715,9 @@ class Mapping final {
         auto saved = upsert("tasks", row);
         if (!saved.ok())
             return saved;
+        const auto cycleSaved = CycleMapping(db).apply(id, cycle, before.ok() ? before.value.cycle : std::nullopt);
+        if (!cycleSaved.ok())
+            return cycleSaved;
         QSqlQuery q(db);
         if(v.contains("purged_at_utc")) {
             for(const auto& table:QStringList{"task_edit_history","task_reminder_history","checklist_items","reminder_execution"}) {

@@ -296,6 +296,8 @@ Result<Task> TaskService::editOne(const QString& id, qint64 version, const TaskP
         }
     }
     if(!t.parentTaskId.isEmpty() && t.parentTaskId!=existing.value.parentTaskId) {
+        if(t.cycle && t.cycle->rule.active)
+            return Result<Task>::failure(ErrorCode::ValidationError,QStringLiteral("cycleInvalid"));
         const auto parent=m_repository.find(t.parentTaskId);
         if(!parent.ok() || !parent.value.parentTaskId.isEmpty())return Result<Task>::failure(ErrorCode::ValidationError,QStringLiteral("taskParentDepth"));
         const auto all=m_repository.all();if(!all.ok())return {{},all.error};
@@ -348,6 +350,7 @@ Result<Task> TaskService::editOne(const QString& id, qint64 version, const TaskP
         t.repeatCutoff=qMax(m_clock.localToday().addDays(1),t.startOn.value_or(m_clock.localToday()));
         if(patch.repeat.kind==FieldPatch<RecurrenceRule>::Kind::Clear){if(t.repeat)t.repeat->active=false;}
         else {auto r=patch.repeat.value;
+            if(t.cycle)return Result<Task>::failure(ErrorCode::ValidationError,QStringLiteral("cycleInvalid"));
             if(existing.value.repeat && r.rowVersion!=existing.value.repeat->rowVersion)return Result<Task>::failure(ErrorCode::Conflict,QStringLiteral("conflict"));
             if(!t.startOn)t.startOn=m_clock.localToday();if(t.planningState==QStringLiteral("INBOX"))t.planningState=QStringLiteral("ACTIVE");
             r.anchor=*t.startOn;r.monthDay=r.anchor.day();r.yearMonth=r.anchor.month();r.title=t.title;r.notes=t.notes.isNull()?QStringLiteral(""):t.notes;r.id=QUuid::createUuid().toString(QUuid::WithoutBraces);r.sourceTaskId=t.id;r.rowVersion=1;r.active=true;

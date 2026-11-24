@@ -2,12 +2,10 @@ package httpapi
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -44,13 +42,14 @@ func TestTLSLoginAtomicPushPullAndProtocolErrors(t *testing.T) {
 	server := httptest.NewTLSServer(handler.Router())
 	defer server.Close()
 	client := server.Client()
+	dto := "1"
 	request := func(method, path, token string, body []byte) (int, []byte) {
 		t.Helper()
 		req, e := http.NewRequestWithContext(t.Context(), method, server.URL+path, bytes.NewReader(body))
 		if e != nil {
 			t.Fatal(e)
 		}
-		req.Header.Set("X-Daymark-DTO-Version", "1")
+		req.Header.Set("X-Daymark-DTO-Version", dto)
 		req.Header.Set("Content-Type", "application/json")
 		if token != "" {
 			req.Header.Set("Authorization", "Bearer "+token)
@@ -189,15 +188,44 @@ func TestTLSLoginAtomicPushPullAndProtocolErrors(t *testing.T) {
 		t.Fatal("untrusted TLS certificate accepted")
 	}
 
-	// Seed the compatibility floor that a future DTO 2 mutation commits with its cycle facts.
-	fixture, e := sql.Open("sqlite", filepath.Join(directory, "daymark.sqlite"))
+	cycle := &domain.ReplaceTaskCycle{
+		Event:  domain.Event{Type: domain.TaskCycleCommand, EventAt: "2026-10-28T09:00:00.000Z"},
+		TaskID: id,
+		Cycle: domain.TaskCycle{Frequency: "DAILY", Interval: 1, AnchorOn: "2026-10-28",
+			MonthDay: 28, YearMonth: 10, Zone: "UTC", Active: true, CurrentOn: "2026-10-28",
+			CurrentStart: "2026-10-28T00:00:00.000Z", RuleRevision: 1,
+			Completions: []domain.CycleCompletion{}},
+	}
+	var graph domain.Graph
+	if e = db.View(t.Context(), func(tx ports.Tx) error {
+		var err error
+		graph, err = tx.LoadGraph(t.Context(), scope)
+		return err
+	}); e != nil {
+		t.Fatal(e)
+	}
+	cyclePlan, e := domain.PlanCommands(graph, []domain.Command{cycle}, scope.DatasetID)
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer fixture.Close()
-	if _, e = fixture.ExecContext(t.Context(), "UPDATE datasets SET minimum_dto_version=2 WHERE id=?", scope.DatasetID); e != nil {
-		t.Fatal(e)
+	cyclePayload, _ := json.Marshal(map[string]any{
+		"protocol_version": 1, "data_epoch": scope.DataEpoch, "mutation_id": domain.StableID("tls-cycle"),
+		"installation_id": installation, "client_seq": "2", "preconditions": cyclePlan.Reads, "commands": []domain.Command{cycle},
+	})
+	if status, _ = request("POST", base+"/sync/push", pair.Access, cyclePayload); status != 426 {
+		t.Fatal("DTO 1 accepted a DTO 2 command", status)
 	}
+	if status, _ = request("GET", base+"/sync/pull?cursor="+start, pair.Access, nil); status != 200 {
+		t.Fatal("rejected write must not raise the floor", status)
+	}
+	dto = "2"
+	if status, raw = request("POST", base+"/sync/push", pair.Access, cyclePayload); status != 200 {
+		t.Fatalf("DTO 2 cycle commit: %d %s", status, raw)
+	}
+	if status, raw = request("GET", base+"/sync/pull?cursor="+start, pair.Access, nil); status != 200 || !bytes.Contains(raw, []byte(`"cycle":{"frequency":"DAILY"`)) {
+		t.Fatalf("DTO 2 read missed cycle fact: %d %s", status, raw)
+	}
+	dto = "1"
 	for _, operation := range []struct {
 		method, path string
 		body         []byte

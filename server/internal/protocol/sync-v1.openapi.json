@@ -69,7 +69,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -112,7 +113,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -139,7 +141,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -182,7 +185,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -206,7 +210,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -239,7 +244,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -263,7 +269,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -306,7 +313,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -337,7 +345,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -370,7 +379,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -401,7 +411,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -434,7 +445,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -458,7 +470,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -499,7 +512,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -530,7 +544,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -571,7 +586,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -612,7 +628,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -669,7 +686,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -700,7 +718,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -759,7 +778,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -783,7 +803,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -824,7 +845,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -865,7 +887,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -906,7 +929,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -947,7 +971,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -988,7 +1013,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1029,7 +1055,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1070,7 +1097,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1111,7 +1139,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1160,7 +1189,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1189,7 +1219,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1246,7 +1277,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1277,7 +1309,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1326,7 +1359,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1367,7 +1401,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1416,7 +1451,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1457,7 +1493,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1506,7 +1543,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1547,7 +1585,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1604,7 +1643,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1628,7 +1668,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1677,7 +1718,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1718,7 +1760,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1775,7 +1818,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1806,7 +1850,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -1891,7 +1936,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -1945,7 +1991,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -2012,7 +2059,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -2043,7 +2091,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -2086,7 +2135,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -2117,7 +2167,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -2158,7 +2209,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -2189,7 +2241,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -2230,7 +2283,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -2262,7 +2316,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -2313,7 +2368,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -2344,7 +2400,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -2387,7 +2444,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -2418,7 +2476,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -2461,7 +2520,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -2492,7 +2552,8 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "1"
+                    "1",
+                    "2"
                   ]
                 }
               }
@@ -2533,7 +2594,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -2660,7 +2722,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "1"
+                "1",
+                "2"
               ]
             }
           }
@@ -4157,6 +4220,9 @@
           },
           {
             "$ref": "#/components/schemas/TaskPurge"
+          },
+          {
+            "$ref": "#/components/schemas/TaskCycleReplace"
           }
         ],
         "discriminator": {
@@ -4175,7 +4241,8 @@
             "recurrence.stop": "#/components/schemas/RecurrenceStop",
             "recurrence.materialize": "#/components/schemas/RecurrenceMaterialize",
             "ordering.replace": "#/components/schemas/OrderingReplace",
-            "task.purge": "#/components/schemas/TaskPurge"
+            "task.purge": "#/components/schemas/TaskPurge",
+            "task.cycle_replace": "#/components/schemas/TaskCycleReplace"
           }
         }
       },
@@ -4545,6 +4612,9 @@
           },
           "purged_at_utc": {
             "$ref": "#/components/schemas/Instant"
+          },
+          "cycle": {
+            "$ref": "#/components/schemas/TaskCycle"
           }
         },
         "required": [
@@ -6995,6 +7065,241 @@
           "type",
           "event_at_utc",
           "task_ids"
+        ],
+        "additionalProperties": false
+      },
+      "CycleCompletion": {
+        "type": "object",
+        "properties": {
+          "occurrence_key": {
+            "$ref": "#/components/schemas/Hash"
+          },
+          "rule_revision": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "scheduled_start_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "scheduled_end_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "COMPLETED",
+              "SKIPPED"
+            ]
+          },
+          "performed_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "mutation_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "completion_group_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ID"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ID"
+            },
+            "maxItems": 100000,
+            "uniqueItems": true
+          },
+          "revoked_at_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prior_reminder_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "occurrence_key",
+          "rule_revision",
+          "scheduled_start_utc",
+          "scheduled_end_utc",
+          "outcome",
+          "performed_at_utc",
+          "mutation_id",
+          "completion_group_id",
+          "members",
+          "revoked_at_utc",
+          "prior_reminder_utc"
+        ],
+        "additionalProperties": false
+      },
+      "TaskCycle": {
+        "type": "object",
+        "properties": {
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "DAILY",
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY",
+              "AFTER_DAYS"
+            ]
+          },
+          "interval_n": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36500
+          },
+          "anchor_on": {
+            "$ref": "#/components/schemas/Date"
+          },
+          "weekdays_mask": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "month_day": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 31
+          },
+          "year_month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "until_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "zone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "current_on": {
+            "$ref": "#/components/schemas/Date"
+          },
+          "current_start_utc": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "current_end_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_start_utc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Instant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rule_revision": {
+            "$ref": "#/components/schemas/PositiveCounter"
+          },
+          "completions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CycleCompletion"
+            },
+            "maxItems": 100000
+          }
+        },
+        "required": [
+          "frequency",
+          "interval_n",
+          "anchor_on",
+          "weekdays_mask",
+          "month_day",
+          "year_month",
+          "until_on",
+          "zone",
+          "active",
+          "current_on",
+          "current_start_utc",
+          "current_end_utc",
+          "next_on",
+          "next_start_utc",
+          "rule_revision",
+          "completions"
+        ],
+        "additionalProperties": false
+      },
+      "TaskCycleReplace": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "task.cycle_replace",
+            "type": "string"
+          },
+          "task_id": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "cycle": {
+            "$ref": "#/components/schemas/TaskCycle"
+          },
+          "event_at_utc": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        },
+        "required": [
+          "type",
+          "task_id",
+          "cycle",
+          "event_at_utc"
         ],
         "additionalProperties": false
       }

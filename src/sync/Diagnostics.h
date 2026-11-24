@@ -112,6 +112,7 @@ inline QString clientDiagnostic(const QString& key) {
         {QStringLiteral("syncLegacyUnsupported"),QStringLiteral("C314")},
         {QStringLiteral("syncProfilePath"),QStringLiteral("C407")},
         {QStringLiteral("syncRemoteVersionMissing"),QStringLiteral("C315")},
+        {QStringLiteral("cycleSyncUnsupported"),QStringLiteral("C316")},
         {QStringLiteral("setup.target_unsafe"),QStringLiteral("C801")},
         {QStringLiteral("setup.target_filesystem"),QStringLiteral("C802")},
         {QStringLiteral("setup.source_target_overlap"),QStringLiteral("C803")},

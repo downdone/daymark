@@ -120,7 +120,26 @@ QString Ux37SmokeProbe::advance() {
     if(m_stage==36){auto* date=qobject_cast<QQuickItem*>(find("editStartDate"));auto* time=qobject_cast<QQuickItem*>(find("taskTimeStart"));if(!date || !time || !date->isVisible() || !time->isVisible() || qAbs(date->mapToScene(QPointF()).y()-time->mapToScene(QPointF()).y())>1 || date->mapToScene(QPointF()).x()+date->width()>time->mapToScene(QPointF()).x()+1)return fail("start date and time share a non-overlapping row");if(!capture("compact-time-expanded"))return fail("time capture");m_workspace.setPreference("compact",false);}
     if(m_stage==37){if(!capture("comfortable-inspector"))return fail("comfortable capture");m_workspace.setPreference("compact",true);m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_window->resize(880,580);}
     if(m_stage==38){auto* scroll=qobject_cast<QQuickItem*>(find("taskEditorScroll"));auto* title=qobject_cast<QQuickItem*>(find("editTaskTitle"));title->forceActiveFocus();if(!scroll || scroll->width()<200 || scroll->height()<96 || !capture("inspector-dark-200"))return fail("readable expanded inspector");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1280,800);}
-    if(m_stage==39){auto* choice=qobject_cast<QQuickItem*>(find("taskRepeatChoice"));if(!choice || !choice->isVisible())return fail("repeat property entry");click(choice);key(choice,Qt::Key_End);key(choice,Qt::Key_Return);}
+    if(m_stage==39){
+        auto* choice=qobject_cast<QQuickItem*>(find("taskRepeatChoice"));
+        auto* reminder=qobject_cast<QQuickItem*>(find("taskReminderMode"));
+        if(!choice || !reminder)return fail("repeat and reminder entries");
+        const auto original=m_workspace.syncState();
+        auto account=original;
+        account.insert("mode","ACCOUNT");
+        bool accountPresentation=true;
+        for(const bool authenticated:{false,true}){
+            account.insert("authenticated",authenticated);
+            m_workspace.setSyncState(account);
+            accountPresentation=accountPresentation && choice->isVisible() && choice->isEnabled() &&
+                reminder->isVisible() && reminder->isEnabled();
+            if(!authenticated)accountPresentation=accountPresentation && capture("account-cycle-choice");
+        }
+        m_workspace.setSyncState(original);
+        if(!accountPresentation || !choice->isVisible() || !choice->isEnabled())
+            return fail("account tasks keep repeat and reminders editable, including when signed out");
+        click(choice);key(choice,Qt::Key_End);key(choice,Qt::Key_Return);
+    }
     if(m_stage==40){auto* frequency=qobject_cast<QQuickItem*>(find("taskRepeatFrequency"));if(!find("taskTimingFields")->property("repeatExpanded").toBool() || !frequency || !frequency->isVisible())return fail("custom repeat expands in the same inspector");if(!capture("custom-repeat"))return fail("repeat capture");auto* choice=qobject_cast<QQuickItem*>(find("taskRepeatChoice"));click(choice);key(choice,Qt::Key_Home);key(choice,Qt::Key_Down);key(choice,Qt::Key_Down);key(choice,Qt::Key_Return);}
     if(m_stage==41){QVariant patch;QMetaObject::invokeMethod(find("taskTimingFields"),"detailsPatch",Q_RETURN_ARG(QVariant,patch));if(patch.toMap().value("cycle").toMap().value("frequency")!="WEEKLY")return fail("repeat preset draft");invoke(m_window,"saveEditor");}
     if(m_stage==42){if(m_workspace.task(m_parent).value("cycle").toMap().value("frequency")!="WEEKLY" || !m_workspace.errorText().isEmpty())return fail("repeat preset persists with the same task");invoke(find("taskEditor"),"close");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_window->resize(1120,720);}

@@ -209,8 +209,17 @@ int run() {
         return failed("signed out must make zero network requests", &a);
     const auto accountPath = a.databasePath();
     const QVariantMap cycleRule{{"active",true},{"frequency","DAILY"},{"rowVersion","0"},{"zone","UTC"}};
-    if (a.saveDetails(id, a.task(id).value("rowVersion").toLongLong(), {{"cycle",cycleRule}}))
-        return failed("signed-out account facts still use the v1 capability boundary", &a);
+    const auto cycleTitle=QStringLiteral("账号离线周期验收");
+    if (!a.createTask(cycleTitle) || !idle(a))
+        return failed("create signed-out account cycle fixture", &a);
+    QString cycleId;
+    for (const auto &task : a.tasks()->items())
+        if (task.title==cycleTitle)
+            cycleId=task.id;
+    if (cycleId.isEmpty() ||
+        !a.saveDetails(cycleId, a.task(cycleId).value("rowVersion").toLongLong(), {{"cycle",cycleRule}}) ||
+        !idle(a) || a.task(cycleId).value("cycle").toMap().value("frequency")!="DAILY")
+        return failed("signed-out account cycle persists in the original task", &a);
     a.syncOpenProfile("local");
     if (!until([&] { return a.syncState().value("local_only").toBool() && !a.syncState().value("busy").toBool(); }) ||
         !idle(a) || a.databasePath()==accountPath || !a.task(id).isEmpty() || requests!=count)
@@ -226,8 +235,25 @@ int run() {
     if (!settle(a) || a.databasePath()!=accountPath || !a.task(localId).isEmpty())
         return failed("same account offline queue resume", &a);
     b.syncNow();
-    if (!settle(b) || b.task(id).value("title") != "退出后离线修改")
-        return failed("offline edit replicated", &a, &b);
+    if (!settle(b) || b.task(id).value("title") != "退出后离线修改" ||
+        b.task(cycleId).value("cycle").toMap().value("frequency")!="DAILY")
+        return failed("offline edit and repeat replicated", &a, &b);
+    auto changeRound=[&](TaskWorkspace &device,const QString &action) {
+        const auto task=device.task(cycleId),cycle=task.value("cycle").toMap();
+        return device.changeCycleOccurrence(cycleId,task.value("rowVersion").toLongLong(),
+            cycle.value("rowVersion").toString(),cycle.value("occurrenceKey").toString(),action) && idle(device);
+    };
+    const auto beforeOccurrence=b.task(cycleId).value("cycle").toMap().value("occurrenceKey");
+    if (!changeRound(b,"complete") || !settle(b) || !settle(a) ||
+        a.task(cycleId).value("cycle").toMap().value("nextDate").toString().isEmpty())
+        return failed("same-task completion and next date replicate across devices", &a, &b);
+    a.requestTaskEditHistory(cycleId);
+    if (!until([&]{return !a.historyLoading();}) || a.taskCycleHistory().size()!=1 ||
+        a.taskCycleHistory().first().toMap().value("occurrenceKey")!=beforeOccurrence)
+        return failed("completion history replicated exactly once", &a, &b);
+    if (!changeRound(a,"reopen") || !settle(a) || !settle(b) ||
+        b.task(cycleId).value("taskStatus")!="OPEN")
+        return failed("undo same occurrence from another device", &a, &b);
     a.syncLogout();
     b.syncLogout();
     if (!until([&] {

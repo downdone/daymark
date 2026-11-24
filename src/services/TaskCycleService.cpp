@@ -53,11 +53,15 @@ QString relativeReminder(const Task& task,const QDate& date,const QDateTime& sta
 }
 }
 
-QString TaskCycleService::occurrenceKey(const QString& taskId,const TaskCycle& cycle)
+QString TaskCycleService::occurrenceKey(qint64 ruleRevision,const QString& startUtc)
 {
-    const auto key=taskId+QLatin1Char('/')+QString::number(cycle.ruleRevision)+QLatin1Char('/')+
-        cycle.currentDate.toString(Qt::ISODate)+QLatin1Char('/')+utc(cycle.currentStartUtc);
+    const auto key=QString::number(ruleRevision)+QLatin1Char('/')+startUtc;
     return QString::fromLatin1(QCryptographicHash::hash(key.toUtf8(),QCryptographicHash::Sha256).toHex());
+}
+
+QString TaskCycleService::occurrenceKey(const TaskCycle& cycle)
+{
+    return occurrenceKey(cycle.ruleRevision,utc(cycle.currentStartUtc));
 }
 
 Result<TaskCycle> TaskCycleService::first(const Task& task,RecurrenceRule rule,const QString& zoneId,const QDate& today)
@@ -129,7 +133,7 @@ Result<void> TaskCycleService::complete(const Task& before,const Task& after,con
     if(!before.cycle || !before.cycle->rule.active)return skipped?Result<void>{invalid()}:Result<void>{};
     auto cycle=*before.cycle;const auto now=m_clock.nowUtc();
     const auto nextSlot=next(before,cycle,now);if(!nextSlot.ok())return {nextSlot.error};
-    const auto recorded=m_cycles.record(before,cycle,occurrenceKey(before.id,cycle),
+    const auto recorded=m_cycles.record(before,cycle,occurrenceKey(cycle),
         skipped?QStringLiteral("SKIPPED"):QStringLiteral("COMPLETED"),now,after.completionGroupId,members);
     if(!recorded.ok())return recorded;
     cycle.nextDate=nextSlot.value.first;cycle.nextStartUtc=nextSlot.value.second;
@@ -144,7 +148,13 @@ Result<void> TaskCycleService::undo(const Task& before)
     if(!before.cycle)return {};
     auto cycle=*before.cycle;const auto now=m_clock.nowUtc();
     if(cycle.nextStartUtc.isValid() && cycle.nextStartUtc<=now)return {conflict()};
-    const auto revoked=m_cycles.revoke(before.id,occurrenceKey(before.id,cycle),now);
+    auto revoked=m_cycles.revoke(before.id,occurrenceKey(cycle),now);
+    if(!revoked.ok() && revoked.error.code==ErrorCode::Conflict){
+        const auto legacy=before.id+QLatin1Char('/')+QString::number(cycle.ruleRevision)+QLatin1Char('/')+
+            cycle.currentDate.toString(Qt::ISODate)+QLatin1Char('/')+utc(cycle.currentStartUtc);
+        const auto legacyKey=QString::fromLatin1(QCryptographicHash::hash(legacy.toUtf8(),QCryptographicHash::Sha256).toHex());
+        revoked=m_cycles.revoke(before.id,legacyKey,now);
+    }
     if(!revoked.ok())return !cycle.rule.active && revoked.error.code==ErrorCode::Conflict?Result<void>{}:Result<void>{revoked.error};
     auto task=before;task.remindAtUtc=revoked.value.first;task.reminderAnchorUtc=task.remindAtUtc;task.reminderFiredAtUtc=revoked.value.second;
     const auto saved=m_tasks.update(task,task.rowVersion,false);if(!saved.ok())return {saved.error};

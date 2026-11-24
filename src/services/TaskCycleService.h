@@ -9,7 +9,8 @@ public:
     TaskCycleService(TaskCycleRepository& cycles,TaskRepository& tasks,const IClock& clock)
         :m_cycles(cycles),m_tasks(tasks),m_clock(clock){}
 
-    static QString occurrenceKey(const QString& taskId,const TaskCycle& cycle);
+    static QString occurrenceKey(qint64 ruleRevision,const QString& startUtc);
+    static QString occurrenceKey(const TaskCycle& cycle);
     static Result<TaskCycle> first(const Task& task,RecurrenceRule rule,const QString& zone,const QDate& today);
     static Result<QPair<QDate,QDateTime>> next(const Task& task,const TaskCycle& cycle,const QDateTime& after);
     Result<void> configure(const Task& task,const TaskCycle& proposed);

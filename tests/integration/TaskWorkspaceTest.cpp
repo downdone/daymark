@@ -224,7 +224,12 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(done,5000);QCOMPARE(error,QStringLiteral("cycleSyncUnsupported"));
         QCOMPARE(workspace.task(id).value("cycle").toMap().value("frequency").toString(),QStringLiteral("DAILY"));
         workspace.setSyncState({{"mode",QStringLiteral("ACCOUNT")}});
-        QVERIFY(!workspace.saveDetails(id,workspace.task(id).value("rowVersion").toLongLong(),{{"cycle",rule}}));
+        auto revised=rule;
+        revised.insert("frequency",QStringLiteral("WEEKLY"));
+        revised.insert("rowVersion",workspace.task(id).value("cycle").toMap().value("rowVersion"));
+        QVERIFY(workspace.saveDetails(id,workspace.task(id).value("rowVersion").toLongLong(),{{"cycle",revised}}));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.task(id).value("cycle").toMap().value("frequency").toString(),QStringLiteral("WEEKLY"));
     }
     void widgetArchiveFallbackAndLocalSortKeepOtherTasks()
     {

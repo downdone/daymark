@@ -16,7 +16,6 @@ ColumnLayout {
     property bool compactPresentation:false
     property bool showTimeControls:true
     property bool useTaskCycle:false
-    property bool cycleAvailable:true
     property bool legacyRule:false
     property bool convertLegacy:false
     property var cycleSnapshot:({})
@@ -57,7 +56,7 @@ ColumnLayout {
     function changed(time) {if(loading)return;if(time)timeDirty=true;else repeatDirty=true;draftChanged()}
     function adoptReminderCadence(cadence, every) {
         const index=frequencies.indexOf(cadence)
-        if(index<0 || !cycleAvailable || repeating.checked || legacyRule)return false
+        if(index<0 || repeating.checked || legacyRule)return false
         repeating.checked=true
         frequency.currentIndex=index
         interval.value=every
@@ -168,17 +167,14 @@ ColumnLayout {
         id:repeatSection
         Layout.fillWidth: true;spacing: Theme.fieldGap
         Label {visible:root.legacyRule;Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("旧循环保留已生成任务。转换时将以当前任务继续，其他任务保留。");color:Theme.secondary}
-        Label {visible:root.useTaskCycle && !root.cycleAvailable;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.secondary
-            text:root.workspace.syncState.authenticated ? qsTr("当前账号同步版本暂不支持同一任务周期。")
-                : qsTr("此任务仍在账号资料中。可在账号页打开「仅本机资料」来设置本机任务周期。")}
-        Button {visible:root.legacyRule && !root.convertLegacy;enabled:root.cycleAvailable;text:qsTr("转换为同一任务周期");onClicked:{root.convertLegacy=true;root.changed(false)}}
+        Button {visible:root.legacyRule && !root.convertLegacy;text:qsTr("转换为同一任务周期");onClicked:{root.convertLegacy=true;root.changed(false)}}
         Label {visible:root.useTaskCycle && !!root.cycleSnapshot.nextDate;Layout.fillWidth:true;text:qsTr("下次 %1").arg(root.cycleSnapshot.nextDate || "");color:Theme.secondary}
         SettingSwitch {id: repeating;visible:!root.compactPresentation;objectName: root.objectPrefix+"Repeating";Layout.fillWidth: true;symbol: "reload";text: qsTr("循环生成任务");Accessible.description: qsTr("按周期生成可独立完成的任务");onClicked: root.changed(false)}
         FormRow {contextual:root.compactPresentation;visible:root.compactPresentation;label:root.useTaskCycle?qsTr("周期"):qsTr("重复")
             DS.ComboBox {
                 id:repeatChoice;objectName:root.objectPrefix+"RepeatChoice";Layout.fillWidth:true;Accessible.name:qsTr("任务重复规则")
                 withinHostWindow:root.useTaskCycle
-                enabled:root.cycleAvailable && (!root.legacyRule || root.convertLegacy)
+                enabled:!root.legacyRule || root.convertLegacy
                 separatorBefore:[1,5]
                 model:[qsTr("不重复"),qsTr("每天"),qsTr("每周"),qsTr("每月"),qsTr("每年"),qsTr("自定义…")]
                 Binding {target:repeatChoice;property:"currentIndex";value:repeating.checked ? (interval.value>1 || frequency.currentIndex===4 || (frequency.currentIndex===1 && root.weekdayMask!==0 && root.weekdayMask!==root.defaultRepeatWeekdays) ? 5 : frequency.currentIndex+1) : 0;when:!repeatChoice.popup.visible;restoreMode:Binding.RestoreNone}
@@ -206,7 +202,7 @@ ColumnLayout {
                 visible: frequency.currentIndex===1;Layout.fillWidth: true;spacing: 4
                 Repeater {model: [qsTr("一"),qsTr("二"),qsTr("三"),qsTr("四"),qsTr("五"),qsTr("六"),qsTr("日")];CheckBox {required property int index;required property string modelData;text: modelData;checked: !!(root.weekdayMask & (1<<index));onClicked: {root.weekdayMask=checked ? root.weekdayMask | (1<<index) : root.weekdayMask & ~(1<<index);if(!repeatOptions.visible)root.changed(false)}}}
             }
-            DateField {id: until;parent:root.compactPresentation ? repeatEndHost : repeatControls;objectName: root.objectPrefix+"RepeatUntil";enabled:root.cycleAvailable && (!root.legacyRule || root.convertLegacy);inlineMode:root.inlinePickers && !root.compactPresentation;onInlinePickerRequested:root.pickerRequested(until,"date");Layout.fillWidth: true;workspace: root.workspace;dateLabel: qsTr("结束重复");placeholderText: qsTr("永不");onTextEdited: root.changed(false);onDateChosen: root.changed(false)}
+            DateField {id: until;parent:root.compactPresentation ? repeatEndHost : repeatControls;objectName: root.objectPrefix+"RepeatUntil";enabled:!root.legacyRule || root.convertLegacy;inlineMode:root.inlinePickers && !root.compactPresentation;onInlinePickerRequested:root.pickerRequested(until,"date");Layout.fillWidth: true;workspace: root.workspace;dateLabel: qsTr("结束重复");placeholderText: qsTr("永不");onTextEdited: root.changed(false);onDateChosen: root.changed(false)}
             Label {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary;text:root.workspace.recurrencePreview({anchor:root.startDateValue || root.workspace.dateOffset(0),frequency:root.frequencies[frequency.currentIndex],interval:interval.value,weekdays:root.weekdayMask,end:until.text,sameTask:root.useTaskCycle})}
         }
         Label {visible:root.hadRepeat && repeating.checked && root.repeatDirty;Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary

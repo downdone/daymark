@@ -256,7 +256,7 @@ ApplicationWindow {
                                 Label { objectName: "accountStatus"; Layout.fillWidth: true; text: root.workspace.syncState.status || qsTr("已连接"); wrapMode: Text.Wrap; font.pixelSize: Theme.bodySize }
                             }
                             Label { visible: (root.workspace.syncState.pending_count || 0) > 0; Layout.fillWidth: true; text: qsTr("%1 组修改保留在此设备，等待同步。").arg(root.workspace.syncState.pending_count || 0); wrapMode: Text.Wrap; font.pixelSize: Theme.captionSize; color: Theme.secondary }
-                            Button { objectName: "syncNow"; visible: root.protocolPaused || root.workspace.syncState.phase !== "RECONCILE_REQUIRED"; text: root.protocolPaused ? qsTr("重新检查协议") : root.connecting ? qsTr("正在同步…") : qsTr("立即同步"); enabled: !root.connecting; onClicked: root.workspace.syncNow() }
+                            Button { objectName: "syncNow"; visible: root.protocolPaused || root.workspace.syncState.phase !== "RECONCILE_REQUIRED"; text: root.protocolPaused ? qsTr("重新检查同步") : root.connecting ? qsTr("正在同步…") : qsTr("立即同步"); enabled: !root.connecting; onClicked: root.workspace.syncNow() }
                             Button {
                                 id: rebuildEntry
                                 objectName: "syncRebuild"

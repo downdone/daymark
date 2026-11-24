@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -162,11 +163,12 @@ func (h *Handler) Router() http.Handler {
 			}
 		}
 		if strings.HasPrefix(r.URL.Path, "/v1/") && r.URL.Path != "/v1/capabilities" {
-			if len(r.Header.Values("X-Daymark-DTO-Version")) != 1 || r.Header.Get("X-Daymark-DTO-Version") != "1" {
+			dto := r.Header.Get("X-Daymark-DTO-Version")
+			if len(r.Header.Values("X-Daymark-DTO-Version")) != 1 || (dto != "1" && dto != "2") {
 				h.problem(w, r, domain.Fail("protocol_upgrade_required"))
 				return
 			}
-			w.Header().Set("X-Daymark-DTO-Version", "1")
+			w.Header().Set("X-Daymark-DTO-Version", dto)
 		}
 		if r.Header.Get("Content-Encoding") != "" && r.Header.Get("Content-Encoding") != "identity" {
 			h.problem(w, r, domain.Fail("unsupported_media_type"))
@@ -451,7 +453,11 @@ func (h *Handler) progress(w http.ResponseWriter, r *http.Request, p domain.Prin
 	h.write(w, r, 204, "", nil)
 }
 func (h *Handler) capabilities(w http.ResponseWriter, r *http.Request) {
-	h.write(w, r, 200, "Capabilities", map[string]any{"protocol_version": 1, "server_instance_id": h.Sync.Cursor.ServerID, "supported_protocol_versions": []int{1}, "supported_dto_versions": []int{1}, "dto_version": 1, "command_types": domain.CommandTypes, "max_inline_bytes": h.MaxBody, "max_inline_commands": h.Sync.MaxCommands, "max_inline_entities": h.Sync.MaxInlineEntities, "max_chunk_bytes": 262144, "max_job_bytes": domain.Counter(67108864), "max_batch_reassembly_bytes": domain.Counter(268435456), "metadata": map[string]any{"registration_enabled": h.RegistrationEnabled}, "features": map[string]bool{"staged_payloads": h.Sync.Resolver != nil, "snapshots": h.Transfer != nil, "imports": h.Transfer != nil, "account_export": h.Transfer != nil, "account_deletion": h.Account != nil}})
+	commands := domain.CommandTypes
+	if requestDTOVersion(r) == 2 {
+		commands = append(slices.Clone(commands), domain.TaskCycleCommand)
+	}
+	h.write(w, r, 200, "Capabilities", map[string]any{"protocol_version": 1, "server_instance_id": h.Sync.Cursor.ServerID, "supported_protocol_versions": []int{1}, "supported_dto_versions": []int{1, 2}, "dto_version": 1, "command_types": commands, "max_inline_bytes": h.MaxBody, "max_inline_commands": h.Sync.MaxCommands, "max_inline_entities": h.Sync.MaxInlineEntities, "max_chunk_bytes": 262144, "max_job_bytes": domain.Counter(67108864), "max_batch_reassembly_bytes": domain.Counter(268435456), "metadata": map[string]any{"registration_enabled": h.RegistrationEnabled}, "features": map[string]bool{"staged_payloads": h.Sync.Resolver != nil, "snapshots": h.Transfer != nil, "imports": h.Transfer != nil, "account_export": h.Transfer != nil, "account_deletion": h.Account != nil}})
 }
 func (h *Handler) write(w http.ResponseWriter, r *http.Request, status int, schema string, out any) {
 	if status == 204 {
