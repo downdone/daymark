@@ -78,6 +78,7 @@ jobs:
       - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
         with:
           version: '6.10.3'
+          modules: qtshadertools
           arch: ${{ matrix.arch }}
           cache: true
           aqtversion: '==3.3.0'
@@ -90,37 +91,39 @@ jobs:
           echo "Qt kit: ${{ matrix.arch }} 6.10.3 (open-source/LGPLv3 archives via aqtinstall)"
           echo "Qt install root: ${QT_ROOT_DIR:-$Qt6_DIR}"
           ls "${QT_ROOT_DIR:-$Qt6_DIR}/LICENSES" 2>/dev/null | head -20 || true
-      - name: Configure
-        run: cmake -S . -B build/ci -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-      - name: Build
+      - name: Configure matching release features with example account origin
+        shell: pwsh
         run: |
-          cmake --build build/ci --config Release --target daymark-update-cli daymark-bootstrap daymark-updater --parallel 4
+          New-Item -ItemType Directory -Path build -Force | Out-Null
+          'https://sync.example.invalid' | Set-Content build/diagnostic-official.txt
+          cmake -S . -B build/ci -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DDAYMARK_OFFICIAL_CONFIG=$PWD/build/diagnostic-official.txt" "-DDAYMARK_UPDATE_PUBLIC_KEYS=$PWD/config/update-public-keys.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build build/ci --config Release --parallel 4
-      - name: Test
-        shell: bash
+      - name: Build the fixed 4.0.3 application
+        run: cmake --build build/ci --config Release --target daymark --parallel 4
+      - name: Compare rendering alone, after neighboring tests and without disk cache
+        shell: pwsh
         run: |
-          set +e
-          if [ "$RUNNER_OS" = "Windows" ]; then export QT_QPA_FONTDIR="$WINDIR/Fonts"; fi
-          report="$PWD/build/ctest-report.xml"
-          log="$PWD/build/ctest-console.log"
-          mkdir -p build
-          ctest --test-dir build/ci -C Release --output-on-failure --no-tests=error \
-                --output-junit "$report" >"$log" 2>&1
-          status=$?
-          cat "$log"
-          echo "ctest exit: $status"
-          # The job log needs admin rights on some accounts; annotations are public.
-          python3 scripts/report-ctest-failures.py "$report" "$log" || true
-          exit $status
+          $env:QT_QPA_FONTDIR=Join-Path $env:WINDIR 'Fonts'
+          $env:QML_DISK_CACHE_PATH=Join-Path $env:RUNNER_TEMP 'daymark-shared-qml-cache'
+          ctest --test-dir build/ci -C Release -R '^desktop_rendering$' -V --no-tests=error
+          $alone=$LASTEXITCODE
+          ctest --test-dir build/ci -C Release -R '^(qml_startup|calendar_interaction|desktop_surfaces|brand_rendering|desktop_rendering)$' --output-on-failure --no-tests=error
+          $neighbors=$LASTEXITCODE
+          $cacheFiles=@(Get-ChildItem -LiteralPath $env:QML_DISK_CACHE_PATH -File -Recurse -ErrorAction SilentlyContinue).Count
+          $env:QML_DISABLE_DISK_CACHE='1'
+          ctest --test-dir build/ci -C Release -R '^desktop_rendering$' -V --no-tests=error
+          $withoutCache=$LASTEXITCODE
+          [ordered]@{isolated=$alone;preceded=$neighbors;withoutCache=$withoutCache;diskCacheFiles=$cacheFiles} |
+            ConvertTo-Json | Tee-Object -FilePath build/rendering-diagnosis.json
+          if ($alone -ne 0 -or $neighbors -ne 0 -or $withoutCache -ne 0) { exit 1 }
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ctest-report-${{ matrix.arch }}
           path: |
-            build/ctest-report.xml
-            build/ctest-console.log
+            build/rendering-diagnosis.json
+            build/ci/Testing/Temporary/LastTest.log
           if-no-files-found: warn
       - name: QML lint
         run: cmake --build build/ci --config Release --target daymark_qmllint daymark_style_qmllint
