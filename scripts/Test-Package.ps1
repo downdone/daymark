@@ -28,7 +28,7 @@ try {
     foreach($path in $package.files.Keys) {
         if([IO.Path]::GetFileName($path) -notmatch '^Qt6.*\.dll$'){continue}
         $versionInfo=[Diagnostics.FileVersionInfo]::GetVersionInfo($package.files[$path].FullName)
-        if($versionInfo.FileMajorPart -ne 6 -or $versionInfo.FileMinorPart -ne 10 -or $versionInfo.FileBuildPart -ne 2){throw 'Deployed Qt DLL version differs from 6.10.2.'}
+        if($versionInfo.FileMajorPart -ne 6 -or $versionInfo.FileMinorPart -ne 10 -or $versionInfo.FileBuildPart -ne 3){throw 'Deployed Qt DLL version differs from 6.10.3.'}
     }
     foreach($name in $environmentNames){[Environment]::SetEnvironmentVariable($name,$null,'Process')}
     $env:PATH="$env:SystemRoot/System32;$env:SystemRoot";$env:QT_QPA_PLATFORM='windows'

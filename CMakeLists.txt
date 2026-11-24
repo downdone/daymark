@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 4.0.2 LANGUAGES CXX)
-set(DAYMARK_VERSION "4.0.2")
+project(Daymark VERSION 4.0.3 LANGUAGES CXX)
+set(DAYMARK_VERSION "4.0.3")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,7 +15,7 @@ set(DAYMARK_OFFICIAL_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/config/official-service
 include(cmake/OfficialService.cmake)
 daymark_generate_official_service("${DAYMARK_OFFICIAL_CONFIG}" "${CMAKE_CURRENT_BINARY_DIR}/generated/OfficialServiceConfig.h")
 
-find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Widgets Sql Network)
+find_package(Qt6 6.10.3 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Widgets Sql Network)
 qt_standard_project_setup(REQUIRES 6.10)
 
 set(DAYMARK_STYLE_FILES
@@ -203,7 +203,7 @@ if(BUILD_TESTING)
         -DSOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR} -DTEST_OUTPUT=${CMAKE_CURRENT_BINARY_DIR}/config-tests
         -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/OfficialServiceConfigTest.cmake)
     set_tests_properties(official_service_config PROPERTIES LABELS "package" TIMEOUT 30)
-    find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Test)
+    find_package(Qt6 6.10.3 EXACT REQUIRED COMPONENTS Test)
     qt_add_executable(test_telemetry tests/integration/TelemetryTest.cpp)
     target_link_libraries(test_telemetry PRIVATE daymark_core Qt6::Test)
     qt_add_resources(test_telemetry telemetry_contract PREFIX "/contracts" BASE docs/api FILES docs/api/business-v1.openapi.json)

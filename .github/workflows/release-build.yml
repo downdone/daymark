@@ -93,9 +93,14 @@ jobs:
           if expected and commit != expected:
               raise ValueError("Recovery tag differs from pinned source")
           subprocess.run(["git", "merge-base", "--is-ancestor", commit, "origin/main"], check=True)
+          cmake = git("show", f"{commit}:CMakeLists.txt")
+          qt_versions = set(re.findall(r"find_package\(Qt6 (\d+\.\d+\.\d+) EXACT", cmake))
+          if len(qt_versions) > 1:
+              raise ValueError("Tagged Qt components disagree on the pinned version")
+          qt_version = next(iter(qt_versions), "6.10.2")
           platforms = [
               {"os":"windows-2025" if alternate_windows_runner else "windows-2022",
-               "label":"windows-x64","arch":"win64_msvc2022_64"}]
+               "label":"windows-x64","arch":"win64_msvc2022_64","qt":qt_version}]
           # Retain the already verified historical recovery path below. New
           # releases neither build nor require Linux/macOS archives.
           reuse_run = request.get("reuse_assets_run", "")
@@ -197,7 +202,7 @@ jobs:
       # Open-source Qt (LGPLv3) only; see ADR-027.
       - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
         with:
-          version: '6.10.2'
+          version: ${{ matrix.qt }}
           modules: 'qtshadertools'
           arch: ${{ matrix.arch }}
           cache: true
@@ -287,7 +292,7 @@ jobs:
           try {
             $version = (Select-String -Path CMakeLists.txt -Pattern 'set\(DAYMARK_VERSION "([^"]+)"\)').Matches[0].Groups[1].Value
             $payloadOnly = $env:MANAGED_RELEASE -eq 'true' -and (Test-Path src/update/CMakeLists.txt)
-            & ./build/release-tools/scripts/package-tagged-windows.ps1 -SourceDirectory $PWD -BuildDirectory build/release -OutputDirectory build/artifacts -Version $version -PayloadOnly:$payloadOnly
+            & ./build/release-tools/scripts/package-tagged-windows.ps1 -SourceDirectory $PWD -BuildDirectory build/release -OutputDirectory build/artifacts -Version $version -QtVersion '${{ matrix.qt }}' -PayloadOnly:$payloadOnly
           } catch {
             $message=$_.Exception.Message.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
             Write-Output "::error title=Windows packaging failed::$message"
@@ -351,7 +356,7 @@ jobs:
           cp packaging/THIRD-PARTY-NOTICES.md "$stage/"
           cp LICENSE "$stage/LGPL-3.0.txt"
           cp packaging/licenses/GPL-3.0.txt "$stage/"
-          python3 build/release-tools/scripts/copy-qt-sbom.py --qt-root "$QTDIR" --destination "$stage/qt-sbom" --version 6.10.2
+          python3 build/release-tools/scripts/copy-qt-sbom.py --qt-root "$QTDIR" --destination "$stage/qt-sbom" --version '${{ matrix.qt }}'
           printf '%s\n' 'Daymark - tagged build artifact' ''             'Qt runtime is licensed under LGPLv3 and linked dynamically; see THIRD-PARTY-NOTICES.md.'             'This archive is not code-signed and has not been validated on a clean machine.' > "$stage/README.txt"
           (cd build/stage && tar -czf "../artifacts/$name.tar.gz" "$name")
           (cd build/artifacts && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")

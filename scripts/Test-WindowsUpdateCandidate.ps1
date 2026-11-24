@@ -24,9 +24,13 @@ $native = @($files | Select-Object -Skip 1 | ForEach-Object { Join-Path $root $_
 if ($LASTEXITCODE -ne 0) { throw 'Native updater imports are not OS-only.' }
 $capabilities = & $native[1] capabilities | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or !$capabilities.trust_configured -or $capabilities.runtime -ne 'msvc143' -or $capabilities.qt_required) { throw 'Invalid compiled native capabilities.' }
+$taggedCmake = (& git show "${SourceRevision}:CMakeLists.txt") -join "`n"
+if ($LASTEXITCODE -ne 0 -or $taggedCmake -notmatch 'find_package\(Qt6 (\d+\.\d+\.\d+) EXACT') { throw 'Tagged Qt version missing.' }
+$qtVersion = [version]$Matches[1]
+if ($info.qt -cne $qtVersion.ToString()) { throw 'Candidate Qt version differs from tagged source.' }
 foreach ($file in Get-ChildItem -LiteralPath $payload -Filter 'Qt6*.dll') {
     $versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($file.FullName)
-    if ($versionInfo.FileMajorPart -ne 6 -or $versionInfo.FileMinorPart -ne 10 -or $versionInfo.FileBuildPart -ne 2) { throw 'Qt version is not 6.10.2.' }
+    if ($versionInfo.FileMajorPart -ne $qtVersion.Major -or $versionInfo.FileMinorPart -ne $qtVersion.Minor -or $versionInfo.FileBuildPart -ne $qtVersion.Build) { throw "Qt version is not $qtVersion." }
 }
 if ($info.runtimeMinimum -ne 'bundled' -or $info.runtime -ne 'msvc143' -or !$info.runtimeFiles.Count) { throw 'Bundled MSVC runtime evidence missing.' }
 foreach ($file in $info.runtimeFiles) {
@@ -92,7 +96,7 @@ The update manifest and complete file index are verified using the project's
 embedded ECDSA P-256 public key. After a successful restart and durable RUNNING
 confirmation, only unchanged old program files are cleaned up.
 
-Qt 6.10.2 is dynamically linked under LGPLv3. You may replace Qt libraries with
+Qt $qtVersion is dynamically linked under LGPLv3. You may replace Qt libraries with
 a compatible build; see THIRD-PARTY-NOTICES.md and the included license texts.
 Microsoft's x64 release CRT is bundled for app-local use under its distribution terms.
 

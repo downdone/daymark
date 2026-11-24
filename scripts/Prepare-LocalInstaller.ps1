@@ -49,10 +49,10 @@ foreach($name in @('LICENSE','packaging/THIRD-PARTY-NOTICES.md','packaging/licen
 Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination (Join-Path $payload 'LGPL-3.0.txt')
 New-Item -ItemType Directory -Path (Join-Path $payload 'licenses') | Out-Null
 Copy-Item -LiteralPath (Join-Path $repo 'packaging/licenses/NSIS-COPYING.txt') -Destination (Join-Path $payload 'licenses/NSIS-COPYING.txt')
-& python (Join-Path $PSScriptRoot 'copy-qt-sbom.py') --qt-root $qt --destination (Join-Path $payload 'qt-sbom') --version 6.10.2
+& python (Join-Path $PSScriptRoot 'copy-qt-sbom.py') --qt-root $qt --destination (Join-Path $payload 'qt-sbom') --version 6.10.3
 if($LASTEXITCODE -ne 0){throw 'Qt SBOM failed.'}
 [IO.File]::WriteAllText((Join-Path $payload 'qt.conf'),"[Paths]`nPrefix=.`nPlugins=.`nQmlImports=qml`n",[Text.Encoding]::ASCII)
-$info=[ordered]@{version=$version;sourceRevision=$source;qt='6.10.2';runtime='mingw131';schemaVersion=$schemaVersion;scope='local installer candidate';signed=$false;localPreview=$true;cleanMachine=$false;fullTestGatePassed=$true;ctestCount=$summary.total;ctestReportSha256=(Get-FileHash $CTestReport).Hash.ToLowerInvariant()}
+$info=[ordered]@{version=$version;sourceRevision=$source;qt='6.10.3';runtime='mingw131';schemaVersion=$schemaVersion;scope='local installer candidate';signed=$false;localPreview=$true;cleanMachine=$false;fullTestGatePassed=$true;ctestCount=$summary.total;ctestReportSha256=(Get-FileHash $CTestReport).Hash.ToLowerInvariant()}
 $info | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $payload 'BUILD-INFO.json') -Encoding utf8
 $metadata=Get-Content -LiteralPath (Join-Path $VaultDirectory 'metadata.json') -Raw | ConvertFrom-Json
 & (Join-Path $PSScriptRoot 'Sign-WindowsCandidate.ps1') -Directory $candidate -CertificateThumbprint $metadata.certificateThumbprint -CertificateSha256 $metadata.certificateSha256 -SignTool $SignTool

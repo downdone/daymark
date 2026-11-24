@@ -17,6 +17,7 @@ param(
     [Parameter(Mandatory)][string]$BuildDirectory,
     [Parameter(Mandatory)][string]$OutputDirectory,
     [Parameter(Mandatory)][string]$Version,
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$QtVersion='6.10.3',
     [string]$SourceDirectory=(Split-Path $PSScriptRoot -Parent),
     [switch]$PayloadOnly
 )
@@ -64,7 +65,7 @@ Copy-Item -LiteralPath (Join-Path $SourceDirectory 'packaging/licenses/GPL-3.0.t
 New-Item -ItemType Directory -Path (Join-Path $stage 'licenses') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $SourceDirectory 'packaging/licenses/NSIS-COPYING.txt') -Destination (Join-Path $stage 'licenses/NSIS-COPYING.txt')
 $bomDirectory = Join-Path $stage 'qt-sbom'
-& python (Join-Path $PSScriptRoot 'copy-qt-sbom.py') --qt-root $env:DAYMARK_QT --destination $bomDirectory --version 6.10.2
+& python (Join-Path $PSScriptRoot 'copy-qt-sbom.py') --qt-root $env:DAYMARK_QT --destination $bomDirectory --version $QtVersion
 if ($LASTEXITCODE -ne 0) { throw 'Qt module SBOM validation failed; archive was not created.' }
 @'
 Daymark - tagged build artifact
@@ -81,7 +82,7 @@ $files = Get-ChildItem -LiteralPath $stage -Recurse -File
 [ordered]@{
     version        = $Version
     platform       = 'windows-x64'
-    qt             = '6.10.2'
+    qt             = $QtVersion
     compiler       = 'MSVC 2022'
     runtime        = 'msvc143'
     runtimeMinimum = 'bundled'

@@ -1,7 +1,7 @@
 param([ValidateSet('windows-debug', 'windows-release')][string]$Preset = 'windows-debug')
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
-if (!(Test-Path "$env:DAYMARK_QT/bin/Qt6Core.dll")) { throw 'Set DAYMARK_QT to the Qt 6.10.2 MinGW kit directory.' }
+if (!(Test-Path "$env:DAYMARK_QT/bin/Qt6Core.dll")) { throw 'Set DAYMARK_QT to the Qt 6.10.3 MinGW kit directory.' }
 if (!(Test-Path "$env:DAYMARK_MINGW/bin/g++.exe")) { throw 'Set DAYMARK_MINGW to the matching MinGW directory.' }
 $testExecutable = Join-Path $projectRoot "build/$Preset/bin/test_widget_window.exe"
 $appExecutable = Join-Path $projectRoot "build/$Preset/bin/daymark.exe"

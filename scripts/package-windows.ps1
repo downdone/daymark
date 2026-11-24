@@ -60,7 +60,7 @@ if($LocalPreview){$previewSummary | ConvertTo-Json -Depth 6 | Set-Content -Liter
 $bomDirectory=Join-Path $packageRoot 'qt-sbom'
 New-Item -ItemType Directory -Path $bomDirectory | Out-Null
 foreach($module in @('qtbase','qtdeclarative','qtshadertools','qtsvg')) {
-    $bom=Join-Path $env:DAYMARK_QT "sbom/$module-6.10.2.spdx.json"
+    $bom=Join-Path $env:DAYMARK_QT "sbom/$module-6.10.3.spdx.json"
     if(!(Test-Path -LiteralPath $bom)){throw 'Required Qt SBOM missing; distribution review remains incomplete.'}
     Copy-Item -LiteralPath $bom -Destination $bomDirectory
 }
@@ -71,11 +71,11 @@ Plugins=.
 QmlImports=qml
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot 'qt.conf') -Encoding ascii
 $packageScope=if($LocalPreview){'Windows local preview candidate'}else{'Windows local release candidate'}
-[ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.2';schemaVersion=10;scope=$packageScope;signed=$false;symbolsStripped=$true;localPreview=[bool]$LocalPreview;fullTestGatePassed=$fullTestGatePassed;knownTestFailures=@($knownTestFailures)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
+[ordered]@{version=$Version;sourceRevision=$sourceRevision;qt='6.10.3';schemaVersion=10;scope=$packageScope;signed=$false;symbolsStripped=$true;localPreview=[bool]$LocalPreview;fullTestGatePassed=$fullTestGatePassed;knownTestFailures=@($knownTestFailures)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-INFO.json') -Encoding utf8
 $manifest=Get-ChildItem -LiteralPath $packageRoot -Recurse -File | ForEach-Object {
     [ordered]@{path=[IO.Path]::GetRelativePath($packageRoot,$_.FullName).Replace('\','/');size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
 }
-[ordered]@{version=$Version;platform='windows-x64';scope='local verification';qt='6.10.2';files=@($manifest)} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $packageRoot 'manifest.json') -Encoding utf8
+[ordered]@{version=$Version;platform='windows-x64';scope='local verification';qt='6.10.3';files=@($manifest)} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $packageRoot 'manifest.json') -Encoding utf8
 & (Join-Path $PSScriptRoot 'Test-Package.ps1') -PackageDirectory $packageRoot -ReportParent (Join-Path $projectRoot 'build')
 $finalRevision=(& git -C $projectRoot rev-parse HEAD).Trim()
 $finalChanges=@(& git -C $projectRoot status --porcelain --untracked-files=normal)

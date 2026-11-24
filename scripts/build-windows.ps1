@@ -1,6 +1,6 @@
 param([ValidateSet('windows-debug', 'windows-release')][string]$Preset = 'windows-debug')
 $ErrorActionPreference = 'Stop'
-if (!(Test-Path "$env:DAYMARK_QT/bin/qmake.exe")) { throw 'Set DAYMARK_QT to the Qt 6.10.2 MinGW kit directory.' }
+if (!(Test-Path "$env:DAYMARK_QT/bin/qmake.exe")) { throw 'Set DAYMARK_QT to the Qt 6.10.3 MinGW kit directory.' }
 if (!(Test-Path "$env:DAYMARK_MINGW/bin/g++.exe")) { throw 'Set DAYMARK_MINGW to the matching MinGW 13.1 directory.' }
 Push-Location (Split-Path $PSScriptRoot -Parent)
 try {

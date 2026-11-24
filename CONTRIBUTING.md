@@ -1,12 +1,12 @@
 # 参与 Daymark
 
-感谢参与。本项目使用 C++20 + Qt 6.10.2，以本地优先、离线可用为核心约束。开始前请读 [AGENTS.md](AGENTS.md)、[文档导航](docs/README.md) 与[工程原则](docs/principles.md)。
+感谢参与。本项目使用 C++20 + Qt 6.10.3，以本地优先、离线可用为核心约束。开始前请读 [AGENTS.md](AGENTS.md)、[文档导航](docs/README.md) 与[工程原则](docs/principles.md)。
 
 ## 环境
 
 | 依赖 | 版本 |
 |---|---|
-| Qt | **6.10.2**（CMake 使用 `EXACT` 校验） |
+| Qt | **6.10.3**（CMake 使用 `EXACT` 校验） |
 | CMake | ≥ 3.24 |
 | Ninja | 任意近期版本 |
 | 编译器 | Windows：MinGW GCC 13.1 或 MSVC 2022；macOS：Apple Clang |
@@ -16,11 +16,11 @@
 ## 构建与测试
 
 ```bash
-# Windows：DAYMARK_QT 指向 6.10.2/mingw_64，DAYMARK_MINGW 指向 Tools/mingw1310_64
+# Windows：DAYMARK_QT 指向 6.10.3/mingw_64，DAYMARK_MINGW 指向 Tools/mingw1310_64
 ./scripts/build-windows.ps1
 ./scripts/test-windows.ps1
 
-# macOS：DAYMARK_QT 指向 6.10.2/macos
+# macOS：DAYMARK_QT 指向 6.10.3/macos
 bash scripts/build-macos.sh macos-release
 ```
 

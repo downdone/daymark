@@ -7,7 +7,7 @@
 
 [品牌规范与完整VI](resource/VI/README.md) · [品牌软件接入](docs/design/brand-identity-integration.md)
 
-Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick** + SQLite本地优先存储。
+Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.3 / Qt Quick** + SQLite本地优先存储。
 
 **简约而不简单**：记下事情，明确下一步，安心完成；组织方式可选，数据与恢复可靠。[产品哲学](docs/product-philosophy.md)规定功能与界面的取舍。
 
@@ -26,7 +26,7 @@ Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick
 
 ## 构建
 
-需要 Qt **6.10.2（EXACT）**、CMake ≥ 3.24、Ninja、C++20 编译器：
+需要 Qt **6.10.3（EXACT）**、CMake ≥ 3.24、Ninja、C++20 编译器：
 
 | 平台 | 编译器 | 其它 |
 |---|---|---|
@@ -34,17 +34,17 @@ Windows/macOS 离线任务管理与日历应用：C++20 + **Qt 6.10.2 / Qt Quick
 | macOS | Apple Clang（Xcode） | 最低 macOS 13 |
 | Linux | GCC 13 | X11/OpenGL 运行库；按需手动构建 |
 
-当前产品CI优先Windows，使用开源Qt 6.10.2/MSVC 2022执行完整CTest和QML lint；macOS/Linux本轮按用户指示跳过。
+当前产品CI优先Windows，使用开源Qt 6.10.3/MSVC 2022执行完整CTest和QML lint；macOS/Linux本轮按用户指示跳过。
 
 ```bash
-# Windows（设置 DAYMARK_QT 指向 6.10.2/mingw_64，DAYMARK_MINGW 指向 Tools/mingw1310_64）
+# Windows（设置 DAYMARK_QT 指向 6.10.3/mingw_64，DAYMARK_MINGW 指向 Tools/mingw1310_64）
 ./scripts/build-windows.ps1
 ./scripts/test-windows.ps1
 
-# macOS（设置 DAYMARK_QT 指向 6.10.2/macos）
+# macOS（设置 DAYMARK_QT 指向 6.10.3/macos）
 bash scripts/build-macos.sh macos-release
 
-# Linux（设置 DAYMARK_QT 指向 6.10.2/gcc_64）
+# Linux（设置 DAYMARK_QT 指向 6.10.3/gcc_64）
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel 4
 ctest --test-dir build -C Release --output-on-failure
@@ -62,7 +62,7 @@ Windows 与 macOS 是工程目标，当前优先交付Windows。正式包使用�
 
 本项目源码以 **GNU Lesser General Public License v3.0** 发布，全文见 [LICENSE](LICENSE)。
 
-运行时使用 Qt 6.10.2，按 LGPLv3 动态链接，不修改 Qt 源码、不静态链接。公开分发的二进制须由开源 Qt（LGPLv3）构建，并随包提供 LGPLv3 文本、Qt 版权声明与源码获取方式。详见[第三方说明](docs/third-party-notices.md)与 [ADR-027](docs/ADR/027-open-source-qt-ci.md)。
+运行时使用 Qt 6.10.3，按 LGPLv3 动态链接，不修改 Qt 源码、不静态链接。公开分发的二进制须由开源 Qt（LGPLv3）构建，并随包提供 LGPLv3 文本、Qt 版权声明与源码获取方式。详见[第三方说明](docs/third-party-notices.md)与 [ADR-027](docs/ADR/027-open-source-qt-ci.md)。
 
 ## 参与
 

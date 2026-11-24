@@ -27,7 +27,7 @@ def validate_document(path):
         raise ValueError(f"Invalid SPDX document: {path.name}")
 
 
-def copy_documents(qt_root, destination, version="6.10.2"):
+def copy_documents(qt_root, destination, version="6.10.3"):
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
         raise ValueError("An exact Qt version is required")
     selected = []
@@ -58,7 +58,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--qt-root", type=Path, required=True)
     parser.add_argument("--destination", type=Path, required=True)
-    parser.add_argument("--version", default="6.10.2")
+    parser.add_argument("--version", default="6.10.3")
     args = parser.parse_args()
     try:
         names = copy_documents(args.qt_root, args.destination, args.version)

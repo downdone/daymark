@@ -143,7 +143,13 @@ jobs:
         env:
           UPDATE_SOURCE: ${{ needs.sign.outputs.source }}
           UPDATE_TAG: ${{ inputs.tag }}
-        run: ./scripts/Test-WindowsUpdateCandidate.ps1 -Directory build/candidate -SourceRevision "$env:UPDATE_SOURCE" -Version ($env:UPDATE_TAG.Substring(1))
+        run: |
+          git cat-file -e "$env:UPDATE_SOURCE^{commit}" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            git fetch --no-tags --depth 1 origin "refs/tags/$env:UPDATE_TAG"
+            if ($LASTEXITCODE -ne 0 -or (& git rev-parse 'FETCH_HEAD^{commit}').Trim() -cne $env:UPDATE_SOURCE) { throw 'Cannot load fixed source for runtime validation' }
+          }
+          ./scripts/Test-WindowsUpdateCandidate.ps1 -Directory build/candidate -SourceRevision "$env:UPDATE_SOURCE" -Version ($env:UPDATE_TAG.Substring(1))
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-update-validated

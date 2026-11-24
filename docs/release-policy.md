@@ -29,7 +29,7 @@
 ## 执行顺序
 
 1. 选版本并写发行说明。本地跑受影响测试、元数据和隐私检查。审查明确暂存的文件及作者元数据，提交后创建注释标签。确认远端无同名标签，用 `git push --atomic origin HEAD:refs/heads/main refs/tags/<tag>` 推送。普通提交、PR 和手动 CI 保留现行验证；`main` 推送只有查到当前版本的远端注释标签确实指向同一 SHA，才把完整桌面门禁交给标签候选。查不到时走常规 CI。
-2. 标签并行创建源码快照和构建 Windows 候选。正式 Qt 6.10.2/MSVC2022 候选执行一次完整 CTest 与 QML lint。打包时验证实际拷入的 CRT。托管发布直接复用候选目录，最终便携 ZIP 只在签名阶段生成；单独的 CRT 盘点入口供诊断。账号与同步 CI 保留独立职责。
+2. 标签并行创建源码快照和构建 Windows 候选。候选读取标签 CMake 固定的 Qt 版本（4.0.3 起为 6.10.3），使用 MSVC2022 并执行完整 CTest 与 QML lint。打包时验证实际拷入的 CRT。托管发布直接复用候选目录，最终便携 ZIP 只在签名阶段生成；单独的 CRT 盘点入口供诊断。账号与同步 CI 保留独立职责。
 3. 候选成功后运行一次 `windows-update.yml`，输入 `tag`、`candidate_run` 和上一公开托管版本 `previous_version`（首次托管发行才留空）。受保护环境完成签名、独立部署、安装验收和上传，随后自动并行验证匿名公开安装与升级。公开升级直接运行现有真实 Qt 公网观察器，复用实际公开产物。查看整条工作流与资产摘要后更新 PROGRESS。失败重跑对应 job 或手动复验；同一标签和已公开资产保持不可变。
 
 本地预检（Windows和macOS均使用Python3；macOS通常命令为python3）：
@@ -56,7 +56,7 @@ Actions checkout可能在一次性runner中把事件标签落成本地轻量引�
 
 已发布tag的构建工具失败时，保持tag不变。用户授权的`.github/build-request.json`固定现有tag及40位commit，只有main上该文件的变更触发恢复。工作流从main读取请求与修复后的编排，恢复远端annotated对象、检查SHA相等及origin/main可达性，再让全部构建checkout固定源码SHA，执行该源码的版本/隐私守卫、完整CTest和QML lint。资产仍只能附加到该tag的既有Release，已有同名资产不覆盖；源码Release正文不修改。不把main上的新代码冒充已发布tag，也不把首次失败隐去。
 
-主分支的手动候选可选择 `alternate_windows_runner`，用 Windows Server 2025 复验固定标签在 Windows Server 2022 上的环境相关结果。两者使用相同 Qt 6.10.2 和 VS 2022 工具链、整套测试和独立验收。备用系统只用于手动候选，发布 provenance 记录运行及工具提交。
+主分支的手动候选可选择 `alternate_windows_runner`，用 Windows Server 2025 复验固定标签在 Windows Server 2022 上的环境相关结果。两者使用同一标签指定的 Qt 和 VS 2022 工具链、整套测试和独立验收。备用系统只用于手动候选，发布 provenance 记录运行及工具提交。
 
 跨平台run步骤若使用`$RELEASE_TAG`，必须显式`shell: bash`；PowerShell应使用`$env:RELEASE_TAG`。恢复构建的归档命名/上传统一使用解析后的tag，不使用触发它的main分支名。
 

@@ -10,10 +10,10 @@ foreach($relative in $required) {
     New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force | Out-Null
     [IO.File]::WriteAllText($path,'synthetic fixture; not a runnable Qt deployment')
 }
-$info=[ordered]@{version='1.0.0-rc.2';sourceRevision=('a'*40);qt='6.10.2';schemaVersion=10;scope='Windows local release candidate';signed=$false}
+$info=[ordered]@{version='1.0.0-rc.2';sourceRevision=('a'*40);qt='6.10.3';schemaVersion=10;scope='Windows local release candidate';signed=$false}
 $info | ConvertTo-Json | Set-Content (Join-Path $root 'BUILD-INFO.json')
 $entries=@(Get-ChildItem $root -File -Recurse | ForEach-Object {@{path=[IO.Path]::GetRelativePath($root,$_.FullName).Replace('\','/');size=$_.Length;sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
-$manifest=@{version='1.0.0-rc.2';qt='6.10.2';platform='windows-x64';scope='local verification';files=$entries}
+$manifest=@{version='1.0.0-rc.2';qt='6.10.3';platform='windows-x64';scope='local verification';files=$entries}
 function Write-Manifest {$manifest | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $root 'manifest.json')}
 function Expect-Rejection([string]$Case) {
     $rejected=$false
@@ -46,7 +46,7 @@ try {
     foreach($relative in @('docs/PROGRESS.md','docs/design/draft.md','verification/Test-Package.ps1','qmltooling/qmldbg_debugger.dll','qml/QtQuick/Controls/Material/qmldir','qml/QtQuick/plugins.qmltypes','sqldrivers/qsqlodbc.dll','Qt6QuickControls2Material.dll','extra.txt')) {
         if(Test-DaymarkPayloadPath $relative){throw ('Non-runtime path accepted: '+$relative)}
     }
-    foreach($relative in @('qml/QtQuick/Controls/Basic/qmldir','qml/QtQuick/Dialogs/quickimpl/qml/FileDialog.qml','opengl32sw.dll','D3Dcompiler_47.dll','qt-sbom/qtbase-6.10.2.spdx.json')) {
+    foreach($relative in @('qml/QtQuick/Controls/Basic/qmldir','qml/QtQuick/Dialogs/quickimpl/qml/FileDialog.qml','opengl32sw.dll','D3Dcompiler_47.dll','qt-sbom/qtbase-6.10.3.spdx.json')) {
         if(!(Test-DaymarkPayloadPath $relative)){throw ('Required runtime path rejected: '+$relative)}
     }
     # A self-consistent manifest cannot authorize developer documents.
@@ -103,7 +103,7 @@ try {
     $manifest.files=@($entries)+@(@{path='../outside.txt';size=0;sha256=('0'*64)});Write-Manifest;Expect-Rejection 'path traversal'
     $manifest.files=@($entries);$manifest.version='9.0.0';Write-Manifest;Expect-Rejection 'metadata version conflict';$manifest.version='1.0.0-rc.2'
     Write-Manifest;$text=Get-Content (Join-Path $root 'manifest.json') -Raw
-    [IO.File]::WriteAllText((Join-Path $root 'manifest.json'),$text.Replace('"qt": "6.10.2"','"qt": "6.10.2", "qt": "6.10.2"'));Expect-Rejection 'duplicate JSON key';Write-Manifest
+    [IO.File]::WriteAllText((Join-Path $root 'manifest.json'),$text.Replace('"qt": "6.10.3"','"qt": "6.10.3", "qt": "6.10.3"'));Expect-Rejection 'duplicate JSON key';Write-Manifest
     $sensitive=Join-Path $root 'personal.sqlite';[IO.File]::WriteAllText($sensitive,'synthetic');Expect-Rejection 'database artifact';Remove-Item -LiteralPath $sensitive
     $link=Join-Path $root 'linked';New-Item -ItemType Junction -Path $link -Target (Join-Path $testRoot 'package') | Out-Null
     Expect-Rejection 'reparse point';[IO.Directory]::Delete($link)

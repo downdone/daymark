@@ -27,4 +27,4 @@ Daymark 是离线应用：任务数据只存在本机 SQLite 数据库，无账�
 
 ## 依赖许可
 
-运行时使用 Qt 6.10.2（LGPLv3 动态链接）与 Qt 自带 SQLite 插件。许可与再分发义务见[第三方说明](docs/third-party-notices.md)。
+运行时使用 Qt 6.10.3（LGPLv3 动态链接）与 Qt 自带 SQLite 插件。许可与再分发义务见[第三方说明](docs/third-party-notices.md)。

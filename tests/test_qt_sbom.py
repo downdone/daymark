@@ -22,9 +22,9 @@ class QtSbomTests(unittest.TestCase):
 
     def document(self, module, json_format):
         suffix = ".spdx.json" if json_format else ".spdx"
-        path = self.kit / "sbom" / (module + "-6.10.2" + suffix)
+        path = self.kit / "sbom" / (module + "-6.10.3" + suffix)
         content = (json.dumps({"spdxVersion": "SPDX-2.3", "SPDXID": "SPDXRef-DOCUMENT",
-                               "packages": [{"name": module, "versionInfo": "6.10.2"}]})
+                               "packages": [{"name": module, "versionInfo": "6.10.3"}]})
                    if json_format else "SPDXVersion: SPDX-2.3\nSPDXID: SPDXRef-DOCUMENT\nPackageName: " + module + "\n")
         path.write_bytes(content.encode())
         return path
@@ -69,7 +69,7 @@ class QtSbomTests(unittest.TestCase):
         for module in sbom.MODULES:
             self.document(module, True)
         self.output.mkdir(parents=True)
-        original = self.output / "qtsvg-6.10.2.spdx.json"
+        original = self.output / "qtsvg-6.10.3.spdx.json"
         original.write_bytes(b"existing")
         with self.assertRaisesRegex(ValueError, "overwritten"):
             sbom.copy_documents(self.kit, self.output)

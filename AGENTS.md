@@ -4,7 +4,7 @@
 
 ## 当前工程入口（2026-10-22）
 
-- 用户指定 **Qt 6.10.2**，实现以该版本固定构建；原规格6.8+作为历史最低基线，见 `docs/ADR/007-qt-toolchain.md`。
+- 用户指定 **Qt 6.10.3**，实现以该版本固定构建；原规格6.8+作为历史最低基线，见 `docs/ADR/007-qt-toolchain.md`。
 - 每轮先读 `docs/README.md`、`docs/PROGRESS.md`、`docs/engineering.md`、`docs/principles.md`，再读任务涉及的 `docs/design/` 契约。
 - 执行队列见 `docs/milestones.md`；先设计、单切片实现、构建测试、记录真实证据。当前状态只维护在 PROGRESS。
 - Windows入口：`scripts/build-windows.ps1`、`scripts/test-windows.ps1`、`scripts/run-windows.ps1`；macOS入口：`bash scripts/build-macos.sh`。

@@ -1,5 +1,9 @@
 # Daymark 当前进度
 
+## Qt 6.10.3 与 Windows 4.0.3（2026-11-24）
+
+用户授权升级精确 Qt 版本并发行 4.0.3。以原 Windows Server 2022 / MSVC 运行器和既有桌面渲染断言验证 Qt 6.10.3。专项通过后再发布不可变标签，执行全量 Windows 候选、签名、公开安装及从 4.0.0 在线升级。客户端 schema 12 和现有更新 ABI 保持兼容，服务已部署 DTO 2。
+
 ## 账号任务周期同步（2026-11-24）
 
 FR-015、FR-042，TIME-02／SYNC-07。实现账号任务的同一 ID 周期、跨设备完成记录和兼容门，按[双端契约](design/task-cycle-and-cross-surface-consistency.md#账号周期上线契约)验证。服务端先部署，普通资料仍支持旧客户端。Windows 4.0.2 发布单独验证签名产物及实际在线升级。
@@ -8,6 +12,8 @@ FR-015、FR-042，TIME-02／SYNC-07。实现账号任务的同一 ID 周期、�
 - Windows 任务服务、数据导入、小窗、日历、账号、任务列表通过。工作区测试更新旧版禁用断言后通过，桌面渲染本机通过。正式 Windows 候选及公网更新另由发布流水线验收。
 - 公网服务已切换。原资料加密备份、本地副本 schema 5→6、SQLite 快速检查和外键检查均通过，数据行数、资料游标与版本门对比一致。已从 Windows 严格 HTTPS 复核就绪状态及周期能力，未登录生产账号。原资料保留于服务主机供恢复。
 - [4.0.2 源码](https://github.com/downdone/daymark/releases/tag/v4.0.2)及[账号同步 CI](https://github.com/downdone/daymark/actions/runs/45307761940)通过。[首次 Windows 候选](https://github.com/downdone/daymark/actions/runs/45307762008)完整 CTest 为 53/54，`desktop_rendering` 在 Windows Server 2022 的 MSVC 构建复现 QML 成员数据告警和 SEGFAULT。依据本机 MinGW 及已通过的账号联测，开始尝试不同 Windows 镜像上的同标签完整候选；签名门槛保持原有设置。
+- [Windows Server 2025 复验](https://github.com/downdone/daymark/actions/runs/45311590605)同样为 53/54，在同一渲染场景复现崩溃。4.0.2 保留公开源码，未上传签名程序。
+- 固定 4.0.2 源码的 Windows 本地便携预览 **54/54 PASS（518.03 秒）**，SDK 隔离启动、运行库来源和 ZIP 校验均通过。归档 `Daymark-4.0.2-windows-x64-local-20261124-103014.zip` 的 SHA-256 为 `1601f13384bf1acda55ae992f7c1cb1cd4819c21945da8ab4e5ba2be70d6980a`。
 
 ## 账号任务周期提示与必更策略（2026-11-24）
 

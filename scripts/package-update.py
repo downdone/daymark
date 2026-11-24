@@ -115,7 +115,7 @@ def build(args: argparse.Namespace) -> dict:
             f'{policy}\n'
             'Update integrity and authenticity use the embedded ECDSA P-256 public key. '
             'No root certificate import or TLS verification bypass is required.\n\n'
-            'Qt 6.10.2 and the release runtime are bundled. License texts, module SBOMs and '
+            'Qt and the release runtime are bundled. License texts, module SBOMs and '
             'source access information are inside versions/<version>/. '
             'User task data is not bundled and must not be stored under versions/.\n', encoding='utf-8')
         files = []

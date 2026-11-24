@@ -2,6 +2,8 @@
 
 日期：2026-10-22。状态：已接受，用户明确指定。
 
+2026-11-24 用户批准将精确基线升级到 Qt 6.10.3。Windows Server 2022 和 2025 在 Qt 6.10.2 / MSVC 上均复现桌面渲染崩溃，已有 4.0.2 源码标签保留。Qt 6.10.3 包含上游 QML 内存回收修复。先在原 Windows Server 2022 / MSVC 环境对既有渲染用例专项验证，再执行全量候选、签名、公开安装及在线更新。旧标签按它自己的 Qt 版本构建和校验。参见 [Qt QML 修复](https://github.com/qt/qtdeclarative/commit/f2e838e86cefd91577345e093edbbc0bbd1fd6cd)。
+
 ## 背景和决策
 
 原规格以 Qt 6.8+ 为最低基线。当前实施固定 Qt 6.10.2，CMake 使用 EXACT 校验；不是放宽产品行为。Windows 使用实际安装的 MinGW 64 位 Qt 与 GCC 13.1 配套，不混用 PATH 中其他 GCC 或 MSVC。macOS 使用同版本 macOS Kit 与 Apple Clang，待真实环境验证。
