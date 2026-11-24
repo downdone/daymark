@@ -35,7 +35,15 @@ ColumnLayout {
     implicitWidth: 640
     implicitHeight: 480
     property bool smallSurface: false
-    readonly property CalendarMetrics metrics: CalendarMetrics {smallSurface: root.smallSurface}
+    CalendarMetrics {
+        id: timelineMetrics
+        smallSurface: root.smallSurface
+    }
+    // Descendant bindings can be evaluated as the loader retires the metrics.
+    readonly property int captionSize: timelineMetrics?.captionSize ?? Theme.captionSize
+    readonly property int footnoteSize: timelineMetrics?.footnoteSize ?? Theme.footnoteSize
+    readonly property int headingSize: timelineMetrics?.headingSize ?? Theme.headingSize
+    readonly property int bodySize: timelineMetrics?.bodySize ?? Theme.bodySize
     required property TaskWorkspace workspace
     property var timeline: ({
             days: [],
@@ -54,11 +62,11 @@ ColumnLayout {
     property var activeCluster: null
     readonly property int maximumLanes: Math.max(2, Math.floor(grid.dayWidth / (80 * Theme.scale)))
     readonly property bool dragging: !!preview.taskId
-    readonly property real minuteHeight: Math.max(root.smallSurface ? 0.65 : 0.8, root.metrics.captionSize / (root.smallSurface ? 17 : 15))
+    readonly property real minuteHeight: Math.max(root.smallSurface ? 0.65 : 0.8, root.captionSize / (root.smallSurface ? 17 : 15))
     property real previousMinuteHeight: 0
     Component.onCompleted: previousMinuteHeight=minuteHeight
     onMinuteHeightChanged: {
-        const flick=scroll.contentItem as Flickable
+        const flick=scroll?.contentItem as Flickable
         const minute=flick && previousMinuteHeight>0 ? flick.contentY/previousMinuteHeight : -1
         previousMinuteHeight=minuteHeight
         if(minute>=0)Qt.callLater(function(){if(!root || !scroll)return;const view=scroll.contentItem as Flickable;if(view)view.contentY=Math.max(0,Math.min(minute*root.minuteHeight,Math.max(0,view.contentHeight-view.height)))})
@@ -149,14 +157,14 @@ ColumnLayout {
         spacing: 0
         Label {
             Layout.preferredWidth: root.gutter
-            text: root.gutter<4*root.metrics.captionSize ? qsTr("日期") : qsTr("日期任务")
+            text: root.gutter<4*root.captionSize ? qsTr("日期") : qsTr("日期任务")
             elide: Text.ElideRight
             Accessible.name: qsTr("仅设置日期的任务")
             ToolTip.visible: !Theme.hintsBlocked && dateTasksHover.hovered && text!==qsTr("日期任务");ToolTip.text: qsTr("只设置日期、未指定具体时刻的任务")
             ToolTip.delay: Theme.hintDelay
             ToolTip.timeout: Theme.hintTimeout
             HoverHandler {id: dateTasksHover}
-            font.pixelSize: root.metrics.captionSize
+            font.pixelSize: root.captionSize
             color: Theme.secondary
         }
         Repeater {
@@ -173,7 +181,7 @@ ColumnLayout {
                     Layout.fillWidth: true;Layout.minimumWidth: 0
                     text: dayHeader.width<80*Theme.scale ? dayHeader.modelData.title.slice(-1) : dayHeader.modelData.title.split(" ").pop()
                     horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: root.metrics.captionSize;color: Theme.secondary;elide: Text.ElideRight
+                    font.pixelSize: root.captionSize;color: Theme.secondary;elide: Text.ElideRight
                 }
                 Button {
                     Layout.fillWidth: true
@@ -181,7 +189,7 @@ ColumnLayout {
                     objectName: root.objectPrefix+"calendarDayHeader-"+dayHeader.modelData.date
                     text: root.timeline.days.length>1 ? Number(dayHeader.modelData.date.slice(8)) : dayHeader.modelData.title
                     horizontalPadding: root.timeline.days.length>1 ? 0 : 8
-                    font.pixelSize: root.timeline.days.length>1 ? root.metrics.headingSize : root.metrics.bodySize
+                    font.pixelSize: root.timeline.days.length>1 ? root.headingSize : root.bodySize
                     Accessible.name: dayHeader.modelData.title
                     flat: true
                     palette.buttonText: dayHeader.modelData.today ? Theme.danger : Theme.text
@@ -197,9 +205,9 @@ ColumnLayout {
                         objectName:root.objectPrefix+"calendarDateTask-"+(modelData.taskId || modelData.eventId)
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
-                        implicitHeight: Math.max(24, root.metrics.captionSize + 8)
+                        implicitHeight: Math.max(24, root.captionSize + 8)
                         padding: 3
-                        font.pixelSize: root.metrics.captionSize
+                        font.pixelSize: root.captionSize
                         text: modelData.title
                         Accessible.name: modelData.title + qsTr("，日期任务")
                         background: Rectangle {
@@ -232,7 +240,7 @@ ColumnLayout {
     }
     RowLayout {
         visible: !!root.dateTaskToSchedule;Layout.fillWidth:true
-        Label {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:root.metrics.captionSize;color:Theme.accent;text:root.dateTaskToSchedule ? qsTr("为“%1”拖选时段").arg(root.dateTaskToSchedule.title) : ""}
+        Label {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:root.captionSize;color:Theme.accent;text:root.dateTaskToSchedule ? qsTr("为“%1”拖选时段").arg(root.dateTaskToSchedule.title) : ""}
         ActionButton {objectName:root.objectPrefix+"dateTaskChooseRange";symbol:"clock";text:qsTr("选择时段…");onClicked:root.rangePickerRequested(root.dateTaskToSchedule,this)}
         WidgetAction {symbol:"close";description:qsTr("取消安排此任务");onClicked:root.selectionCleared()}
     }
@@ -330,7 +338,7 @@ ColumnLayout {
                         width: root.gutter - 6
                         horizontalAlignment: Text.AlignRight
                         text: parent.modelData.label
-                        font.pixelSize: root.metrics.footnoteSize
+                        font.pixelSize: root.footnoteSize
                         color: Theme.secondary
                         y: -implicitHeight / 2
                         elide: Text.ElideRight
@@ -382,7 +390,7 @@ ColumnLayout {
                         Label {
                             width: parent.width
                             text: block.modelData.title
-                            font.pixelSize: root.metrics.captionSize
+                            font.pixelSize: root.captionSize
                             font.weight: Font.DemiBold
                             font.strikeout: block.modelData.taskStatus === "COMPLETED"
                             color: root.selectedId===block.modelData.taskId ? Theme.accentText : Theme.primaryInk
@@ -391,7 +399,7 @@ ColumnLayout {
                         Label {
                             width: parent.width
                             text: block.modelData.shortTimeLabel
-                            font.pixelSize: root.metrics.footnoteSize
+                            font.pixelSize: root.footnoteSize
                             color: root.selectedId===block.modelData.taskId ? Theme.accentText : Theme.primaryInk
                             elide: Text.ElideRight
                             visible: block.height > 40
@@ -483,7 +491,7 @@ ColumnLayout {
                 width:grid.dayWidth-4
                 height:Math.max(32,(root.creationSelection.duration || 60)*root.minuteHeight)
                 color:Theme.selected;border.color:Theme.accent;radius:Theme.eventRadius
-                Label {anchors.fill:parent;anchors.margins:6;text:root.creationLabel;color:Theme.accent;font.pixelSize:root.metrics.captionSize;elide:Text.ElideRight}
+                Label {anchors.fill:parent;anchors.margins:6;text:root.creationLabel;color:Theme.accent;font.pixelSize:root.captionSize;elide:Text.ElideRight}
             }
             Rectangle {
                 visible: root.preview.edge === "create" && !!root.preview.moved
@@ -511,7 +519,7 @@ ColumnLayout {
                         color: Theme.content
                         border.color: Theme.accent
                     }
-                    font.pixelSize: root.metrics.captionSize
+                    font.pixelSize: root.captionSize
                 }
             }
         }

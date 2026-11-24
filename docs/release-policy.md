@@ -58,7 +58,7 @@ Actions checkout可能在一次性runner中把事件标签落成本地轻量引�
 
 主分支的手动候选可选择 `alternate_windows_runner`，用 Windows Server 2025 复验固定标签在 Windows Server 2022 上的环境相关结果。两者使用同一标签指定的 Qt 和 VS 2022 工具链、整套测试和独立验收。备用系统只用于手动候选，发布 provenance 记录运行及工具提交。
 
-已确认故障与 QML 预编译或缓存路径相关时，手动候选可选择 `qml_from_source`。该选项让 Daymark 从应用内置的 QML 资源运行时加载。候选先执行桌面渲染用例，再对同一个构建执行完整测试、QML lint 和独立验收，发布 provenance 记录 `qml_load_mode`。
+Windows 4.0.4 起，固定 Qt 6.10.3 的构建默认从应用内置 QML 资源运行时加载。手动候选可通过 `qml_from_source` 对历史标签使用同一配置。使用此模式的候选先验证桌面渲染、日历生命周期和账号界面，再对同一个构建执行完整测试、QML lint 和独立验收。发布 provenance 取实际 CMake 配置记录 `qml_load_mode`。
 
 跨平台run步骤若使用`$RELEASE_TAG`，必须显式`shell: bash`；PowerShell应使用`$env:RELEASE_TAG`。恢复构建的归档命名/上传统一使用解析后的tag，不使用触发它的main分支名。
 

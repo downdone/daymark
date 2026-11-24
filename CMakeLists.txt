@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 4.0.3 LANGUAGES CXX)
-set(DAYMARK_VERSION "4.0.3")
+project(Daymark VERSION 4.0.4 LANGUAGES CXX)
+set(DAYMARK_VERSION "4.0.4")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,6 +17,9 @@ daymark_generate_official_service("${DAYMARK_OFFICIAL_CONFIG}" "${CMAKE_CURRENT_
 
 find_package(Qt6 6.10.3 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Widgets Sql Network)
 qt_standard_project_setup(REQUIRES 6.10)
+# The Windows Qt 6.10.3 build reproduced member storage errors during QML
+# teardown with embedded compilation units. Keep the QML in the resources.
+option(QT_QML_NO_CACHEGEN "Load Daymark QML from resources at runtime" ${WIN32})
 
 set(DAYMARK_STYLE_FILES
     src/ui/style/Label.qml src/ui/style/Glyph.qml src/ui/style/IconPaths.qml
@@ -357,6 +360,9 @@ if(BUILD_TESTING)
     set_tests_properties(brand_rendering PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DAYMARK_SMOKE_UI_SLICE=brand" TIMEOUT 30 LABELS "ui" RESOURCE_LOCK daymark_ui)
     add_test(NAME account_access COMMAND daymark --desktop-surfaces-smoke)
     set_tests_properties(account_access PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DAYMARK_SMOKE_UI_SLICE=registration" TIMEOUT 30)
+    # A warning from deferred destruction can arrive after the scenario passed.
+    set_tests_properties(account_access calendar_lifecycle desktop_rendering PROPERTIES
+        FAIL_REGULAR_EXPRESSION "QML .*Cannot find member data;CalendarTimeline[.]qml:[0-9]+: TypeError;Scroll(Physics|View)[.]qml:[0-9]+: TypeError")
     set_tests_properties(desktop_surfaces PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     add_test(NAME task_list_interaction COMMAND daymark --task-list-smoke)
     set_tests_properties(task_list_interaction PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)

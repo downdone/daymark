@@ -108,7 +108,7 @@ jobs:
           platforms = [
               {"os":"windows-2025" if alternate_windows_runner else "windows-2022",
                "label":"windows-x64","arch":"win64_msvc2022_64","qt":qt_version,
-               "qml_load_mode":"source" if qml_from_source else "compiled"}]
+               "qml_from_source":qml_from_source}]
           # Retain the already verified historical recovery path below. New
           # releases neither build nor require Linux/macOS archives.
           reuse_run = request.get("reuse_assets_run", "")
@@ -173,7 +173,6 @@ jobs:
     environment: windows-update-release
     env:
       RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
-      QML_LOAD_MODE: ${{ matrix.qml_load_mode }}
     name: ${{ matrix.label }}
     strategy:
       fail-fast: false
@@ -218,6 +217,7 @@ jobs:
           aqtversion: '==3.3.0'
           install-deps: false
       - name: Configure
+        id: configure
         shell: pwsh
         env:
           UPDATE_PUBLIC_KEYS: ${{ vars.DAYMARK_UPDATE_PUBLIC_KEYS_JSON }}
@@ -225,7 +225,7 @@ jobs:
           MANAGED_RELEASE: ${{ vars.DAYMARK_MANAGED_WINDOWS_RELEASE }}
         run: |
           $options = @('-S','.','-B','build/release','-DCMAKE_BUILD_TYPE=Release','-DBUILD_TESTING=ON')
-          if ($env:QML_LOAD_MODE -eq 'source') {
+          if ('${{ matrix.qml_from_source }}' -eq 'true') {
             $options += '-DQT_QML_NO_CACHEGEN=ON'
           }
           if ($env:UPDATE_PUBLIC_KEYS -and (Test-Path src/update/CMakeLists.txt)) {
@@ -242,6 +242,9 @@ jobs:
           }
           & cmake @options
           if ($LASTEXITCODE -ne 0) { throw 'CMake configure failed' }
+          $sourceMode = Select-String -LiteralPath build/release/CMakeCache.txt -Pattern '^QT_QML_NO_CACHEGEN:[^=]+=(ON|TRUE|1)$' -Quiet
+          $mode = if ($sourceMode) { 'source' } else { 'compiled' }
+          "qml_load_mode=$mode" >> $env:GITHUB_OUTPUT
       - name: Build
         shell: pwsh
         run: |
@@ -250,12 +253,12 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           cmake --build build/release --config Release --parallel 4
-      - name: Check rendering in the release configuration
-        if: matrix.qml_load_mode == 'source'
+      - name: Check QML lifecycle in the release configuration
+        if: steps.configure.outputs.qml_load_mode == 'source'
         shell: bash
         run: |
           export QT_QPA_FONTDIR="$WINDIR/Fonts"
-          ctest --test-dir build/release -C Release -R '^desktop_rendering$' --output-on-failure --no-tests=error
+          ctest --test-dir build/release -C Release -R '^(desktop_rendering|account_access|calendar_lifecycle)$' --output-on-failure --no-tests=error
       - name: Test
         shell: bash
         run: |
@@ -421,7 +424,7 @@ jobs:
           $info | ConvertTo-Json -Depth 7 | Set-Content $infoPath -Encoding utf8
           [ordered]@{format=1;repository=$env:GITHUB_REPOSITORY;source_revision=$env:BUILD_SOURCE;tag=$env:BUILD_TAG;
             tooling_revision=$env:GITHUB_SHA;run_id=$env:GITHUB_RUN_ID;event=$env:GITHUB_EVENT_NAME;
-            trigger_ref=$env:GITHUB_REF;official_service_configured=$true;qml_load_mode=$env:QML_LOAD_MODE} | ConvertTo-Json |
+            trigger_ref=$env:GITHUB_REF;official_service_configured=$true;qml_load_mode='${{ steps.configure.outputs.qml_load_mode }}'} | ConvertTo-Json |
             Set-Content -LiteralPath build/update-input/payload/BUILD-PROVENANCE.json -Encoding utf8
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: runner.os == 'Windows' && hashFiles('src/update/CMakeLists.txt') != ''
