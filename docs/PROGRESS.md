@@ -7,6 +7,7 @@ FR-015、FR-042，TIME-02／SYNC-07。实现账号任务的同一 ID 周期、�
 - Go 全套通过（含真实 TLS 的 DTO 1/2 读写门）。Windows Qt 6.10.2 Release 构建通过，临时 Go/TLS 和两个独立 Windows 工作区全流程通过，覆盖退出后设置周期、重新登录、跨设备完成和撤销、单条完成记录、旧规则及已有同步回归。
 - Windows 任务服务、数据导入、小窗、日历、账号、任务列表通过。工作区测试更新旧版禁用断言后通过，桌面渲染本机通过。正式 Windows 候选及公网更新另由发布流水线验收。
 - 公网服务已切换。原资料加密备份、本地副本 schema 5→6、SQLite 快速检查和外键检查均通过，数据行数、资料游标与版本门对比一致。已从 Windows 严格 HTTPS 复核就绪状态及周期能力，未登录生产账号。原资料保留于服务主机供恢复。
+- [4.0.2 源码](https://github.com/downdone/daymark/releases/tag/v4.0.2)及[账号同步 CI](https://github.com/downdone/daymark/actions/runs/45307761940)通过。[首次 Windows 候选](https://github.com/downdone/daymark/actions/runs/45307762008)完整 CTest 为 53/54，`desktop_rendering` 在 Windows Server 2022 的 MSVC 构建复现 QML 成员数据告警和 SEGFAULT。依据本机 MinGW 及已通过的账号联测，开始尝试不同 Windows 镜像上的同标签完整候选；签名门槛保持原有设置。
 
 ## 账号任务周期提示与必更策略（2026-11-24）
 
