@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 4.0.4 LANGUAGES CXX)
-set(DAYMARK_VERSION "4.0.4")
+project(Daymark VERSION 4.0.5 LANGUAGES CXX)
+set(DAYMARK_VERSION "4.0.5")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -146,6 +146,7 @@ qt_add_qml_module(daymark
     VERSION 1.0
     QML_FILES src/ui/DaymarkTitleBar.qml src/ui/AccountWindow.qml src/ui/TaskSelection.qml src/ui/BrandWordmark.qml src/ui/BrandMark.qml src/ui/BrandLockup.qml src/ui/SettingsAboutPage.qml src/ui/TaskRowSummary.qml src/ui/TagMenu.qml src/ui/WindowResizeHandles.qml src/ui/TimeRangePicker.qml src/ui/PopoverSurface.qml
     QML_FILES src/ui/FormRow.qml src/ui/CatalogColors.qml src/ui/InlineClock.qml src/ui/CatalogPicker.qml src/ui/CatalogEditPopup.qml src/ui/CatalogCreateDialog.qml src/ui/DiscardChangesDialog.qml src/ui/CalendarPicker.qml src/ui/TimeField.qml src/ui/ReminderField.qml src/ui/TaskQuickEditor.qml src/ui/SettingSwitch.qml src/ui/DetailSection.qml src/ui/IconToolButton.qml src/ui/ActionButton.qml src/ui/AppIcon.qml src/ui/ActionBar.qml src/ui/SectionLabel.qml src/ui/StyleGallery.qml src/ui/WidgetAction.qml src/ui/WidgetTaskRow.qml src/ui/DateField.qml src/ui/FormGroup.qml src/ui/SegmentedPicker.qml src/ui/EmptyState.qml src/ui/SettingsDialog.qml src/ui/SettingsGroup.qml src/ui/SettingsRow.qml src/ui/SettingsToggle.qml src/ui/SettingsLink.qml src/ui/InspectorTabs.qml src/ui/ReminderPage.qml src/ui/DesktopCalendarWindow.qml
+    QML_FILES src/ui/CategoryNameLabel.qml
     QML_FILES src/ui/WidgetCategoryDropTarget.qml src/ui/WidgetActivityCapture.qml src/ui/WidgetTaskInspector.qml src/ui/WidgetCategoryRail.qml src/ui/ReminderInbox.qml src/ui/WidgetMoveHandle.qml src/ui/CalendarMetrics.qml src/ui/CalendarMonthStream.qml src/ui/CalendarMonthGrid.qml src/ui/ListViewportState.qml src/ui/CalendarDateMoveDialog.qml src/ui/CalendarCreatePopup.qml src/ui/UnscheduledTasksPanel.qml src/ui/TaskDragGesture.qml src/ui/TaskDragPayload.qml src/ui/TaskInspectorPicker.qml src/ui/CalendarTimeline.qml src/ui/YearCalendar.qml src/ui/TaskEditorSession.qml src/ui/TaskSnapshotObserver.qml src/ui/TaskTemporalFields.qml src/ui/Main.qml src/ui/WidgetWindow.qml src/ui/OrganizationPage.qml src/ui/TaskDetailsFields.qml src/ui/InputTimePreview.qml src/ui/TaskTimingFields.qml src/ui/CalendarPanel.qml src/ui/DataToolsDialog.qml src/ui/Theme.qml src/ui/NavSection.qml src/ui/NavRow.qml src/ui/SmartViewTile.qml src/ui/TaskContextMenu.qml src/ui/TaskRow.qml src/ui/DatePickerDialog.qml src/ui/BatchTaskDialog.qml
     SOURCES src/platform/common/WindowChrome.h src/platform/common/WindowChrome.cpp ${DAYMARK_WINDOW_SOURCES} ${DAYMARK_WORKSPACE_SOURCES} src/platform/common/StartupController.h src/platform/common/StartupController.cpp
         src/platform/common/SingleInstance.h src/platform/common/SingleInstance.cpp
@@ -360,10 +361,12 @@ if(BUILD_TESTING)
     set_tests_properties(brand_rendering PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DAYMARK_SMOKE_UI_SLICE=brand" TIMEOUT 30 LABELS "ui" RESOURCE_LOCK daymark_ui)
     add_test(NAME account_access COMMAND daymark --desktop-surfaces-smoke)
     set_tests_properties(account_access PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DAYMARK_SMOKE_UI_SLICE=registration" TIMEOUT 30)
+    add_test(NAME category_navigation COMMAND daymark --desktop-surfaces-smoke)
+    set_tests_properties(category_navigation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DAYMARK_SMOKE_UI_SLICE=categories" TIMEOUT 30 LABELS "ui" RESOURCE_LOCK daymark_ui)
     # A warning from deferred destruction can arrive after the scenario passed.
     set_tests_properties(account_access calendar_lifecycle desktop_rendering PROPERTIES
         FAIL_REGULAR_EXPRESSION "QML .*Cannot find member data;CalendarTimeline[.]qml:[0-9]+: TypeError;Scroll(Physics|View)[.]qml:[0-9]+: TypeError")
-    set_tests_properties(desktop_surfaces PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+    set_tests_properties(desktop_surfaces PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 105)
     add_test(NAME task_list_interaction COMMAND daymark --task-list-smoke)
     set_tests_properties(task_list_interaction PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     set_tests_properties(continuous_calendar PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)

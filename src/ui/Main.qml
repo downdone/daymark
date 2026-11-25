@@ -1045,15 +1045,14 @@ ApplicationWindow {
                                 branchExpanded: mainWindow.collapsedCategoryIds.indexOf(modelData.id)<0
                                 ancestorSelected: !mainWindow.toolPageVisible && mainWindow.taskWorkspace.categoryTree.some(item=>item.parentId===modelData.id && mainWindow.taskWorkspace.view===item.kind+":"+item.id)
                                 detailsText: modelData.path
-                                suppressCatalogTooltips: mainWindow.catalogDragActive
+                                suppressCatalogTooltips: mainWindow.catalogDragActive || !!(navigationScroll.contentItem as Flickable)?.moving
                                 showCatalogActions: true
                                 onExpansionRequested: function(value){mainWindow.collapsedCategoryIds=value ? mainWindow.collapsedCategoryIds.filter(id=>id!==modelData.id) : mainWindow.collapsedCategoryIds.concat([modelData.id])}
                                 onOptionsRequested: function(x,y){mainWindow.showCatalogOptions(modelData,categoryNavRow,x,y)}
                                 Layout.fillWidth: true
                                 text: modelData.title
                                 iconBadge: false
-                                symbol: "folder"
-                                symbolColor: Theme.catalogColor(modelData.colorKey)
+                                categoryMarker: modelData.colorKey && modelData.colorKey !== "neutral" ? Theme.catalogColor(modelData.colorKey) : "transparent"
                                 selected: !mainWindow.toolPageVisible && mainWindow.taskWorkspace.scope === modelData.kind+":"+modelData.id
                                 acceptsTaskDrop: modelData.kind === "project" || modelData.kind === "area"
                                 onTaskDropped: function(taskId,version) {mainWindow.assignTask(taskId,modelData.kind,modelData.id)}

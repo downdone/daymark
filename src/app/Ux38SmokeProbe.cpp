@@ -109,7 +109,7 @@ QString Ux38SmokeProbe::advance() {
 
     // The runtime may call again while finishing pending delegate incubation.
     // A completed fixture must not re-run its final actions or assertions.
-    if(m_stage==242 || m_stage==257 || m_stage==286)return "DONE";
+    if(m_stage==242 || m_stage==257 || m_stage==291)return "DONE";
     auto hint=[](QObject* target){QVariant result;if(target)QMetaObject::invokeMethod(target,"hintForVerification",Q_RETURN_ARG(QVariant,result));return result.toMap();};
     auto checkSidebar=[&]{
         if(m_main->property("menuBar").value<QObject*>())return false;
@@ -1303,7 +1303,55 @@ QString Ux38SmokeProbe::advanceCategories()
     }
     if(m_stage==285){
         if(m_widget->property("categoryPickerOpen").toBool() || !find(m_widget,"widgetCategoryButton")->property("visible").toBool())return fail(QStringLiteral("hide favorites keeps category entry reachable: picker=%1 entry=%2 form=%3 focus=%4").arg(m_widget->property("categoryPickerOpen").toBool()).arg(find(m_widget,"widgetCategoryButton")->property("visible").toBool()).arg(m_controller.effectiveForm()).arg(m_widget->activeFocusItem()?m_widget->activeFocusItem()->objectName():QString()));
-        m_workspace.setWidgetShowShortcuts(true);m_workspace.setWidgetCategoryToday(false);m_workspace.setWidgetContext("today");m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setSearch("");m_workspace.setView("today");m_main->show();m_stage=286;return "DONE";
+        m_workspace.setWidgetShowShortcuts(true);
+        if(!m_workspace.saveCatalog({{"kind","project"},{"title",QStringLiteral("华东地区月度数据复核与归档")},{"parentId",m_categoryRoot.mid(8)},{"colorKey","green"}}))
+            return fail("long child fixture");
+    }
+    if(m_stage>=286 && m_stage<=290){
+        const auto longCategory=category(QStringLiteral("华东地区月度数据复核与归档"));
+        const auto keyForLongCategory=longCategory.value("key").toString();
+        const auto path=longCategory.value("path").toString();
+        auto* row=find(m_widget,"widgetShortcut-"+keyForLongCategory);
+        auto* name=find(row,"widgetCategoryName");
+        auto hint=[&] {
+            QVariant result;
+            if(name)QMetaObject::invokeMethod(name,"hintForVerification",Q_RETURN_ARG(QVariant,result));
+            return result.toMap();
+        };
+        if(m_stage==286){
+            if (!name || !name->property("truncated").toBool() || m_controller.panelSidebarWidth()!=192) {
+                if(m_wait.elapsed()<1600)return {};
+                return fail("long category uses new text budget and truncates at 200 percent");
+            }
+            if(!row->property("symbol").toString().isEmpty() || path.isEmpty() || name->property("fullPath")!=path)
+                return fail("widget row presents plain name and complete path");
+            m_widget->grabWindow();
+            hover(row,"widgetCategoryName");
+        }else if(m_stage==287){
+            const auto info=hint();
+            if(!info.value("visible").toBool() || info.value("text")!=path) {
+                if(m_wait.elapsed()<1800)return {};
+                qCritical()<<"Category rail hint"<<info;
+                return fail("truncated widget category opens its complete path");
+            }
+            if(!capture(m_widget,"category-name-tooltip-dark-200"))return fail("cannot capture widget category hint");
+            hover(m_widget,"widgetRailCategories");
+        }else if(m_stage==288){
+            if(hint().value("visible").toBool())return fail("hint remains after leaving category name");
+            click("widgetRailCategories");
+            search->setProperty("text",QStringLiteral("华东地区"));
+        }else if(m_stage==289){
+            auto* choice=find(m_widget,"widgetCategoryChoice-"+keyForLongCategory);
+            auto* fullName=find(choice,"widgetCategoryChoiceName");
+            if(!fullName || fullName->property("text")!=path || fullName->property("truncated").toBool() ||
+               fullName->property("lineCount").toInt()<2 || !capture(m_widget,"category-name-wrap-dark-200"))
+                return fail("finder wraps the full path from keyboard search");
+            qobject_cast<QQuickItem*>(search)->forceActiveFocus();key(m_widget,Qt::Key_Escape);
+        }else if(m_stage==290){
+            m_workspace.setWidgetCategoryToday(false);m_workspace.setWidgetContext("today");
+            m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setSearch("");m_workspace.setView("today");
+            m_main->show();m_stage=291;return "DONE";
+        }
     }
     qInfo()<<"UX77 category scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};
 }

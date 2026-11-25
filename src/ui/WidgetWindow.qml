@@ -35,7 +35,9 @@ Window {
     minimumWidth:ballDiameter;minimumHeight:ballDiameter
     readonly property int panelMinimumHeight:Math.ceil(Math.max(190,header.implicitHeight+footer.implicitHeight+(widgetError.visible?widgetError.implicitHeight:0)+(retryBrowse.visible?retryBrowse.implicitHeight:0)+2*Theme.panelPadding+6*Theme.fieldGap+48+Theme.listInset*2+(controller.panelRect.width<300?footer.implicitHeight:0)))
     onPanelMinimumHeightChanged:Qt.callLater(syncPanelMinimum)
-    function syncPanelMinimum(){controller.setPanelMinimumSize(260,panelMinimumHeight);controller.setPanelSidebarWidth(workspace.widgetShowShortcuts?Math.ceil(104*Theme.scale):0)}
+    readonly property int requestedCategoryRailWidth: workspace.widgetShowShortcuts ? Math.ceil(128+64*(Theme.scale-1)) : 0
+    onRequestedCategoryRailWidthChanged: Qt.callLater(syncPanelMinimum)
+    function syncPanelMinimum(){controller.setPanelMinimumSize(260,panelMinimumHeight);controller.setPanelSidebarWidth(requestedCategoryRailWidth)}
     x: 80;y: 80;visible: false;color: "transparent"
     title:qsTr("Daymark · %1").arg(workspace.widgetContextTitle)
     property string taskError: ""
@@ -344,7 +346,7 @@ Window {
                         required property int index
                         objectName:"widgetCategoryChoice-"+modelData.key
                         width:categoryChoices.width-Theme.scrollGutter
-                        leftPadding:8+(!categorySearch.text?modelData.depth*12*Theme.scale:0)
+                        leftPadding:8
                         checkable:true;checked:widget.workspace.widgetContext===modelData.key
                         highlighted:activeFocus || (categoryChoices.activeFocus && categoryChoices.currentIndex===index)
                         Accessible.name:modelData.path
@@ -363,9 +365,12 @@ Window {
                             onMoveAccepted:function(destination){widget.movedTaskToCategory(destination)}
                             onErrorReported:function(message){widget.taskError=message}
                         }
-                        contentItem:RowLayout {
-                            spacing:4
-                            Label {id:categoryName;Layout.fillWidth:true;Layout.minimumWidth:0;text:categorySearch.text?categoryEntry.modelData.path:categoryEntry.modelData.title;color:Theme.text;elide:Text.ElideRight;DS.ToolTip {visible:!Theme.hintsBlocked && categoryName.truncated && nameHover.hovered;text:categoryEntry.modelData.path} HoverHandler {id:nameHover}}
+                        contentItem: CategoryNameLabel {
+                            objectName: "widgetCategoryChoiceName"
+                            text: categoryEntry.modelData.path || categoryEntry.modelData.title
+                            color: Theme.text
+                            wrapMode: Text.Wrap
+                            hintBlocked: categoryEntry.down || categoryChoices.moving || widget.taskDragging
                         }
                     }
                 }
@@ -609,6 +614,7 @@ Window {
                     dividerOpacity:surface.panelAlpha
                     workspace:widget.workspace
                     blocked:widget.categoryPickerOpen || widget.workspace.busy || widget.addingPending || widget.motionInputBlocked
+                    suppressHints:blocked || widget.taskDragging || activityCapture.opened
                     onContextRequested:function(key){widget.requestBrowse({kind:"context",key:key})}
                     onCategoriesRequested:widget.openCategoryPicker()
                     onOrderMenuRequested:function(category,anchor,position){widget.showCategoryOrder(category,anchor,position)}

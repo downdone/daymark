@@ -8,6 +8,7 @@ Control {
     id:root
     required property TaskWorkspace workspace
     property bool blocked:false
+    property bool suppressHints: false
     property real dividerOpacity:1
     signal contextRequested(string key)
     signal categoriesRequested()
@@ -17,7 +18,6 @@ Control {
     signal taskMoved(string destination)
     signal dropError(string message)
     padding:6
-    implicitWidth:104*Theme.scale
     background:Item {Rectangle {anchors.right:parent.right;anchors.top:parent.top;anchors.bottom:parent.bottom;anchors.topMargin:8;anchors.bottomMargin:8;width:1;color:Theme.detailDivider;opacity:root.dividerOpacity}}
     function focusCategories(){allCategories.forceActiveFocus()}
     function focusCategory(key) {
@@ -38,7 +38,8 @@ Control {
     }
     component Entry:ToolButton {
         id:entry
-        property string symbol:"folder"
+        property string symbol: ""
+        property color categoryMarker: "transparent"
         property string fullPath:text
         property string contextKey:""
         property bool dropBrowse:false
@@ -47,15 +48,32 @@ Control {
         Layout.fillWidth:true;Layout.minimumWidth:0
         padding:6
         implicitHeight:Math.max(32,contentItem.implicitHeight+12)
-        background:Rectangle {radius:Theme.controlRadius;color:entry.down?Theme.pressed:entry.checked?Theme.navigationSelection:entry.hovered?Theme.hover:"transparent";border.width:entry.visualFocus?1:0;border.color:Theme.accent}
+        background:Rectangle {
+            radius:Theme.controlRadius
+            color:entry.down?Theme.pressed:entry.checked?Theme.navigationSelection:entry.hovered?Theme.hover:"transparent"
+            border.width:entry.visualFocus?1:0
+            border.color:Theme.accent
+            Rectangle {
+                anchors.left: parent.left
+                anchors.leftMargin: 1
+                anchors.verticalCenter: parent.verticalCenter
+                width: 4; height: width; radius: width/2
+                color: entry.categoryMarker
+                visible: color.a > 0
+            }
+        }
         contentItem:RowLayout {
             spacing:5
-            AppIcon {name:entry.symbol;Layout.preferredWidth:14*Theme.scale;Layout.preferredHeight:14*Theme.scale;ink:entry.checked?Theme.accent:Theme.secondary}
-            Label {
-                id:entryText;Layout.fillWidth:true;Layout.minimumWidth:0;text:entry.text
-                font.pixelSize:Theme.captionSize;font.weight:entry.checked?Font.DemiBold:Font.Normal;color:Theme.text;elide:Text.ElideRight
-                DS.ToolTip {visible:!Theme.hintsBlocked && entryText.truncated && labelHover.hovered;text:entry.fullPath}
-                HoverHandler {id:labelHover}
+            AppIcon {visible:entry.symbol.length>0;name:entry.symbol;Layout.preferredWidth:14*Theme.scale;Layout.preferredHeight:14*Theme.scale;ink:entry.checked?Theme.accent:Theme.secondary}
+            CategoryNameLabel {
+                objectName: "widgetCategoryName"
+                text: entry.text
+                fullPath: entry.fullPath
+                hintEnabled: !!entry.category
+                hintBlocked: entry.down || root.suppressHints || categories.moving
+                font.pixelSize: Theme.captionSize
+                font.weight: entry.checked ? Font.DemiBold : Font.Normal
+                color: Theme.text
             }
         }
         Keys.onUpPressed:function(event){if(entry.category && (event.modifiers & Qt.AltModifier))root.reorderRequested(entry.category,-1);else root.focusStep(-1)}
@@ -95,6 +113,7 @@ Control {
                     objectName:"widgetShortcut-"+modelData.key
                     text:modelData.title;checked:root.workspace.widgetContext===modelData.key
                     fullPath:modelData.path;category:modelData
+                    categoryMarker:modelData.colorKey && modelData.colorKey!=="neutral" ? Theme.catalogColor(modelData.colorKey) : "transparent"
                     contextKey:modelData.key
                     Accessible.name:modelData.path
                     enabled:!root.blocked

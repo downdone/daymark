@@ -13,17 +13,12 @@ ItemDelegate {
     property bool showCatalogActions: false
     property string detailsText: text
     property bool suppressCatalogTooltips: false
+    property color categoryMarker: "transparent"
     signal expansionRequested(bool value)
     signal optionsRequested(real x,real y)
     function hintForVerification(){
-        const tip=ToolTip.toolTip
-        return {visible:tip ? tip.visible && tip.parent===root : false,text:tip ? tip.text : "",
-                hovered:navTextHover.hovered,blocked:Theme.hintsBlocked,attached:tip ? tip.parent===root : false}
+        return navText ? navText.hintForVerification() : ({visible:false})
     }
-    ToolTip.visible: !Theme.hintsBlocked && showCatalogActions && navTextHover.hovered && !down && !catalogDragging && !suppressCatalogTooltips && detailsText.length>0 && (navText.truncated || detailsText!==text)
-    ToolTip.delay: Theme.hintDelay
-    ToolTip.timeout: Theme.hintTimeout
-    ToolTip.text: detailsText
     TapHandler {acceptedButtons:Qt.LeftButton;acceptedModifiers:Qt.ControlModifier;enabled:Qt.platform.os==="osx" && root.showCatalogActions;onTapped:function(point){root.optionsRequested(point.position.x,point.position.y)}}
     TapHandler {acceptedButtons: Qt.RightButton;enabled: root.showCatalogActions;onTapped: function(point){root.optionsRequested(point.position.x,point.position.y)}}
     Keys.onLeftPressed: function(event){if(hasChildren)expansionRequested(false);else event.accepted=false}
@@ -93,18 +88,38 @@ ItemDelegate {
         spacing: 6
         Item {visible: root.showBranchSlot || root.hasChildren;Layout.preferredWidth: 12;Layout.preferredHeight: 32;WidgetAction {anchors.centerIn: parent;visible: root.hasChildren;symbol: root.branchExpanded ? "down" : "right";description: (root.branchExpanded ? qsTr("收起分类：") : qsTr("展开分类："))+root.text;onClicked: root.expansionRequested(!root.branchExpanded)}}
         Item {
+            visible: root.symbol.length > 0
             Layout.preferredWidth: root.iconBadge ? 26 : Math.min(24,16*Theme.scale)
             Layout.preferredHeight: root.iconBadge ? 26 : Math.min(24,16*Theme.scale)
             Rectangle {anchors.fill: parent;visible: root.iconBadge;radius: Theme.controlRadius;color: root.selected || root.taskDropActive ? Theme.primaryFill : Theme.content}
             AppIcon {anchors.centerIn: parent;name: root.symbol;ink: root.selected || root.taskDropActive ? Theme.accent : root.symbolColor;implicitWidth: Math.min(22,16*Theme.scale);implicitHeight: implicitWidth}
         }
-        Label { id: navText;objectName: "navigationLabel";HoverHandler {id: navTextHover} font.weight: root.selected ? Font.DemiBold : Font.Normal;text: root.catalogDropActive && root.catalogDropAllowed && root.catalogDropPlacement==="inside" ? qsTr("移入：%1").arg(root.text) : root.text; color: Theme.text; font.pixelSize: Theme.navigationSize; Layout.fillWidth: true; elide: Text.ElideRight }
+        CategoryNameLabel {
+            id: navText
+            objectName: "navigationLabel"
+            text: root.catalogDropActive && root.catalogDropAllowed && root.catalogDropPlacement === "inside"
+                  ? qsTr("移入：%1").arg(root.text) : root.text
+            fullPath: root.detailsText
+            hintEnabled: root.showCatalogActions
+            hintBlocked: root.down || root.catalogDragging || root.suppressCatalogTooltips
+            color: Theme.text
+            font.pixelSize: Theme.navigationSize
+            font.weight: root.selected ? Font.DemiBold : Font.Normal
+        }
         Rectangle {visible: root.ancestorSelected;implicitWidth: 5;implicitHeight: 5;radius: width/2;color: Theme.accent}
         WidgetAction {visible: root.showCatalogActions;opacity: root.hovered || root.activeFocus ? 1 : 0;symbol: "more";description: qsTr("%1 的选项").arg(root.text);hintText:qsTr("分类或标签选项");onClicked: root.optionsRequested(root.width,root.height)}
         Label { visible: root.count>=0; text: root.count; color: Theme.secondary; font.pixelSize: Theme.captionSize }
     }
     Keys.onEscapePressed: function(event){if(root.catalogDragging){catalogProxy.Drag.cancel();root.catalogDragging=false;categoryDrag.enabled=false;categoryDrag.enabled=Qt.binding(function(){return root.canDragCatalog})}else event.accepted=false}
     background: Rectangle {
+        Rectangle {
+            anchors.left: parent.left
+            anchors.leftMargin: 2
+            anchors.verticalCenter: parent.verticalCenter
+            width: 4; height: width; radius: width/2
+            color: root.categoryMarker
+            visible: color.a > 0
+        }
         Rectangle {visible: dropTarget.containsDrag && root.catalogDropAllowed && root.catalogDropPlacement!=="inside";height: 2;width: parent.width;y: root.catalogDropPlacement==="before" ? 0 : parent.height-2;color: Theme.accent}
         radius: Theme.rowRadius
         color: dropTarget.containsDrag && (!root.catalogDropActive || (root.catalogDropAllowed && root.catalogDropPlacement==="inside"))
