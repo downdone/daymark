@@ -37,7 +37,7 @@ Window {
     onPanelMinimumHeightChanged:Qt.callLater(syncPanelMinimum)
     readonly property int requestedCategoryRailWidth: workspace.widgetShowShortcuts ? Math.ceil(128+64*(Theme.scale-1)) : 0
     onRequestedCategoryRailWidthChanged: Qt.callLater(syncPanelMinimum)
-    function syncPanelMinimum(){controller.setPanelMinimumSize(260,panelMinimumHeight);controller.setPanelSidebarWidth(requestedCategoryRailWidth)}
+    function syncPanelMinimum(){controller.setPanelMinimumHeight(panelMinimumHeight);controller.setPanelSidebarWidth(requestedCategoryRailWidth)}
     x: 80;y: 80;visible: false;color: "transparent"
     title:qsTr("Daymark · %1").arg(workspace.widgetContextTitle)
     property string taskError: ""
@@ -73,6 +73,7 @@ Window {
         }else taskError=workspace.errorText || qsTr("无法调整分类顺序，请重试。")
     }
     readonly property int categoryRailWidth:controller.panelSidebarWidth
+    readonly property bool stackedPanelHeader: controller.panelRect.width - categoryRailWidth < 248+16*(Theme.scale-1)
     onCategoryRailWidthChanged:Qt.callLater(syncPanelMinimum)
     property var draftContext:null
     property var pendingBrowse:null
@@ -628,14 +629,17 @@ Window {
                 anchors.fill: parent;anchors.margins: Theme.panelPadding
                 anchors.leftMargin:Theme.panelPadding+widget.categoryRailWidth
                 spacing: Theme.fieldGap
-                RowLayout {
+                GridLayout {
                     id: header
                     objectName: "widgetHeader"
                     Layout.fillWidth: true
-                    spacing: 2
+                    columns: widget.stackedPanelHeader ? 5 : 6
+                    columnSpacing: 2
+                    rowSpacing: 2
                     Item {
                         objectName:"widgetHeaderGrip"
                         Layout.fillWidth: true;Layout.minimumWidth: 0
+                        Layout.columnSpan: widget.stackedPanelHeader ? header.columns : 1
                         implicitHeight: headerText.implicitHeight
                         Column {
                             id: headerText

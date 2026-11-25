@@ -109,7 +109,7 @@ QString Ux38SmokeProbe::advance() {
 
     // The runtime may call again while finishing pending delegate incubation.
     // A completed fixture must not re-run its final actions or assertions.
-    if(m_stage==242 || m_stage==257 || m_stage==291)return "DONE";
+    if(m_stage==242 || m_stage==257 || m_stage==295)return "DONE";
     auto hint=[](QObject* target){QVariant result;if(target)QMetaObject::invokeMethod(target,"hintForVerification",Q_RETURN_ARG(QVariant,result));return result.toMap();};
     auto checkSidebar=[&]{
         if(m_main->property("menuBar").value<QObject*>())return false;
@@ -1203,6 +1203,7 @@ QString Ux38SmokeProbe::advance() {
 
 QString Ux38SmokeProbe::advanceCategories()
 {
+    const auto longTitle = QStringLiteral("华东地区月度数据复核与归档 · 运营指标核验、同比环比复查、异常记录补充、交付材料确认和季度汇总备份");
     auto fail=[&](const QString& message){capture(m_widget,"categories-failure");return QStringLiteral("UX77 stage %1: %2").arg(m_stage).arg(message);};
     auto category=[&](const QString& title){for(const auto& value:m_workspace.widgetCategories())if(value.toMap().value("title")==title)return value.toMap();return QVariantMap();};
     auto key=[](QQuickWindow* window,int value){for(auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,value,Qt::NoModifier);QCoreApplication::sendEvent(window,&event);}};
@@ -1304,11 +1305,11 @@ QString Ux38SmokeProbe::advanceCategories()
     if(m_stage==285){
         if(m_widget->property("categoryPickerOpen").toBool() || !find(m_widget,"widgetCategoryButton")->property("visible").toBool())return fail(QStringLiteral("hide favorites keeps category entry reachable: picker=%1 entry=%2 form=%3 focus=%4").arg(m_widget->property("categoryPickerOpen").toBool()).arg(find(m_widget,"widgetCategoryButton")->property("visible").toBool()).arg(m_controller.effectiveForm()).arg(m_widget->activeFocusItem()?m_widget->activeFocusItem()->objectName():QString()));
         m_workspace.setWidgetShowShortcuts(true);
-        if(!m_workspace.saveCatalog({{"kind","project"},{"title",QStringLiteral("华东地区月度数据复核与归档")},{"parentId",m_categoryRoot.mid(8)},{"colorKey","green"}}))
+        if(!m_workspace.saveCatalog({{"kind","project"},{"title",longTitle},{"parentId",m_categoryRoot.mid(8)},{"colorKey","green"}}))
             return fail("long child fixture");
     }
     if(m_stage>=286 && m_stage<=290){
-        const auto longCategory=category(QStringLiteral("华东地区月度数据复核与归档"));
+        const auto longCategory=category(longTitle);
         const auto keyForLongCategory=longCategory.value("key").toString();
         const auto path=longCategory.value("path").toString();
         auto* row=find(m_widget,"widgetShortcut-"+keyForLongCategory);
@@ -1341,17 +1342,60 @@ QString Ux38SmokeProbe::advanceCategories()
             click("widgetRailCategories");
             search->setProperty("text",QStringLiteral("华东地区"));
         }else if(m_stage==289){
+            m_widget->grabWindow();
             auto* choice=find(m_widget,"widgetCategoryChoice-"+keyForLongCategory);
-            auto* fullName=find(choice,"widgetCategoryChoiceName");
-            if(!fullName || fullName->property("text")!=path || fullName->property("truncated").toBool() ||
-               fullName->property("lineCount").toInt()<2 || !capture(m_widget,"category-name-wrap-dark-200"))
+            auto* fullName=qobject_cast<QQuickItem*>(find(choice,"widgetCategoryChoiceName"));
+            const bool laidOut=fullName && fullName->isVisible() && fullName->width()>0 &&
+                    fullName->property("text")==path && !fullName->property("truncated").toBool();
+            const bool wrapsWhenNeeded=laidOut && (fullName->implicitWidth()<=fullName->width()+1 ||
+                    fullName->property("lineCount").toInt()>1);
+            if(!wrapsWhenNeeded){
+                if(m_wait.elapsed()<1500)return {};
+                qCritical()<<"Category finder path"<<path<<"rendered"<<(fullName?fullName->property("text"):QVariant())
+                           <<"geometry"<<(fullName?fullName->size():QSizeF())<<"lines"<<(fullName?fullName->property("lineCount"):QVariant());
                 return fail("finder wraps the full path from keyboard search");
+            }
+            if(!capture(m_widget,"category-name-wrap-dark-200"))return fail("cannot capture wrapped path");
             qobject_cast<QQuickItem*>(search)->forceActiveFocus();key(m_widget,Qt::Key_Escape);
         }else if(m_stage==290){
-            m_workspace.setWidgetCategoryToday(false);m_workspace.setWidgetContext("today");
-            m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setSearch("");m_workspace.setView("today");
-            m_main->show();m_stage=291;return "DONE";
+            m_workspace.setWidgetShowShortcuts(false);
         }
+    }
+    if(m_stage==291){
+        if(m_controller.panelSidebarWidth()!=0 || m_widget->property("motionInputBlocked").toBool()){
+            if(m_wait.elapsed()<1500)return {};
+            return fail("collapsed rail settles before narrowing");
+        }
+        if(!m_controller.startResize())return fail("start narrow panel resize");
+        m_controller.resizePanel(QCursor::pos()-QPoint(320,0));
+        m_controller.finishMove();
+    }
+    if(m_stage==292){
+        auto* title=qobject_cast<QQuickItem*>(find(m_widget,"widgetContextTitle"));
+        auto* more=qobject_cast<QQuickItem*>(find(m_widget,"widgetMore"));
+        auto* browse=qobject_cast<QQuickItem*>(find(m_widget,"widgetCategoryButton"));
+        if(m_controller.panelRect().width()!=224 || !m_widget->property("stackedPanelHeader").toBool() ||
+           !title || title->width()<100 || !more || !browse || !browse->isVisible() ||
+           more->mapToScene(QPointF()).y()<title->mapToScene(QPointF(0,title->height())).y() ||
+           !layout() || !capture(m_widget,"categories-narrow-dark-200"))
+            return fail("224 pixel header, buttons and task list stay reachable at 200 percent");
+        click("widgetAdd");
+    }
+    if(m_stage==293){
+        if(!input->property("visible").toBool() || input->property("width").toReal()<80)
+            return fail("narrow panel exposes a usable input field");
+        qobject_cast<QQuickItem*>(input)->forceActiveFocus();
+        key(m_widget,Qt::Key_Escape);
+        click("widgetCategoryButton");
+    }
+    if(m_stage==294){
+        if(!m_widget->property("categoryPickerOpen").toBool() || search->property("width").toReal()<120 ||
+           !capture(m_widget,"categories-narrow-picker-dark-200"))
+            return fail("narrow panel reuses the keyboard-accessible category finder");
+        key(m_widget,Qt::Key_Escape);
+        m_workspace.setWidgetShowShortcuts(true);m_workspace.setWidgetCategoryToday(false);m_workspace.setWidgetContext("today");
+        m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setSearch("");m_workspace.setView("today");
+        m_main->show();m_stage=295;return "DONE";
     }
     qInfo()<<"UX77 category scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};
 }

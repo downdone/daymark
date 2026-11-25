@@ -69,7 +69,8 @@ void WidgetViewModel::captureUserGeometry()
     const auto available=screens();int index=WidgetPlacementPolicy::screenFor(rect,available);
     if(index<0)index=available.isEmpty()?-1:0;if(index<0)return;
     m_anchor=WidgetPlacementPolicy::capture(rect,available[index]);m_anchorValid=true;
-    if(m_renderForm==WidgetPresentation::Panel)m_floatingSize=rect.size()-QSize(panelSidebarWidth(),0);
+    if(m_renderForm==WidgetPresentation::Panel)
+        m_floatingSize=(rect.size()-QSize(panelSidebarWidth(),0)).expandedTo(QSize(MinimumPanelWidth,190));
     m_appliedGeometry=actual;
 }
 void WidgetViewModel::watchGeometry()
@@ -110,13 +111,13 @@ bool WidgetViewModel::attachWindow(QWindow* window)
         m_backgroundOpacity=qBound(0.6,m_settings->value("widget/backgroundOpacity",0.9).toDouble(),1.0);
         m_closeToTray=m_settings->value("main/closeToTray",true).toBool();
         m_requestedVisible=m_settings->value("widget/visible",true).toBool();
-        m_floatingSize=m_settings->value("widget/floatingSize",QSize(340,360)).toSize().expandedTo(QSize(260,190));
+        m_floatingSize=m_settings->value("widget/floatingSize",QSize(340,360)).toSize().expandedTo(QSize(MinimumPanelWidth,190));
         m_geometryChanging=true;m_platform.resize(window,m_floatingSize);
         window->setPosition(m_settings->value("widget/position",QPoint(80,80)).toPoint());m_geometryChanging=false;
         if(m_settings->contains("widget/v2/enabledForms")){
             m_autoCompact=m_settings->value("widget/v2/autoCompact",false).toBool();
             m_requestedVisible=m_settings->value("widget/v2/visible",true).toBool();
-            m_floatingSize=m_settings->value("widget/v2/panelSize",QSize(340,360)).toSize().expandedTo(QSize(260,190));
+            m_floatingSize=m_settings->value("widget/v2/panelSize",QSize(340,360)).toSize().expandedTo(QSize(MinimumPanelWidth,190));
             m_miniSize.setWidth(qBound(260,m_settings->value("widget/v2/miniWidth",340).toInt(),1200));
             m_presentation.setEnabled(m_settings->value("widget/v2/enabledForms",3).toInt());
             m_presentation.select(m_settings->value("widget/v2/selectedForm",0).toInt());
@@ -133,7 +134,7 @@ bool WidgetViewModel::attachWindow(QWindow* window)
             if(m_autoCompact)m_presentation.enabled|=1<<WidgetPresentation::Ball;
             m_presentation.select(m_settings->value("widget/mini",false).toBool()?1:0);
             // Migration keeps the old compact width, but subsequent panel resizes do not change it.
-            m_miniSize.setWidth(m_floatingSize.width());
+            m_miniSize.setWidth(qMax(260,m_floatingSize.width()));
         }
         setAlwaysOnTop(m_settings->value("widget/alwaysOnTop",true).toBool());
         if(m_settings->value("widget/desktopPinned",false).toBool())setDesktopPinned(true);
@@ -285,9 +286,9 @@ void WidgetViewModel::presentTransition(int id)
         m_frameFence->pending=id;quick->update();
     }else finishTransition(id); // State-only QWindow fixtures have no render loop.
 }
-void WidgetViewModel::setPanelMinimumSize(int width,int height)
+void WidgetViewModel::setPanelMinimumHeight(int height)
 {
-    const auto previous=formSize(0);const auto oldMinimum=m_panelMinimum;m_panelMinimum=QSize(qMax(260,width),qMax(190,height));
+    const auto previous=formSize(0);const auto oldMinimum=m_panelMinimum;m_panelMinimum.setHeight(qMax(190,height));
     if(m_window && formSize(0)!=previous && !applyPresentation(m_presentation,false))m_panelMinimum=oldMinimum;
 }
 void WidgetViewModel::setPanelSidebarWidth(int width)

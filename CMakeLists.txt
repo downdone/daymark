@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
-project(Daymark VERSION 4.0.5 LANGUAGES CXX)
-set(DAYMARK_VERSION "4.0.5")
+project(Daymark VERSION 4.0.6 LANGUAGES CXX)
+set(DAYMARK_VERSION "4.0.6")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -375,7 +375,7 @@ if(BUILD_TESTING)
     set_tests_properties(qml_startup PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 240)
     if(WIN32)
         set_property(TEST qml_startup APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
-        set_property(TEST contextual_workspace continuous_calendar task_list_interaction desktop_surfaces calendar_interaction account_access APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
+        set_property(TEST contextual_workspace continuous_calendar task_list_interaction desktop_surfaces calendar_interaction account_access category_navigation APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
     endif()
     # One owner per risk layer; full CTest remains the release default.
     set_tests_properties(task_service catalog_service calendar_service unified_tasks event_service recurrence_service reminders data_transfer PROPERTIES LABELS "core")

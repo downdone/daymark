@@ -3,6 +3,7 @@
 #include "platform/common/NativeWindowLayer.h"
 #include "platform/common/DesktopTray.h"
 #include <QAction>
+#include <QCursor>
 #include <QDir>
 
 #include <QSignalSpy>
@@ -45,6 +46,41 @@ public:
 class WidgetWindowTest : public QObject {
     Q_OBJECT
 private slots:
+    void narrowPanelWidthPersistsWithoutShrinkingOtherForms()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const auto settingsPath = dir.filePath("narrow-widget.ini");
+        QtWindowPlatform platform;
+        QWindow window;
+        window.setGeometry(100, 100, 340, 400);
+        WidgetViewModel model(platform);
+        model.configureSettings(settingsPath);
+        QVERIFY(model.attachWindow(&window));
+        model.enableVisualTransitions();
+        const auto mini = model.miniRect().size();
+        QVERIFY(model.startResize());
+        model.resizePanel(QCursor::pos() - QPoint(320, 0));
+        model.finishMove();
+        QCOMPARE(model.panelRect().width(), 224);
+        QCOMPARE(model.miniRect().size(), mini);
+
+        model.setPanelSidebarWidth(128);
+        QCOMPARE(model.panelRect().width(), 352);
+        model.setPanelSidebarWidth(0);
+        QCOMPARE(model.panelRect().width(), 224);
+        model.saveSettings();
+
+        QWindow reopened;
+        reopened.resize(340, 400);
+        WidgetViewModel restored(platform);
+        restored.configureSettings(settingsPath);
+        restored.enableVisualTransitions();
+        QVERIFY(restored.attachWindow(&reopened));
+        QCOMPARE(restored.panelRect().width(), 224);
+        QCOMPARE(restored.miniRect().size(), mini);
+    }
+
     void categoryRailToggleCapturesPendingUserResize() {
         QtWindowPlatform platform;WidgetViewModel model(platform);QWindow window;window.setGeometry(100,100,340,400);
         QVERIFY(model.attachWindow(&window));model.enableVisualTransitions();model.setPanelSidebarWidth(104);

@@ -258,7 +258,7 @@ jobs:
         shell: bash
         run: |
           export QT_QPA_FONTDIR="$WINDIR/Fonts"
-          ctest --test-dir build/release -C Release -R '^(desktop_rendering|account_access|calendar_lifecycle)$' --output-on-failure --no-tests=error
+          ctest --test-dir build/release -C Release -R '^(desktop_rendering|account_access|calendar_lifecycle|category_navigation)$' --output-on-failure --no-tests=error
       - name: Test
         shell: bash
         run: |

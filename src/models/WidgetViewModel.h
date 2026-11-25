@@ -105,7 +105,7 @@ public:
     Q_INVOKABLE void enableVisualTransitions();
     Q_INVOKABLE void finishTransition(int id);
     Q_INVOKABLE void presentTransition(int id);
-    Q_INVOKABLE void setPanelMinimumSize(int width,int height);
+    Q_INVOKABLE void setPanelMinimumHeight(int height);
     Q_INVOKABLE void setPanelSidebarWidth(int width);
     Q_INVOKABLE void resizePanel(const QPointF& globalPosition);
     Q_INVOKABLE void setRevealRegion(const QRect& rectangle, double radius = 22);
@@ -137,6 +137,7 @@ signals:
     void errorChanged();
 
 private:
+    static constexpr int MinimumPanelWidth = 224;
     void commitRevealRegion();
     bool accept(WindowResult result);
     bool applyPresentation(const WidgetPresentation& candidate, bool animate = true);
@@ -148,7 +149,7 @@ private:
     QSize formSize(int form) const;
     IWindowPlatform& m_platform;
     QPointer<QWindow> m_window;
-    QSize m_floatingSize{340, 190},m_panelMinimum{260,190};
+    QSize m_floatingSize{340, 190},m_panelMinimum{MinimumPanelWidth,190};
     int m_panelSidebarWidth=0;
     WidgetCanvasLayout m_layout;
     std::shared_ptr<WidgetFrameFence> m_frameFence;
