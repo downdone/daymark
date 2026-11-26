@@ -6,7 +6,9 @@ FR-018、UX-37/77、UPD-09。小窗保留原查询范围，范围内的子任务
 [Apple 层级列表](https://developer.apple.com/design/human-interface-guidelines/outline-views) · [Apple 输入字段](https://developer.apple.com/design/human-interface-guidelines/text-fields)
 
 - Windows 11 / Qt 6.10.3 / MinGW Release 的应用、Windows 启动器与更新器构建通过，应用和样式 QML lint 通过。任务服务、工作区、主窗列表、小窗窗口与指针、工作流、桌面渲染、分类和更新共 **10 项 CTest 通过**。小窗工作流在 Windows 原生窗口上另行通过，模拟 IME 预编辑与提交，确认维护时输入焦点、输入内容和提交按钮状态保持。反馈机器的实际输入法与桌面闪烁待现场复测。
-- 本机回环签名夹具确认候选已就绪但尚未提交时，二次启动后原事务可继续提交和清理。用 4.0.4 和 4.0.6 实际 Qt 载荷复验，旧版运行时二次启动保留待更新状态，随后完成交接、清理旧程序并保留合成 SQLite 任务。修复尚未发布。
+- 本机回环签名夹具确认候选已就绪但尚未提交时，二次启动后原事务可继续提交和清理。用 4.0.4 和 4.0.6 实际 Qt 载荷复验，旧版运行时二次启动保留待更新状态，随后完成交接、清理旧程序并保留合成 SQLite 任务。
+- Windows 4.0.7 已发布。MSVC 候选 **55/55 PASS**，用时 517 秒，QML lint 与打包通过。[候选构建](https://github.com/downdone/daymark/actions/runs/45755230111)
+- Windows x64 签名安装包及便携包已公开。匿名下载安装、修复与卸载时保留资料均通过。4.0.6→4.0.7 公网在线升级通过，实际 Qt 程序重启后清理旧程序，保留合成 SQLite 任务。安装包 SHA-256 为 `4b87b01b8f25fffd12e714697f3ba749ad9c071c4bbd2da47ce4199b3a870e95`，便携包 SHA-256 为 `2c299ea2991b73e610e73dfdbb3df9a0c2cf5f0845a43381a7792d2783c12199`。[签名与公开验收](https://github.com/downdone/daymark/actions/runs/45757304888) · [发行页](https://github.com/downdone/daymark/releases/tag/v4.0.7)
 
 ## 小窗更窄宽度（2026-11-25）
 
