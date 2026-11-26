@@ -5,6 +5,7 @@
 #include <QQuickItem>
 #include <QMouseEvent>
 #include <QKeyEvent>
+#include <QInputMethodEvent>
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <QElapsedTimer>
@@ -17,6 +18,7 @@ class WidgetWorkflowProbe final {
 public:
     WidgetWorkflowProbe(TaskWorkspace& workspace,WidgetViewModel& controller,QQuickWindow* main,QQuickWindow* widget,QString shot)
         :w(workspace),c(controller),main(main),widget(widget),shot(std::move(shot)){wait.start();}
+    ~WidgetWorkflowProbe(){QObject::disconnect(maintenanceObservation);}
     QString advance(){
         if(!w.ready() || w.busy())return {};
         auto fail=[&](const QString& why){return QStringLiteral("Widget workflow %1: %2").arg(phase).arg(why);};
@@ -177,6 +179,45 @@ public:
             if(inspector->property("visible").toBool() || schedule.value("alertMinutes",-1).toInt()!=0 ||
                QDateTime::fromString(task.value("remindAtUtc").toString(),Qt::ISODateWithMs)<=QDateTime::currentDateTimeUtc())
                 return fail("relative reminder must replace the absolute instant and retain the schedule offset");
+            if(!click("widgetAdd"))return fail("open widget quick add");
+            auto* quick=find("widgetQuickTitle");
+            if(!quick)return fail("widget quick input missing");
+            quick->setProperty("text",QStringLiteral("独立任务草稿"));
+            if(!QMetaObject::invokeMethod(widget,"openSmallTask",Q_ARG(QVariant,id),Q_ARG(QVariant,QVariant::fromValue(find("widgetMore")))))return fail("reopen inspector");
+        }else if(phase==42){
+            if(!click("widgetInspectorTabs-segment-1"))return fail("click child task tab");
+        }else if(phase==43){
+            auto* child=qobject_cast<QQuickItem*>(find("widgetInspectorChildTitle"));
+            if(!child || !child->isVisible() || !child->window())return fail("child composer did not open");
+            child->forceActiveFocus();
+            QInputMethodEvent preedit(QStringLiteral("01"),{});
+            QCoreApplication::sendEvent(child,&preedit);
+            if(!child->property("inputMethodComposing").toBool())return fail("child composer must receive IME preedit");
+            maintenanceObservation=QObject::connect(&w,&TaskWorkspace::stateChanged,widget,[this,child]{
+                if(!w.backgroundBusy())return;
+                auto* submit=find("widgetQuickSubmit");
+                observedBackground=true;
+                stableBackground=stableBackground && child->isEnabled() && child->hasActiveFocus() &&
+                    child->property("inputMethodComposing").toBool() && submit && submit->property("enabled").toBool();
+            });
+            w.setInteractionActive(false);
+            w.refreshClock();wait.restart();
+        }else if(phase==44){
+            if(!observedBackground && wait.elapsed()<1500)return {};
+            QObject::disconnect(maintenanceObservation);
+            if(!observedBackground || !stableBackground)return fail("background task must preserve composer focus and control styling");
+            QInputMethodEvent commit;
+            commit.setCommitString(QStringLiteral("01、展览方案"));
+            QCoreApplication::sendEvent(find("widgetInspectorChildTitle"),&commit);
+        }else if(phase==45){
+            auto* child=qobject_cast<QQuickItem*>(find("widgetInspectorChildTitle"));
+            if(!child || !child->hasActiveFocus() || child->property("text").toString()!=QStringLiteral("01、展览方案") ||
+                find("widgetQuickTitle")->property("text").toString()!=QStringLiteral("独立任务草稿"))return fail("IME commit must stay in the child composer");
+            QKeyEvent key(QEvent::KeyPress,Qt::Key_Return,Qt::NoModifier);
+            QCoreApplication::sendEvent(child->window(),&key);
+        }else if(phase==46){
+            const auto children=w.subtaskChoices(id);
+            if(children.size()!=1 || children.first().toMap().value("title").toString()!=QStringLiteral("01、展览方案"))return fail("child submit must save into the selected parent");
             return QStringLiteral("DONE");
         }
         ++phase;return {};
@@ -212,5 +253,7 @@ private:
     void capture(QQuickWindow* window,const QString& name){if(!shot.isEmpty())window->grabWindow().save(shot+"."+name+".png");}
     void capturePopup(QObject* popup,const QString& name){if(auto* item=qvariant_cast<QQuickItem*>(popup->property("contentItem"));item && item->window())capture(item->window(),name);}
     TaskWorkspace& w;WidgetViewModel& c;QQuickWindow* main;QQuickWindow* widget;QString shot,id,key,fromCategory,toCategory,fullCategory;QPointF dropAt;int phase=0,width=0,editCycle=0,saveCycle=0,fixtureCount=0;QElapsedTimer wait;
+    bool observedBackground=false,stableBackground=true;
+    QMetaObject::Connection maintenanceObservation;
 };
 }

@@ -269,6 +269,13 @@ def main():
         ready=json.loads((root/'update-state/prepared-update.json').read_text())
         assert json.loads((root/'current.json').read_text())['current']==current['current']
         assert (root/ready['payload_dir']/'daymark.exe').exists()
+        if real:
+            # A second launch with a staged update should activate the old Qt instance.
+            run([root/'daymark-update-cli.exe','launch','--root',root,'--data-dir',data])
+            assert not process_exited(old_pid)
+            assert json.loads((root/'current.json').read_text())['generation']==current['generation']
+            assert json.loads((root/'update-state/prepared-update.json').read_text())==ready
+            print('PASS: repeated launch with a live Qt instance leaves the prepared update intact',flush=True)
         unknown=old.parent/'personal-note.txt';unknown.write_text('user-owned unknown file',encoding='utf-8')
         modified=old.parent/'preserve-indexed.txt'
         if os.environ.get('DAYMARK_UPDATE_CRASH_POINT') not in ('after_ready','throw_before_spawn'):
@@ -279,8 +286,21 @@ def main():
             assert 'restart_requested' in output,output
             wait_for(lambda:not (root/f'update-state/instances/{old_pid}.json').exists(),30)
         else:
+            (root/'update-fixture.json').write_text(json.dumps(dict(fixture_config,crash_at='pause_after_ready')))
             apply=subprocess.Popen([str(root/'daymark-update-cli.exe'),'apply','--root',str(root),'--old-pid',str(old_process.pid),'--old-stamp',old_identity['stamp'],'--json'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
             (root/f'fixture-exit-{old_process.pid}').touch()
+            checkpoint=wait_for(lambda:json.loads((root/'update-state/fixture-checkpoint.json').read_text()))
+            assert checkpoint['point']=='after_ready'
+            journal=root/'update-state/journal.json'
+            before=journal.read_bytes()
+            assert json.loads(before)['phase']=='starting'
+            try:
+                run([root/'daymark.exe'],timeout=10)
+                assert journal.read_bytes()==before
+                assert json.loads((root/'current.json').read_text())['generation']==current['generation']
+                print('PASS: repeated bootstrap launch leaves the active precommit handoff intact',flush=True)
+            finally:
+                (root/'update-state/fixture-continue').touch()
             stdout,stderr=apply.communicate(timeout=45)
             assert apply.returncode==0,(stdout,stderr)
         if real and os.environ.get('DAYMARK_UPDATE_CRASH_POINT')=='throw_before_spawn':
@@ -382,9 +402,10 @@ def main():
         print('PASS: signed versioned updater selected after commit, JSON forwarding, modified host/metadata refused, versioned native GUI launched/closed independently',flush=True)
         if real:
             import sqlite3
+            expected_schema=json.loads((new/'update-windows-x64.json').read_text())['data']['schema']
             with sqlite3.connect(data/'daymark.sqlite') as db:
                 assert db.execute('PRAGMA quick_check').fetchone()[0]=='ok'
-                assert db.execute('PRAGMA user_version').fetchone()[0]==11
+                assert db.execute('PRAGMA user_version').fetchone()[0]==expected_schema
                 assert db.execute("SELECT title FROM tasks WHERE id='update-flow-synthetic-task'").fetchone()[0]=='Synthetic update preservation check'
         print('PASS: signed Windows flow; live old process -> loopback discovery/download -> side-by-side prepare -> authenticated restart -> durable commit/RUNNING -> old binary cleanup'+(' -> actual Qt application/SQLite' if real else ' (synthetic native payload)'),flush=True)
     except BaseException:

@@ -18,6 +18,8 @@ public:
     static bool reminderEligible(const Task& task);
     static bool inView(const Task& task, const QString& view, const QDate& today);
     static QList<Task> selectWidget(const QList<Task>& tasks,const QString& context,bool todayOnly,const QDate& today);
+    static QList<Task> visibleHierarchy(QList<Task> tasks, const QSet<QString>& collapsed = {},
+                                        bool sameDeletionGroup = false);
     static QList<Task> select(const QList<Task>& tasks, const QString& view, const QDate& today, const QString& search = {},bool includeCompleted=false,const QString& tagFilter={},int upcomingDays=0,int historyDays=0,const QString& projectFilter={},const QSet<QString>& collapsed={},bool includeSubtasks=true,bool nestChildren=true);
 };
 

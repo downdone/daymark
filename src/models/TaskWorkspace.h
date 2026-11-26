@@ -393,6 +393,7 @@ private:
     void loadWidgetBrowsePreferences();
     bool saveWidgetBrowsePreferences();
     void refreshWidgetBrowse();
+    int widgetSiblingIndex(const QString& id,int direction) const;
     QVariantMap widgetCategoryNeighbor(const QString& key,int direction) const;
     const Task* cachedTask(const QString& id) const;
     bool canDropInView(const QString& source,const QString& target,const QString& view) const;

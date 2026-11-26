@@ -668,7 +668,7 @@ void TaskWorkspace::refreshWidgetBrowse()
         emit widgetContextChanging();m_widgetContext=QStringLiteral("today");m_widgetNotice=tr("原分类已不可用，已回到今天。");changed=true;
     }
     if(changed)saveWidgetBrowsePreferences();
-    const auto selected=m_widgetContext==QStringLiteral("today")?m_todayTasks.items():QueryService::selectWidget(m_cache,m_widgetContext,m_widgetCategoryToday,m_today);
+    const auto selected=m_widgetContext==QStringLiteral("today")?QueryService::visibleHierarchy(m_todayTasks.items()):QueryService::selectWidget(m_cache,m_widgetContext,m_widgetCategoryToday,m_today);
     m_widgetTasks.replace(selected,m_today);m_widgetRows.clear();m_widgetRows.reserve(selected.size());
     for(qsizetype row=0;row<selected.size();++row)m_widgetRows.insert(selected[row].id,row);
     if(previous!=m_widgetCatalog || changed)emit widgetCategoriesChanged();
@@ -789,14 +789,21 @@ bool TaskWorkspace::dropWidgetTask(const QString& source,const QString& target)
     OrderChange change;change.taskId=source;if(today)change.evening=tasks[to].evening;tasks.move(from,to);
     return runCatalog([tasks,today,change](TaskWorker& w){return w.repository->reorder(tasks,today,w.clock.nowUtc().toUTC().toString(Qt::ISODateWithMs),change);},QStringLiteral("reorder"));
 }
-bool TaskWorkspace::canMoveWidgetTask(const QString& id,int direction) const
+int TaskWorkspace::widgetSiblingIndex(const QString& id,int direction) const
 {
-    if(direction!=-1 && direction!=1)return false;
-    const auto row=widgetTaskIndex(id),target=row+direction;const auto& tasks=m_widgetTasks.items();
-    if(row<0 || target<0 || target>=tasks.size())return false;
-    if((m_widgetContext==QStringLiteral("today") || m_widgetCategoryToday) && QueryService::todayPeriod(tasks[row],m_today)!=QueryService::todayPeriod(tasks[target],m_today))return false;
-    return canDropWidgetTask(id,tasks[target].id);
+    if(direction!=-1 && direction!=1)return -1;
+    const auto row=widgetTaskIndex(id);const auto& tasks=m_widgetTasks.items();
+    if(row<0)return -1;
+    for(auto target=row+direction;target>=0 && target<tasks.size();target+=direction){
+        if(tasks[target].parentTaskId!=tasks[row].parentTaskId)continue;
+        if((m_widgetContext==QStringLiteral("today") || m_widgetCategoryToday) &&
+           QueryService::todayPeriod(tasks[row],m_today)!=QueryService::todayPeriod(tasks[target],m_today))return -1;
+        return canDropWidgetTask(id,tasks[target].id)?target:-1;
+    }
+    return -1;
 }
+bool TaskWorkspace::canMoveWidgetTask(const QString& id,int direction) const
+{return widgetSiblingIndex(id,direction)>=0;}
 QString TaskWorkspace::widgetCategoryDropReason(const QString& id,qint64 version,const QString& context,const QString& profile) const
 {
     if(profile!=m_widgetProfileToken)return tr("资料已切换，请重新拖动任务。");
@@ -822,7 +829,10 @@ bool TaskWorkspace::moveWidgetTaskToCategory(const QString& id,qint64 version,co
     return runTask(QStringLiteral("widgetMoveCategory"),[id,version,patch](TaskWorker& worker){return worker.service->edit(id,version,patch);});
 }
 bool TaskWorkspace::moveWidgetTask(const QString& id,int direction)
-{return canMoveWidgetTask(id,direction) && dropWidgetTask(id,m_widgetTasks.taskIdAt(widgetTaskIndex(id)+direction));}
+{
+    const auto target=widgetSiblingIndex(id,direction);
+    return target>=0 && dropWidgetTask(id,m_widgetTasks.taskIdAt(target));
+}
 
 bool TaskWorkspace::createTodayTask(const QString& title)
 {

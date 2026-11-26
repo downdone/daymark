@@ -28,6 +28,16 @@ inline Settings hostSettings(const fs::path &root) {
                     fail("update.fixture_failure", 40);
                 if(crash=="cancel_"+std::string(point))
                     fail("update.cancelled",50);
+                if (crash == "pause_" + std::string(point)) {
+                    writeAtomic(root / "update-state/fixture-checkpoint.json",
+                                Json{{"point", std::string(point)}}.dump());
+                    const auto deadline = GetTickCount64() + 15000;
+                    while (!fs::exists(root / "update-state/fixture-continue")) {
+                        if (GetTickCount64() >= deadline)
+                            fail("update.fixture_failure", 40);
+                        Sleep(20);
+                    }
+                }
             };
     }
 #endif

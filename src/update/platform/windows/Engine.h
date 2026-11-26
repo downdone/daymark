@@ -41,6 +41,9 @@ class Engine {
     Json descriptor(std::string_view relative, bool full, bool verify = true) const;
     void stage(const Release &, const fs::path &);
     void cleanOld(const Json &journal);
+    void applyPrepared(const std::vector<std::wstring> &, DWORD, const std::string &,
+                       bool launchCurrentIfRunning);
+    bool handoffInProgress() const;
 
   public:
     Engine(Settings, Cancellation &, Notify = {});

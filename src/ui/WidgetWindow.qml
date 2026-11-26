@@ -147,6 +147,7 @@ Window {
     }
     function submitTask() {
         if(addingPending || quickTitle.inputMethodComposing || !quickTitle.text.trim().length)return
+        if(workspace.busy){taskError=qsTr("正在处理，请稍后按 Enter 重试。");return}
         if(!draftContext)draftContext=captureDraftContext()
         taskError="";addingPending=workspace.createWidgetTask(quickTitle.text,draftContext.key,draftContext.todayOnly,draftContext.profile,widgetTimePreview.ignored,widgetTimePreview.overrides)
         if(!addingPending){pendingBrowse=null;categoryPickerOpen=false;taskError=workspace.widgetBrowseError || workspace.errorText || qsTr("暂时无法添加，请稍后重试。")}
@@ -227,7 +228,7 @@ Window {
     onFrameRadiusChanged:syncInputRegion()
     readonly property Control miniFocusControl: activeFocusItem as Control
     readonly property bool miniKeyboardFocus: active && (miniKeyboardInteraction || (!!miniFocusControl && [Qt.TabFocusReason,Qt.BacktabFocusReason,Qt.ShortcutFocusReason].indexOf(miniFocusControl.focusReason)>=0))
-    readonly property bool interactionPressed: ballPress.active || miniPress.active || headerPress.active || miniSummary.down || miniMore.pressed || workspace.busy || errorMessage.length>0 || addingTask || taskDragging
+    readonly property bool interactionPressed: ballPress.active || miniPress.active || headerPress.active || miniSummary.down || miniMore.pressed || (workspace.busy && !workspace.backgroundBusy) || errorMessage.length>0 || addingTask || taskDragging
     onActiveChanged: {
         if(!active && !commandMenuOpen && !deleteTaskConfirmation.visible)miniKeyboardInteraction=false
         if(!active && addingTask && !addingPending && !quickTitle.text.length)addingTask=false
@@ -293,7 +294,7 @@ Window {
     onReduceMotionChanged:if(reduceMotion && motionAnimation.running)finishVisual(!visible || controller.clickThrough)
     onVisibleChanged:{reportInteraction();Qt.callLater(setMiniAnimation)}
     function focusCurrentForm(){
-        if(!active || !visible || motionInputBlocked)return
+        if(!active || !visible || motionInputBlocked || (taskInspector && taskInspector.visible))return
         if(controller.miniCollapsed)miniBall.forceActiveFocus()
         else if(controller.mini)miniSummary.forceActiveFocus()
         else if(addingTask)quickTitle.forceActiveFocus()
@@ -530,7 +531,7 @@ Window {
         }
         return "PASS"
     }
-    Shortcut {sequences: [StandardKey.New];enabled: widget.active && !widget.controller.mini && !widget.commandInputBlocked && !widget.motionInputBlocked;onActivated:{widget.addingTask=true;quickTitle.forceActiveFocus()}}
+    Shortcut {sequences: [StandardKey.New];enabled: widget.active && !widget.controller.mini && !widget.commandInputBlocked && !widget.motionInputBlocked && !(widget.taskInspector && widget.taskInspector.visible);onActivated:{widget.addingTask=true;quickTitle.forceActiveFocus()}}
     Control {
         anchors.fill: parent
         font.family: Theme.fontFamily;font.pixelSize: Theme.bodySize
@@ -755,7 +756,7 @@ Window {
                   InputTimePreview {
                     id:widgetTimePreview;objectName:"widgetInputTimePreview";objectPrefix:"widgetInput"
                     workspace:widget.workspace;rawText:quickTitle.text;composing:quickTitle.inputMethodComposing
-                    enabled:!widget.addingPending && !widget.workspace.busy && !widget.draftWrongProfile
+                    enabled:!widget.addingPending && (!widget.workspace.busy || widget.workspace.backgroundBusy) && !widget.draftWrongProfile
                     visible:widget.addingTask && rawText.trim().length>0 && !composing && summary.length>0
                   }
                   RowLayout {
@@ -770,7 +771,7 @@ Window {
                         onAccepted:widget.submitTask()
                         Keys.onEscapePressed:if(!text.length && !widget.addingPending){widget.addingTask=false;addTask.forceActiveFocus()}
                     }
-                    WidgetAction {objectName:"widgetQuickSubmit";visible:widget.addingTask;symbol:"plus";description:qsTr("添加到%1").arg(widget.workspace.widgetContextTitle);enabled:quickTitle.text.trim().length>0 && !widget.workspace.busy && !widget.addingPending && !widget.draftWrongProfile;onClicked:widget.submitTask()}
+                    WidgetAction {objectName:"widgetQuickSubmit";visible:widget.addingTask;symbol:"plus";description:qsTr("添加到%1").arg(widget.workspace.widgetContextTitle);enabled:quickTitle.text.trim().length>0 && (!widget.workspace.busy || widget.workspace.backgroundBusy) && !widget.addingPending && !widget.draftWrongProfile;onClicked:widget.submitTask()}
                     WidgetAction {objectName:"widgetUndoDelete";symbol:"undo";description:qsTr("撤销删除");visible:widget.localDeletion && widget.workspace.canUndo && !widget.addingTask;enabled:!widget.workspace.busy;onClicked:{widget.taskOperation="restore";if(!widget.workspace.undoDelete())widget.taskError=widget.workspace.errorText}}
                     WidgetAction {objectName: "widgetOpenMain";symbol: "window";description: qsTr("打开主窗口");onClicked: widget.openMainRequested()}
                   }

@@ -1205,16 +1205,23 @@ void Engine::cleanOld(const Json &input) {
             {{"cleanup", pending ? "pending" : "complete"}, {"version", field(active, "version")}});
 }
 void Engine::recover() {
-    auto journal = optionalJson(settings.root / "update-state/journal.json");
-    if (journal.empty())
+    const auto journalPath = settings.root / "update-state/journal.json";
+    const auto needsRecovery = [](const Json &journal) {
+        const auto phase = journal.value("phase", std::string());
+        return !journal.empty() && phase != "aborted" && phase != "cleaned";
+    };
+    if (!needsRecovery(optionalJson(journalPath)))
+        return;
+    current();
+    // Recovery must take the same locks, in the same order, as apply.
+    FileLock prepareLock(settings.root / "update-state/locks/prepare", true);
+    FileLock gate(settings.root / "update-state/locks/launch", true, 10000);
+    auto journal = optionalJson(journalPath);
+    if (!needsRecovery(journal))
         return;
     auto active = current();
     const auto phase = journal.value("phase", std::string());
-    if (phase == "aborted" || phase == "cleaned")
-        return;
     if (phase == "running" || phase == "cleaning") {
-        FileLock prepareLock(settings.root / "update-state/locks/prepare", true);
-        FileLock gate(settings.root / "update-state/locks/launch", true);
         cleanOld(journal);
         return;
     }
@@ -1239,8 +1246,6 @@ void Engine::recover() {
                     CompareStringOrdinal(
                         fs::path(image.substr(0, length)).lexically_normal().c_str(), -1,
                         expected.c_str(), -1, TRUE) == CSTR_EQUAL) {
-                    FileLock prepareLock(settings.root / "update-state/locks/prepare", true);
-                    FileLock gate(settings.root / "update-state/locks/launch", true);
                     journal["phase"] = "running";
                     journal["cleanup"] = "eligible";
                     journal["new_pid"] = receipt["pid"];
@@ -1271,12 +1276,24 @@ void Engine::recover() {
     publish("rolled_back");
 }
 void Engine::apply(const std::vector<std::wstring> &arguments, DWORD oldPid, std::string oldStamp) {
+    applyPrepared(arguments, oldPid, oldStamp, false);
+}
+void Engine::applyPrepared(const std::vector<std::wstring> &arguments, DWORD oldPid,
+                           const std::string &oldStamp, bool launchCurrentIfRunning) {
     FileLock prepareLock(settings.root / "update-state/locks/prepare", true);
     auto old = current();
     FileLock gate(settings.root / "update-state/locks/launch", true);
     auto ready = optionalJson(settings.root / "update-state/prepared-update.json");
-    if (ready.empty())
+    const auto launchCurrent = [&] {
+        spawn(inside(settings.root, field(old, "current") + "/daymark.exe"), arguments, false);
+    };
+    if (ready.empty()) {
+        if (launchCurrentIfRunning) {
+            launchCurrent();
+            return;
+        }
         fail("update.not_ready", 21);
+    }
     if (ready.at("expected_generation") != old.at("generation"))
         fail("update.recovery_required", 41);
     const auto relative = field(ready, "payload_dir");
@@ -1287,8 +1304,8 @@ void Engine::apply(const std::vector<std::wstring> &arguments, DWORD oldPid, std
                        osBuild());
     if (hex(sha256(release.raw)) != field(ready, "manifest_sha256"))
         fail("update.hash_mismatch");
-    publish("waiting_for_exit");
     if (oldPid) {
+        publish("waiting_for_exit");
         Handle process(OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, oldPid));
         if (process) {
             if (processStamp(process.value) != oldStamp)
@@ -1315,8 +1332,16 @@ void Engine::apply(const std::vector<std::wstring> &arguments, DWORD oldPid, std
         }
     }
     // All old-version processes must have released their shared runtime lease.
-    {
+    try {
         FileLock exclusive(settings.root / "update-state/locks/runtime", true);
+    } catch (const Failure &error) {
+        if (!launchCurrentIfRunning || error.key != "update.instance_busy" ||
+            error.platformError != ERROR_LOCK_VIOLATION)
+            throw;
+        // The running app handles activation through its ordinary single-instance path.
+        // Leave the staged candidate for an explicit restart or a later cold launch.
+        launchCurrent();
+        return;
     }
     Json journal{{"format", 1},
                  {"phase", "starting"},
@@ -1429,18 +1454,54 @@ void Engine::apply(const std::vector<std::wstring> &arguments, DWORD oldPid, std
         throw;
     }
 }
+bool Engine::handoffInProgress() const {
+    const auto journal = optionalJson(settings.root / "update-state/journal.json");
+    const auto phase = journal.value("phase", std::string());
+    if (phase != "starting" && phase != "committed" && phase != "running" && phase != "cleaning")
+        return false;
+    if (!journal.contains("worker_pid") || !journal.contains("worker_stamp"))
+        return false;
+    Handle worker(OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
+                              static_cast<DWORD>(number(journal, "worker_pid", 0xffffffff))));
+    if (!worker || WaitForSingleObject(worker.value, 0) != WAIT_TIMEOUT ||
+        processStamp(worker.value) != field(journal, "worker_stamp"))
+        return false;
+    std::wstring image(32768, 0);
+    DWORD length = static_cast<DWORD>(image.size());
+    if (!QueryFullProcessImageNameW(worker.value, 0, image.data(), &length))
+        return false;
+    const auto actual = fs::path(image.substr(0, length)).lexically_normal();
+    const auto matches = [&](const fs::path &expected) {
+        return CompareStringOrdinal(actual.c_str(), -1, expected.lexically_normal().c_str(), -1,
+                                    TRUE) == CSTR_EQUAL;
+    };
+    const auto old = field(journal, "old");
+    if (!safeRelative(old) || !old.starts_with("versions/") || old.substr(9).find('/') != std::string::npos)
+        return false;
+    return matches(settings.root / "daymark.exe") ||
+           matches(settings.root / "daymark-update-cli.exe") ||
+           matches(inside(settings.root, "update-state/tools/" + old.substr(9) +
+                                            "/daymark-update-cli.exe"));
+}
 void Engine::launch(const std::vector<std::wstring> &arguments) {
-    current();
-    recover();
-    if (fs::exists(settings.root / "update-state/prepared-update.json")) {
-        auto j = optionalJson(settings.root / "update-state/journal.json");
-        if (j.value("phase", std::string()) != "committed") {
-            apply(arguments);
-            return;
+    try {
+        current();
+        recover();
+        if (fs::exists(settings.root / "update-state/prepared-update.json")) {
+            auto j = optionalJson(settings.root / "update-state/journal.json");
+            if (j.value("phase", std::string()) != "committed") {
+                applyPrepared(arguments, 0, {}, true);
+                return;
+            }
         }
+        FileLock gate(settings.root / "update-state/locks/launch", true, 10000);
+        auto active = current();
+        spawn(inside(settings.root, field(active, "current") + "/daymark.exe"), arguments, false);
+    } catch (const Failure &error) {
+        if (error.key != "update.instance_busy" || error.platformError != ERROR_LOCK_VIOLATION ||
+            !handoffInProgress())
+            throw;
+        // The live worker owns this launch and will show the app when handoff completes.
     }
-    FileLock gate(settings.root / "update-state/locks/launch", true, 10000);
-    auto active = current();
-    spawn(inside(settings.root, field(active, "current") + "/daymark.exe"), arguments, false);
 }
 } // namespace daymark::update::win

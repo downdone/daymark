@@ -144,18 +144,23 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
     });
     QList<Task> sorted;sorted.reserve(output.size());for(const auto row:order)sorted.append(std::move(output[row]));output=std::move(sorted);
     if(!nestChildren){for(auto& task:output){task.listDepth=0;task.listChildCount=0;}return output;}
+    return visibleHierarchy(std::move(output),search.isEmpty()?collapsed:QSet<QString>{},view==QStringLiteral("trash"));
+}
+
+QList<Task> QueryService::visibleHierarchy(QList<Task> output,const QSet<QString>& collapsed,bool sameDeletionGroup)
+{
     QHash<QString,qsizetype> visible;visible.reserve(output.size());for(qsizetype row=0;row<output.size();++row)visible.insert(output[row].id,row);
     QHash<QString,QList<qsizetype>> children;QList<qsizetype> roots;roots.reserve(output.size());
     for(qsizetype row=0;row<output.size();++row){
         const auto& task=output[row];const auto parent=visible.constFind(task.parentTaskId);
-        if(!task.parentTaskId.isEmpty() && parent!=visible.cend() && output[*parent].projectId==task.projectId && output[*parent].areaId==task.areaId && (view!=QStringLiteral("trash") || (!task.deletionGroupId.isEmpty() && task.deletionGroupId==output[*parent].deletionGroupId)))children[task.parentTaskId].append(row);else roots.append(row);
+        if(!task.parentTaskId.isEmpty() && parent!=visible.cend() && output[*parent].projectId==task.projectId && output[*parent].areaId==task.areaId && (!sameDeletionGroup || (!task.deletionGroupId.isEmpty() && task.deletionGroupId==output[*parent].deletionGroupId)))children[task.parentTaskId].append(row);else roots.append(row);
     }
     QList<Task> tree;tree.reserve(output.size());QSet<QString> emitted;QList<QPair<qsizetype,int>> pending;pending.reserve(roots.size());
     for(auto it=roots.crbegin();it!=roots.crend();++it)pending.append({*it,0});
     while(!pending.isEmpty()){
         const auto item=pending.takeLast();if(emitted.contains(output[item.first].id))continue;
         auto task=std::move(output[item.first]);emitted.insert(task.id);task.listDepth=item.second;task.listChildCount=children.value(task.id).size();
-        const auto id=task.id;tree.append(std::move(task));if(search.isEmpty() && collapsed.contains(id))continue;
+        const auto id=task.id;tree.append(std::move(task));if(collapsed.contains(id))continue;
         const auto nested=children.value(id);for(auto it=nested.crbegin();it!=nested.crend();++it)pending.append({*it,item.second+1});
     }
     return tree;
@@ -163,13 +168,13 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
 
 QList<Task> QueryService::selectWidget(const QList<Task>& tasks,const QString& context,bool todayOnly,const QDate& today)
 {
-    if(context==QStringLiteral("today"))return select(tasks,context,today,{},false,{},0,0,{}, {},true,false);
+    if(context==QStringLiteral("today"))return select(tasks,context,today,{},false,{},0,0,{}, {},true,true);
     if((!context.startsWith(QStringLiteral("project:")) || context.size()==8) &&
        (!context.startsWith(QStringLiteral("area:")) || context.size()==5))return {};
-    if(!todayOnly)return select(tasks,context,today,{},false,{},0,0,{}, {},true,false);
+    if(!todayOnly)return select(tasks,context,today,{},false,{},0,0,{}, {},true,true);
     QList<Task> candidates;
     for(const auto& task:tasks)if(inView(task,context,today) && inView(task,QStringLiteral("today"),today))candidates.append(task);
-    return select(candidates,QStringLiteral("today"),today,{},false,{},0,0,{}, {},true,false);
+    return select(candidates,QStringLiteral("today"),today,{},false,{},0,0,{}, {},true,true);
 }
 
 Result<void> TaskService::validate(Task& t) const

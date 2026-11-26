@@ -158,6 +158,45 @@ private slots:
         QVERIFY(!workspace.widgetBrowseError().isEmpty());QCOMPARE(workspace.todayTasks()->rowCount(),1);
         QVERIFY(workspace.setWidgetCategoryToday(false));QVERIFY(workspace.setWidgetContext("today"));QCOMPARE(workspace.widgetTasks()->items(),workspace.todayTasks()->items());
     }
+    void widgetKeepsEachSubtaskUnderItsParent()
+    {
+        QTemporaryDir directory;
+        TaskWorkspace workspace;
+        workspace.start(directory.filePath("widget-hierarchy.sqlite"));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        const auto category=addWidgetCategory(workspace,"Work").value("key").toString();
+        QVERIFY(workspace.setWidgetContext(category));
+        const auto profile=workspace.widgetProfileToken();
+        QVERIFY(workspace.createWidgetTask("Parent A",category,false,profile));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        const auto a=workspace.widgetTasks()->taskIdAt(0);
+        QVERIFY(workspace.createWidgetTask("Parent B",category,false,profile));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        const auto b=workspace.widgetTasks()->taskIdAt(1-workspace.widgetTaskIndex(a));
+        QVERIFY(workspace.createSubtask("Child B",b));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        QVERIFY(workspace.createSubtask(QStringLiteral("01、子任务"),a));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        auto verifyBranches=[&] {
+            const auto& rows=workspace.widgetTasks()->items();
+            QCOMPARE(rows.size(),4);
+            for(const auto& parent:{a,b}){
+                const auto row=workspace.widgetTaskIndex(parent);
+                QVERIFY(row==0 || row==2);
+                QCOMPARE(rows[row].listDepth,0);
+                QCOMPARE(rows[row+1].listDepth,1);
+                QCOMPARE(rows[row+1].parentTaskId,parent);
+                QVERIFY(!workspace.canMoveWidgetTask(rows[row+1].id,1));
+            }
+            QCOMPARE(rows[workspace.widgetTaskIndex(a)+1].title,QStringLiteral("01、子任务"));
+        };
+        verifyBranches();
+        const auto first=workspace.widgetTasks()->taskIdAt(0);
+        QVERIFY(workspace.moveWidgetTask(first,1));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(workspace.widgetTaskIndex(first),2);
+        verifyBranches();
+    }
     void widgetPreferencesRestoreAndStayInsideTheirProfile()
     {
         QTemporaryDir directory;const auto path=directory.filePath("first.sqlite");QString context,token;

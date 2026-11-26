@@ -13,6 +13,7 @@ ItemDelegate {
     required property real rowVersion
     required property string arrangementSummary
     required property string parentTitle
+    required property int taskDepth
     required property int subtaskTotal
     required property bool isOverdue
     required property bool important
@@ -41,7 +42,8 @@ ItemDelegate {
         dragging=false;dragProxy.parent=row;dragStateChanged(false,Qt.point(0,0));finishingDrag=false
     }
     objectName: "widgetTask-"+taskId
-    readonly property string summary: [parentTitle, arrangementSummary].filter(value => value.length>0).join(" · ")
+    readonly property bool parentOutsideView: taskDepth===0 && parentTitle.length>0
+    readonly property string summary: [parentOutsideView ? parentTitle : "", arrangementSummary].filter(value => value.length>0).join(" · ")
     function complete() {
         if(!workspace.ready || workspace.busy || completing)return
         actionStarted()
@@ -71,15 +73,17 @@ ItemDelegate {
         }
     }
     implicitHeight: Math.max(Theme.taskRowHeight,body.implicitHeight+8)
-    leftPadding: 0;rightPadding: 6;topPadding: 4;bottomPadding: 4
+    leftPadding: taskDepth * 16;rightPadding: 6;topPadding: 4;bottomPadding: 4
     Accessible.name: title+(summary.length ? ", "+summary : "")
+    Accessible.description: taskDepth>0 ? qsTr("子任务，父任务 %1").arg(parentTitle)
+                            : subtaskTotal>0 ? qsTr("包含 %1 项子任务").arg(subtaskTotal) : ""
     onClicked: openRequested(taskId)
     Keys.onSpacePressed: complete()
     Keys.onEscapePressed: function(event){if(dragging)finishDrag(false);else event.accepted=false}
     Keys.onPressed: function(event){if(event.key===Qt.Key_Menu || (event.key===Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))){contextRequested(taskId,row,Qt.point(width/2,height/2));event.accepted=true}}
     TaskDragGesture {
         objectName: "widgetTaskGesture-"+row.taskId
-        anchors.leftMargin: 36
+        anchors.leftMargin: 36+row.leftPadding
         enabled: row.workspace.ready && !row.workspace.busy
         entry: ({taskId:row.taskId})
         dragDistance: row.workspace.dragDistance
@@ -152,10 +156,10 @@ ItemDelegate {
                 Layout.fillWidth: true
                 spacing: 4
                 AppIcon {
-                    visible: row.parentTitle.length>0 || row.subtaskTotal>0
-                    name: row.parentTitle.length>0 ? "subtask" : "subtasks"
+                    visible: row.parentOutsideView
+                    name: "subtask"
                     Layout.preferredWidth: Theme.iconSize;Layout.preferredHeight: Theme.iconSize
-                    Accessible.name: row.parentTitle.length>0 ? qsTr("子任务") : qsTr("包含子任务")
+                    Accessible.name: qsTr("子任务")
                 }
                 Label {
                     id: titleLabel
