@@ -189,6 +189,11 @@ QString Ux37SmokeProbe::advance() {
         auto* mode=qobject_cast<QQuickItem*>(find("taskReminderMode"));
         auto* options=mode?mode->property("popup").value<QObject*>():nullptr;
         auto* end=qobject_cast<QQuickItem*>(find("editDeadlineDate"));
+        if(m_arrangementPhase==1 && end && !end->isVisible()){
+            auto* expand=qobject_cast<QQuickItem*>(find("taskExpandEndDate"));
+            if(!expand || !expand->isVisible())return fail("optional deadline needs a reachable entry");
+            click(expand);
+        }
         if(!popup->property("visible").toBool() || !end || !end->isVisible() || !mode || !options)
             return fail("arrangement and reminder fields remain open");
         bool waiting=true;

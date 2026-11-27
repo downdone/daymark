@@ -19,6 +19,7 @@ public:
     static QList<CalendarTimeBlock> timeBlocks(const QList<Task>& tasks,const QDate& from,int days,const QTimeZone& zone,bool includeCompleted=false);
     static Result<Task> moveTime(TaskService& service,const Task& before,qint64 version,const QDate& date,int minute,const QString& edge,const QTimeZone& zone);
     static Result<Task> moveDate(TaskService& service,const Task& before,qint64 version,const QDate& from,const QDate& date,const QString& edge,const QTimeZone& zone);
+    static QString arrangementSummary(const Task& task,const QDate& today,const QTimeZone& zone);
     static QString timeSummary(const Task& task,const QDate& today,const QTimeZone& zone);
     static QList<CalendarTaskRange> ranges(const QList<Task>& tasks,const QDate& from,const QDate& to,bool includeCompleted=false);
     static QList<CalendarEntry> entries(const QList<Task>& tasks,const QDate& date,bool includeCompleted=false);

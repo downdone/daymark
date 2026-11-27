@@ -11,5 +11,6 @@ class ScreenWorkArea : public QObject {
   QML_SINGLETON
 
 public:
+  Q_INVOKABLE QPointF beside(QQuickItem *anchor, QQuickItem *parent, qreal width, qreal height) const;
   Q_INVOKABLE QRect forItem(QQuickItem *item) const;
 };

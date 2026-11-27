@@ -1,5 +1,12 @@
 # Daymark 当前进度
 
+## 安排与小窗评审落实
+
+TIME-02、UX-37/77。主窗和小窗通过同一摘要展示本轮时段、周期及提醒。指定提醒可以独立于任务日期；相对提醒预览给出设备本地的响铃时间。已有任务可显式保存安排。快速输入与子任务输入按上下文保留会话草稿。窄窗分类标题可直接打开查找，标题点击和副标题拖动分别命中。
+
+Windows 11 / Qt 6.10.3 / MinGW Release 构建及应用、样式 QML lint 通过。本轮分组通过 16 项相关 CTest，含 calendar_service、task_workspace、widget_workflow、widget_pointer_ui、category_navigation、desktop_surfaces、task_list_interaction、picker_lifecycle、qml_startup、contextual_workspace、desktop_rendering、desktop_input_feedback、time_input_ui、unified_tasks、reminders、recurrence_service。224 DIP / 200% 分类点击与查找、草稿返回、显式创建、安排提交、主窗子选择器均有回归覆盖。Windows 原生小窗工作流另行通过，使用隔离资料。物理多屏混合 DPI 和 macOS 尚未实机验证。
+
+
 ## 小窗父子任务、输入与更新启动回归（2026-11-26）
 
 FR-018、UX-37/77、UPD-09。小窗保留原查询范围，范围内的子任务按父 ID 排在父项之后并缩进。范围外的父任务保留名称线索。同级排序沿用现有业务限制。详情的页签切换保留写入门和独立子任务草稿，后台维护不禁用正在输入的字段。Windows 更新恢复与启动的并发由原安装锁串行化，启动器遇到正在运行的应用时保留待更新版本并走既有单实例唤醒。沿用 Qt、现有 task ID、数据库、同步协议及签名更新契约。验收使用隔离资料、IME 预编辑与提交事件、维护窗口和签名更新夹具。

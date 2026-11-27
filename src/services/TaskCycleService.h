@@ -9,6 +9,7 @@ public:
     TaskCycleService(TaskCycleRepository& cycles,TaskRepository& tasks,const IClock& clock)
         :m_cycles(cycles),m_tasks(tasks),m_clock(clock){}
 
+    static std::optional<TaskSchedule> nextSchedule(const Task& task);
     static QString occurrenceKey(qint64 ruleRevision,const QString& startUtc);
     static QString occurrenceKey(const TaskCycle& cycle);
     static Result<TaskCycle> first(const Task& task,RecurrenceRule rule,const QString& zone,const QDate& today);

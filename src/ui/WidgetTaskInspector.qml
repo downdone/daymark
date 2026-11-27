@@ -30,11 +30,19 @@ Popup {
     property int selectedTab:0
     property bool hadWindowFocus:false
     property var children:[]
+    property var childDrafts:({})
     signal fullDetailsRequested(string taskId)
     popupType:Popup.Window
     modal:false;focus:true;padding:14
-    width:Math.min(420*Theme.scale,workspace.reminderPopupArea().width-24)
-    height:Math.min(body.implicitHeight+padding*2,workspace.reminderPopupArea().height-24,640*Theme.scale)
+    property rect workArea:Qt.rect(0,0,800,600)
+    function reposition(){
+        if(!source || !parent)return
+        const point=DS.ScreenWorkArea.beside(source,parent,width,height)
+        x=point.x;y=point.y
+    }
+    onHeightChanged:if(visible)reposition()
+    width:Math.min(420*Theme.scale,workArea.width-12)
+    height:Math.min(body.implicitHeight+padding*2,workArea.height-12,640*Theme.scale)
     closePolicy:Popup.NoAutoClose
     background:PopoverSurface {}
     readonly property bool pickersOpen:temporal.pickerOpen || extra.parentPickerVisible || extra.tagPickerVisible
@@ -62,7 +70,12 @@ Popup {
     function loadTask(id,preserveTab){
         const item=workspace.task(id)
         if(!item.taskId)return false
-        if(original.taskId!==id || projectionProfile!==workspace.profileGeneration)childTitle.clear()
+        if(original.taskId!==id || projectionProfile!==workspace.profileGeneration){
+            const previous=JSON.stringify([profile,original.taskId])
+            if(original.taskId && childTitle.text.length)childDrafts[previous]=childTitle.text
+            else delete childDrafts[previous]
+            childTitle.text=childDrafts[JSON.stringify([workspace.widgetProfileToken,id])] || ""
+        }
         temporal.finish(false);loading=true;original=item;title.text=item.title;notes.text=item.notes || ""
         start.text=item.startOn || "";end.text=item.deadlineOn || ""
         reminder.loadTask(item)
@@ -77,8 +90,8 @@ Popup {
         if(!loadTask(id))return
         source=item;profile=workspace.widgetProfileToken
         hadWindowFocus=false
-        const at=item.mapToItem(parent,0,0),global=item.mapToGlobal(item.width,0),area=workspace.reminderPopupArea()
-        x=global.x+width+8<area.x+area.width?at.x+item.width+8:at.x-width-8;y=at.y
+        workArea=DS.ScreenWorkArea.forItem(item)
+        reposition()
         open();Qt.callLater(function(){if(root.visible && root.selectedTab===0)title.forceActiveFocus()})
     }
     function finish(action){
@@ -99,7 +112,8 @@ Popup {
     }
     function performAction(){
         const action=afterSave;afterSave=""
-        if(action==="full"){const id=original.taskId;close();fullDetailsRequested(id)}
+        if(action==="arrangement"){loadTask(original.taskId,true)}
+        else if(action==="full"){const id=original.taskId;close();fullDetailsRequested(id)}
         else if(action==="complete"){if(workspace.changeState(original.taskId,original.rowVersion,"complete"))close();else localError=workspace.errorText}
         else if(action.startsWith("child:"))loadTask(action.slice(6))
         else if(action==="children"){selectedTab=1;children=workspace.subtaskChoices(original.taskId)}
@@ -128,7 +142,7 @@ Popup {
             if(operation==="save" && root.saving){root.saving=false;if(success){root.dirty=false;root.original=root.workspace.task(root.original.taskId);root.performAction()}else root.localError=root.workspace.errorText}
             else if(operation==="createSubtask" && root.addingChild){
                 root.addingChild=false
-                if(success){childTitle.clear();root.children=root.workspace.subtaskChoices(root.original.taskId);root.localError=""}
+                if(success){delete root.childDrafts[JSON.stringify([root.profile,root.original.taskId])];childTitle.clear();root.children=root.workspace.subtaskChoices(root.original.taskId);root.localError=""}
                 else root.localError=root.workspace.errorText
             }
         }
@@ -137,7 +151,6 @@ Popup {
         id:body;spacing:8
         RowLayout {
             Layout.fillWidth:true
-            WidgetAction {visible:root.arrangementPage;symbol:"left";description:qsTr("返回任务详情");onClicked:temporal.finish(false)}
             Label {Layout.fillWidth:true;text:root.arrangementPage?qsTr("安排"):root.original.parentTaskId?qsTr("子任务"):qsTr("任务");font.pixelSize:Theme.sectionSize;color:Theme.secondary}
             BusyIndicator {running:root.saving;visible:running;Layout.preferredWidth:24;Layout.preferredHeight:24}
             IconToolButton {id:more;visible:!root.arrangementPage;Accessible.name:qsTr("任务更多操作");contentItem:AppIcon{name:"more"} onClicked:menu.popupAt(more)}
@@ -167,6 +180,8 @@ Popup {
                     objectPrefix:"widgetInspector";compact:true
                     showEntry:!root.arrangementPage;showActions:!root.arrangementPage
                     onDatesChanged:function(value){root.markDirty()}
+                    persistOnApply:true
+                    onSaveRequested:root.finish("arrangement")
                     onEdited:root.markDirty()
                     onOpenedChanged:{
                         const flick=detailScroll.contentItem
@@ -197,7 +212,7 @@ Popup {
         RowLayout {visible:root.arrangementPage;Layout.fillWidth:true
             Item {Layout.fillWidth:true}
             Button {objectName:"widgetInspectorCancelArrangementPage";text:qsTr("取消");onClicked:temporal.finish(false)}
-            Button {objectName:"widgetInspectorApplyArrangementPage";text:qsTr("完成");highlighted:true;onClicked:temporal.finish(true)}
+            Button {objectName:"widgetInspectorApplyArrangementPage";text:qsTr("保存安排");enabled:!root.workspace.busy && !root.saving;highlighted:true;onClicked:temporal.acceptEdits()}
         }
     }
     DS.Menu {
@@ -205,6 +220,6 @@ Popup {
         MenuItem {text:qsTr("完成任务");onTriggered:root.finish("complete")}
         MenuItem {text:qsTr("在主窗口展开");onTriggered:root.finish("full")}
         DS.MenuSeparator {}
-        MenuItem {text:qsTr("放弃更改并关闭");enabled:!root.saving && !root.addingChild;onTriggered:{root.dirty=false;childTitle.clear();root.close()}}
+        MenuItem {text:qsTr("放弃更改并关闭");enabled:!root.saving && !root.addingChild;onTriggered:{root.dirty=false;delete root.childDrafts[JSON.stringify([root.profile,root.original.taskId])];childTitle.clear();root.close()}}
     }
 }

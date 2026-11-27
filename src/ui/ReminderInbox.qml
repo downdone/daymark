@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import DaymarkStyle as DS
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -16,18 +17,22 @@ Popup {
     signal historyRequested()
     popupType:Popup.Window
     modal:false;focus:true;padding:12
-    width:Math.min(380*Theme.scale,workspace.reminderPopupArea().width-24)
-    height:Math.min(body.implicitHeight+padding*2,workspace.reminderPopupArea().height-24,560*Theme.scale)
+    property rect workArea:Qt.rect(0,0,800,600)
+    function reposition(){
+        if(!source || !parent)return
+        const point=DS.ScreenWorkArea.beside(source,parent,width,height)
+        x=point.x;y=point.y
+    }
+    onHeightChanged:if(visible)reposition()
+    width:Math.min(380*Theme.scale,workArea.width-12)
+    height:Math.min(body.implicitHeight+padding*2,workArea.height-12,560*Theme.scale)
     closePolicy:Popup.CloseOnEscape|Popup.CloseOnPressOutside
     background:PopoverSurface {}
     function openAt(item){
         workspace.prepareReminderInbox()
         source=item;localError="";feedback=""
-        const at=item.mapToItem(parent,0,item.height)
-        const global=item.mapToGlobal(item.width,item.height)
-        const area=workspace.reminderPopupArea()
-        x=global.x+width+8<area.x+area.width?at.x+item.width+8:at.x-width-8
-        y=at.y-item.height
+        workArea=DS.ScreenWorkArea.forItem(item)
+        reposition()
         open()
         refreshAlerts()
     }

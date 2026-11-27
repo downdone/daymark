@@ -1,24 +1,56 @@
 #include "CalendarService.h"
+#include "TaskCycleService.h"
 #include <algorithm>
 #include <QHash>
 
 namespace daymark {
 namespace {
+QString shortDate(const QDate& date,const QDate& today)
+{
+    if(date==today)return QStringLiteral("今天");
+    if(date==today.addDays(1))return QStringLiteral("明天");
+    return date.toString(date.year()==today.year()?"M-d":"yyyy-M-d");
+}
 bool eligible(const Task& task,bool includeCompleted) {
     if(QueryService::effectiveActive(task))return true;
     if(!includeCompleted || task.status!=QStringLiteral("COMPLETED"))return false;
     auto open=task;open.status=QStringLiteral("OPEN");return QueryService::effectiveActive(open);
 }
 }
+QString CalendarService::arrangementSummary(const Task& task,const QDate& today,const QTimeZone& zone)
+{
+    QStringList parts;
+    const bool pending=task.cycle && task.cycle->nextDate.isValid();
+    if(pending){
+        Task next;
+        next.startOn=task.cycle->nextDate;
+        next.schedule=TaskCycleService::nextSchedule(task);
+        parts.append(QStringLiteral("下次 ")+timeSummary(next,today,zone));
+    }else{
+        const auto execution=timeSummary(task,today,zone);
+        if(!execution.isEmpty())parts.append(execution);
+    }
+    const auto alarm=QDateTime::fromString(task.remindAtUtc,Qt::ISODateWithMs).toTimeZone(zone);
+    if(alarm.isValid()){
+        if(task.schedule && !task.schedule->allDay)parts.append(QStringLiteral("提醒"));
+        else {
+            const auto day=parts.size()==1 && task.startOn==alarm.date() && !pending?QString():shortDate(alarm.date(),today)+" ";
+            parts.append(day+alarm.toString("HH:mm")+QStringLiteral(" 提醒"));
+        }
+    }
+    if(task.cycle && task.cycle->rule.active)parts.append(QStringLiteral("循环"));
+    return parts.join(QStringLiteral(" · "));
+}
+
 QString CalendarService::timeSummary(const Task& input,const QDate& today,const QTimeZone& zone)
 {
     const auto normalized=input.schedule?std::optional<Task>(QueryService::withUnifiedDates(input)):std::nullopt;
     const auto& task=normalized?*normalized:input;
-    auto dateText=[today](const QDate& date){return date.toString(date.year()==today.year()?QStringLiteral("M-d"):QStringLiteral("yyyy-M-d"));};
+    auto dateText=[today](const QDate& date){return shortDate(date,today);};
     if(task.schedule && !task.schedule->allDay){const auto start=task.schedule->startUtc.toTimeZone(zone),end=task.schedule->endUtc.toTimeZone(zone);return dateText(start.date())+QStringLiteral(" ")+start.time().toString(QStringLiteral("HH:mm"))+QStringLiteral("–")+(start.date()==end.date()?QString():dateText(end.date())+QStringLiteral(" "))+end.time().toString(QStringLiteral("HH:mm"));}
     if(task.startOn && task.deadlineOn && *task.startOn!=*task.deadlineOn)return dateText(*task.startOn)+QStringLiteral(" → ")+dateText(*task.deadlineOn);
     if(task.startOn)return dateText(*task.startOn);
-    if(task.deadlineOn)return QStringLiteral("结束 ")+dateText(*task.deadlineOn);
+    if(task.deadlineOn)return QStringLiteral("截止 ")+dateText(*task.deadlineOn);
     return {};
 }
 QList<CalendarTimeBlock> CalendarService::timeBlocks(const QList<Task>& tasks,const QDate& from,int days,const QTimeZone& zone,bool includeCompleted)

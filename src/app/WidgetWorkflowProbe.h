@@ -173,7 +173,8 @@ public:
             if(!QMetaObject::invokeMethod(mode,"activated",Q_ARG(int,1)))return fail("choose relative reminder");
             if(!click("widgetInspectorApplyArrangementPage"))return fail("apply reminder arrangement");
         }else if(phase==40){
-            if(!click("widgetInspectorClose"))return fail("save new reminder mode");
+            if(w.task(id).value("schedule").toMap().value("alertMinutes",-1).toInt()!=0)return fail("arrangement must already be saved before closing");
+            if(!click("widgetInspectorClose"))return fail("close saved arrangement");
         }else if(phase==41){
             const auto task=w.task(id);const auto schedule=task.value("schedule").toMap();
             if(inspector->property("visible").toBool() || schedule.value("alertMinutes",-1).toInt()!=0 ||
@@ -218,6 +219,14 @@ public:
         }else if(phase==46){
             const auto children=w.subtaskChoices(id);
             if(children.size()!=1 || children.first().toMap().value("title").toString()!=QStringLiteral("01、展览方案"))return fail("child submit must save into the selected parent");
+            auto* draft=find("widgetInspectorChildTitle");
+            draft->setProperty("text",QStringLiteral("尚未提交的子任务"));
+            const auto other=children.first().toMap().value("taskId").toString();
+            if(!QMetaObject::invokeMethod(inspector,"loadTask",Q_ARG(QVariant,other),Q_ARG(QVariant,false)) ||
+               !draft->property("text").toString().isEmpty())return fail("draft leaked to another parent");
+            if(!QMetaObject::invokeMethod(inspector,"loadTask",Q_ARG(QVariant,id),Q_ARG(QVariant,false)) ||
+               draft->property("text")!=QStringLiteral("尚未提交的子任务") || w.subtaskChoices(id).size()!=1)
+                return fail("return to parent must restore the unsaved child draft");
             return QStringLiteral("DONE");
         }
         ++phase;return {};

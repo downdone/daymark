@@ -677,8 +677,8 @@ ApplicationWindow {
         const start=startDateGroup.mapToItem(editorFields,0,0)
         const end=deadlineGroup.mapToItem(editorFields,0,0)
         // Endpoints use aligned desktop property rows at both widths.
-        if(start.y+startDateGroup.height>end.y-Theme.fieldGap+1)return "endpoint rows overlap"
-        if(startDateGroup.verifyLayout()!=="PASS" || deadlineGroup.verifyLayout()!=="PASS")return "endpoint property alignment"
+        if(deadlineGroup.visible && start.y+startDateGroup.height>end.y-Theme.fieldGap+1)return "endpoint rows overlap"
+        if(startDateGroup.verifyLayout()!=="PASS" || (deadlineGroup.visible && deadlineGroup.verifyLayout()!=="PASS"))return "endpoint property alignment"
         for(const field of [startDate,deadline,reminder]) {
             if(!field.visible)continue
             const at=field.mapToItem(editorFields,0,0)
@@ -1674,6 +1674,13 @@ ApplicationWindow {
                     id:temporal;workspace:mainWindow.taskWorkspace;taskId:mainWindow.editId
                     startName:"editStartDate";endName:"editDeadlineDate";reminderName:"editorReminder"
                     parent:quickArrangement.visible?quickArrangementBody:arrangementHost
+                    persistOnApply:!mainWindow.newInlineDraft && !!mainWindow.editId
+                    onSaveRequested:{
+                        if(!mainWindow.draftDirty)return
+                        const id=mainWindow.editId
+                        mainWindow.pendingAction=editor.visible ? function(){mainWindow.loadEditor(id)} : null
+                        if(!mainWindow.saveEditor())mainWindow.pendingAction=null
+                    }
                     showEntry:!quickArrangement.visible
                     inlinePickers:editor.visible && !quickArrangement.visible
                     onPickerRequested:function(field,kind){inspectorPicker.openFor(field,kind)}

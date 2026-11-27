@@ -1,11 +1,20 @@
 #include "TaskWorkspace.h"
 #include "ReminderPresentation.h"
+#include "services/EventService.h"
 #include <QGuiApplication>
 #include <QScreen>
 #include <QSettings>
 #include <algorithm>
 
 namespace daymark {
+QString TaskWorkspace::relativeAlarmLocal(const QString& date,const QString& time,const QString& zone,int minutes) const
+{
+    if(minutes<0)return {};
+    const auto start=EventService::localInstant(date+" "+time,zone);
+    if(!start.ok())return {};
+    return start.value.addSecs(-60LL*minutes).toLocalTime().toString("yyyy-MM-dd HH:mm");
+}
+
 QRect TaskWorkspace::reminderPopupArea() const
 {
     const auto* screen=QGuiApplication::primaryScreen();

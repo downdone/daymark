@@ -102,11 +102,12 @@ ColumnLayout {
         Layout.fillWidth: true;spacing: Theme.fieldGap
         SettingSwitch {id: allDay;visible:!root.compactPresentation;objectName: root.objectPrefix+"AllDay";Layout.fillWidth: true;symbol: "calendar";text: qsTr("指定时间");Accessible.description: qsTr("为同一开始和结束日期指定时间");onClicked: {if(checked)root.dateDefaultsRequested();root.changed(true)}}
         FormRow {contextual:root.compactPresentation;
-            visible: root.compactPresentation;label: qsTr("时段")
+            visible: root.compactPresentation && (!root.hasSpecificTime || !root.startEndpointHost);label:qsTr("时段")
             RowLayout {
                 Layout.fillWidth:true;spacing:4
-                ActionButton {id:rangeButton;objectName:root.objectPrefix+"ChooseTimeRange";symbol:"clock";contentAlignment:Qt.AlignLeft;Layout.fillWidth:true;text:root.hasSpecificTime ? startTime.text+" — "+endTime.text : qsTr("选择具体时段…");onClicked:root.openRange(rangeButton)}
+                ActionButton {id:rangeButton;visible:!root.hasSpecificTime || !root.startEndpointHost;objectName:root.objectPrefix+"ChooseTimeRange";symbol:"clock";contentAlignment:Qt.AlignLeft;Layout.fillWidth:true;text:root.hasSpecificTime ? startTime.text+" — "+endTime.text : qsTr("添加时间…");onClicked:root.openRange(rangeButton)}
                 IconToolButton {
+                    parent:root.hasSpecificTime && root.endEndpointHost ? root.endEndpointHost : rangeButton.parent
                     visible:root.hasSpecificTime;contentItem:AppIcon{name:"more"} Accessible.name:qsTr("时段选项");onClicked:timeOptions.popup(this,0,height)
                     DS.Menu {
                         id:timeOptions
@@ -119,7 +120,7 @@ ColumnLayout {
         }
         GridLayout {
             id: timesGrid
-            visible: root.hasSpecificTime
+            visible:root.hasSpecificTime && !root.compactPresentation
             Layout.fillWidth: true;columns: root.width>=440*Theme.scale ? 2 : 1;columnSpacing: 16;rowSpacing: 6
             ColumnLayout {
                 parent:root.startEndpointHost || timesGrid;visible:root.hasSpecificTime
@@ -168,7 +169,13 @@ ColumnLayout {
         Layout.fillWidth: true;spacing: Theme.fieldGap
         Label {visible:root.legacyRule;Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("旧循环保留已生成任务。转换时将以当前任务继续，其他任务保留。");color:Theme.secondary}
         Button {visible:root.legacyRule && !root.convertLegacy;text:qsTr("转换为同一任务周期");onClicked:{root.convertLegacy=true;root.changed(false)}}
-        Label {visible:root.useTaskCycle && !!root.cycleSnapshot.nextDate;Layout.fillWidth:true;text:qsTr("下次 %1").arg(root.cycleSnapshot.nextDate || "");color:Theme.secondary}
+        Label {
+            visible:root.useTaskCycle && root.repeatEnabled && (root.repeatDirty || root.datesEdited || !!root.cycleSnapshot.nextDate)
+            Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.secondary;font.pixelSize:Theme.captionSize
+            text:root.repeatDirty || root.datesEdited
+                ? root.workspace.recurrencePreview({anchor:root.startDateValue || root.workspace.dateOffset(0),frequency:root.frequencies[frequency.currentIndex],interval:interval.value,weekdays:root.weekdayMask,end:until.text,sameTask:true})
+                : qsTr("下次执行：%1").arg(root.cycleSnapshot.nextDate || "")
+        }
         SettingSwitch {id: repeating;visible:!root.compactPresentation;objectName: root.objectPrefix+"Repeating";Layout.fillWidth: true;symbol: "reload";text: qsTr("循环生成任务");Accessible.description: qsTr("按周期生成可独立完成的任务");onClicked: root.changed(false)}
         FormRow {contextual:root.compactPresentation;visible:root.compactPresentation;label:root.useTaskCycle?qsTr("周期"):qsTr("重复")
             DS.ComboBox {

@@ -1,5 +1,6 @@
 #include "TaskService.h"
 #include "EventService.h"
+#include "TaskCycleService.h"
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QUuid>
@@ -98,7 +99,7 @@ QList<Task> QueryService::select(const QList<Task>& tasks, const QString& view, 
             projected.status=QStringLiteral("COMPLETED");projected.completedAtUtc=task.cycle->latestCompletion;
         }
         if((view==QStringLiteral("scheduled") || view==QStringLiteral("upcoming")) && task.cycle && task.cycle->nextDate.isValid()){
-            projected.startOn=task.cycle->nextDate;projected.deadlineOn.reset();projected.schedule.reset();
+            projected.startOn=task.cycle->nextDate;projected.deadlineOn.reset();projected.schedule=TaskCycleService::nextSchedule(task);
         }
         output.append(projected);
     }

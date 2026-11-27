@@ -74,7 +74,7 @@ ItemDelegate {
     }
     implicitHeight: Math.max(Theme.taskRowHeight,body.implicitHeight+8)
     leftPadding: taskDepth * 16;rightPadding: 6;topPadding: 4;bottomPadding: 4
-    Accessible.name: title+(summary.length ? ", "+summary : "")
+    Accessible.name: title+(isOverdue ? qsTr("，已逾期") : "")+(summary.length ? ", "+summary : "")
     Accessible.description: taskDepth>0 ? qsTr("子任务，父任务 %1").arg(parentTitle)
                             : subtaskTotal>0 ? qsTr("包含 %1 项子任务").arg(subtaskTotal) : ""
     onClicked: openRequested(taskId)
@@ -176,7 +176,7 @@ ItemDelegate {
                 visible: row.summary.length>0
                 Layout.fillWidth: true;Layout.minimumWidth: 0
                 Layout.leftMargin: titleLabel.x
-                text: row.summary;textFormat: Text.PlainText;font.pixelSize: Theme.captionSize
+                text: (row.isOverdue ? qsTr("已逾期 · ") : "")+row.summary;textFormat: Text.PlainText;font.pixelSize: Theme.captionSize
                 color: row.isOverdue ? Theme.danger : Theme.secondary;elide: Text.ElideRight
             }
         }

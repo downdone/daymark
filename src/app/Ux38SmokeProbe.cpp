@@ -1242,14 +1242,23 @@ QString Ux38SmokeProbe::advanceCategories()
         click("widgetAdd");input->setProperty("text",QStringLiteral("切换前输入"));click("widgetBrowseToday");
     }
     if(m_stage==269){
-        if(m_workspace.widgetContext()!="today" || !input->property("text").toString().isEmpty())return fail("save old draft before changing context");
-        const auto choices=m_workspace.eventTaskChoices(QStringLiteral("切换前输入"));if(choices.size()!=1)return fail("draft created once");const auto task=m_workspace.task(choices.first().toMap().value("taskId").toString());
-        if(task.value("projectId").toString()!=m_categoryChild.mid(8) || !task.value("startOn").toString().isEmpty())return fail("draft keeps original ownership and date");
-        input->setProperty("text",QString(513,QLatin1Char('x')));click(m_controller.panelSidebarWidth()>0?"widgetRailCategories":"widgetCategoryButton");search->setProperty("text",QStringLiteral("生活安排"));
+        if(m_workspace.widgetContext()!="today" || !input->property("text").toString().isEmpty() ||
+           !m_workspace.eventTaskChoices(QStringLiteral("切换前输入")).isEmpty())
+            return fail("browsing never submits input");
+        input->setProperty("text",QString(513,QLatin1Char('x')));
+        if(!m_workspace.setWidgetContext(m_categoryChild) || input->property("text")!=QStringLiteral("切换前输入"))
+            return fail("return restores the original category draft");
+        click("widgetQuickSubmit");
     }
-    if(m_stage==270){click("widgetCategoryChoice-"+m_categoryOther);}
+    if(m_stage==270){
+        const auto choices=m_workspace.eventTaskChoices(QStringLiteral("切换前输入"));
+        if(choices.size()!=1 || !m_workspace.setWidgetContext("today") || input->property("text").toString().size()!=513)
+            return fail("explicit creation leaves the other draft intact");
+        click("widgetQuickSubmit");
+    }
     if(m_stage==271){
-        if(m_workspace.widgetContext()!="today" || input->property("text").toString().size()!=513 || m_workspace.errorText().isEmpty() || m_widget->property("categoryPickerOpen").toBool())return fail("failed draft preserves old context and visible error");
+        if(m_workspace.widgetContext()!="today" || input->property("text").toString().size()!=513 || m_workspace.errorText().isEmpty())
+            return fail("failed explicit save preserves the draft");
         input->setProperty("text","");m_widget->setProperty("addingTask",false);m_workspace.clearError();m_workspace.requestWidgetCategoryToday(true);click("widgetShortcut-"+m_categoryRoot);
     }
     if(m_stage==272){
@@ -1376,7 +1385,7 @@ QString Ux38SmokeProbe::advanceCategories()
         auto* browse=qobject_cast<QQuickItem*>(find(m_widget,"widgetCategoryButton"));
         if(m_controller.panelRect().width()!=224 || !m_widget->property("stackedPanelHeader").toBool() ||
            !title || title->width()<100 || !more || !browse || !browse->isVisible() ||
-           more->mapToScene(QPointF()).y()<title->mapToScene(QPointF(0,title->height())).y() ||
+           more->mapToScene(QPointF()).x()<browse->mapToScene(QPointF(browse->width(),0)).x() ||
            !layout() || !capture(m_widget,"categories-narrow-dark-200"))
             return fail("224 pixel header, buttons and task list stay reachable at 200 percent");
         click("widgetAdd");
@@ -1391,7 +1400,10 @@ QString Ux38SmokeProbe::advanceCategories()
     if(m_stage==294){
         if(!m_widget->property("categoryPickerOpen").toBool() || search->property("width").toReal()<120 ||
            !capture(m_widget,"categories-narrow-picker-dark-200"))
-            return fail("narrow panel reuses the keyboard-accessible category finder");
+            return fail(QStringLiteral("narrow category finder open=%1 searchWidth=%2 blocked=%3 form=%4 focus=%5")
+                        .arg(m_widget->property("categoryPickerOpen").toBool()).arg(search->property("width").toReal())
+                        .arg(m_widget->property("motionInputBlocked").toBool()).arg(m_controller.effectiveForm())
+                        .arg(m_widget->activeFocusItem()?m_widget->activeFocusItem()->objectName():QString()));
         key(m_widget,Qt::Key_Escape);
         m_workspace.setWidgetShowShortcuts(true);m_workspace.setWidgetCategoryToday(false);m_workspace.setWidgetContext("today");
         m_workspace.setTextScale(1);m_workspace.setThemeMode(1);m_workspace.setSearch("");m_workspace.setView("today");

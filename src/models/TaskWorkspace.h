@@ -214,6 +214,7 @@ public:
     Q_INVOKABLE QString shiftCalendarScale(const QString& anchor,int offset,const QString& scale) const;
     Q_INVOKABLE QString titleForScale(const QString& anchor,const QString& scale) const;
     Q_INVOKABLE bool moveTaskTime(const QString& id,qint64 version,const QString& date,int minute,const QString& edge);
+    Q_INVOKABLE QString relativeAlarmLocal(const QString& date,const QString& time,const QString& zone,int minutes) const;
     Q_INVOKABLE QString defaultReminderLocal() const;
     Q_INVOKABLE QString reminderPreview(const QString& local,const QString& frequency,int interval) const;
     Q_INVOKABLE QString minuteLabel(const QString& date,int minute,const QString& zoneId=QString()) const;

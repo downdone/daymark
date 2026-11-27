@@ -604,7 +604,7 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                     field->findChild<QObject*>(QStringLiteral("reminderPickerDate"))->setProperty("text",m_workspace.dateOffset(1));QMetaObject::invokeMethod(clock,"chooseTime",Q_ARG(QVariant,QVariant(16)),Q_ARG(QVariant,QVariant(20)));
                     if(!capture(QStringLiteral("reminder-single-level"))){fail("single reminder capture");return;}
                     QMetaObject::invokeMethod(field->findChild<QObject*>(QStringLiteral("applyReminder")),"clicked");QMetaObject::invokeMethod(find("taskArrangementApply"),"clicked");
-                    if(m_workspace.task(secondId)!=quickOriginalTask || !mainWindow->property("draftDirty").toBool()){fail("reminder selection edits only shared draft");return;}QMetaObject::invokeMethod(quick,"closeRequested");
+                    // Saving the arrangement commits it directly; no outer close is required.
                 } else if(phase==238) {
                     const auto task=m_workspace.task(secondId);if(quick->property("editing").toBool() || mainWindow->property("draftDirty").toBool() || m_workspace.localReminder(task.value("remindAtUtc").toString())!=m_workspace.dateOffset(1)+QStringLiteral(" 16:20")){fail("one reminder confirmation commits task without another check");return;}
                     m_workspace.setView(QStringLiteral("month"));mainWindow->resize(1120,900);QMetaObject::invokeMethod(mainWindow,"openEditor",Q_ARG(QVariant,QVariant(secondId)));

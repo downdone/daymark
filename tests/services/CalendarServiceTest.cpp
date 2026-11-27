@@ -6,6 +6,27 @@ using namespace daymark;
 class CalendarServiceTest:public QObject {
     Q_OBJECT
 private slots:
+    void arrangementIncludesAlarmAndNextTimedCycle()
+    {
+        const QDate today(2026,11,26);
+        Task task;
+        task.remindAtUtc="2026-11-27T05:45:00.000Z";
+        const auto zone=QTimeZone::fromSecondsAheadOfUtc(8*3600);
+        QCOMPARE(CalendarService::arrangementSummary(task,today,zone),QStringLiteral("明天 13:45 提醒"));
+        TaskSchedule slot;
+        slot.allDay=false;
+        slot.timeZone="UTC";
+        slot.startUtc=QDateTime(today,QTime(6,0),QTimeZone::UTC);
+        slot.endUtc=slot.startUtc.addSecs(3600);
+        task.schedule=slot;
+        TaskCycle cycle;
+        cycle.zone="UTC";
+        cycle.rule.active=true;
+        cycle.nextDate=today.addDays(1);
+        cycle.nextStartUtc=slot.startUtc.addDays(1);
+        task.cycle=cycle;
+        QCOMPARE(CalendarService::arrangementSummary(task,today,zone),QStringLiteral("下次 明天 14:00–15:00 · 提醒 · 循环"));
+    }
     void visibleRangeMatchesIndependentPerDaySelection()
     {
         const QDate anchor(2026,11,4);QList<Task> tasks;

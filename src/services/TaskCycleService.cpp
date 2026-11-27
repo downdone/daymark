@@ -53,6 +53,13 @@ QString relativeReminder(const Task& task,const QDate& date,const QDateTime& sta
 }
 }
 
+std::optional<TaskSchedule> TaskCycleService::nextSchedule(const Task& task)
+{
+    if(!task.cycle || !task.schedule || !task.cycle->nextDate.isValid())return {};
+    const auto slot=slotOn(task,task.cycle->nextDate,QTimeZone(task.cycle->zone.toUtf8()));
+    return slot.ok()?slot.value.schedule:std::nullopt;
+}
+
 QString TaskCycleService::occurrenceKey(qint64 ruleRevision,const QString& startUtc)
 {
     const auto key=QString::number(ruleRevision)+QLatin1Char('/')+startUtc;

@@ -74,9 +74,10 @@ Window {
     }
     readonly property int categoryRailWidth:controller.panelSidebarWidth
     readonly property bool stackedPanelHeader: controller.panelRect.width - categoryRailWidth < 248+16*(Theme.scale-1)
+    readonly property bool compactNavigation:stackedPanelHeader && categoryRailWidth===0
     onCategoryRailWidthChanged:Qt.callLater(syncPanelMinimum)
     property var draftContext:null
-    property var pendingBrowse:null
+    property var browseDrafts:({})
     property var browsePositions:({})
     property string browseProfile:""
     property string shownBrowseKey:""
@@ -90,8 +91,9 @@ Window {
     }
     function requestBrowse(intent) {
         if(addingPending || workspace.busy || taskDragging || motionInputBlocked)return
-        if(quickTitle.text.trim().length){pendingBrowse=intent;submitTask()}
-        else {quickTitle.clear();applyBrowse(intent)}
+        // Qt exposes QInputMethod here as QObject in the QML type description.
+        if(quickTitle.inputMethodComposing)Qt.inputMethod.commit() // qmllint disable missing-property
+        applyBrowse(intent)
     }
     function requestMenuBrowse(intent) {
         // A context change rebuilds the category actions. Close the cascade
@@ -106,7 +108,7 @@ Window {
     }
     onCategoryPickerOpenChanged: {
         reportInteraction()
-        if(!categoryPickerOpen && active && !controller.mini && !taskDragging)Qt.callLater(function(){if(!motionInputBlocked)if(addingTask)quickTitle.forceActiveFocus();else if(widget.categoryRailWidth>0)navigationBar.focusCategories();else categoryFallback.forceActiveFocus()})
+        if(!categoryPickerOpen && active && !controller.mini && !taskDragging)Qt.callLater(function(){if(!motionInputBlocked)if(addingTask)quickTitle.forceActiveFocus();else if(widget.categoryRailWidth>0)navigationBar.focusCategories();else if(widget.compactNavigation)compactCategory.forceActiveFocus();else categoryFallback.forceActiveFocus()})
     }
     function stashBrowsePosition() {
         if(!shownBrowseKey || browseProfile!==workspace.widgetProfileToken)return
@@ -125,6 +127,23 @@ Window {
         const current=workspace.widgetTaskIndex(state.current);todayList.currentIndex=current>=0?current:todayList.count?Math.max(0,anchor):-1
     }
     function syncBrowsePresentation() {
+        const profile=workspace.widgetProfileToken
+        const key=workspace.widgetBrowseKey
+        if(browseProfile!==profile || shownBrowseKey!==key){
+            const previous=JSON.stringify([browseProfile,shownBrowseKey])
+            if(shownBrowseKey && quickTitle.text.length){
+                browseDrafts[previous]={text:quickTitle.text,ignored:widgetTimePreview.ignored,overrides:widgetTimePreview.overrides}
+            }else delete browseDrafts[previous]
+            const next=browseDrafts[JSON.stringify([profile,key])]
+            quickTitle.clear()
+            draftContext=null
+            if(next){
+                quickTitle.text=next.text
+                widgetTimePreview.ignored=next.ignored
+                widgetTimePreview.overrides=next.overrides
+                addingTask=true
+            }
+        }
         if(browseProfile!==workspace.widgetProfileToken){browsePositions=({});browseProfile=workspace.widgetProfileToken;shownBrowseKey="";categoryPickerOpen=false;categorySearch.clear()}
         if(shownBrowseKey!==workspace.widgetBrowseKey){shownBrowseKey=workspace.widgetBrowseKey;Qt.callLater(restoreBrowsePosition)}
     }
@@ -150,7 +169,7 @@ Window {
         if(workspace.busy){taskError=qsTr("正在处理，请稍后按 Enter 重试。");return}
         if(!draftContext)draftContext=captureDraftContext()
         taskError="";addingPending=workspace.createWidgetTask(quickTitle.text,draftContext.key,draftContext.todayOnly,draftContext.profile,widgetTimePreview.ignored,widgetTimePreview.overrides)
-        if(!addingPending){pendingBrowse=null;categoryPickerOpen=false;taskError=workspace.widgetBrowseError || workspace.errorText || qsTr("暂时无法添加，请稍后重试。")}
+        if(!addingPending){categoryPickerOpen=false;taskError=workspace.widgetBrowseError || workspace.errorText || qsTr("暂时无法添加，请稍后重试。")}
     }
     function openTaskMenu(id,source,position) {
         if(commandInputBlocked || motionInputBlocked || !source)return
@@ -284,8 +303,7 @@ Window {
             }
             if(operation==="widgetCreate" && widget.addingPending){
                 widget.addingPending=false
-                const intent=widget.pendingBrowse;widget.pendingBrowse=null
-                if(success){widget.activityNotice=widgetTimePreview.hasTime?qsTr("已添加 · %1").arg(widgetTimePreview.summary):qsTr("任务已添加");activityNoticeTimer.restart();quickTitle.clear();if(intent)widget.applyBrowse(intent);if(widget.active && widget.addingTask)quickTitle.forceActiveFocus();else widget.addingTask=false}
+                if(success){widget.activityNotice=widgetTimePreview.hasTime?qsTr("已添加 · %1").arg(widgetTimePreview.summary):qsTr("任务已添加");activityNoticeTimer.restart();quickTitle.clear();if(widget.active && widget.addingTask)quickTitle.forceActiveFocus();else widget.addingTask=false}
                 else {widget.categoryPickerOpen=false;widget.taskError=widget.workspace.errorText;if(widget.active)quickTitle.forceActiveFocus()}
             }
             if(operation===widget.taskOperation){widget.taskOperation="";if(!success){widget.taskError=widget.workspace.errorText;if(operation==="widgetMoveCategory")widget.activityNotice=""}else if(operation==="widgetMoveCategory"){widget.activityNotice=qsTr("已移动到目标分类");activityNoticeTimer.restart()}}
@@ -507,6 +525,8 @@ Window {
         DS.MenuSeparator {}
         MenuItem {text:qsTr("从文本提取任务…");onTriggered:widget.openActivityCapture()}
         MenuItem {text:qsTr("打开主窗口");onTriggered:widget.openMainRequested()}
+        MenuItem {visible:widget.compactNavigation && !widget.controller.mini;text:qsTr("待处理提醒（%1）").arg(widget.workspace.pendingReminderCount);onTriggered:Qt.callLater(function(){reminderInbox.openAt(widgetMore)})}
+        MenuItem {visible:widget.compactNavigation && !widget.controller.mini && widget.controller.canCompact;text:qsTr("收起任务组件");onTriggered:widget.controller.returnToCompact()}
         MenuItem {text:qsTr("显示分类栏");checkable:true;checked:widget.workspace.widgetShowShortcuts;onTriggered:widget.workspace.setWidgetShowShortcuts(checked)}
         DS.MenuSeparator {}
         MenuItem {objectName:"widgetNormalLayer";text:qsTr("普通层级");checkable:true;checked:widget.controller.layer===0;onTriggered:widget.controller.setLayer(0)}
@@ -634,13 +654,13 @@ Window {
                     id: header
                     objectName: "widgetHeader"
                     Layout.fillWidth: true
-                    columns: widget.stackedPanelHeader ? 5 : 6
+                    columns: widget.compactNavigation ? 2 : widget.stackedPanelHeader ? 5 : 6
                     columnSpacing: 2
                     rowSpacing: 2
                     Item {
                         objectName:"widgetHeaderGrip"
                         Layout.fillWidth: true;Layout.minimumWidth: 0
-                        Layout.columnSpan: widget.stackedPanelHeader ? header.columns : 1
+                        Layout.columnSpan: widget.stackedPanelHeader && !widget.compactNavigation ? header.columns : 1
                         implicitHeight: headerText.implicitHeight
                         Column {
                             id: headerText
@@ -651,7 +671,7 @@ Window {
                                 Label {
                                     id: widgetTitleText
                                     objectName: "widgetContextTitle"
-                                    Layout.maximumWidth: Math.max(0,headerText.width-Math.min(taskCount.implicitWidth,taskCount.Layout.maximumWidth)-12)
+                                    Layout.maximumWidth: Math.max(0,headerText.width-(widget.compactNavigation?24:Math.min(taskCount.implicitWidth,taskCount.Layout.maximumWidth)+12))
                                     Layout.minimumWidth: 0
                                     text: widget.workspace.widgetContextTitle
                                     elide: Text.ElideRight
@@ -661,7 +681,8 @@ Window {
                                     DS.ToolTip {visible:!Theme.hintsBlocked && widgetTitleText.truncated && titleHover.hovered;text:widgetTitleText.text}
                                     HoverHandler {id:titleHover}
                                 }
-                                Label {id:taskCount;Layout.maximumWidth:48*Theme.scale;text: widget.workspace.widgetTasks.count;font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight;Accessible.name: qsTr("%1 项待办").arg(text)}
+                                AppIcon {visible:widget.compactNavigation;name:"down";implicitWidth:12;implicitHeight:12}
+                                Label {id:taskCount;visible:!widget.compactNavigation;Layout.maximumWidth:48*Theme.scale;text: widget.workspace.widgetTasks.count;font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight;Accessible.name: qsTr("%1 项待办").arg(text)}
                                 Item {Layout.fillWidth:true;Layout.minimumWidth:0}
                             }
                             Label {
@@ -671,17 +692,36 @@ Window {
                                 font.pixelSize: Theme.captionSize;color: Theme.secondary;elide: Text.ElideRight
                             }
                         }
-                        PointHandler {id:headerPress;acceptedButtons:Qt.LeftButton}
-                        WidgetMoveHandle {id:headerDrag;controller:widget.controller}
+                        Button {
+                            id:compactCategory
+                            objectName:widget.compactNavigation?"widgetCategoryButton":"widgetCategoryTitleButton"
+                            visible:widget.compactNavigation
+                            anchors.top:parent.top;anchors.left:parent.left
+                            width:parent.width;height:Math.max(widgetTitleText.height,Theme.controlHeight)
+                            flat:true
+                            background:Rectangle {
+                                color:"transparent";radius:Theme.controlRadius
+                                border.width:compactCategory.visualFocus ? 1 : 0;border.color:Theme.accent
+                            }
+                            Accessible.name:qsTr("选择分类：%1").arg(widget.workspace.widgetContextTitle)
+                            onClicked:widget.openCategoryPicker()
+                            WidgetCategoryDropTarget {workspace:widget.workspace;browseOnly:true;blocked:widget.workspace.busy || widget.motionInputBlocked;onBrowseRequested:widget.openDropCategories()}
+                        }
+                        Item {
+                            anchors.fill:parent
+                            anchors.topMargin:widget.compactNavigation ? compactCategory.height : 0
+                            PointHandler {id:headerPress;acceptedButtons:Qt.LeftButton}
+                            WidgetMoveHandle {id:headerDrag;controller:widget.controller}
+                        }
                     }
-                    WidgetAction {objectName:"widgetToggleCategories";symbol:"sidebar";description:qsTr("显示或收起分类栏");onClicked:widget.workspace.setWidgetShowShortcuts(!widget.workspace.widgetShowShortcuts)}
-                    WidgetAction {id:reminderButton;objectName:"widgetReminders";symbol:"bell";description:qsTr("待处理提醒 %1项").arg(widget.workspace.pendingReminderCount);onClicked:reminderInbox.openAt(this)
+                    WidgetAction {objectName:"widgetToggleCategories";visible:!widget.compactNavigation;symbol:"sidebar";description:qsTr("显示或收起分类栏");onClicked:widget.workspace.setWidgetShowShortcuts(!widget.workspace.widgetShowShortcuts)}
+                    WidgetAction {id:reminderButton;objectName:"widgetReminders";visible:!widget.compactNavigation;symbol:"bell";description:qsTr("待处理提醒 %1项").arg(widget.workspace.pendingReminderCount);onClicked:reminderInbox.openAt(this)
                         Label {anchors.right:parent.right;anchors.top:parent.top;text:widget.workspace.pendingReminderCount;visible:widget.workspace.pendingReminderCount>0;font.pixelSize:Theme.captionSize;color:Theme.accent}
                     }
-                    WidgetAction {id:categoryFallback;objectName:"widgetCategoryButton";visible:widget.categoryRailWidth===0;symbol:"folder";description:qsTr("选择分类");onClicked:widget.openCategoryPicker()
+                    WidgetAction {id:categoryFallback;objectName:widget.compactNavigation?"widgetCategoryFallback":"widgetCategoryButton";visible:widget.categoryRailWidth===0 && !widget.compactNavigation;symbol:"folder";description:qsTr("选择分类");onClicked:widget.openCategoryPicker()
                         WidgetCategoryDropTarget {workspace:widget.workspace;browseOnly:true;blocked:widget.workspace.busy || widget.motionInputBlocked;onBrowseRequested:widget.openDropCategories()}
                     }
-                    WidgetAction {Layout.alignment:Qt.AlignTop;objectName: "widgetCollapse";visible:widget.controller.canCompact;symbol: widget.controller.growUp ? "down" : "up";description: widget.controller.selectedForm===2 ? qsTr("返回悬浮球") : qsTr("收起任务组件");onClicked: widget.controller.returnToCompact()}
+                    WidgetAction {Layout.alignment:Qt.AlignTop;objectName: "widgetCollapse";visible:widget.controller.canCompact && !widget.compactNavigation;symbol: widget.controller.growUp ? "down" : "up";description: widget.controller.selectedForm===2 ? qsTr("返回悬浮球") : qsTr("收起任务组件");onClicked: widget.controller.returnToCompact()}
                     WidgetAction {
                         id:widgetMore
                         Layout.alignment:Qt.AlignTop
@@ -710,6 +750,11 @@ Window {
                     // zero height; keep at least one row visible so verifyLayout()'s
                     // todayList.height>=24 check reflects a usable widget.
                     Layout.minimumHeight: 24
+                    Rectangle {
+                        anchors.fill:parent;radius:Theme.controlRadius
+                        visible:todayList.count>0
+                        color:Qt.rgba(Theme.content.r,Theme.content.g,Theme.content.b,0.72)
+                    }
                     Column {
                         anchors.centerIn: parent;width: parent.width
                         visible: !widget.categoryPickerOpen && todayList.count===0 && todayList.contentHeight<1
@@ -764,7 +809,7 @@ Window {
                     ActionButton {id: addTask;objectName: "widgetAdd";Layout.fillWidth:true;Layout.minimumWidth:32;contentAlignment:Qt.AlignLeft;visible:!widget.addingTask;symbol: "plus";text: qsTr("添加任务");enabled: widget.workspace.ready && !widget.workspace.busy;onClicked:{widget.categoryPickerOpen=false;widget.addingTask=true;quickTitle.forceActiveFocus()}}
                     TextField {
                         id:quickTitle;objectName:"widgetQuickTitle";Layout.fillWidth:true;Layout.minimumWidth:0;visible:widget.addingTask
-                        background: DS.FieldSurface {quietOutline:true;focused:quickTitle.activeFocus;enabledField:quickTitle.enabled}
+                        background: DS.FieldSurface {quietOutline:true;color:Theme.content;focused:quickTitle.activeFocus;enabledField:quickTitle.enabled}
                         placeholderText:qsTr("添加到%1，Enter 保存").arg(widget.workspace.widgetContextTitle);Accessible.name:qsTr("小窗快速添加任务")
                         readOnly:widget.addingPending;enabled:widget.workspace.ready
                         onTextChanged:{if(!text.trim().length)widget.draftContext=null;else if(!widget.draftContext)widget.draftContext=widget.captureDraftContext()}
