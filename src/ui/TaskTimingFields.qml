@@ -102,10 +102,10 @@ ColumnLayout {
         Layout.fillWidth: true;spacing: Theme.fieldGap
         SettingSwitch {id: allDay;visible:!root.compactPresentation;objectName: root.objectPrefix+"AllDay";Layout.fillWidth: true;symbol: "calendar";text: qsTr("指定时间");Accessible.description: qsTr("为同一开始和结束日期指定时间");onClicked: {if(checked)root.dateDefaultsRequested();root.changed(true)}}
         FormRow {contextual:root.compactPresentation;
-            visible: root.compactPresentation && (!root.hasSpecificTime || !root.startEndpointHost);label:qsTr("时段")
+            visible: root.compactPresentation;label:qsTr("时段")
             RowLayout {
                 Layout.fillWidth:true;spacing:4
-                ActionButton {id:rangeButton;visible:!root.hasSpecificTime || !root.startEndpointHost;objectName:root.objectPrefix+"ChooseTimeRange";symbol:"clock";contentAlignment:Qt.AlignLeft;Layout.fillWidth:true;text:root.hasSpecificTime ? startTime.text+" — "+endTime.text : qsTr("添加时间…");onClicked:root.openRange(rangeButton)}
+                ActionButton {id:rangeButton;objectName:root.objectPrefix+"ChooseTimeRange";symbol:"clock";contentAlignment:Qt.AlignLeft;Layout.fillWidth:true;text:root.hasSpecificTime ? qsTr("修改时段…") : qsTr("添加时间…");onClicked:root.openRange(rangeButton)}
                 IconToolButton {
                     parent:root.hasSpecificTime && root.endEndpointHost ? root.endEndpointHost : rangeButton.parent
                     visible:root.hasSpecificTime;contentItem:AppIcon{name:"more"} Accessible.name:qsTr("时段选项");onClicked:timeOptions.popup(this,0,height)
