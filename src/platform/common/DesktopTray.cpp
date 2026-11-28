@@ -22,21 +22,21 @@ DesktopTray::DesktopTray(WidgetViewModel& widget,QWindow* mainWindow,QObject* pa
     connect(&m_widget,&WidgetViewModel::openMainRequested,this,showMain);
     auto name=[](QAction* action,const char* id){action->setObjectName(QString::fromLatin1(id));return action;};
     name(m_menu.addAction(tr("打开主窗口"),this,showMain),"trayShowMain");
-    name(m_menu.addAction(tr("新建任务…"),this,[this,showMain]{showMain();if(m_mainWindow)QMetaObject::invokeMethod(m_mainWindow,"newTask",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));}),"trayNewTask");
+    name(m_menu.addAction(tr("在收集箱新建…"),this,[this,showMain]{showMain();if(m_mainWindow)QMetaObject::invokeMethod(m_mainWindow,"newTask",Q_ARG(QVariant,QVariant(QStringLiteral("inbox"))));}),"trayNewTask");
     m_menu.addSeparator();
     auto* visibility=name(m_menu.addAction(tr("显示任务组件"),this,[this]{m_widget.setVisible(!m_widget.visible());}),"trayToggleWidget");
     m_menu.addSeparator();
-    auto* pass=name(m_menu.addAction(tr("鼠标穿透")),"trayClickThrough");pass->setCheckable(true);
+    auto* pass=name(m_menu.addAction(tr("启用鼠标穿透")),"trayClickThrough");pass->setCheckable(true);
     connect(pass,&QAction::triggered,this,[this](bool checked){m_widget.setClickThrough(checked);});
     auto* restore=name(m_menu.addAction(tr("恢复组件点击"),this,[this]{m_widget.setClickThrough(false);}),"trayRestoreInput");
-    name(m_menu.addAction(tr("重置组件位置"),this,[this]{m_widget.resetPosition();m_widget.setVisible(true);}),"trayResetWidget");
+    name(m_menu.addAction(tr("重置位置并显示组件"),this,[this]{m_widget.resetPosition();m_widget.setVisible(true);}),"trayResetWidget");
     m_menu.addSeparator();
     name(m_menu.addAction(tr("设置…"),this,[this,showMain]{showMain();if(m_mainWindow)QMetaObject::invokeMethod(m_mainWindow,"openTool",Q_ARG(QVariant,QVariant(QStringLiteral("settings"))));}),"traySettings");
     m_menu.addSeparator();
     name(m_menu.addAction(tr("退出 Daymark"),this,[this]{
         if(m_mainWindow){m_mainWindow->setProperty("forceQuit",true);m_mainWindow->close();}
     }),"trayQuit");
-    const auto refresh=[this,pass,restore,visibility]{pass->setChecked(m_widget.clickThrough());pass->setEnabled(m_widget.trayAvailable());restore->setEnabled(m_widget.clickThrough());visibility->setText(m_widget.visible()?tr("隐藏任务组件"):tr("显示任务组件"));};
+    const auto refresh=[this,pass,restore,visibility]{pass->setChecked(m_widget.clickThrough());pass->setEnabled(m_widget.trayAvailable());restore->setEnabled(m_widget.clickThrough());restore->setVisible(m_widget.clickThrough());pass->setVisible(!m_widget.clickThrough());visibility->setText(m_widget.visible()?tr("隐藏任务组件"):tr("显示任务组件"));};
     connect(&m_widget,&WidgetViewModel::stateChanged,this,refresh);
     connect(&m_menu,&QMenu::aboutToShow,this,refresh);refresh();
     // Build commands even without a shell tray; never claim recovery is installed.

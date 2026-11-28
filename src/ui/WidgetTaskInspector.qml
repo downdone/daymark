@@ -27,8 +27,98 @@ Popup {
     property bool pendingChildrenTab:false
     property string afterSave:""
     property string localError:""
+    property var closeContinuation:null
+    property string exitChildKey:""
+    signal exitAborted()
+    property var navigationStack:[]
+    property var baseDraft:({})
+    TaskDraftState {id:widgetDraftState;titleField:title;notesField:notes;timeFields:temporal;details:extra}
+    TaskConflictDialog {id:widgetConflictDialog;objectName:"widgetTaskConflict";parent:root.contentItem && root.contentItem.Window.window ? root.contentItem.Window.window.contentItem : null;draftState:widgetDraftState}
+    function draftMeta() {
+        return {planning:original.planningState || "ACTIVE",today:!!original.todayFocus,
+            storedStart:original.storedStartOn,storedEnd:original.storedEndOn,
+            zone:original.reminderZone || workspace.systemTimeZone()}
+    }
+    function restoreDraft(value, latest, version) {
+        loading=true
+        widgetDraftState.apply(value,latest)
+        const meta=value.arrangement.meta
+        original=Object.assign({},latest,{rowVersion:version,planningState:meta.planning,
+            todayFocus:meta.today,storedStartOn:meta.storedStart,storedEndOn:meta.storedEnd,
+            reminderZone:meta.zone})
+        loading=false;dirty=true
+    }
+    function resolveConflict() {
+        if(!canReload || workspace.busy || projectionProfile!==workspace.profileGeneration)return
+        if(temporal.opened){temporal.finish(true);if(temporal.opened)return}
+        const latest=workspace.task(original.taskId)
+        if(!latest.taskId)return
+        const before=original,base=baseDraft,generation=projectionProfile
+        const mine=widgetDraftState.capture(draftMeta())
+        loadTask(latest.taskId,true)
+        const remote=widgetDraftState.capture(draftMeta())
+        restoreDraft(mine,latest,before.rowVersion)
+        baseDraft=base;conflict=true;canReload=true
+        localError=qsTr("任务在另一处有修改，请合并后保存。")
+        widgetConflictDialog.begin(base,mine,remote,function(merged){
+            const current=workspace.task(latest.taskId)
+            if(generation!==workspace.profileGeneration || current.rowVersion!==latest.rowVersion){
+                localError=qsTr("合并期间任务又有更新，请重新比较。")
+                return
+            }
+            loadTask(latest.taskId,true)
+            restoreDraft(merged,latest,latest.rowVersion)
+            conflict=false;canReload=false;localError=""
+        })
+    }
+    readonly property bool hasUnsavedWork:dirty || temporal.opened || childTitle.text.trim().length>0 ||
+        Object.keys(childDrafts).some(key=>childDrafts[key].trim().length>0)
+    function discardForExit() {
+        closeContinuation=null
+        childTitle.clear()
+        childDrafts=({})
+        temporal.finish(false)
+        dirty=false
+        close()
+    }
+    function protectClose(continuation) {
+        if (!visible && !hasUnsavedWork) return false
+        if (!visible)open()
+        if (saving || addingChild) return true
+        if (childTitle.text.trim().length) {
+            if(!continuation || childTitle.inputMethodComposing){
+                localError=qsTr("请先添加子任务或清空子任务输入，再退出。")
+                selectedTab=1
+                childTitle.forceActiveFocus()
+                exitAborted()
+                return true
+            }
+            closeContinuation=continuation
+            selectedTab=1
+            addChild()
+            if(!addingChild){closeContinuation=null;exitAborted()}
+            return true
+        }
+        const pending=Object.keys(childDrafts).find(key=>childDrafts[key].trim().length>0)
+        if(pending){
+            const owner=JSON.parse(pending)
+            if(owner[0]===profile && workspace.task(owner[1]).taskId){
+                closeContinuation=continuation
+                exitChildKey=pending
+                addingChild=workspace.createSubtask(childDrafts[pending],owner[1])
+                if(addingChild)return true
+            }
+            localError=qsTr("有子任务草稿未能保存，请返回对应父任务处理。")
+            exitAborted()
+            return true
+        }
+        closeContinuation=continuation
+        finish("close")
+        if (visible && !saving){closeContinuation=null;exitAborted()}
+        return true
+    }
     property int selectedTab:0
-    property bool hadWindowFocus:false
+
     property var children:[]
     property var childDrafts:({})
     signal fullDetailsRequested(string taskId)
@@ -45,26 +135,12 @@ Popup {
     height:Math.min(body.implicitHeight+padding*2,workArea.height-12,640*Theme.scale)
     closePolicy:Popup.NoAutoClose
     background:PopoverSurface {}
-    readonly property bool pickersOpen:temporal.pickerOpen || extra.parentPickerVisible || extra.tagPickerVisible
+    readonly property bool pickersOpen:widgetConflictDialog.visible || temporal.pickerOpen || extra.parentPickerVisible || extra.tagPickerVisible
     TaskSnapshotObserver {
         workspace:root.workspace;taskId:root.original.taskId || "";profile:root.projectionProfile
         active:root.visible && taskId.length>0;dirty:root.dirty || root.pickersOpen || temporal.opened;saving:root.saving
         onLatestAvailable:function(snapshot){root.loadTask(snapshot.taskId,true)}
         onConflict:function(message,reload){root.conflict=true;root.canReload=reload;root.localError=message}
-    }
-    Connections {
-        target:root.contentItem.Window.window
-        function onActiveChanged(){
-            if(!root.visible)return
-            if(root.contentItem.Window.window.active){root.hadWindowFocus=true;return}
-            if(root.hadWindowFocus)Qt.callLater(function(){
-                const window=root.contentItem.Window.window
-                if(root.visible && window && !window.active && !root.pickersOpen && !temporal.opened &&
-                   !menu.visible && !root.saving && !root.addingChild && !childTitle.inputMethodComposing &&
-                   !(root.selectedTab===1 && childTitle.focus) &&
-                   !childTitle.text.length && !title.inputMethodComposing && !notes.inputMethodComposing)root.finish("close")
-            })
-        }
     }
     function markDirty(){if(!loading)dirty=true}
     function loadTask(id,preserveTab){
@@ -83,13 +159,15 @@ Popup {
         if(!preserveTab)selectedTab=0
         children=workspace.subtaskChoices(id);dirty=false;loading=false;localError="";conflict=false;canReload=false
         projectionProfile=workspace.profileGeneration
+        baseDraft=widgetDraftState.capture(draftMeta())
         return true
     }
     function openFor(id,item){
         if(visible){if(dirty){localError=qsTr("请先完成当前编辑，或从更多菜单放弃更改。");return}close()}
         if(!loadTask(id))return
+        navigationStack=[]
         source=item;profile=workspace.widgetProfileToken
-        hadWindowFocus=false
+
         workArea=DS.ScreenWorkArea.forItem(item)
         reposition()
         open();Qt.callLater(function(){if(root.visible && root.selectedTab===0)title.forceActiveFocus()})
@@ -114,8 +192,22 @@ Popup {
         const action=afterSave;afterSave=""
         if(action==="arrangement"){loadTask(original.taskId,true)}
         else if(action==="full"){const id=original.taskId;close();fullDetailsRequested(id)}
-        else if(action==="complete"){if(workspace.changeState(original.taskId,original.rowVersion,"complete"))close();else localError=workspace.errorText}
-        else if(action.startsWith("child:"))loadTask(action.slice(6))
+        else if(action==="complete"){
+            if(workspace.changeState(original.taskId,original.rowVersion,"complete"))close()
+            else localError=qsTr("修改已保存，任务尚未完成。%1").arg(workspace.errorText)
+        }
+        else if(action.startsWith("child:")){
+            navigationStack=navigationStack.concat([{taskId:original.taskId,tab:selectedTab}])
+            loadTask(action.slice(6))
+        }
+        else if(action==="parent"){
+            const stack=navigationStack.slice()
+            const previous=stack.pop()
+            navigationStack=stack
+            if(previous && loadTask(previous.taskId)){
+                selectedTab=previous.tab
+            }else localError=qsTr("父任务已不可用，可以关闭此面板。")
+        }
         else if(action==="children"){selectedTab=1;children=workspace.subtaskChoices(original.taskId)}
         else close()
     }
@@ -131,7 +223,15 @@ Popup {
         pendingChildrenTab=false
         finish("children")
     }
-    onClosed:{pendingChildrenTab=false;temporal.finish(false);temporal.closePickers();if(source && source.visible)source.forceActiveFocus()}
+    onClosed:{
+        pendingChildrenTab=false
+        temporal.finish(false)
+        temporal.closePickers()
+        if(source && source.visible)source.forceActiveFocus()
+        const continuation=closeContinuation
+        closeContinuation=null
+        if(continuation)Qt.callLater(continuation)
+    }
     Shortcut {sequence:"Escape";enabled:root.visible && !root.pickersOpen;onActivated:if(temporal.opened)temporal.finish(false);else root.finish("close")}
     Connections {
         target:root.workspace
@@ -139,11 +239,39 @@ Popup {
             if(root.visible && root.pendingChildrenTab && !root.workspace.busy)Qt.callLater(root.openPendingChildrenTab)
         }
         function onOperationFinished(operation,success){
-            if(operation==="save" && root.saving){root.saving=false;if(success){root.dirty=false;root.original=root.workspace.task(root.original.taskId);root.performAction()}else root.localError=root.workspace.errorText}
+            if(operation==="save" && root.saving){
+                root.saving=false
+                if(success){
+                    root.dirty=false
+                    root.original=root.workspace.task(root.original.taskId)
+                    root.performAction()
+                }else{
+                    const exiting=root.closeContinuation!==null
+                    root.closeContinuation=null
+                    root.localError=root.workspace.errorText
+                    if(exiting)root.exitAborted()
+                }
+            }
             else if(operation==="createSubtask" && root.addingChild){
                 root.addingChild=false
-                if(success){delete root.childDrafts[JSON.stringify([root.profile,root.original.taskId])];childTitle.clear();root.children=root.workspace.subtaskChoices(root.original.taskId);root.localError=""}
-                else root.localError=root.workspace.errorText
+                if(success){
+                    const drafts=Object.assign({},root.childDrafts)
+                    delete drafts[root.exitChildKey || JSON.stringify([root.profile,root.original.taskId])]
+                    root.childDrafts=drafts
+                    if(!root.exitChildKey)childTitle.clear()
+                    root.exitChildKey=""
+                    root.children=root.workspace.subtaskChoices(root.original.taskId)
+                    root.localError=""
+                    const leave=root.closeContinuation
+                    root.closeContinuation=null
+                    if(leave)Qt.callLater(function(){root.protectClose(leave)})
+                }else{
+                    root.exitChildKey=""
+                    const exiting=root.closeContinuation!==null
+                    root.closeContinuation=null
+                    root.localError=root.workspace.errorText
+                    if(exiting)root.exitAborted()
+                }
             }
         }
     }
@@ -151,6 +279,11 @@ Popup {
         id:body;spacing:8
         RowLayout {
             Layout.fillWidth:true
+            WidgetAction {
+                visible:!root.arrangementPage && root.navigationStack.length>0
+                symbol:"left";description:qsTr("返回父任务的子任务列表")
+                onClicked:root.finish("parent")
+            }
             Label {Layout.fillWidth:true;text:root.arrangementPage?qsTr("安排"):root.original.parentTaskId?qsTr("子任务"):qsTr("任务");font.pixelSize:Theme.sectionSize;color:Theme.secondary}
             BusyIndicator {running:root.saving;visible:running;Layout.preferredWidth:24;Layout.preferredHeight:24}
             IconToolButton {id:more;visible:!root.arrangementPage;Accessible.name:qsTr("任务更多操作");contentItem:AppIcon{name:"more"} onClicked:menu.popupAt(more)}
@@ -164,7 +297,7 @@ Popup {
             onActivated:function(index){if(index===1)root.finish("children");else {root.pendingChildrenTab=false;root.selectedTab=0}}
         }
         Label {Layout.fillWidth:true;visible:!!root.localError;text:root.localError;color:Theme.danger;wrapMode:Text.Wrap}
-        Button {objectName:"widgetInspectorReload";visible:root.canReload;enabled:!root.workspace.busy;text:qsTr("重新载入");onClicked:{timing.closePickers();start.closePicker();end.closePicker();reminder.closePicker();root.loadTask(root.original.taskId,true)}}
+        Button {objectName:"widgetInspectorReload";visible:root.canReload;enabled:!root.workspace.busy;text:qsTr("比较并合并…");onClicked:root.resolveConflict()}
         DS.ScrollView {
             id:detailScroll
             Layout.fillWidth:true;Layout.fillHeight:true
@@ -173,7 +306,7 @@ Popup {
             ColumnLayout {
                 id:fields;visible:root.selectedTab===0;width:parent.width;spacing:8
                 TextField {id:title;visible:!root.arrangementPage;objectName:"widgetInspectorTitle";Layout.fillWidth:true;padding:0;font.pixelSize:Theme.listTitleSize;background:Item{} Accessible.name:qsTr("任务标题");onTextEdited:root.markDirty();onAccepted:if(!inputMethodComposing)root.finish("close")}
-                TextArea {id:notes;visible:!root.arrangementPage;Layout.fillWidth:true;padding:0;implicitHeight:Math.max(28,Math.min(100*Theme.scale,contentHeight));wrapMode:TextEdit.Wrap;placeholderText:qsTr("添加备注…");Accessible.name:qsTr("备注");background:Item{} onTextChanged:root.markDirty()}
+                TextArea {id:notes;objectName:"widgetInspectorNotes";visible:!root.arrangementPage;Layout.fillWidth:true;padding:0;implicitHeight:Math.max(28,Math.min(100*Theme.scale,contentHeight));wrapMode:TextEdit.Wrap;placeholderText:qsTr("添加备注…");Accessible.name:qsTr("备注");background:Item{} onTextChanged:root.markDirty()}
                 Rectangle {visible:!root.arrangementPage;Layout.fillWidth:true;implicitHeight:1;color:Theme.detailDivider}
                 TaskTemporalFields {
                     id:temporal;workspace:root.workspace;taskId:root.original.taskId || ""

@@ -173,7 +173,7 @@ ColumnLayout {
         Label {visible:!!root.error;Layout.fillWidth:true;wrapMode:Text.Wrap;color:Theme.danger;text:root.error}
         RowLayout {visible:root.showActions;Layout.fillWidth:true;Item {Layout.fillWidth:true}
             Button {objectName:root.objectPrefix+"ArrangementCancel";text:qsTr("取消");onClicked:root.finish(false)}
-            Button {objectName:root.objectPrefix+"ArrangementApply";text:root.persistOnApply?qsTr("保存安排"):qsTr("完成");enabled:!root.workspace.busy;highlighted:true;onClicked:root.acceptEdits()}
+            Button {objectName:root.objectPrefix+"ArrangementApply";text:root.persistOnApply?qsTr("保存安排"):qsTr("应用");enabled:!root.workspace.busy;highlighted:true;onClicked:root.acceptEdits()}
         }
     }
 }

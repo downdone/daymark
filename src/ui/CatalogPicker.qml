@@ -9,6 +9,19 @@ Popup {
     property var options: []
     property var selectedIds: []
     property bool multiple: false
+    property bool staged: false
+    property var workingIds: []
+    signal applied(var ids)
+    function choose(kind, id, checked) {
+        if (staged) {
+            const next = workingIds.filter(value => value !== id)
+            if (checked) next.push(id)
+            workingIds = next
+        } else {
+            selected(kind, id, checked)
+            if (!multiple) close()
+        }
+    }
     property real heightLimit: 440
     readonly property var hostWindow: parent ? parent.Window.window : null
     readonly property real choiceHeight: Math.max(DS.DesignTokens.menuRowHeight,choiceMetrics.height+4)
@@ -21,7 +34,9 @@ Popup {
     padding: 8;margins: 8;focus: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     onOpened: {search.clear();choices.positionViewAtBeginning();search.forceActiveFocus()}
+    onClosed: if(parent && parent.visible)parent.forceActiveFocus(Qt.PopupFocusReason)
     onAboutToShow: {
+        workingIds = selectedIds.slice()
         const at=parent.mapToItem(null,0,0)
         const windowHeight=hostWindow ? hostWindow.height : 720
         x=Math.max(8-at.x,Math.min(0,(hostWindow ? hostWindow.width : 1120)-at.x-width-8))
@@ -36,7 +51,7 @@ Popup {
         ListView {
             id: choices
             Layout.fillWidth: true;Layout.fillHeight: true
-            implicitHeight: Math.max(Theme.controlHeight,Math.min(8,root.matches.length)*root.choiceHeight)
+            implicitHeight: Math.max(Theme.controlHeight,root.matches.length*root.choiceHeight)
             cacheBuffer: 0;clip: true;boundsBehavior: Flickable.StopAtBounds
             DS.ScrollPhysics {target: choices}
             model: root.visible ? root.matches : []
@@ -44,24 +59,35 @@ Popup {
             delegate: ItemDelegate {
                 id: option
                 required property var modelData
+                objectName: root.objectName+"-option-"+modelData.id
                 width: choices.width-Theme.scrollGutter
                 implicitHeight: root.choiceHeight
                 topPadding: 2;bottomPadding: 2
                 text: modelData.path || modelData.title
                 checkable: true
-                checked: root.selectedIds.indexOf(modelData.id)>=0
+                checked: (root.staged ? root.workingIds : root.selectedIds).indexOf(modelData.id)>=0
                 contentItem: RowLayout {
                     Label {text: option.text;Layout.fillWidth: true;elide: Text.ElideRight}
                     AppIcon {name:"check";visible:option.checked;ink:DS.DesignTokens.accent;Layout.preferredWidth:16;Layout.preferredHeight:16}
                 }
-                onClicked: {root.selected(modelData.kind || "tag",modelData.id,checked);if(!root.multiple)root.close()}
+                onClicked: root.choose(modelData.kind || "tag",modelData.id,checked)
             }
             Label {anchors.centerIn: parent;visible: choices.count===0;text: search.text ? qsTr("没有匹配项") : qsTr("暂无条目，可在下方新建");wrapMode: Text.Wrap;width: parent.width;color: DS.DesignTokens.secondary}
         }
         Flow {
             Layout.fillWidth: true;spacing: 6
-            Button {visible: root.multiple;text: qsTr("新建标签…");onClicked: {root.close();root.createRequested("tag")}}
+            Button {objectName:root.objectName+"-create";visible: root.multiple;text: qsTr("新建标签…");onClicked: {root.close();root.createRequested("tag")}}
             Button {visible: !root.multiple;text: qsTr("新建分类…");onClicked: {root.close();root.createRequested("project")}}
+        }
+        RowLayout {
+            visible: root.staged
+            Layout.fillWidth: true
+            Item {Layout.fillWidth: true}
+            Button {text: qsTr("取消");onClicked: root.close()}
+            Button {
+                objectName:root.objectName+"-apply";text: qsTr("应用");highlighted: true
+                onClicked: {root.applied(root.workingIds.slice());root.close()}
+            }
         }
     }
 }

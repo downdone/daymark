@@ -39,6 +39,8 @@
 
 ## 3. 设计契约（现行）
 
+[日常任务工作流开发与验收](design/daily-workflow-delivery.md) · [高频面板交互详设](design/frequent-panel-interactions.md) · [核心动线评审](design/task-workflow-refinement.md)
+
 ### 3.1 界面与视觉
 [界面焕新设计稿](design/daymark-interface-refresh.md) · [焕新技术设计与全局评审](design/daymark-interface-refresh-technical.md)
 

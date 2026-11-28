@@ -115,11 +115,16 @@ ColumnLayout {
                 ToolTip.visible: hovered && textTruncated && !down && !Theme.hintsBlocked
                 ToolTip.delay: Theme.hintDelay;ToolTip.timeout: Theme.hintTimeout
                 ToolTip.text: text
-                onClicked: tagMenu.popup(tagButton,0,tagButton.height)
-                TagMenu {
+                onClicked: tagMenu.open()
+                CatalogPicker {
                     id: tagMenu;objectName: root.objectPrefix+"editorTagMenu"
                     options: root.tags;selectedIds: root.tagIds
-                    onSelected: function(id, checked) {root.toggleTag(id, checked)}
+                    heading:qsTr("标签");multiple:true;staged:true
+                    onApplied:function(ids) {
+                        const previous=root.tagIds.slice()
+                        for (const id of previous) if (ids.indexOf(id)<0) root.toggleTag(id,false)
+                        for (const id of ids) if (previous.indexOf(id)<0) root.toggleTag(id,true)
+                    }
                     onCreateRequested: root.createCatalogRequested("tag")
                 }
             }

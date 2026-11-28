@@ -66,7 +66,7 @@ Control {
     Shortcut {sequence: Qt.platform.os==="osx" ? "Meta+Return" : "Ctrl+Return";enabled: root.visible && !root.guardActive && !root.pickerVisible;onActivated: root.saveRequested()}
     contentItem: ColumnLayout {
         Label {visible:!!root.conflictText;Layout.fillWidth:true;text:root.conflictText;wrapMode:Text.Wrap;color:Theme.danger}
-        Button {visible:root.canReload;text:qsTr("重新载入");onClicked:root.reloadRequested()}
+        Button {visible:root.canReload;text:qsTr("比较并合并…");onClicked:root.reloadRequested()}
         spacing: 2
         enabled: !root.workspace.busy || root.workspace.backgroundBusy
         RowLayout {
@@ -121,28 +121,44 @@ Control {
         Binding {target: quickNotes;property: "text";value: root.multilineNotes ? root.notesText.split("\n")[0]+"…" : root.notesText}
             }
             IconToolButton {id:quickDetails;objectName: "quickEditorDetails";Layout.alignment:Qt.AlignTop;contentItem:Item {implicitWidth:Theme.iconSize;implicitHeight:Theme.iconSize;AppIcon{name:"info";width:Theme.iconSize;height:width;x:(parent.width-width)/2;y:root.titleInkCenter-quickDetails.y-quickDetails.topPadding-height/2}} Accessible.name: qsTr("完整任务详情");onClicked: root.detailsRequested()}
-            IconToolButton {objectName: "saveQuickEditor";Layout.alignment:Qt.AlignTop;visible:root.dirty;contentItem: AppIcon {name: "check";ink: Theme.accent} Accessible.name: qsTr("保存并收起，%1+Enter").arg(Qt.platform.os==="osx" ? "⌘" : "Ctrl");onClicked: root.saveRequested()}
+            ActionButton {symbol:"check";text:qsTr("保存");objectName: "saveQuickEditor";Layout.alignment:Qt.AlignTop;visible:root.dirty;Accessible.name: qsTr("保存并收起，%1+Enter").arg(Qt.platform.os==="osx" ? "⌘" : "Ctrl");onClicked: root.saveRequested()}
         }
         Flow {
             id:quickActions;objectName:"quickEditorActions"
             Layout.fillWidth: true;Layout.leftMargin: root.textInset;spacing: 6
             ActionButton {objectName:"quickArrangement";symbol:"calendar";text:root.timeSummary || qsTr("安排");Accessible.name:qsTr("编辑安排：%1").arg(text);onClicked:root.timeRangeRequested(this);onActiveFocusChanged:if(activeFocus)root.focusRequested(this)}
-            IconToolButton {
+            ActionButton {
                 id: tagButton
                 objectName: "quickTagButton"
-                width: Math.max(32,Theme.iconSize+12);height: width
+                width:Math.min(implicitWidth,Math.max(60,root.availableWidth-root.textInset));height:Theme.controlHeight
                 background: Rectangle {radius: Theme.controlRadius;color: tagButton.down ? Theme.pressed : tagButton.hovered ? Theme.hover : root.tagIds.length>0 ? Theme.selected : Theme.hover;border.width: tagButton.visualFocus ? 1 : 0;border.color: Theme.accent}
-                contentItem: AppIcon {name: "tag";ink: root.tagIds.length>0 ? Theme.accent : Theme.secondary}
+                symbol:"tag";text:root.tags.filter(item=>root.tagIds.indexOf(item.id)>=0).map(item=>item.title).slice(0,1).join("")+(root.tagIds.length>1 ? " +"+(root.tagIds.length-1) : "") || qsTr("标签")
                 Accessible.name: qsTr("选择标签，已选%1个").arg(root.tagIds.length)
-                onClicked: tagPicker.popup(tagButton,0,tagButton.height)
-                TagMenu {id: tagPicker;objectName:"quickTagMenu";options: root.tags;selectedIds: root.tagIds;onSelected: function(id,checked){root.tagEdited(id,checked)};onCreateRequested: root.createCatalogRequested("tag")}
+                ToolTip.visible: hovered && textTruncated && !down && !Theme.hintsBlocked
+                ToolTip.delay: Theme.hintDelay
+                ToolTip.text: root.tags.filter(item=>root.tagIds.indexOf(item.id)>=0).map(item=>item.title).join("、")
+                onClicked: tagPicker.open()
+                CatalogPicker {
+                    id: tagPicker;objectName:"quickTagMenu";heading:qsTr("标签")
+                    options:root.tags;selectedIds:root.tagIds;multiple:true;staged:true
+                    heightLimit:root.hostWindow ? root.hostWindow.height-32 : 440
+                    onApplied:function(ids) {
+                        const previous=root.tagIds.slice()
+                        for (const id of previous) if (ids.indexOf(id)<0) root.tagEdited(id,false)
+                        for (const id of ids) if (previous.indexOf(id)<0) root.tagEdited(id,true)
+                    }
+                    onCreateRequested:root.createCatalogRequested("tag")
+                }
             }
-            IconToolButton {
+            ActionButton {
                 id: destinationButton
-                width: Math.max(32,Theme.iconSize+12);height: width
+                width:Math.min(implicitWidth,Math.max(60,root.availableWidth-root.textInset));height:Theme.controlHeight
                 background: Rectangle {radius: Theme.controlRadius;color: destinationButton.down ? Theme.pressed : destinationButton.hovered ? Theme.hover : root.destinationId ? Theme.selected : Theme.hover;border.width: destinationButton.visualFocus ? 1 : 0;border.color: Theme.accent}
-                contentItem: AppIcon {name: "folder";ink: root.destinationId ? Theme.accent : Theme.secondary}
+                symbol:"folder";text:(root.destinations.find(item=>item.id===root.destinationId) || {}).path || (root.destinations.find(item=>item.id===root.destinationId) || {}).title || qsTr("分类")
                 Accessible.name: qsTr("选择分类")
+                ToolTip.visible: hovered && textTruncated && !down && !Theme.hintsBlocked
+                ToolTip.delay: Theme.hintDelay
+                ToolTip.text: text
                 onClicked: destinationPicker.open()
                 CatalogPicker {id: destinationPicker;heading: qsTr("分类");options: root.destinations;selectedIds: [root.destinationId];heightLimit: root.hostWindow ? root.hostWindow.height-32 : 440;y: destinationButton.height+4;onSelected: function(kind,id,checked){root.destinationEdited(kind,id)};onCreateRequested: function(kind){root.createCatalogRequested(kind)}}
             }

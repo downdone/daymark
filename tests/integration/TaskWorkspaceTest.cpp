@@ -65,6 +65,25 @@ private slots:
         QVERIFY(workspace.setPreference("recognitionReminderTime","08:30"));QVERIFY(!workspace.setPreference("recognitionReminderTime","99:00"));
         TaskWorkspace reload;reload.start(directory.filePath("tasks.sqlite"));QVERIFY(daymark::test::awaitIdle(reload));QVERIFY(!reload.preferences().value("recognizeTaskTime").toBool());QCOMPARE(reload.preferences().value("recognitionReminderTime").toString(),QStringLiteral("08:30"));
     }
+
+    void hiddenCreationReportsCommittedIdentity() {
+        QTemporaryDir directory;
+        TaskWorkspace workspace;
+        workspace.start(directory.filePath("tasks.sqlite"));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        workspace.setSearch(QStringLiteral("does-not-match"));
+        QSignalSpy committed(&workspace,&TaskWorkspace::taskCreationCommitted);
+        QVERIFY(workspace.createTask(QStringLiteral("Hidden task")));
+        QVERIFY(daymark::test::awaitIdle(workspace));
+        QCOMPARE(committed.size(),1);
+        const auto id=committed.first().at(0).toString();
+        QCOMPARE(committed.first().at(1).toString(),QStringLiteral("create"));
+        QVERIFY(!id.isEmpty());
+        QCOMPARE(workspace.taskIndex(id),-1);
+        QCOMPARE(workspace.task(id).value("title").toString(),QStringLiteral("Hidden task"));
+        workspace.setSearch(QString());
+        QTRY_VERIFY(workspace.taskIndex(id)>=0);
+    }
     void stalledConnectionReportsModuleAndRequestWithoutRegistering()
     {
         QTemporaryDir directory;TaskWorkspace workspace;workspace.start(directory.filePath("timeout.sqlite"));

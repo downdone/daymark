@@ -90,7 +90,8 @@ static int failed(const char *step, TaskWorkspace *a = nullptr, TaskWorkspace *b
     if (a)
         std::cerr << " A=" << a->syncState().value("status").toString().toStdString()
                   << " code=" << a->syncState().value("safe_error_code").toString().toStdString()
-                  << " local=" << a->errorText().toStdString();
+                  << " local=" << a->errorText().toStdString()
+                  << " diagnostic=" << QJsonDocument::fromVariant(a->syncState().value("diagnostic")).toJson(QJsonDocument::Compact).toStdString();
     inspect(a);
     if (b)
         std::cerr << " B=" << b->syncState().value("status").toString().toStdString()
@@ -116,7 +117,12 @@ int run() {
     } else if(!external) {
         return failed("CA file");
     }
+    const auto backend=qEnvironmentVariable("DAYMARK_TEST_TLS_BACKEND");
+    if(!external && !backend.isEmpty() && !QSslSocket::setActiveBackend(backend))
+        return failed("requested test TLS backend unavailable");
     auto tls = QSslConfiguration::defaultConfiguration();
+    std::cerr<<"TLS backend="<<QSslSocket::activeBackend().toStdString()
+             <<" library="<<QSslSocket::sslLibraryVersionString().toStdString()<<std::endl;
     tls.addCaCertificates(certs);
     tls.setPeerVerifyMode(QSslSocket::VerifyPeer);
     // This exercises the actual OS store with a unique synthetic credential,

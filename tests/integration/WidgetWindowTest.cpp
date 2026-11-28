@@ -396,13 +396,13 @@ private slots:
         QVERIFY(!previousRule);
         QCOMPARE(order,QStringList({"trayShowMain","trayNewTask","|","trayToggleWidget","|","trayClickThrough","trayRestoreInput","trayResetWidget","|","traySettings","|","trayQuit"}));
         auto action=[&](const char* id){return menu->findChild<QAction*>(QString::fromLatin1(id));};
-        QVERIFY(!action("trayRestoreInput")->isEnabled());QVERIFY(!action("trayClickThrough")->isChecked());
+        QVERIFY(!action("trayRestoreInput")->isEnabled());QVERIFY(!action("trayClickThrough")->isChecked());QVERIFY(!action("trayRestoreInput")->isVisible());QVERIFY(action("trayClickThrough")->isVisible());
         QCOMPARE(action("trayToggleWidget")->text(),QString::fromUtf8("显示任务组件"));
         action("trayToggleWidget")->trigger();QVERIFY(model.visible());QCOMPARE(action("trayToggleWidget")->text(),QString::fromUtf8("隐藏任务组件"));
         action("trayToggleWidget")->trigger();QVERIFY(!model.visible());
         // Exercise commands without claiming the shell icon exists on offscreen.
         model.setTrayAvailable(true);QVERIFY(model.setClickThrough(true));
-        QVERIFY(action("trayClickThrough")->isChecked());QVERIFY(action("trayRestoreInput")->isEnabled());
+        QVERIFY(action("trayClickThrough")->isChecked());QVERIFY(action("trayRestoreInput")->isEnabled());QVERIFY(action("trayRestoreInput")->isVisible());QVERIFY(!action("trayClickThrough")->isVisible());
         const auto artifacts=qEnvironmentVariable("DAYMARK_TEST_ARTIFACT_DIR");
         if(!artifacts.isEmpty()){
             QVERIFY(QDir().mkpath(artifacts));menu->popup(QPoint(20,20));QTest::qWait(30);

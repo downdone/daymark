@@ -18,6 +18,10 @@ Popup {
     property bool creating: false
     property point manualPosition: Qt.point(-1,-1)
     property bool validDraft: false
+    property string reviewedTitle: ""
+    readonly property var inputTime: workspace.previewTaskInput(title.text)
+    readonly property bool dateConflict: title.text.length>0 && !title.inputMethodComposing &&
+        inputTime.state==="ready" && inputTime.date!==startField.text && reviewedTitle!==title.text
     readonly property var hostWindow: contentItem ? contentItem.Window.window : null
     readonly property var startField: temporal.startField
     readonly property var endField: temporal.endField
@@ -33,6 +37,7 @@ Popup {
     function finish() {
         if(creating || draftCatalog.visible || timing.rangePickerVisible)return false;
         if(!title.text.trim()){close();return false;}
+        if(dateConflict){title.forceActiveFocus();return false;}
         submitted(title.text);
         return creating;
     }
@@ -72,7 +77,7 @@ Popup {
         manualPosition=Qt.point(-1,-1);
         const item=workspace.calendarDraft(date,minute,duration,globalScope);
         validDraft=item.startOn!==undefined;
-        title.clear();notesField.clear();startField.text=item.startOn || date;endField.text=item.deadlineOn || "";
+        title.clear();reviewedTitle="";notesField.clear();startField.text=item.startOn || date;endField.text=item.deadlineOn || "";
         temporal.reminderField.loadTask({});temporal.datesEdited=false;
         assignment.loadTask(Object.assign({tagIds:[],taskId:""},item));timing.loadTask(item);
         // A selected hour is an explicit draft schedule, including if the user
@@ -105,7 +110,7 @@ Popup {
                 }
             }
             Button {text:qsTr("取消");flat:true;enabled:!root.creating;onClicked:root.discard()}
-            Button {objectName:"calendarCreateSubmit";text:root.creating ? qsTr("正在添加…") : qsTr("添加");highlighted:true;enabled:root.validDraft && !!title.text.trim() && !root.creating;onClicked:{root.submitted(title.text)}}
+            Button {objectName:"calendarCreateSubmit";text:root.creating ? qsTr("正在添加…") : qsTr("添加");highlighted:true;enabled:root.validDraft && !!title.text.trim() && !root.creating && !root.dateConflict;onClicked:root.finish()}
         }
         Label {id:createError;visible:!!root.workspace.errorText;Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.workspace.errorText;color:Theme.danger;font.pixelSize:Theme.captionSize}
         TaskInspectorPicker {id:picker;objectPrefix:"calendarCreate";workspace:root.workspace;visible:active;Layout.fillWidth:true;Layout.fillHeight:true}
@@ -124,7 +129,33 @@ Popup {
                     placeholderText:qsTr("任务标题");Accessible.name:qsTr("新任务标题");font.pixelSize:Theme.taskTitleSize;font.weight:Font.DemiBold
                     leftPadding:0;rightPadding:0
                     background:Rectangle{color:"transparent";radius:Theme.controlRadius;border.width:title.activeFocus && Theme.highContrast ? 1 : 0;border.color:Theme.accent}
-                    onAccepted:if(text.trim() && root.validDraft){root.submitted(text)}
+                    onTextEdited:root.reviewedTitle=""
+                    onAccepted:if(!inputMethodComposing && text.trim() && root.validDraft)root.finish()
+                }
+                ColumnLayout {
+                    visible:root.dateConflict
+                    Layout.fillWidth:true
+                    Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("标题中的日期是 %1，当前安排为 %2。请选择使用哪一天。").arg(root.inputTime.date).arg(root.startOn)}
+                    Flow {
+                        Layout.fillWidth:true;spacing:4
+                        Button {
+                            objectName:"calendarKeepDate"
+                            text:qsTr("保留 %1").arg(root.startOn)
+                            onClicked:root.reviewedTitle=title.text
+                        }
+                        Button {
+                            objectName:"calendarUseTitleDate"
+                            text:qsTr("使用日期 %1").arg(root.inputTime.date)
+                            onClicked:{
+                                const selected=root.inputTime.date
+                                root.startField.text=selected
+                                root.endField.text=selected
+                                temporal.datesEdited=true
+                                root.reviewedTitle=title.text
+                            }
+                        }
+                    }
+                    Label {Layout.fillWidth:true;wrapMode:Text.Wrap;text:qsTr("时段和提醒以以下安排为准。");font.pixelSize:Theme.captionSize;color:Theme.secondary}
                 }
                 TextArea {
                     id:notesField;objectName:"calendarCreateNotes";Layout.fillWidth:true
@@ -138,6 +169,7 @@ Popup {
                     plain:true;heading:""
                     TaskTemporalFields {
                         id:temporal;workspace:root.workspace;objectPrefix:"calendarCreate";showActions:false;inlinePickers:true
+                        onDatesChanged:root.reviewedTitle=title.text
                         startName:"calendarCreateStart";endName:"calendarCreateEnd";
                         onPickerRequested:function(field,kind){picker.openFor(field,kind)}
                     }

@@ -485,6 +485,10 @@ void TaskWorkspace::finishTask(const QString& operation,const Result<Task>& resu
     emit stateChanged();emit operationFinished(operation,result.ok());
     if(result.ok() && operation==QStringLiteral("calendarCreate"))emit calendarTaskCreated(result.value.id);
     if(result.ok() && operation==QStringLiteral("createSubtask"))emit subtaskCreated(result.value.id);
+    if(result.ok() && (operation==QStringLiteral("create") ||
+                      operation==QStringLiteral("inlineCreate") ||
+                      operation==QStringLiteral("widgetCreate")))
+        emit taskCreationCommitted(result.value.id,operation);
 }
 void TaskWorkspace::requestTaskEditHistory(const QString& id)
 {

@@ -42,6 +42,7 @@ Window {
     title:qsTr("Daymark · %1").arg(workspace.widgetContextTitle)
     property string taskError: ""
     property string activityNotice:""
+    property string hiddenCreatedTask:""
     property bool extractingQuickInput:false
     property string extractingQuickText:""
     property string extractingQuickProfile:""
@@ -291,9 +292,22 @@ Window {
     Connections {target:widget.workspace;function onStateChanged(){if(!widget.workspace.errorText.length)widget.taskError=""}}
     Connections {
         target:widget.workspace
-        function onWidgetContextChanging(){widget.stashBrowsePosition()}
+        function onWidgetContextChanging(){widget.hiddenCreatedTask="";widget.stashBrowsePosition()}
         function onWidgetBrowseChanged(){Qt.callLater(widget.syncPanelMinimum);widget.syncBrowsePresentation()}
         function onWidgetCategoryRangeRequested(enabled){widget.requestBrowse({kind:"range",todayOnly:enabled})}
+        function onTaskCreationCommitted(id,operation) {
+            if(operation!=="widgetCreate")return
+            const model=widget.workspace.widgetTasks
+            let found=false
+            for(let row=0;row<model.count;row++){
+                if(model.taskIdAt(row)===id){found=true;break}
+            }
+            widget.hiddenCreatedTask=found ? "" : id
+            if(!found){
+                widget.activityNotice=qsTr("任务已添加，当前范围未包含它。")
+                activityNoticeTimer.restart()
+            }
+        }
         function onOperationFinished(operation,success) {
             if(operation==="widgetCategoryOrder" && widget.pendingCategoryOrder){
                 const key=widget.pendingCategoryOrder;widget.pendingCategoryOrder=""
@@ -303,8 +317,12 @@ Window {
             }
             if(operation==="widgetCreate" && widget.addingPending){
                 widget.addingPending=false
+                const leave=widget.exitContinuation
+                widget.exitContinuation=null
                 if(success){widget.activityNotice=widgetTimePreview.hasTime?qsTr("已添加 · %1").arg(widgetTimePreview.summary):qsTr("任务已添加");activityNoticeTimer.restart();quickTitle.clear();if(widget.active && widget.addingTask)quickTitle.forceActiveFocus();else widget.addingTask=false}
                 else {widget.categoryPickerOpen=false;widget.taskError=widget.workspace.errorText;if(widget.active)quickTitle.forceActiveFocus()}
+                if(success && leave)Qt.callLater(leave)
+                else if(!success && leave)widget.exitBlocked()
             }
             if(operation===widget.taskOperation){widget.taskOperation="";if(!success){widget.taskError=widget.workspace.errorText;if(operation==="widgetMoveCategory")widget.activityNotice=""}else if(operation==="widgetMoveCategory"){widget.activityNotice=qsTr("已移动到目标分类");activityNoticeTimer.restart()}}
         }
@@ -449,6 +467,32 @@ Window {
     }
     function closeVerificationMenu() {widgetMenu.close()}
     readonly property WidgetTaskInspector taskInspector:taskInspectorLoader.item as WidgetTaskInspector
+    property var exitContinuation:null
+    signal exitBlocked()
+    readonly property bool hasUnsavedWork:quickTitle.text.trim().length>0 ||
+        (taskInspector && taskInspector.hasUnsavedWork)
+    function discardForExit() {
+        exitContinuation=null
+        quickTitle.clear()
+        browseDrafts=({})
+        if(taskInspector)taskInspector.discardForExit()
+    }
+    function protectClose(continuation) {
+        if(taskInspector && (taskInspector.visible || taskInspector.hasUnsavedWork))
+            return taskInspector.protectClose(continuation)
+        if(quickTitle.text.trim().length){
+            if(quickTitle.inputMethodComposing){
+                taskError=qsTr("请先确认输入法候选，再保存退出。")
+                exitBlocked()
+                return true
+            }
+            exitContinuation=continuation
+            submitTask()
+            if(!addingPending){exitContinuation=null;exitBlocked()}
+            return true
+        }
+        return false
+    }
     function openSmallTask(id,source){taskInspectorLoader.active=true;widget.taskInspector.openFor(id,source)}
     Loader {
         id:taskInspectorLoader;active:false
@@ -457,6 +501,7 @@ Window {
             workspace:widget.workspace
             onVisibleChanged:widget.reportInteraction()
             onFullDetailsRequested:function(id){widget.openTaskRequested(id)}
+            onExitAborted:widget.exitBlocked()
         }
     }
     ReminderInbox {
@@ -796,6 +841,14 @@ Window {
                     Layout.fillWidth: true
                     spacing: 4
                     Label {Layout.fillWidth:true;visible:widget.activityNotice.length>0;text:widget.activityNotice;wrapMode:Text.Wrap;font.pixelSize:Theme.captionSize;color:Theme.secondary;Accessible.role:Accessible.AlertMessage}
+                    Button {
+                        visible:widget.hiddenCreatedTask.length>0 && widget.activityNotice.length>0
+                        text:qsTr("查看");flat:true
+                        onClicked:{
+                            widget.openSmallTask(widget.hiddenCreatedTask,this)
+                            widget.hiddenCreatedTask=""
+                        }
+                    }
                     Button {visible:widget.addingTask && quickTitle.text.length>80;text:qsTr("从这段文本提取任务…");flat:true;font.pixelSize:Theme.captionSize;enabled:!widget.addingPending;onClicked:widget.extractQuickInput()}
                     Label {objectName:"widgetDraftDestination";Layout.fillWidth:true;visible:widget.addingTask;text:widget.draftWrongProfile?qsTr("原资料中的未保存输入"):widget.draftContext?(widget.draftContext.key==="today"?(widgetTimePreview.hasTime?qsTr("按所选日期安排"):qsTr("添加到今天")):(widgetTimePreview.hasTime?qsTr("添加到 %1").arg(widget.draftContext.title):qsTr("添加到 %1 · %2").arg(widget.draftContext.title).arg(widget.draftContext.todayOnly?qsTr("今天"):qsTr("不设日期")))):qsTr("添加到 %1").arg(widget.workspace.widgetContextTitle);font.pixelSize:Theme.captionSize;color:Theme.secondary;elide:Text.ElideRight}
                   InputTimePreview {

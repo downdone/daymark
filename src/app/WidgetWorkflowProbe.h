@@ -11,6 +11,7 @@
 #include <QElapsedTimer>
 #include <QImage>
 #include <QSet>
+#include <QQmlEngine>
 
 namespace daymark {
 // Only constructed by the isolated smoke entry, never against a user's database.
@@ -158,6 +159,7 @@ public:
         }else if(phase==36){
             if(inspector->property("arrangementPage").toBool() || inspector->property("dirty").toBool())return fail("cancel arrangement restores the draft checkpoint");
             find("widgetInspectorTitle")->setProperty("text",QStringLiteral("保留本地草稿"));
+            find("widgetInspectorNotes")->setProperty("text",QStringLiteral("本地新增备注"));
             QMetaObject::invokeMethod(inspector,"markDirty");
             if(!changeTitle(QStringLiteral("另一处的更新")))return fail("save outside a dirty inspector");
         }else if(phase==37){
@@ -165,6 +167,15 @@ public:
                w.task(id).value("title")!=QStringLiteral("另一处的更新"))return fail("a committed update must preserve the dirty inspector draft");
             if(!click("widgetInspectorReload"))return fail("reload committed snapshot");
         }else if(phase==38){
+            auto* merge=find("widgetTaskConflict");
+            if(!merge || !merge->property("visible").toBool() ||
+               find("widgetInspectorTitle")->property("text")!=QStringLiteral("保留本地草稿"))
+                return fail("conflict comparison must preserve the local draft");
+            if(!click("widgetTaskConflict-latest-title") || !click("widgetTaskConflict-apply"))
+                return fail("explicit conflict choice");
+            if(find("widgetInspectorTitle")->property("text")!=QStringLiteral("另一处的更新") ||
+               find("widgetInspectorNotes")->property("text")!=QStringLiteral("本地新增备注"))
+                return fail("field merge must preserve independent local notes");
             if(w.task(id).value("remindAtUtc").toString().isEmpty() || !click("widgetInspectorArrangement"))return fail("open schedule with an existing absolute reminder");
         }else if(phase==39){
             auto* mode=find("widgetInspectorReminderMode");auto* start=find("widgetInspectorStartDate");
@@ -227,6 +238,40 @@ public:
             if(!QMetaObject::invokeMethod(inspector,"loadTask",Q_ARG(QVariant,id),Q_ARG(QVariant,false)) ||
                draft->property("text")!=QStringLiteral("尚未提交的子任务") || w.subtaskChoices(id).size()!=1)
                 return fail("return to parent must restore the unsaved child draft");
+            main->setProperty("forceQuit",true);
+            main->close();
+            auto* quitDialog=main->findChild<QObject*>("quitDraftConfirm");
+            if(!quitDialog || !quitDialog->property("visible").toBool() ||
+               draft->property("text")!=QStringLiteral("尚未提交的子任务"))
+                return fail("quit must ask about child draft");
+            QMetaObject::invokeMethod(quitDialog,"reject");
+            if(main->property("forceQuit").toBool() || !main->isVisible() ||
+               draft->property("text")!=QStringLiteral("尚未提交的子任务"))
+                return fail("continue using must preserve windows and draft");
+            QVariant protectedExit;
+            if(!QMetaObject::invokeMethod(inspector,"protectClose",Q_RETURN_ARG(QVariant,protectedExit),Q_ARG(QVariant,QVariant())) ||
+               !protectedExit.toBool() || !inspector->property("visible").toBool() ||
+               inspector->property("localError").toString().isEmpty())
+                return fail("exit must preserve unsubmitted child text");
+            draft->setProperty("text",QString());
+            inspector->setProperty("afterSave",QStringLiteral("child:")+other);
+            if(!QMetaObject::invokeMethod(inspector,"performAction") ||
+               inspector->property("original").toMap().value("taskId")!=other)
+                return fail("child navigation identity");
+            inspector->setProperty("afterSave",QStringLiteral("parent"));
+            if(!QMetaObject::invokeMethod(inspector,"performAction") ||
+               inspector->property("original").toMap().value("taskId")!=id ||
+               inspector->property("selectedTab").toInt()!=1)
+                return fail("child return must restore parent tab");
+            auto* engine=qjsEngine(inspector);
+            if(!engine)return fail("exit continuation engine");
+            draft->setProperty("text",QStringLiteral("退出时保存的子任务"));
+            const auto leave=engine->evaluate(QStringLiteral("(function(){})"));
+            if(!QMetaObject::invokeMethod(inspector,"protectClose",Q_ARG(QVariant,QVariant::fromValue(leave))))
+                return fail("save child draft before exit");
+        }else if(phase==47){
+            if(inspector->property("visible").toBool() || w.subtaskChoices(id).size()!=2)
+                return fail("save and exit must submit child draft before closing");
             return QStringLiteral("DONE");
         }
         ++phase;return {};

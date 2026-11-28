@@ -369,6 +369,7 @@ signals:
     void catalogSaved(const QString& id,const QString& kind);
     void operationFinished(const QString& operation,bool success);
     void calendarTaskCreated(const QString& id);
+    void taskCreationCommitted(const QString& id,const QString& operation);
     void subtaskCreated(const QString& id);
     void historyChanged();
     void reminderReady(const QString& title,const QString& message);

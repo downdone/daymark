@@ -242,10 +242,10 @@ QString Ux37SmokeProbe::advance() {
     if(m_stage==57){if(m_workspace.taskIndex(m_ids[1])<0 || m_workspace.task(m_ids[1]).value("notes")!=QStringLiteral("就近编辑备注"))return fail("global show restores same child and data");m_window->resize(1280,800);m_workspace.setPreference("highContrast",false);m_workspace.saveCatalog({{"kind","tag"},{"title",QStringLiteral("计划与设计")}});}
     if(m_stage==58){const auto tags=m_workspace.catalogOf("tag");if(tags.isEmpty())return fail("tag fixture");m_tag=tags.last().toMap().value("id").toString();QMetaObject::invokeMethod(m_window,"openEditor",Q_ARG(QVariant,QVariant(m_ids[2])));}
     if(m_stage==59){click(qobject_cast<QQuickItem*>(find("editorTags")));}
-    if(m_stage==60){auto* menu=find("editorTagMenu");auto* option=qobject_cast<QQuickItem*>(find("editorTagMenu-option-"+m_tag));auto* separator=qobject_cast<QQuickItem*>(find("editorTagMenu-separator"));auto* create=qobject_cast<QQuickItem*>(find("editorTagMenu-create"));if(!menu || !menu->property("visible").toBool() || !option || !separator || !create || option->y()>=separator->y() || separator->y()>=create->y() || !capture("tags-menu-light"))return fail("anchored tag menu order and separator");click(option);}
+    if(m_stage==60){auto* menu=find("editorTagMenu");auto* option=qobject_cast<QQuickItem*>(find("editorTagMenu-option-"+m_tag));auto* create=qobject_cast<QQuickItem*>(find("editorTagMenu-create"));if(!menu || !menu->property("visible").toBool() || !option || !create || !find("editorTagMenu-apply") || !capture("tags-menu-light"))return fail("staged tag picker actions");click(option);}
     }
     else if(m_stage>=61){
-    if(m_stage==61){if(find("editorTagMenu")->property("visible").toBool() || !draftTags().contains(m_tag) || m_workspace.task(m_ids[2]).value("tagIds").toStringList().contains(m_tag))return fail("tag choice edits draft without full-task save");click(qobject_cast<QQuickItem*>(find("editorTags")));}
+    if(m_stage==61){if(!find("editorTagMenu")->property("visible").toBool() || draftTags().contains(m_tag))return fail("tag toggles remain staged");click(qobject_cast<QQuickItem*>(find("editorTagMenu-apply")));if(find("editorTagMenu")->property("visible").toBool() || !draftTags().contains(m_tag) || m_workspace.task(m_ids[2]).value("tagIds").toStringList().contains(m_tag))return fail("tag choice edits draft without full-task save");click(qobject_cast<QQuickItem*>(find("editorTags")));}
     if(m_stage==62){for(const auto type:{QEvent::KeyPress,QEvent::KeyRelease}){QKeyEvent event(type,Qt::Key_Escape,Qt::NoModifier);QCoreApplication::sendEvent(m_window,&event);}}
     if(m_stage==63){if(find("editorTagMenu")->property("visible").toBool() || !find("taskEditor")->property("visible").toBool())return fail(QStringLiteral("Escape closes only tag menu: menu=%1 editor=%2").arg(find("editorTagMenu")->property("visible").toBool()).arg(find("taskEditor")->property("visible").toBool()));click(qobject_cast<QQuickItem*>(find("editorTags")));}
     if(m_stage==64){click(qobject_cast<QQuickItem*>(find("editorTagMenu-create")));}
@@ -257,7 +257,7 @@ QString Ux37SmokeProbe::advance() {
     if(m_stage==70){const auto selected=m_workspace.task(m_ids[2]).value("tagIds").toStringList();if(!selected.contains(m_tag) || !selected.contains(m_createdTag))return fail("leave persists both tag choices");QMetaObject::invokeMethod(m_window,"openQuickEditor",Q_ARG(QVariant,QVariant(m_ids[2])));}
     if(m_stage==71){click(qobject_cast<QQuickItem*>(find("quickTagButton")));}
     if(m_stage==72){auto* option=find("quickTagMenu-option-"+m_tag);if(!find("quickTagMenu")->property("visible").toBool() || !option || !option->property("checked").toBool())return fail("inline shares same tag selection");click(qobject_cast<QQuickItem*>(option));}
-    if(m_stage==73){invoke(find("taskQuickEditor"),"closeRequested");}
+    if(m_stage==73){click(qobject_cast<QQuickItem*>(find("quickTagMenu-apply")));invoke(find("taskQuickEditor"),"closeRequested");}
     if(m_stage==74){const auto selected=m_workspace.task(m_ids[2]).value("tagIds").toStringList();if(selected.contains(m_tag) || !selected.contains(m_createdTag))return fail("inline deselection saves without dropping other tag");m_workspace.setTextScale(2);m_workspace.setThemeMode(2);m_window->resize(880,580);m_window->requestActivate();QMetaObject::invokeMethod(m_window,"openEditor",Q_ARG(QVariant,QVariant(m_ids[2])));}
     if(m_stage==75){qobject_cast<QQuickItem*>(find("editorTags"))->forceActiveFocus();}
     if(m_stage==76){auto* tag=qobject_cast<QQuickItem*>(find("editorTags"));auto* scroll=qobject_cast<QQuickItem*>(find("taskEditorScroll"));const auto y=tag->mapToItem(scroll,QPointF()).y();if(y<0 || y+tag->height()>scroll->height()){if(m_wait.elapsed()<1500)return {};return fail("keyboard reveals tag source before opening menu");}click(tag);}
@@ -320,7 +320,40 @@ QString Ux37SmokeProbe::advance() {
     if(m_stage==133){auto* dialog=find("purgeTaskDialog");if(!dialog->property("visible").toBool() || !find("purgeOnlyDevice")->property("checked").toBool() || dialog->property("width").toReal()>m_window->width()-32 || dialog->property("height").toReal()>m_window->height()-32 || !capture("purge-dark-200"))return fail("purge dark 200 layout/reset");windowKey(Qt::Key_Escape);m_workspace.setThemeMode(1);m_workspace.setTextScale(1);m_window->resize(1280,800);}
     if(m_stage==134){invoke(find("purgeTaskDialog"),"showSelection");}
     if(m_stage==135){click(qobject_cast<QQuickItem*>(find("confirmPurgeTasks")));}
-    if(m_stage==136){if(find("purgeTaskDialog")->property("visible").toBool() || m_workspace.taskIndex(m_ids[0])>=0 || m_workspace.tasks()->rowCount()>=m_ids.size() || !m_workspace.errorText().isEmpty())return fail("purge confirms exact task");return "DONE";}
+    if(m_stage==136){if(find("purgeTaskDialog")->property("visible").toBool() || m_workspace.taskIndex(m_ids[0])>=0 || m_workspace.tasks()->rowCount()>=m_ids.size() || !m_workspace.errorText().isEmpty())return fail("purge confirms exact task");m_workspace.setView("inbox");if(!m_workspace.createTask(QStringLiteral("Merge fixture")))return fail("create merge fixture");}
+    if(m_stage==137){m_workspace.setView("all");}
+    if(m_stage==138){
+        for(const auto& task:m_workspace.tasks()->items())if(task.title==QStringLiteral("Merge fixture"))m_ids[2]=task.id;
+        QMetaObject::invokeMethod(m_window,"openEditor",Q_ARG(QVariant,QVariant(m_ids[2])));
+        find("editTaskTitle")->setProperty("text",QStringLiteral("主窗本地标题"));
+        find("editTaskNotes")->setProperty("text",QStringLiteral("主窗本地备注"));
+        invoke(m_window,"markDirty");
+        const auto task=m_workspace.task(m_ids[2]);
+        if(!m_workspace.saveTask(m_ids[2],task.value("rowVersion").toLongLong(),QStringLiteral("主窗远端标题"),task.value("notes").toString(),task.value("planningState").toString(),task.value("storedStartOn").toString(),task.value("storedEndOn").toString(),task.value("todayFocus").toBool()))return fail("external main editor change");
+    }
+    if(m_stage==139){
+        if(!m_window->property("editCanReload").toBool())return fail(QStringLiteral("main editor conflict detection id=%1 active=%2 dirty=%3 saving=%4 title=%5 error=%6").arg(m_window->property("editId").toString()).arg(m_window->property("editingActive").toBool()).arg(m_window->property("draftDirty").toBool()).arg(m_window->property("editorSaving").toBool()).arg(find("editTaskTitle")->property("text").toString()).arg(m_window->property("editConflict").toString()));
+        invoke(m_window,"resolveEditorConflict");
+        auto* dialog=find("mainTaskConflict");
+        if(!dialog || !dialog->property("visible").toBool())return fail("main conflict dialog opens");
+        invoke(dialog,"reject");
+        if(find("editTaskTitle")->property("text")!=QStringLiteral("主窗本地标题"))return fail("cancel conflict must retain draft");
+        invoke(m_window,"resolveEditorConflict");
+    }
+    if(m_stage==140){
+        if(!capture("main-conflict"))return fail("main conflict capture");
+        click(qobject_cast<QQuickItem*>(find("mainTaskConflict-mine-title")));
+        click(qobject_cast<QQuickItem*>(find("mainTaskConflict-apply")));
+        if(find("editTaskTitle")->property("text")!=QStringLiteral("主窗本地标题") ||
+           find("editTaskNotes")->property("text")!=QStringLiteral("主窗本地备注") ||
+           m_workspace.task(m_ids[2]).value("title")!=QStringLiteral("主窗远端标题"))return fail("merge must remain a draft until save");
+        invoke(m_window,"saveEditor");
+    }
+    if(m_stage==141){
+        if(m_workspace.task(m_ids[2]).value("title")!=QStringLiteral("主窗本地标题") ||
+           m_workspace.task(m_ids[2]).value("notes")!=QStringLiteral("主窗本地备注"))return fail("main conflict resolution save");
+        return "DONE";
+    }
     }
     qInfo()<<"UX37 scenario"<<m_stage<<"complete";++m_stage;m_wait.restart();return {};
 }

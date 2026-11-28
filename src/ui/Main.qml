@@ -326,6 +326,67 @@ ApplicationWindow {
     property alias pendingAction: editorSession.pendingAction
     property bool shuttingDown: false
     property bool forceQuit: false
+    property string quitChoice: ""
+    property var quickQuitContinuation:null
+    property var subtaskQuitContinuation:null
+    function abortQuit(){
+        forceQuit=false;quitChoice="";updateCloseIntent=false
+        quickQuitContinuation=null;subtaskQuitContinuation=null
+        if(updateController)updateController.cancelRestart()
+    }
+    readonly property bool hasSubtaskDrafts:newSubtask.text.trim().length>0 ||
+        Object.keys(pendingSubtaskTitles).some(id=>pendingSubtaskTitles[id].trim().length>0)
+    property string addedTaskId: ""
+    property var baseEditorTask:({})
+    property var baseEditorDraft:({})
+    TaskDraftState {id:mainDraftState;titleField:editTitle;notesField:editNotes;timeFields:temporal;details:extraFields}
+    TaskConflictDialog {id:mainConflictDialog;objectName:"mainTaskConflict";parent:Overlay.overlay;draftState:mainDraftState}
+    function editorMeta() {
+        return {planning:draftPlanningState,today:draftTodayFocus,evening:draftEvening,
+            storedStart:originalStartOn,storedEnd:originalEndOn,zone:draftReminderZone}
+    }
+    function restoreEditorDraft(value,latest) {
+        fillingDraft=true
+        mainDraftState.apply(value,latest)
+        const meta=value.arrangement.meta
+        draftPlanningState=meta.planning;draftTodayFocus=meta.today;draftEvening=meta.evening
+        originalStartOn=meta.storedStart;originalEndOn=meta.storedEnd;draftReminderZone=meta.zone
+        draftDatesDirty=value.arrangement.datesEdited || timingFields.timeDirty
+        fillingDraft=false;draftDirty=true
+    }
+    function resolveEditorConflict() {
+        if(!editCanReload || taskWorkspace.busy || editProfile!==taskWorkspace.profileGeneration)return
+        if(temporal.opened){temporal.finish(true);if(temporal.opened)return}
+        const latest=taskWorkspace.task(editId)
+        if(!latest.taskId)return
+        const profile=editProfile,base=baseEditorDraft,oldTask=baseEditorTask
+        const mine=mainDraftState.capture(editorMeta())
+        applyEditorSnapshot(latest)
+        const remote=mainDraftState.capture(editorMeta())
+        restoreEditorDraft(mine,latest)
+        baseEditorTask=oldTask;baseEditorDraft=base;editVersion=oldTask.rowVersion
+        editConflict=qsTr("任务在另一处有修改，请合并后保存。");editCanReload=true
+        mainConflictDialog.begin(base,mine,remote,function(merged){
+            const current=taskWorkspace.task(latest.taskId)
+            if(profile!==taskWorkspace.profileGeneration || current.rowVersion!==latest.rowVersion){
+                editConflict=qsTr("合并期间任务又有更新，请重新比较。")
+                return
+            }
+            applyEditorSnapshot(latest)
+            restoreEditorDraft(merged,latest)
+        })
+    }
+    Timer {id:addedTaskNoticeTimer;interval:7000;onTriggered:mainWindow.addedTaskId=""}
+    Connections {
+        target:mainWindow.taskWorkspace
+        function onProfileGenerationChanged(){mainWindow.addedTaskId=""}
+        function onTaskCreationCommitted(id,operation){
+            if(operation==="create" || operation==="inlineCreate"){
+                mainWindow.addedTaskId=mainWindow.taskWorkspace.taskIndex(id)<0 ? id : ""
+                if(mainWindow.addedTaskId)addedTaskNoticeTimer.restart()
+            }
+        }
+    }
     property bool batchMode: false
     property bool searchExpanded: false
     property bool filtersExpanded: false
@@ -612,12 +673,12 @@ ApplicationWindow {
         fillingDraft = false
         draftDirty = false
         editorSaveError=false
+        baseEditorTask=item
+        baseEditorDraft=mainDraftState.capture(editorMeta())
         if(editorTab===1)subtasks.refresh()
     }
     function reloadEditorSnapshot() {
-        if(!editCanReload || taskWorkspace.busy || editProfile!==taskWorkspace.profileGeneration)return
-        const item=taskWorkspace.task(editId)
-        if(item.taskId){timingFields.closePickers();inspectorPicker.close();quickEditor.closePickers();applyEditorSnapshot(item)}
+        resolveEditorConflict()
     }
     property var backgroundNavigation:null
     function navigateSafely(action) {
@@ -651,7 +712,7 @@ ApplicationWindow {
         const accepted=newInlineDraft ? taskWorkspace.createInlineTask(editTitle.text,editNotes.text,draftPlanningState,startDate.text,deadline.text,draftTodayFocus,patch) : taskWorkspace.saveTaskWithDetails(editId, editVersion, editTitle.text, editNotes.text,
                                      draftPlanningState,
                                      (draftDatesDirty || timingFields.timeDirty) ? startDate.text : originalStartOn, (draftDatesDirty || timingFields.timeDirty) ? deadline.text : originalEndOn, mainWindow.draftTodayFocus,patch)
-        if(!accepted){editorSaving=false;if(taskWorkspace.errorText)editorSaveError=true}
+        if(!accepted){editorSaving=false;if(taskWorkspace.errorText)editorSaveError=true;if(forceQuit)abortQuit()}
         return accepted
     }
     function dateDraftChanged(value) {
@@ -1199,6 +1260,24 @@ ApplicationWindow {
                 enabled:!mainWindow.taskWorkspace.busy
                 visible:mainWindow.taskContentVisible && ["completed","trash","logbook","cancelled"].indexOf(mainWindow.taskWorkspace.view)<0 && rawText.trim().length>0 && !composing && summary.length>0
             }
+            RowLayout {
+                visible:mainWindow.addedTaskId.length>0
+                Layout.fillWidth:true
+                Label {
+                    Layout.fillWidth:true;wrapMode:Text.Wrap
+                    text:qsTr("任务已添加，当前筛选未包含这条任务。")
+                    font.pixelSize:Theme.captionSize;color:Theme.secondary
+                    Accessible.role:Accessible.AlertMessage
+                }
+                Button {
+                    text:qsTr("查看");flat:true
+                    onClicked:{
+                        const id=mainWindow.addedTaskId
+                        mainWindow.navigateSafely(function(){mainWindow.openEditor(id)})
+                        mainWindow.addedTaskId=""
+                    }
+                }
+            }
             Label {
                 visible: mainWindow.taskContentVisible && mainWindow.taskWorkspace.view==="someday" && mainWindow.taskWorkspace.tasks.count>0
                 text: qsTr("日期已暂停；移到随时可做后恢复。")
@@ -1392,9 +1471,9 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     width: Math.min(parent.width,420*Theme.scale)
                     visible: mainWindow.taskWorkspace.tasks.count === 0 && !mainWindow.newInlineDraft
-                    heading: mainWindow.taskWorkspace.view==="trash" ? qsTr("没有最近删除的任务") : mainWindow.taskWorkspace.view==="cancelled" ? qsTr("没有已取消的任务") : mainWindow.taskWorkspace.view==="completed" ? qsTr("还没有已完成的任务") : !mainWindow.taskWorkspace.ready ? qsTr("正在准备任务") : search.text.length>0 ? qsTr("没有匹配的任务") : mainWindow.taskWorkspace.view==="today" ? qsTr("今天暂无待办") : mainWindow.taskWorkspace.view==="inbox" ? qsTr("收集箱已清空") : qsTr("这里暂时没有任务")
-                    detail: mainWindow.taskWorkspace.view==="trash" ? qsTr("删除的任务可在这里恢复。") : mainWindow.taskWorkspace.view==="completed" ? qsTr("完成的任务按完成时间保留在这里。") : mainWindow.taskWorkspace.view==="cancelled" ? qsTr("已取消任务保留在这里，可重新打开。") : mainWindow.taskWorkspace.view==="logbook" ? qsTr("已结束的任务会保留在这里，方便回顾。") : search.text.length>0 ? qsTr("换一个关键词，或清除筛选再试。") : qsTr("在上方记下任务，再安排时间和归属。")
-                    actionText: !mainWindow.taskWorkspace.ready || mainWindow.taskWorkspace.view==="completed" || mainWindow.taskWorkspace.view==="trash" || mainWindow.taskWorkspace.view==="cancelled" || mainWindow.taskWorkspace.view==="logbook" ? "" : search.text.length>0 ? qsTr("清除搜索") : mainWindow.selectedTag || mainWindow.selectedProject ? qsTr("清除筛选") : qsTr("新建任务")
+                    heading: !mainWindow.taskWorkspace.ready ? qsTr("正在准备任务") : search.text.length>0 ? qsTr("没有匹配的任务") : mainWindow.taskWorkspace.view==="trash" ? qsTr("没有最近删除的任务") : mainWindow.taskWorkspace.view==="cancelled" ? qsTr("没有已取消的任务") : mainWindow.taskWorkspace.view==="completed" ? qsTr("还没有已完成的任务") : mainWindow.taskWorkspace.view==="today" ? qsTr("今天暂无待办") : mainWindow.taskWorkspace.view==="inbox" ? qsTr("收集箱为空") : qsTr("这里暂时没有任务")
+                    detail: !mainWindow.taskWorkspace.ready ? "" : search.text.length>0 ? qsTr("换一个关键词，或清除筛选再试。") : mainWindow.taskWorkspace.view==="trash" ? qsTr("删除的任务可在这里恢复。") : mainWindow.taskWorkspace.view==="completed" ? qsTr("完成的任务按完成时间保留在这里。") : mainWindow.taskWorkspace.view==="cancelled" ? qsTr("已取消任务保留在这里，可重新打开。") : mainWindow.taskWorkspace.view==="logbook" ? qsTr("已结束的任务会保留在这里，方便回顾。") : qsTr("在上方记下任务，再安排时间和归属。")
+                    actionText: !mainWindow.taskWorkspace.ready ? "" : search.text.length>0 ? qsTr("清除搜索") : mainWindow.taskWorkspace.view==="completed" || mainWindow.taskWorkspace.view==="trash" || mainWindow.taskWorkspace.view==="cancelled" || mainWindow.taskWorkspace.view==="logbook" ? "" : mainWindow.selectedTag || mainWindow.selectedProject ? qsTr("清除筛选") : qsTr("新建任务")
                     onTriggered: {if(search.text.length>0)search.clear();else if(mainWindow.selectedTag || mainWindow.selectedProject){mainWindow.selectedTag="";mainWindow.selectedProject="";mainWindow.taskWorkspace.setTagFilter("");mainWindow.taskWorkspace.setProjectFilter("")}else mainWindow.newTask("")}
                 }
             }
@@ -1531,7 +1610,7 @@ ApplicationWindow {
             RowLayout {id:headerDismissHost;visible:!mainWindow.inspectorExpanded}
         }
         Label {id: editorError;objectName: "editorSaveError";Layout.fillWidth: true;Layout.leftMargin: editor.bodyInset;Layout.rightMargin: editor.bodyInset;Layout.bottomMargin: 8;wrapMode: Text.Wrap;visible: text.length>0;text: mainWindow.editConflict || mainWindow.taskWorkspace.errorText;color: Theme.danger;font.pixelSize: Theme.captionSize}
-        Button {visible:mainWindow.editCanReload;enabled:!mainWindow.taskWorkspace.busy;Layout.leftMargin:editor.bodyInset;text:qsTr("重新载入");onClicked:mainWindow.reloadEditorSnapshot()}
+        Button {visible:mainWindow.editCanReload;enabled:!mainWindow.taskWorkspace.busy;Layout.leftMargin:editor.bodyInset;text:qsTr("比较并合并…");onClicked:mainWindow.reloadEditorSnapshot()}
         InspectorTabs {
             id: editorTabs
             objectName: "taskEditorTabs";visible: !mainWindow.newInlineDraft && !inspectorPicker.active && (mainWindow.inspectorExpanded || mainWindow.editorHasChildren || mainWindow.editorTab===1) && (!mainWindow.editorIsSubtask || mainWindow.editorHasChildren)
@@ -1913,11 +1992,30 @@ ApplicationWindow {
     Connections {
         target: mainWindow.taskWorkspace
         function onCategoryRelocated(id){mainWindow.expandCategoryParent(id)}
-        function onSubtaskCreated(id){const drafts=Object.assign({},mainWindow.pendingSubtaskTitles);delete drafts[mainWindow.editorRootId];mainWindow.pendingSubtaskTitles=drafts;newSubtask.clear();mainWindow.editorTab=1;subtasks.refresh();newSubtask.forceActiveFocus()}
+        function onSubtaskCreated(id){
+            const parent=mainWindow.taskWorkspace.task(id).parentTaskId
+            const drafts=Object.assign({},mainWindow.pendingSubtaskTitles)
+            delete drafts[parent];mainWindow.pendingSubtaskTitles=drafts
+            if(parent===mainWindow.editorRootId){
+                newSubtask.clear();mainWindow.editorTab=1;subtasks.refresh();newSubtask.forceActiveFocus()
+            }
+        }
         function onOperationFinished(operation, success) {
             if(mainWindow.backgroundNavigation && !mainWindow.taskWorkspace.busy){const action=mainWindow.backgroundNavigation;mainWindow.backgroundNavigation=null;Qt.callLater(function(){mainWindow.navigateSafely(action)})}
             if(operation==="complete"){if(!success && mainWindow.completionRow)mainWindow.completionRow.cancelCompletion();mainWindow.completionRow=null}
-            if (operation === "create" && success) { newTitle.clear(); newTitle.forceActiveFocus() }
+            if (operation === "create") {
+                if(success){newTitle.clear();newTitle.forceActiveFocus()}
+                const leave=mainWindow.quickQuitContinuation
+                mainWindow.quickQuitContinuation=null
+                if(success && leave)Qt.callLater(leave)
+                else if(!success && leave)mainWindow.abortQuit()
+            }
+            if(operation==="createSubtask" && mainWindow.subtaskQuitContinuation){
+                const leave=mainWindow.subtaskQuitContinuation
+                mainWindow.subtaskQuitContinuation=null
+                if(success)Qt.callLater(leave)
+                else mainWindow.quitChoice=""
+            }
             if(operation==="inlineCreate" && mainWindow.editorSaving && mainWindow.newInlineDraft){
                 mainWindow.editorSaving=false
                 if(success){
@@ -1936,7 +2034,7 @@ ApplicationWindow {
                     const action = mainWindow.pendingAction
                     mainWindow.pendingAction = null
                     if (action) action()
-                } else {mainWindow.pendingAction = null;mainWindow.editorSaveError=true;if(quickEditor.editing)quickEditor.focusTitle()}
+                } else {mainWindow.pendingAction = null;mainWindow.editorSaveError=true;if(mainWindow.forceQuit)mainWindow.abortQuit();if(quickEditor.editing)quickEditor.focusTitle()}
             }
         }
     }
@@ -1958,6 +2056,7 @@ ApplicationWindow {
         onOpenMainRequested: {mainWindow.showNormal();mainWindow.requestActivate()}
         onSettingsRequested: {mainWindow.showNormal();mainWindow.requestActivate();mainWindow.openTool("settings")}
         onReminderHistoryRequested:mainWindow.openTool("notifications")
+        onExitBlocked:mainWindow.abortQuit()
     }
     ReminderInbox {
         id:mainReminderInbox;objectName:"mainReminderInbox";parent:mainWindow.contentItem
@@ -2142,6 +2241,45 @@ ApplicationWindow {
         contentItem: Label {wrapMode: Text.Wrap;text: qsTr("开始日期将从 %1 调整为今天，结束日期保持不变。").arg(mainWindow.todayTarget.startOn || "")}
         onAccepted: mainWindow.applyToday()
     }
+    Dialog {
+        id:quitDraftConfirm
+        objectName:"quitDraftConfirm"
+        title:qsTr("退出前处理未保存的内容")
+        width:Math.min(440*Theme.scale,mainWindow.width-32)
+        modal:true
+        closePolicy:Popup.NoAutoClose
+        contentItem:Label {
+            text:qsTr("主窗口或小窗中还有正在填写的内容。请选择保存后退出，或放弃这些修改。")
+            wrapMode:Text.Wrap
+        }
+        footer:ActionBar {
+            Button {id:continueUsing;text:qsTr("继续使用");onClicked:quitDraftConfirm.reject()}
+            Button {
+                text:qsTr("放弃修改并退出")
+                onClicked:{
+                    mainWindow.quitChoice="discard"
+                    mainWindow.quickQuitContinuation=null
+                    mainWindow.subtaskQuitContinuation=null
+                    mainWindow.pendingSubtaskTitles=({})
+                    newSubtask.clear()
+                    if(mainWindow.newInlineDraft)mainWindow.cancelInlineDraft()
+                    mainWindow.draftDirty=false
+                    editor.close()
+                    newTitle.clear()
+                    taskWidget.discardForExit()
+                    quitDraftConfirm.close()
+                    mainWindow.close()
+                }
+            }
+            Button {
+                text:qsTr("保存并退出");highlighted:true
+                onClicked:{mainWindow.quitChoice="save";quitDraftConfirm.close();mainWindow.close()}
+            }
+        }
+        onOpened:continueUsing.forceActiveFocus()
+        onRejected:{mainWindow.quitChoice="";mainWindow.forceQuit=false}
+        Shortcut {sequence:"Escape";enabled:quitDraftConfirm.visible;onActivated:quitDraftConfirm.reject()}
+    }
     onClosing: function(close) {
         const updating=updateCloseIntent
         updateCloseIntent=false
@@ -2149,6 +2287,38 @@ ApplicationWindow {
         const retryClose=function(){if(updating){mainWindow.updateCloseIntent=true;mainWindow.forceQuit=true}mainWindow.close()}
         if(inspectorPicker.active){close.accepted=false;inspectorPicker.close();return}
         if (taskWorkspace.busy) { close.accepted = false; return }
+        if(forceQuit && !updating && !quitChoice &&
+           (draftDirty || newTitle.text.trim().length>0 || hasSubtaskDrafts || taskWidget.hasUnsavedWork)){
+            close.accepted=false
+            quitDraftConfirm.open()
+            return
+        }
+        if ((forceQuit || updating) && taskWidget.protectClose(retryClose)) {
+            close.accepted=false
+            return
+        }
+        if((forceQuit || updating) && newTitle.text.trim().length){
+            close.accepted=false
+            if(newTitle.inputMethodComposing){newTitle.forceActiveFocus();return}
+            quickQuitContinuation=retryClose
+            if(!taskWorkspace.createTask(newTitle.text,mainTimePreview.ignored,mainTimePreview.overrides))
+                quickQuitContinuation=null
+            return
+        }
+        if((forceQuit || updating) && hasSubtaskDrafts && !draftDirty){
+            close.accepted=false
+            if(newSubtask.inputMethodComposing){newSubtask.forceActiveFocus();return}
+            const parent=newSubtask.text.trim().length ? editorRootId :
+                Object.keys(pendingSubtaskTitles).find(id=>pendingSubtaskTitles[id].trim().length>0)
+            const text=parent===editorRootId && newSubtask.text.trim().length ?
+                newSubtask.text : pendingSubtaskTitles[parent]
+            subtaskQuitContinuation=retryClose
+            if(!taskWorkspace.createSubtask(text,parent)){
+                subtaskQuitContinuation=null
+                quitChoice=""
+            }
+            return
+        }
         if(newInlineDraft && inlineDraftFingerprint()===inlineTemplate)cancelInlineDraft()
         if(catalogEdit.visible && catalogEdit.dirty){close.accepted=false;catalogEdit.requestClose();return}
         if(desktopCalendar.protectClose(retryClose)){close.accepted=false;return}

@@ -173,6 +173,23 @@ QString PickerLifecycleProbe::advance() {
     if (catalog->property("visible").toBool() ||
         time->property("text") != "08:05")
       return fail("catalog close changes unrelated field");
+    catalog->setProperty("multiple", true);
+    catalog->setProperty("staged", true);
+    catalog->setProperty("selectedIds", QVariantList{QStringLiteral("0")});
+    invoke(catalog, "open");
+    if (!QMetaObject::invokeMethod(catalog, "choose",
+                                  Q_ARG(QVariant, QVariant("tag")),
+                                  Q_ARG(QVariant, QVariant("1")),
+                                  Q_ARG(QVariant, QVariant(true))))
+      return fail("staged tag selection");
+    if (catalog->property("workingIds").toList().size() != 2 ||
+        catalog->property("selectedIds").toList().size() != 1)
+      return fail("tag choice must remain in picker draft");
+    invoke(catalog, "close");
+    invoke(catalog, "open");
+    if (catalog->property("workingIds").toList().size() != 1)
+      return fail("cancelled tag choice leaked on reopen");
+    invoke(catalog, "close");
     workspace.setTextScale(1);
     QQmlComponent component(&engine);
     component.loadFromModule("Daymark", "TaskTimingFields");

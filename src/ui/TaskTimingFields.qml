@@ -85,12 +85,12 @@ ColumnLayout {
     }
     function saveDraft() {return {specific:allDay.checked,start:startTime.text,end:endTime.text,zone:zone.text,alert:alertMinutes,
         repeat:repeating.checked,frequency:frequency.currentIndex,interval:interval.value,until:until.text,weekdays:weekdayMask,
-        advanced:zoneExpanded.checked,timeDirty:timeDirty,repeatDirty:repeatDirty,convertLegacy:convertLegacy}}
+        monthDay:monthDay,yearMonth:yearMonth,advanced:zoneExpanded.checked,timeDirty:timeDirty,repeatDirty:repeatDirty,convertLegacy:convertLegacy}}
     function restoreDraft(draft) {
         closePickers();loading=true
         allDay.checked=draft.specific;startTime.text=draft.start;endTime.text=draft.end;zone.text=draft.zone;alertMinutes=draft.alert
         repeating.checked=draft.repeat;frequency.currentIndex=draft.frequency;interval.value=draft.interval;until.text=draft.until
-        weekdayMask=draft.weekdays;zoneExpanded.checked=draft.advanced;timeDirty=draft.timeDirty;repeatDirty=draft.repeatDirty
+        weekdayMask=draft.weekdays;if(draft.monthDay!==undefined)monthDay=draft.monthDay;if(draft.yearMonth!==undefined)yearMonth=draft.yearMonth;zoneExpanded.checked=draft.advanced;timeDirty=draft.timeDirty;repeatDirty=draft.repeatDirty
         convertLegacy=draft.convertLegacy;loading=false
     }
     spacing: Theme.fieldGap
