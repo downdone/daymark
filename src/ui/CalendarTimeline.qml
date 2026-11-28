@@ -10,7 +10,7 @@ ColumnLayout {
     property bool rangeSelectionMode: false
     readonly property var dateTaskToSchedule: {
         if(rangeSelectionMode || !selectedId)return null;
-        for(const day of timeline.days)for(const entry of day.entries || [])
+        for(const day of (timeline?.days ?? []))for(const entry of day.entries || [])
             if((entry.taskId || entry.eventId)===selectedId)return Object.assign({date:day.date},entry);
         return null;
     }
@@ -25,8 +25,8 @@ ColumnLayout {
         if(flick)flick.contentY=Math.max(0,Math.min(minute*minuteHeight-scroll.availableHeight/3,Math.max(0,grid.height-scroll.availableHeight)));
     }
     function positionInitially() {
-        if(!initialPositionPending || !visible || timeline.days.length===0 || scroll.availableHeight<=0)return;
-        const today=timeline.days.find(day=>day.today);
+        if(!initialPositionPending || !visible || (timeline?.days ?? []).length===0 || scroll.availableHeight<=0)return;
+        const today=(timeline?.days ?? []).find(day=>day.today);
         revealMinute(initialMinute>=0 ? initialMinute : today ? today.nowMinute : 480);
         initialPositionPending=false;
     }
@@ -45,6 +45,8 @@ ColumnLayout {
     readonly property int headingSize: timelineMetrics?.headingSize ?? Theme.headingSize
     readonly property int bodySize: timelineMetrics?.bodySize ?? Theme.bodySize
     required property TaskWorkspace workspace
+    // A retiring Loader can clear the upstream data before descendant geometry
+    // bindings are detached. Treat the missing collection as an empty viewport.
     property var timeline: ({
             days: [],
             blocks: [],
@@ -56,7 +58,7 @@ ColumnLayout {
     signal taskSelected(var entry,Item source)
     signal slotSelected(string date,int minute,point at)
     function chooseSlot(date,minute,at){selectedSlot={date:date,minute:minute,at:at};slotSelected(date,minute,at)}
-    function revealNow(){const day=timeline.days.find(value=>value.today);const flick=scroll.contentItem as Flickable;if(day && flick)flick.contentY=Math.max(0,Math.min(day.nowMinute*minuteHeight-scroll.availableHeight/3,grid.height-scroll.availableHeight))}
+    function revealNow(){const day=(timeline?.days ?? []).find(value=>value.today);const flick=scroll.contentItem as Flickable;if(day && flick)flick.contentY=Math.max(0,Math.min(day.nowMinute*minuteHeight-scroll.availableHeight/3,grid.height-scroll.availableHeight))}
     property var preview: ({})
     property var creationSelection: ({})
     property var activeCluster: null
@@ -103,8 +105,9 @@ ColumnLayout {
             return;
         if (!preview.moved && Math.abs(at.x - preview.origin.x) + Math.abs(at.y - preview.origin.y) < workspace.dragDistance)
             return;
-        const column = Math.max(0, Math.min(timeline.days.length - 1, Math.floor((at.x - gutter) / grid.dayWidth)));
-        const day = timeline.days[column];
+        const column = Math.max(0, Math.min((timeline?.days ?? []).length - 1, Math.floor((at.x - gutter) / grid.dayWidth)));
+        const day = (timeline?.days ?? [])[column];
+        if (!day) { cancelPreview(); return; }
         preview = Object.assign({}, preview, {
             pointerX: at.x,
             pointerY: at.y,
@@ -168,7 +171,7 @@ ColumnLayout {
             color: Theme.secondary
         }
         Repeater {
-            model: root.timeline.days
+            model: (root.timeline?.days ?? [])
             ColumnLayout {
                 id: dayHeader
                 required property var modelData
@@ -177,7 +180,7 @@ ColumnLayout {
                 Layout.minimumWidth: 0
                 spacing: 2
                 Label {
-                    visible: root.timeline.days.length>1
+                    visible: (root.timeline?.days ?? []).length>1
                     Layout.fillWidth: true;Layout.minimumWidth: 0
                     text: dayHeader.width<80*Theme.scale ? dayHeader.modelData.title.slice(-1) : dayHeader.modelData.title.split(" ").pop()
                     horizontalAlignment: Text.AlignHCenter
@@ -187,9 +190,9 @@ ColumnLayout {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     objectName: root.objectPrefix+"calendarDayHeader-"+dayHeader.modelData.date
-                    text: root.timeline.days.length>1 ? Number(dayHeader.modelData.date.slice(8)) : dayHeader.modelData.title
-                    horizontalPadding: root.timeline.days.length>1 ? 0 : 8
-                    font.pixelSize: root.timeline.days.length>1 ? root.headingSize : root.bodySize
+                    text: (root.timeline?.days ?? []).length>1 ? Number(dayHeader.modelData.date.slice(8)) : dayHeader.modelData.title
+                    horizontalPadding: (root.timeline?.days ?? []).length>1 ? 0 : 8
+                    font.pixelSize: (root.timeline?.days ?? []).length>1 ? root.headingSize : root.bodySize
                     Accessible.name: dayHeader.modelData.title
                     flat: true
                     palette.buttonText: dayHeader.modelData.today ? Theme.danger : Theme.text
@@ -260,10 +263,10 @@ ColumnLayout {
         Item {
             id: grid
             width: scroll.availableWidth
-            height: (root.timeline.minutes || 1440) * root.minuteHeight
-            readonly property real dayWidth: Math.max(1, (width - root.gutter) / Math.max(1, root.timeline.days.length))
+            height: (root.timeline?.minutes ?? 1440) * root.minuteHeight
+            readonly property real dayWidth: Math.max(1, (width - root.gutter) / Math.max(1, (root.timeline?.days ?? []).length))
             Repeater {
-                model: root.timeline.days
+                model: (root.timeline?.days ?? [])
                 Rectangle {
                     id: day
                     required property var modelData
@@ -328,7 +331,7 @@ ColumnLayout {
                 }
             }
             Repeater {
-                model: root.timeline.days.length > 0 ? root.timeline.days[0].ticks : []
+                model: (root.timeline?.days ?? []).length > 0 ? (root.timeline?.days ?? [])[0].ticks : []
                 Item {
                     required property var modelData
                     y: modelData.minute * root.minuteHeight
@@ -352,7 +355,7 @@ ColumnLayout {
                 }
             }
             Repeater {
-                model: root.timeline.blocks
+                model: root.timeline?.blocks ?? []
                 Rectangle {
                     id: block
                     required property var modelData
@@ -462,7 +465,7 @@ ColumnLayout {
                 }
             }
             Repeater {
-                model: root.timeline.clusters || []
+                model: root.timeline?.clusters ?? []
                 Button {
                     required property var modelData
                     objectName: root.objectPrefix+"calendarOverlap-" + modelData.key
@@ -479,14 +482,14 @@ ColumnLayout {
             }
             Rectangle {
                 visible: root.slotSelectionActive && !!root.selectedSlot.date && !root.selectedId && !root.creationSelection.date && !root.dragging
-                x: root.gutter+Math.max(0,root.timeline.days.findIndex(day=>day.date===root.selectedSlot.date))*grid.dayWidth+2
+                x: root.gutter+Math.max(0,(root.timeline?.days ?? []).findIndex(day=>day.date===root.selectedSlot.date))*grid.dayWidth+2
                 y: (root.selectedSlot.minute || 0)*root.minuteHeight
                 width: grid.dayWidth-4;height:60*root.minuteHeight
                 color:Theme.hover;border.color:Theme.separator;radius:Theme.eventRadius
             }
             Rectangle {
                 visible:!!root.creationSelection.date
-                x:root.gutter+Math.max(0,root.timeline.days.findIndex(day=>day.date===root.creationSelection.date))*grid.dayWidth+2
+                x:root.gutter+Math.max(0,(root.timeline?.days ?? []).findIndex(day=>day.date===root.creationSelection.date))*grid.dayWidth+2
                 y:(root.creationSelection.minute || 0)*root.minuteHeight
                 width:grid.dayWidth-4
                 height:Math.max(32,(root.creationSelection.duration || 60)*root.minuteHeight)
@@ -495,7 +498,7 @@ ColumnLayout {
             }
             Rectangle {
                 visible: root.preview.edge === "create" && !!root.preview.moved
-                x: root.gutter + Math.max(0, root.timeline.days.findIndex(day => day.date === root.preview.date)) * grid.dayWidth
+                x: root.gutter + Math.max(0, (root.timeline?.days ?? []).findIndex(day => day.date === root.preview.date)) * grid.dayWidth
                 width: grid.dayWidth
                 y: Math.min(root.preview.startMinute || 0, root.preview.minute || 0) * root.minuteHeight
                 height: Math.max(15, Math.abs((root.preview.startMinute || 0) - (root.preview.minute || 0))) * root.minuteHeight
@@ -514,7 +517,7 @@ ColumnLayout {
                     anchors.right: parent.right
                     anchors.bottom: parent.top
                     padding: 4
-                    text: (root.preview.date || "") + " · " + root.workspace.minuteLabel(root.preview.date || "", root.preview.minute || 0, root.timeline.zone || "")
+                    text: (root.preview.date || "") + " · " + root.workspace.minuteLabel(root.preview.date || "", root.preview.minute || 0, root.timeline?.zone ?? "")
                     background: Rectangle {
                         color: Theme.content
                         border.color: Theme.accent

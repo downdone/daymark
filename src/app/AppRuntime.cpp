@@ -266,6 +266,13 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 // cancellation after a real delegate/render pass.
                 if(cycle%2==0)m_workspace.setPreference("desktopCalendarVisible",false);
             }else if(step==1 && cycle%2){
+                if(cycle/4==1 || cycle/4==2){
+                    auto* timeline=calendar->findChild<QObject*>(QStringLiteral("calendarTimeline"));
+                    if(!timeline){fail();return;}
+                    // Exercise the upstream var clearing before the Loader's
+                    // descendant geometry and repeaters have retired.
+                    if(!timeline->setProperty("timeline",QVariant())){fail();return;}
+                }
                 calendar->grabWindow();
                 if(auto* incubator=m_engine.incubationController())incubator->incubateFor(5);
                 if(!m_workspace.setPreference("desktopCalendarVisible",false)){fail();return;}

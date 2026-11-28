@@ -1,5 +1,9 @@
 # Daymark 当前进度
 
+## 4.1.1 Windows 发布收尾（2026-11-28）
+
+4.1.0 源码和注释标签已公开，Windows 候选 46128180243 在 category_navigation 检查中失败：日历 Loader 退场期间上游数据释放，子项几何绑定读取缺失的 days。账号与同步门禁 46128180292 全部通过。按不可变标签规则以 4.1.1 修复，日历视口在数据撤离时使用空集合，保留原测试断言和时限。修复后 Windows Release 构建及 QML lint PASS，新增上游数据清空的回归覆盖后，calendar_lifecycle、category_navigation、continuous_calendar、calendar_interaction、desktop_rendering、time_input_ui 共 6/6 PASS（40.20 秒）。沙箱内窗口测试无法启动，提升后相同测试全部通过；失败记录保留。待完整候选、签名及公开安装／升级验收。
+
 ## 日常工作流精修实施（2026-11-28）
 
 基线 5ef3c7b（4.0.9），隔离分支 code_pet/daily-workflow。按[验收总表](design/daily-workflow-delivery.md)及[逐项记录](design/daily-workflow-verification.md)推进。已实现共享任务草稿与逐字段／关联组冲突比较、主小窗退出前保存／放弃／继续使用、标签多选草稿、属性摘要和文字保存、长列表自然高度、小窗失焦保护及父子返回、日历日期冲突选择、筛选隐藏新增任务后的查看入口、托盘恢复状态。
