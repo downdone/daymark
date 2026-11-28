@@ -275,6 +275,9 @@ bool AppRuntime::start(bool smokeTest, const QString& dataDirectory, const QStri
                 }
                 calendar->grabWindow();
                 if(auto* incubator=m_engine.incubationController())incubator->incubateFor(5);
+                auto* page=calendar->property("page").value<QObject*>();
+                if(!page || !QMetaObject::invokeMethod(page,"prepareForUnload") ||
+                   !QMetaObject::invokeMethod(page,"prepareForUnload")){fail();return;}
                 if(!m_workspace.setPreference("desktopCalendarVisible",false)){fail();return;}
             }else if(step==2){
                 if(auto* incubator=m_engine.incubationController())incubator->incubateFor(5);

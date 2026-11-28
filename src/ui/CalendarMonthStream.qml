@@ -135,12 +135,13 @@ Item {
     }
     Timer {id:layoutCompletion;interval:0;property var action:null;onTriggered:{const next=action;action=null;if(next)next()}}
     function prepareForUnload() {
+        if(retiring)return;
         const saved=rowMetrics;
         rowMetrics={weekMinimum:saved.weekMinimum,captionSize:saved.captionSize,headingSize:saved.headingSize};
         retiring=true;++refreshGeneration;
         projectionRefresh.stop();layoutCompletion.stop();layoutCompletion.action=null;
         anchorPlacementRetry.stop();recycle.stop();
-        monthPhysics.detach();
+        if(monthPhysics && typeof monthPhysics.detach === "function")monthPhysics.detach();
         // Cancel view incubators while their bound creation context is alive.
         list.model=null;list.reuseItems=false;list.forceLayout();weeks=[];
     }

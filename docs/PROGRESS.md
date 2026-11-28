@@ -1,8 +1,8 @@
 # Daymark 当前进度
 
-## 4.1.2 Windows 发布收尾（2026-11-28）
+## 4.1.3 Windows 发布收尾（2026-11-28）
 
-4.1.0 源码和注释标签已公开，Windows 候选 46128180243 在 category_navigation 检查中失败：日历 Loader 退场期间上游数据释放，子项几何绑定读取缺失的 days。账号与同步门禁 46128180292 全部通过。按不可变标签规则以 4.1.1 修复，日历视口在数据撤离时使用空集合，保留原测试断言和时限。修复后 Windows Release 构建及 QML lint PASS，新增上游数据清空的回归覆盖后，calendar_lifecycle、category_navigation、continuous_calendar、calendar_interaction、desktop_rendering、time_input_ui 共 6/6 PASS（40.20 秒）。沙箱内窗口测试无法启动，提升后相同测试全部通过；失败记录保留。4.1.1 正式候选修复了日历错误，但进一步暴露 CatalogPicker 的 matches 被清空及 CalendarCreatePopup 子分类对话框的 workspace 撤离，未签名发布。4.1.2 统一补上空列表和空工作区防护，失去工作区时禁用命令。本地 Release 构建及 QML lint PASS，新增空工作区／空列表检查后，calendar_lifecycle、picker_lifecycle、desktop_rendering、account_access、category_navigation 共 5/5 PASS（42.00 秒）。先主分支完整 CI，成功后再建立标签和发行候选。待签名及公开安装／升级验收。
+4.1.0 源码和注释标签已公开，Windows 候选 46128180243 在 category_navigation 检查中失败：日历 Loader 退场期间上游数据释放，子项几何绑定读取缺失的 days。账号与同步门禁 46128180292 全部通过。按不可变标签规则以 4.1.1 修复，日历视口在数据撤离时使用空集合，保留原测试断言和时限。修复后 Windows Release 构建及 QML lint PASS，新增上游数据清空的回归覆盖后，calendar_lifecycle、category_navigation、continuous_calendar、calendar_interaction、desktop_rendering、time_input_ui 共 6/6 PASS（40.20 秒）。沙箱内窗口测试无法启动，提升后相同测试全部通过；失败记录保留。4.1.1 正式候选修复了日历错误，但进一步暴露 CatalogPicker 的 matches 被清空及 CalendarCreatePopup 子分类对话框的 workspace 撤离，未签名发布。4.1.2 统一补上空列表和空工作区防护，失去工作区时禁用命令。本地 Release 构建及 QML lint PASS，新增空工作区／空列表检查后，calendar_lifecycle、picker_lifecycle、desktop_rendering、account_access、category_navigation 共 5/5 PASS（42.00 秒）。先主分支完整 CI，成功后再建立标签和发行候选。4.1.2 主分支 Windows CI 55/55 PASS（493.95 秒），账号同步门禁 PASS。标签候选生命周期门禁通过，但完整测试 54/55，qml_startup 在月历退场时调用已撤离的 ScrollPhysics.detach；未发布二进制。4.1.3 将日历卸载改为幂等，并检查两处滚动策略／月历清理方法可用性，生命周期检查重复调用卸载以验证幂等。本地 Release 构建和 QML lint PASS；calendar_lifecycle、qml_startup、desktop_rendering、account_access、category_navigation 共 5/5 PASS（68.47 秒），包含重复卸载检查。待正式候选及签名／公开安装升级验收。
 
 ## 日常工作流精修实施（2026-11-28）
 

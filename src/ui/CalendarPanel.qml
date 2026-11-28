@@ -11,9 +11,14 @@ ColumnLayout {
     implicitHeight: 480
     Layout.minimumWidth: 0
     property bool smallSurface: false
+    property bool retiring: false
     function prepareForUnload() {
+        if(retiring)return;
+        retiring=true;
         detachScrollViews(panel);
-        rangeRequest.stop();monthGrid.prepareForUnload();agendaPhysics.detach();
+        rangeRequest.stop();
+        if(monthGrid && typeof monthGrid.prepareForUnload === "function")monthGrid.prepareForUnload();
+        if(agendaPhysics && typeof agendaPhysics.detach === "function")agendaPhysics.detach();
         agenda.model=null;agenda.forceLayout();
         timelineLoader.active=false;yearLoader.active=false;
     }
