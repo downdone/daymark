@@ -32,6 +32,21 @@ QString PickerLifecycleProbe::advance() {
     return QMetaObject::invokeMethod(item, method);
   };
   if (phase == 0) {
+    // A calendar Loader can withdraw the workspace before its popup bindings
+    // retire. Verify that a catalog dialog has a safe, disabled null state.
+    QQmlComponent retiringDialog(&engine);
+    retiringDialog.loadFromModule("Daymark", "CatalogCreateDialog");
+    auto *dialog = retiringDialog.createWithInitialProperties(
+        {{"parent", QVariant::fromValue(window->contentItem())},
+         {"workspace", QVariant::fromValue(&workspace)}});
+    if (!dialog)
+      return fail("catalog dialog lifecycle fixture");
+    dialog->setProperty("workspace", QVariant::fromValue<TaskWorkspace *>(nullptr));
+    if (!dialog->property("roots").toList().isEmpty()) {
+      delete dialog;
+      return fail("retiring catalog dialog retains workspace data");
+    }
+    delete dialog;
     auto create = [&](const char *name) {
       QQmlComponent component(&engine);
       component.loadFromModule("Daymark", QString::fromLatin1(name));
@@ -309,6 +324,9 @@ QString PickerLifecycleProbe::advance() {
       if (!custom || !custom->property("visible").toBool() ||
           popup->property("visible").toBool())
         return fail("selecting Custom should switch to the repeat parameter panel");
+      catalog->setProperty("options", QVariant());
+      if (!catalog->property("matches").toList().isEmpty())
+        return fail("retiring catalog options should become an empty list");
       return "DONE";
     }
   }

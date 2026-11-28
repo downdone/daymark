@@ -28,7 +28,7 @@ Popup {
     FontMetrics {id: choiceMetrics;font.family: DS.DesignTokens.fontFamily;font.pixelSize: DS.DesignTokens.body}
     signal selected(string kind,string id,bool checked)
     signal createRequested(string kind)
-    readonly property var matches: options.filter(item=>!search.text || (item.path || item.title).toLocaleLowerCase().indexOf(search.text.toLocaleLowerCase())>=0)
+    readonly property var matches: (options ?? []).filter(item=>!search.text || (item.path || item.title).toLocaleLowerCase().indexOf(search.text.toLocaleLowerCase())>=0)
     width: Math.min(320*DS.DesignTokens.scale,hostWindow ? hostWindow.width-24 : 640)
     height: Math.min(heightLimit,hostWindow ? hostWindow.height-16 : heightLimit,pickerContent.implicitHeight+topPadding+bottomPadding)
     padding: 8;margins: 8;focus: true
@@ -51,7 +51,7 @@ Popup {
         ListView {
             id: choices
             Layout.fillWidth: true;Layout.fillHeight: true
-            implicitHeight: Math.max(Theme.controlHeight,root.matches.length*root.choiceHeight)
+            implicitHeight: Math.max(Theme.controlHeight,(root.matches?.length ?? 0)*root.choiceHeight)
             cacheBuffer: 0;clip: true;boundsBehavior: Flickable.StopAtBounds
             DS.ScrollPhysics {target: choices}
             model: root.visible ? root.matches : []
@@ -65,7 +65,7 @@ Popup {
                 topPadding: 2;bottomPadding: 2
                 text: modelData.path || modelData.title
                 checkable: true
-                checked: (root.staged ? root.workingIds : root.selectedIds).indexOf(modelData.id)>=0
+                checked: ((root.staged ? root.workingIds : root.selectedIds) ?? []).indexOf(modelData.id)>=0
                 contentItem: RowLayout {
                     Label {text: option.text;Layout.fillWidth: true;elide: Text.ElideRight}
                     AppIcon {name:"check";visible:option.checked;ink:DS.DesignTokens.accent;Layout.preferredWidth:16;Layout.preferredHeight:16}

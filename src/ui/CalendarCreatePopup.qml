@@ -88,7 +88,7 @@ Popup {
     onClosed: {picker.close();temporal.finish(false);temporal.closePickers();}
     CatalogCreateDialog {
         id: draftCatalog;objectName: "calendarCreateCatalogDialog";objectPrefix: "calendarDraft"
-        parent: Overlay.overlay;anchors.centerIn: parent;workspace: root.workspace
+        parent: Overlay.overlay;anchors.centerIn: parent;workspace: root?.workspace ?? null
         onCreated: function(kind,id) {assignment.applyCreated(kind,id)}
     }
     background: PopoverSurface {attached:root.manualPosition.x<0 && root.anchor.x>=0;sourcePoint:Qt.point(root.anchor.x-root.x,root.anchor.y-root.y)}
