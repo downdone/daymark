@@ -1,6 +1,8 @@
 # 当前状态
 
-4.1.3 正在准备 Windows 正式发行。源码、候选和公开安装／升级状态统一见 [PROGRESS](PROGRESS.md)。沿用 schema 12、现有同步协议和 Qt 6.10.3。
+最新 Windows 正式发行是 [Daymark 4.1.3](https://github.com/downdone/daymark/releases/tag/v4.1.3)，安装包、便携包及在线更新均已公开。完整 CTest 55/55、签名与独立部署、公开安装、4.0.9→4.1.3 实际在线升级全部通过。沿用 schema 12、现有同步协议和 Qt 6.10.3；详细证据及未验证范围只维护在 [PROGRESS](PROGRESS.md)。
+
+以下为历史状态，不代表当前发行。
 
 2026-11-23 **Daymark 4.0.0 是最新可下载安装的 Windows 版本**，客户端 schema 12、HTTP JSON v1、Qt 6.10.2。
 
